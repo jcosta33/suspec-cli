@@ -1,6 +1,6 @@
 import { readdirSync, statSync, readFileSync } from 'fs';
 import { join, relative } from 'path';
-import { get_repo_root } from '../../Workspace/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 
 /**
  * Recursively find all TS/TSX files in a directory

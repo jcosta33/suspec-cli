@@ -5,12 +5,15 @@ import {
     cyan,
     parse_args,
     red,
-} from '../../Terminal/index.ts';
-import { read_state } from '../../AgentState/index.ts';
+    fzf_select,
+    yellow,
+} from '../../Terminal/useCases/index.ts';
+import { read_state } from '../../AgentState/useCases/index.ts';
 import {
     find_worktree_for_branch,
     get_repo_root,
-} from '../../Workspace/index.ts';
+    worktree_list,
+} from '../../Workspace/useCases/index.ts';
 
 import { run_agent_launch } from './launch-agent.ts';
 
@@ -24,11 +27,29 @@ export function run(): number {
     }
 
     const { positional } = parse_args(process.argv.slice(2));
-    const slug = positional[0];
+    let slug = positional[0];
 
     if (!slug) {
-        console.log(red('Usage: swarm open <slug>'));
-        return 1;
+        const sandboxes = worktree_list(repoRoot);
+        const items = sandboxes.map((w) => w.branch?.replace('agent/', '')).filter((s): s is string => !!s);
+        if (items.length === 0) {
+            console.log(yellow('No active sandboxes.'));
+            return 1;
+        }
+        
+        try {
+            const selected = fzf_select(items);
+            if (!selected) {
+                console.log(red('No selection made.'));
+                return 1;
+            }
+            slug = Array.isArray(selected) ? selected[0] : selected;
+        } catch (e: unknown) {
+            console.log(red('Usage: swarm open <slug>'));
+            const message = e instanceof Error ? e.message : String(e);
+            console.log(yellow(`(Fuzzy search failed: ${message})`));
+            return 1;
+        }
     }
 
     const matchPath = find_worktree_for_branch(`agent/${slug}`, repoRoot);

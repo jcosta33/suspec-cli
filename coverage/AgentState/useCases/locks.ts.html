@@ -197,7 +197,23 @@
 <a name='L132'></a><a href='#L132'>132</a>
 <a name='L133'></a><a href='#L133'>133</a>
 <a name='L134'></a><a href='#L134'>134</a>
-<a name='L135'></a><a href='#L135'>135</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a>
+<a name='L151'></a><a href='#L151'>151</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -208,8 +224,21 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">40x</span>
-<span class="cline-any cline-yes">40x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">42x</span>
+<span class="cline-any cline-yes">42x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">11x</span>
@@ -293,6 +322,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -335,12 +367,25 @@
 import { dirname, join } from 'path';
 import { lockSync, unlockSync } from 'proper-lockfile';
 &nbsp;
+import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
+import { err, ok, type Result } from '../../../infra/errors/result.ts';
+&nbsp;
 type FileLock = {
     agent_slug: string;
     files: string[];
     claimed_at: string;
     expires_at: string;
 };
+&nbsp;
+export type LockHeldByOtherError = AppError&lt;
+    'LockHeldByOther',
+    { file: string; heldBy: string; expiresAt: string }
+&gt;;
+&nbsp;
+export type LockNotFoundError = AppError&lt;'LockNotFound', { file: string }&gt;;
+&nbsp;
+export type ClaimLockResult = Result&lt;true, LockHeldByOtherError&gt;;
+export type ReleaseLockResult = Result&lt;true, LockNotFoundError&gt;;
 &nbsp;
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const LOCK_OPTS = { stale: 5000 };
@@ -413,17 +458,20 @@ function is_expired(lock: FileLock): boolean {
     return new Date(lock.expires_at).getTime() &lt; Date.now();
 }
 &nbsp;
-export function claim_lock(repoRoot: string, agentSlug: string, files: string[]): { success: boolean; reason?: string } {
-    return with_locks_mutex(repoRoot, () =&gt; {
+export function claim_lock(repoRoot: string, agentSlug: string, files: string[]): ClaimLockResult {
+    return with_locks_mutex(repoRoot, (): ClaimLockResult =&gt; {
         const locks = read_locks(repoRoot);
 &nbsp;
         for (const file of files) {
             const existing = locks[file];
             if (existing !== undefined &amp;&amp; !is_expired(existing) &amp;&amp; existing.agent_slug !== agentSlug) {
-                return {
-                    success: false,
-                    reason: `File "${file}" is already claimed by ${existing.agent_slug} (expires: ${existing.expires_at}).`,
-                };
+                return err(
+                    createAppError(
+                        'LockHeldByOther',
+                        `File "${file}" is already claimed by ${existing.agent_slug} (expires: ${existing.expires_at}).`,
+                        { file, heldBy: existing.agent_slug, expiresAt: existing.expires_at }
+                    )
+                );
             }
         }
 &nbsp;
@@ -440,22 +488,22 @@ export function claim_lock(repoRoot: string, agentSlug: string, files: string[])
         }
 &nbsp;
         write_locks(repoRoot, locks);
-        return { success: true };
+        return ok(true);
     });
 }
 &nbsp;
-export function release_lock(repoRoot: string, file: string): { success: boolean; reason?: string } {
-    return with_locks_mutex(repoRoot, () =&gt; {
+export function release_lock(repoRoot: string, file: string): ReleaseLockResult {
+    return with_locks_mutex(repoRoot, (): ReleaseLockResult =&gt; {
         const locks = read_locks(repoRoot);
         const existing = locks[file];
         if (existing === undefined) {
-            return { success: false, reason: `File "${file}" is not locked.` };
+            return err(createAppError('LockNotFound', `File "${file}" is not locked.`, { file }));
         }
 &nbsp;
         const { [file]: _removed, ...rest } = locks;
         void _removed;
         write_locks(repoRoot, rest);
-        return { success: true };
+        return ok(true);
     });
 }
 &nbsp;
@@ -472,7 +520,7 @@ export function list_locks(repoRoot: string): FileLock[] {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-24T23:09:44.803Z
+                at 2026-04-28T18:20:31.779Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

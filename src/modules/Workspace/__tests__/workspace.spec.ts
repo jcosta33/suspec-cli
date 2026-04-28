@@ -12,7 +12,7 @@ import {
     worktree_create,
     worktree_remove,
     worktree_prune,
-} from '../../Workspace/index.ts';
+} from '../../Workspace/useCases/index.ts';
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { mkdtempSync, mkdirSync, rmSync } from 'fs';

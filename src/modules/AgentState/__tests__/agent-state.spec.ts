@@ -1,4 +1,4 @@
-import { read_state, write_state, remove_state, is_process_running } from '../../AgentState/index.ts';
+import { read_state, write_state, remove_state, is_process_running } from '../useCases/state.ts';
 import { is_agent_state, validate_state } from '../useCases/state.ts';
 
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';

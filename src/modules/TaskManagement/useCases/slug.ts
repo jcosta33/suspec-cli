@@ -1,19 +1,31 @@
 
 
+import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
+import { err, ok, type Result } from '../../../infra/errors/result.ts';
+
 /**
  * Slug normalization utilities.
  */
 
 const DEFAULT_MAX_LEN = 60;
 
+export type InvalidSlugError = AppError<
+    'InvalidSlug',
+    { original: string; reason: string }
+>;
+
+export type ToSlugResult = Result<string, InvalidSlugError>;
+
 /**
  * Convert a human-readable title to a URL-safe slug.
  * @param {string} title
  * @param {number} maxLen
- * @returns {string}
+ * @returns {ToSlugResult}
  */
-export function to_slug(title: string, maxLen: number = DEFAULT_MAX_LEN) {
-    if (!title || typeof title !== 'string') throw new Error('Title is required');
+export function to_slug(title: string, maxLen: number = DEFAULT_MAX_LEN): ToSlugResult {
+    if (!title || typeof title !== 'string') {
+        return err(createAppError('InvalidSlug', 'Title is required to generate a slug', { original: title, reason: 'empty' }));
+    }
 
     const slug = title
         .trim()
@@ -25,8 +37,10 @@ export function to_slug(title: string, maxLen: number = DEFAULT_MAX_LEN) {
         .slice(0, maxLen)
         .replace(/-+$/g, ''); // strip trailing hyphens after slice
 
-    if (!slug) throw new Error(`Title "${title}" produced an empty slug after normalization`);
-    return slug;
+    if (!slug) {
+        return err(createAppError('InvalidSlug', `Title "${title}" produced an empty slug after normalization`, { original: title, reason: 'normalized to empty' }));
+    }
+    return ok(slug);
 }
 
 /**

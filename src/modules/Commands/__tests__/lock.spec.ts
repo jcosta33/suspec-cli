@@ -1,17 +1,17 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { run } from '../useCases/lock.ts';
 
-vi.mock('../../Workspace/index.ts', () => ({
+vi.mock('../../Workspace/useCases/index.ts', () => ({
     get_repo_root: vi.fn(() => '/tmp/repo'),
 }));
 
-vi.mock('../../AgentState/index.ts', () => ({
+vi.mock('../../AgentState/useCases/index.ts', () => ({
     claim_lock: vi.fn(() => ({ ok: true, value: true })),
     release_lock: vi.fn(() => ({ ok: true, value: true })),
     list_locks: vi.fn(() => []),
 }));
 
-import { list_locks } from '../../AgentState/index.ts';
+import { list_locks } from '../../AgentState/useCases/index.ts';
 
 describe('lock', () => {
     beforeEach(() => {

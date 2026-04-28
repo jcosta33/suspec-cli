@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { cyan, dim, green, parse_args, red, yellow } from '../../Terminal/index.ts';
-import { find_markdown_files } from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
+import { cyan, dim, green, parse_args, red, yellow } from '../../Terminal/useCases/index.ts';
+import { find_markdown_files } from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';

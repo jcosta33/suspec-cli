@@ -7,7 +7,7 @@ vi.mock('child_process', async (importOriginal) => {
     return { ...(actual as object), spawnSync: vi.fn() };
 });
 
-vi.mock('../../Terminal/index.ts', async (importOriginal) => {
+vi.mock('../../Terminal/useCases/index.ts', async (importOriginal) => {
     const actual = await importOriginal();
     return {
         ...(actual as object),
@@ -22,12 +22,12 @@ vi.mock('../../Terminal/index.ts', async (importOriginal) => {
     };
 });
 
-vi.mock('../../Workspace/index.ts', () => ({
+vi.mock('../../Workspace/useCases/index.ts', () => ({
     get_repo_root: vi.fn(() => '/tmp/repo'),
     worktree_list: vi.fn(() => [{ path: '/tmp/repo/.agents/agent-foo', branch: 'agent/foo', head: 'abc' }]),
 }));
 
-vi.mock('../../AgentState/index.ts', () => ({
+vi.mock('../../AgentState/useCases/index.ts', () => ({
     read_state: vi.fn(() => ({ foo: { status: 'running', agent: 'claude', pid: 1234 } })),
     is_process_running: vi.fn(() => true),
     query_sessions: vi.fn(() => []),
@@ -42,9 +42,9 @@ vi.mock('fs', async (importOriginal) => {
     };
 });
 
-import { parse_args } from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
-import { read_state, query_sessions } from '../../AgentState/index.ts';
+import { parse_args } from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
+import { read_state, query_sessions } from '../../AgentState/useCases/index.ts';
 
 describe('status module', () => {
     beforeEach(() => {

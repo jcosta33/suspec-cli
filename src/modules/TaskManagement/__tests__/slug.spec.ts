@@ -1,32 +1,34 @@
-import { to_slug, derive_names, next_duplicate_slug } from '../../TaskManagement/index.ts';
+import { to_slug, derive_names, next_duplicate_slug } from '../useCases/slug.ts';
+import { assertOk } from '../../../infra/errors/testing/assertOk.ts';
+import { assertErr } from '../../../infra/errors/testing/assertErr.ts';
 
 import { describe, expect, it } from 'vitest';
 
 describe('slug utility', () => {
     it('converts strings to valid agent worktree slugs', () => {
-        expect(to_slug('Hello World!')).toBe('hello-world');
-        expect(to_slug('Fix: bug in the parser')).toBe('fix-bug-in-the-parser');
-        expect(to_slug('  trim   spaces  ')).toBe('trim-spaces');
+        expect(assertOk(to_slug('Hello World!'))).toBe('hello-world');
+        expect(assertOk(to_slug('Fix: bug in the parser'))).toBe('fix-bug-in-the-parser');
+        expect(assertOk(to_slug('  trim   spaces  '))).toBe('trim-spaces');
     });
 
     it('collapses multiple hyphens and strips trailing ones', () => {
-        expect(to_slug('a--b---c')).toBe('a-b-c');
-        expect(to_slug('hello-')).toBe('hello');
-        expect(to_slug('-hello')).toBe('hello');
+        expect(assertOk(to_slug('a--b---c'))).toBe('a-b-c');
+        expect(assertOk(to_slug('hello-'))).toBe('hello');
+        expect(assertOk(to_slug('-hello'))).toBe('hello');
     });
 
     it('respects max length and strips trailing hyphens after slice', () => {
         const long = 'a'.repeat(100);
-        expect(to_slug(long, 10)).toBe('aaaaaaaaaa');
-        expect(to_slug('hello-world-foo', 15)).toBe('hello-world-foo');
-        expect(to_slug('hello-world-foo', 13)).toBe('hello-world-f');
-        expect(to_slug('hello-world-foo', 10)).toBe('hello-worl');
+        expect(assertOk(to_slug(long, 10))).toBe('aaaaaaaaaa');
+        expect(assertOk(to_slug('hello-world-foo', 15))).toBe('hello-world-foo');
+        expect(assertOk(to_slug('hello-world-foo', 13))).toBe('hello-world-f');
+        expect(assertOk(to_slug('hello-world-foo', 10))).toBe('hello-worl');
     });
 
-    it('throws on empty or invalid input', () => {
-        expect(() => to_slug('')).toThrow();
-        expect(() => to_slug('!!!')).toThrow();
-        expect(() => to_slug('   ')).toThrow();
+    it('returns error on empty or invalid input', () => {
+        expect(assertErr(to_slug(''))._tag).toBe('InvalidSlug');
+        expect(assertErr(to_slug('!!!'))._tag).toBe('InvalidSlug');
+        expect(assertErr(to_slug('   '))._tag).toBe('InvalidSlug');
     });
 });
 

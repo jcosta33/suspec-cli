@@ -2,8 +2,8 @@
 
 import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'fs';
 import { join, basename } from 'path';
-import { red, cyan, bold, dim, green, parse_args } from '../../Terminal/index.ts';
-import { get_repo_root, resolve_within } from '../../Workspace/index.ts';
+import { red, cyan, bold, dim, green, parse_args } from '../../Terminal/useCases/index.ts';
+import { get_repo_root, resolve_within } from '../../Workspace/useCases/index.ts';
 
 export function generateFuzzTemplate(funcName: string, fileName: string): string {
     return `import { describe, it, expect } from 'vitest';

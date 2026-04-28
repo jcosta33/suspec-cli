@@ -19,7 +19,7 @@ const __dirname = dirname(__filename);
 const scriptPath = join(__dirname, '../src/index.ts');
 const res = spawnSync(
     process.execPath,
-    ['--experimental-strip-types', scriptPath, ...process.argv.slice(2)],
+    ['--import', 'tsx', scriptPath, ...process.argv.slice(2)],
     {
         stdio: 'inherit',
     }

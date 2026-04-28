@@ -5,8 +5,8 @@ import {
     parse_args,
     prompt_input,
     red,
-} from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
+} from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 
 import { appendFileSync, existsSync } from 'fs';
 import { join } from 'path';

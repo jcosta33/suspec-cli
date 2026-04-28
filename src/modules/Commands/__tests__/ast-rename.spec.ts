@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { run } from '../useCases/ast-rename.ts';
 
-vi.mock('../../Terminal/index.ts', async (importOriginal) => {
+vi.mock('../../Terminal/useCases/index.ts', async (importOriginal) => {
     const actual = await importOriginal();
     return {
         ...(actual as object),
@@ -13,7 +13,7 @@ vi.mock('../../Terminal/index.ts', async (importOriginal) => {
     };
 });
 
-vi.mock('../../Workspace/index.ts', () => ({
+vi.mock('../../Workspace/useCases/index.ts', () => ({
     get_repo_root: vi.fn(() => '/tmp/repo'),
 }));
 
@@ -21,8 +21,8 @@ vi.mock('../../../utils/ast.ts', () => ({
     rename_symbol: vi.fn(() => ({ success: true })),
 }));
 
-import { parse_args } from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
+import { parse_args } from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 import { rename_symbol } from '../../../utils/ast.ts';
 
 describe('ast-rename', () => {

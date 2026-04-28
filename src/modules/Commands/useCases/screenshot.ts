@@ -2,8 +2,8 @@
 
 import { spawnSync } from 'child_process';
 import { join } from 'path';
-import { red, green, cyan, bold, dim, parse_args } from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
+import { red, green, cyan, bold, dim, parse_args } from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 import { existsSync, mkdirSync } from 'fs';
 
 export function run(): number {

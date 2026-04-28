@@ -2,8 +2,8 @@
 
 import { existsSync, mkdirSync, readFileSync, appendFileSync } from 'fs';
 import { join } from 'path';
-import { red, cyan, bold, dim, yellow, parse_args } from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
+import { red, cyan, bold, dim, yellow, parse_args } from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 
 export function run(): number {
     let repoRoot;
@@ -17,7 +17,12 @@ export function run(): number {
     // Determine current agent slug from the path or environment
     // For simplicity in the script, we expect `--from <slug>` or we read it from worktree name
     const worktreeName = repoRoot.split('/').pop() ?? '';
-    let mySlug = worktreeName.startsWith('agents-') ? worktreeName.replace('agents-', '') : 'host';
+    let mySlug = 'host';
+    if (worktreeName.startsWith('agent-')) {
+        mySlug = worktreeName.replace('agent-', '');
+    } else if (worktreeName.startsWith('agents-')) {
+        mySlug = worktreeName.replace('agents-', '');
+    }
 
     const { positional, flags } = parse_args(process.argv.slice(2));
     const targetSlug = positional[0];

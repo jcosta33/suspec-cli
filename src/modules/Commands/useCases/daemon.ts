@@ -1,13 +1,61 @@
 #!/usr/bin/env node
 
-import { watch } from 'fs';
+import { watch, statSync, readdirSync, type FSWatcher, existsSync } from 'fs';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { red, cyan, dim, yellow } from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
+import { dirname, join, relative } from 'path';
+import { parse_args, red, cyan, dim, yellow } from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 
 const TEST_RADIUS_PATH = join(dirname(fileURLToPath(import.meta.url)), 'test-radius.ts');
+
+function watchRecursive(targetDir: string, onEvent: (eventType: string, fullPath: string) => void): () => void {
+    const watchers = new Map<string, FSWatcher>();
+
+    function attach(dir: string) {
+        if (watchers.has(dir)) return;
+        try {
+            const w = watch(dir, (eventType, filename) => {
+                if (filename) {
+                    const fullPath = join(dir, filename);
+                    try {
+                        const stat = statSync(fullPath);
+                        if (stat.isDirectory() && !watchers.has(fullPath)) {
+                            attach(fullPath);
+                        }
+                    } catch {
+                        // file might be deleted
+                        if (watchers.has(fullPath)) {
+                            watchers.get(fullPath)!.close();
+                            watchers.delete(fullPath);
+                        }
+                    }
+                    onEvent(eventType, fullPath);
+                }
+            });
+            watchers.set(dir, w);
+
+            // Recursively attach
+            const entries = readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+                if (entry.isDirectory()) {
+                    attach(join(dir, entry.name));
+                }
+            }
+        } catch (_err) {
+            // ignore permission errors
+        }
+    }
+
+    attach(targetDir);
+
+    return () => {
+        for (const w of watchers.values()) {
+            w.close();
+        }
+        watchers.clear();
+    };
+}
 
 export function run(): number {
     let repoRoot;
@@ -18,21 +66,27 @@ export function run(): number {
         return 1;
     }
 
+    const { positional } = parse_args(process.argv.slice(2));
+    const watchDirName = positional[0] || 'src';
+    const targetDir = join(repoRoot, watchDirName);
+
+    if (!existsSync(targetDir)) {
+        console.error(red(`Error: Watch directory "${watchDirName}" does not exist.`));
+        return 1;
+    }
+
     console.log(cyan(`\nStarting Swarm Daemon (Background Watcher)...\n`));
-    console.log(dim(`Watching src/ for changes to trigger automated test-radius...`));
+    console.log(dim(`Watching ${watchDirName}/ for changes to trigger automated test-radius...`));
     console.log(dim('Press Ctrl+C to stop.\n'));
 
     let timeout: ReturnType<typeof setTimeout> | null = null;
     let activeProcess: ReturnType<typeof spawn> | null = null;
 
-    const watcher = watch(join(repoRoot, 'src'), { recursive: true }, (_eventType, filename) => {
-        if (!filename) {
+    const closeWatcher = watchRecursive(targetDir, (_eventType, fullPath) => {
+        if (!fullPath.endsWith('.ts') && !fullPath.endsWith('.tsx')) {
             return;
         }
-        if (!filename.endsWith('.ts') && !filename.endsWith('.tsx')) {
-            return;
-        }
-        if (filename.endsWith('.spec.ts') || filename.endsWith('.spec.tsx')) {
+        if (fullPath.endsWith('.spec.ts') || fullPath.endsWith('.spec.tsx')) {
             return;
         }
 
@@ -42,7 +96,8 @@ export function run(): number {
 
         // Debounce saves
         timeout = setTimeout(() => {
-            console.log(yellow(`\n[Daemon] Detected change in ${filename}`));
+            const relPath = relative(repoRoot, fullPath);
+            console.log(yellow(`\n[Daemon] Detected change in ${relPath}`));
 
             if (activeProcess) {
                 console.log(dim(`Killing previous test run...`));
@@ -52,7 +107,7 @@ export function run(): number {
             console.log(cyan(`Running blast radius check...`));
             activeProcess = spawn(
                 process.execPath,
-                ['--experimental-strip-types', TEST_RADIUS_PATH, join('src', filename)],
+                ['--experimental-strip-types', TEST_RADIUS_PATH, relPath],
                 { cwd: repoRoot, stdio: 'inherit' }
             );
 
@@ -68,7 +123,7 @@ export function run(): number {
     });
 
     const shutdown = () => {
-        watcher.close();
+        closeWatcher();
         if (timeout) {
             clearTimeout(timeout);
         }

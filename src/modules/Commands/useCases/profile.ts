@@ -4,8 +4,8 @@ import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { red, cyan, bold, dim, green, yellow, parse_args } from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
+import { red, cyan, bold, dim, green, yellow, parse_args } from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 
 const newCommandPath = join(dirname(fileURLToPath(import.meta.url)), 'new.ts');
 

@@ -1,4 +1,4 @@
-import { get_adapter, adapter_capabilities } from '../../Adapters/index.ts';
+import { get_adapter, adapter_capabilities } from '../useCases/index.ts';
 import { build_args as claude_build_args } from '../useCases/claude.ts';
 import { build_args as codex_build_args } from '../useCases/codex.ts';
 import { build_args as gemini_build_args } from '../useCases/gemini.ts';

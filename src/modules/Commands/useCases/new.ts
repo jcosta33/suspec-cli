@@ -11,22 +11,22 @@ import {
     red,
     success,
     yellow,
-} from '../../Terminal/index.ts';
-import { load_config } from '../../Terminal/index.ts';
-import { write_state } from '../../AgentState/index.ts';
+} from '../../Terminal/useCases/index.ts';
+import { load_config } from '../../Terminal/useCases/index.ts';
+import { write_state } from '../../AgentState/useCases/index.ts';
 import {
     branch_exists,
     get_repo_name,
     get_repo_root,
     worktree_create,
     worktree_list,
-} from '../../Workspace/index.ts';
+} from '../../Workspace/useCases/index.ts';
 import {
     create_or_update_task_file,
     derive_names,
     next_duplicate_slug,
     to_slug,
-} from '../../TaskManagement/index.ts';
+} from '../../TaskManagement/useCases/index.ts';
 
 import { existsSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
@@ -52,7 +52,12 @@ export function create_sandbox(input: CreateSandboxInput): number {
     const config = load_config(repoRoot);
     const title = input.title;
 
-    let slug = to_slug(input.slug, config.slugMaxLen);
+    const slugResult = to_slug(input.slug, config.slugMaxLen);
+    if (!slugResult.ok) {
+        logger.error(red(`Error: ${slugResult.error.message}`));
+        return 1;
+    }
+    let slug = slugResult.value;
 
     const repoName = get_repo_name(repoRoot);
 

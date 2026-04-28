@@ -1,4 +1,4 @@
-import { create_or_update_task_file } from '../../TaskManagement/index.ts';
+import { create_or_update_task_file } from '../useCases/template.ts';
 
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs';

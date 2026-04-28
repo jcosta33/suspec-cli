@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { readFileSync, existsSync } from 'fs';
-import { red, cyan, bold, dim, yellow, parse_args } from '../../Terminal/index.ts';
-import { get_repo_root, resolve_within } from '../../Workspace/index.ts';
+import { red, cyan, bold, dim, yellow, parse_args } from '../../Terminal/useCases/index.ts';
+import { get_repo_root, resolve_within } from '../../Workspace/useCases/index.ts';
 
 export function extractImports(content: string) {
     const lines = content.split('\n');

@@ -1,9 +1,9 @@
-import { build_args as buildClaudeArgs, command as claudeCommand } from './useCases/claude.ts';
-import { build_args as buildCodexArgs, command as codexCommand } from './useCases/codex.ts';
-import { build_args as buildDroidArgs, command as droidCommand } from './useCases/droid.ts';
-import { build_args as buildGeminiArgs, command as geminiCommand } from './useCases/gemini.ts';
-import { build_args as buildKimiArgs, command as kimiCommand } from './useCases/kimi.ts';
-import { build_args as buildOpencodeArgs, command as opencodeCommand } from './useCases/opencode.ts';
+import { build_args as buildClaudeArgs, command as claudeCommand } from './claude.ts';
+import { build_args as buildCodexArgs, command as codexCommand } from './codex.ts';
+import { build_args as buildDroidArgs, command as droidCommand } from './droid.ts';
+import { build_args as buildGeminiArgs, command as geminiCommand } from './gemini.ts';
+import { build_args as buildKimiArgs, command as kimiCommand } from './kimi.ts';
+import { build_args as buildOpencodeArgs, command as opencodeCommand } from './opencode.ts';
 
 type AdapterBuildArgs = (slug: string, extraArgs?: string[], options?: Record<string, unknown>) => string[];
 

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { run } from '../useCases/daemon.ts';
 
-vi.mock('../../Workspace/index.ts', () => ({
+vi.mock('../../Workspace/useCases/index.ts', () => ({
     get_repo_root: vi.fn(() => '/tmp/repo'),
 }));
 
@@ -11,8 +11,15 @@ vi.mock('fs', async (importOriginal) => {
     const actual = await importOriginal<typeof import('fs')>();
     return {
         ...actual,
-        watch: vi.fn((_path: unknown, _opts: unknown, cb: unknown) => {
-            (globalThis as Record<string, unknown>).__daemonWatcherCallback = cb;
+        existsSync: vi.fn(() => true),
+        statSync: vi.fn(() => ({ isDirectory: () => false })),
+        readdirSync: vi.fn(() => []),
+        watch: vi.fn((_path: unknown, cb: unknown) => {
+            // Because watchRecursive calls watch with 2 arguments (path, listener)
+            const listener = typeof cb === 'function' ? cb : _path;
+            if (typeof listener === 'function') {
+                (globalThis as Record<string, unknown>).__daemonWatcherCallback = listener;
+            }
             return { close: mockWatcherClose };
         }),
     };
@@ -37,10 +44,11 @@ vi.mock('child_process', async (importOriginal) => {
     };
 });
 
-vi.mock('../../Terminal/index.ts', async (importOriginal) => {
+vi.mock('../../Terminal/useCases/index.ts', async (importOriginal) => {
     const actual = await importOriginal();
     return {
         ...(actual as object),
+        parse_args: vi.fn(() => ({ positional: [], flags: new Map() })),
         red: vi.fn((t: string) => t),
         cyan: vi.fn((t: string) => t),
         dim: vi.fn((t: string) => t),
@@ -48,7 +56,7 @@ vi.mock('../../Terminal/index.ts', async (importOriginal) => {
     };
 });
 
-import { get_repo_root } from '../../Workspace/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 import { spawn } from 'child_process';
 
 describe('daemon', () => {

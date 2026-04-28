@@ -2,8 +2,8 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { red, cyan, bold, dim, green, yellow } from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
+import { red, cyan, bold, dim, green, yellow } from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 
 type AgentInfo = { status?: string; backend?: string; agent?: string };
 

@@ -3,10 +3,10 @@
 import { spawnSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { red, cyan, bold, dim, green, yellow, parse_args, logger } from '../../Terminal/index.ts';
-import { get_repo_root, worktree_list } from '../../Workspace/index.ts';
-import { read_state, is_process_running } from '../../AgentState/index.ts';
-import { query_sessions } from '../../AgentState/index.ts';
+import { red, cyan, bold, dim, green, yellow, parse_args, logger } from '../../Terminal/useCases/index.ts';
+import { get_repo_root, worktree_list } from '../../Workspace/useCases/index.ts';
+import { read_state, is_process_running } from '../../AgentState/useCases/index.ts';
+import { query_sessions } from '../../AgentState/useCases/index.ts';
 
 function format_duration(startedAt: string, finishedAt?: string | null): string {
     const start = new Date(startedAt);

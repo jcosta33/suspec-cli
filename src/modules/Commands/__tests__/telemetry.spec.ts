@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { aggregateMetrics, run } from '../useCases/telemetry.ts';
 
-vi.mock('../../Terminal/index.ts', async (importOriginal) => {
+vi.mock('../../Terminal/useCases/index.ts', async (importOriginal) => {
     const actual = await importOriginal();
     return {
         ...(actual as object),
@@ -14,7 +14,7 @@ vi.mock('../../Terminal/index.ts', async (importOriginal) => {
     };
 });
 
-vi.mock('../../Workspace/index.ts', () => ({
+vi.mock('../../Workspace/useCases/index.ts', () => ({
     get_repo_root: vi.fn(() => '/tmp/repo'),
 }));
 
@@ -27,7 +27,7 @@ vi.mock('fs', async (importOriginal) => {
     };
 });
 
-import { get_repo_root } from '../../Workspace/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 import { existsSync, readFileSync } from 'fs';
 
 describe('telemetry module', () => {

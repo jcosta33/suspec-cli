@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { create_sandbox, main } from '../useCases/new.ts';
 
-vi.mock('../../Workspace/index.ts', () => ({
+vi.mock('../../Workspace/useCases/index.ts', () => ({
     get_repo_root: vi.fn(() => '/tmp/repo'),
     get_repo_name: vi.fn(() => 'my-repo'),
     worktree_list: vi.fn(() => []),
@@ -10,17 +10,17 @@ vi.mock('../../Workspace/index.ts', () => ({
     worktree_create: vi.fn((path: string, branch: string) => ({ ok: true, value: { path, branch } })),
 }));
 
-vi.mock('../../AgentState/index.ts', () => ({
+vi.mock('../../AgentState/useCases/index.ts', () => ({
     write_state: vi.fn(),
 }));
 
-vi.mock('../../Terminal/index.ts', async (importOriginal) => {
+vi.mock('../../Terminal/useCases/index.ts', async (importOriginal) => {
     const actual = await importOriginal();
     return { ...(actual as object), logger: { info: vi.fn(), error: vi.fn(), raw: vi.fn() }, success: vi.fn(), load_config: vi.fn(() => ({ defaultAgent: 'claude', defaultBaseBranch: 'main', defaultTerminal: 'auto', slugMaxLen: 50, reuseExistingByDefault: false, writeTaskTemplateOnCreate: true })), prompt_input: vi.fn() };
 });
 
-vi.mock('../../TaskManagement/index.ts', () => ({
-    to_slug: vi.fn((s: string) => s),
+vi.mock('../../TaskManagement/useCases/index.ts', () => ({
+    to_slug: vi.fn((s: string) => ({ ok: true, value: s })),
     // Use the slug input so auto-incremented slugs get a matching branch and
     // don't collide with a pre-existing worktree.
     derive_names: vi.fn((slug: string) => ({ branch: `agent/${slug}`, worktreePath: `.agents/agent-${slug}` })),
@@ -32,10 +32,10 @@ vi.mock('../useCases/launch-agent.ts', () => ({
     run_agent_launch: vi.fn(() => 0),
 }));
 
-import { get_repo_root } from '../../Workspace/index.ts';
-import { worktree_list } from '../../Workspace/index.ts';
-import { worktree_create } from '../../Workspace/index.ts';
-import { load_config, prompt_input } from '../../Terminal/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
+import { worktree_list } from '../../Workspace/useCases/index.ts';
+import { worktree_create } from '../../Workspace/useCases/index.ts';
+import { load_config, prompt_input } from '../../Terminal/useCases/index.ts';
 import { run_agent_launch } from '../useCases/launch-agent.ts';
 
 describe('new', () => {

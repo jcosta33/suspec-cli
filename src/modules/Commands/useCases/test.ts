@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { bold, cyan, green, red, yellow } from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
+import { bold, cyan, green, red, yellow } from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 
 import { spawnSync } from 'child_process';
 

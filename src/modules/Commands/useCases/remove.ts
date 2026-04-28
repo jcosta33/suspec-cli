@@ -8,15 +8,16 @@ import {
     parse_args,
     red,
     yellow,
-} from '../../Terminal/index.ts';
-import { remove_state } from '../../AgentState/index.ts';
+    fzf_select,
+} from '../../Terminal/useCases/index.ts';
+import { remove_state } from '../../AgentState/useCases/index.ts';
 import { swarmBus } from '../../../infra/events/swarmBus.ts';
 import {
     delete_branch,
     get_repo_root,
     worktree_list,
     worktree_remove,
-} from '../../Workspace/index.ts';
+} from '../../Workspace/useCases/index.ts';
 
 export function run(): number {
     let repoRoot: string;
@@ -28,12 +29,30 @@ export function run(): number {
     }
 
     const { flags, positional } = parse_args(process.argv.slice(2));
-    const slug = positional[0];
+    let slug = positional[0];
     const force = flags.get('force') === true || flags.get('f') === true;
 
     if (!slug) {
-        console.log(red('Usage: swarm remove <slug> [--force]'));
-        return 1;
+        const sandboxes = worktree_list(repoRoot);
+        const items = sandboxes.map((w) => w.branch?.replace('agent/', '')).filter((s): s is string => !!s);
+        if (items.length === 0) {
+            console.log(yellow('No sandboxes available to remove.'));
+            return 1;
+        }
+        
+        try {
+            const selected = fzf_select(items);
+            if (!selected) {
+                console.log(red('No selection made.'));
+                return 1;
+            }
+            slug = Array.isArray(selected) ? selected[0] : selected;
+        } catch (e: unknown) {
+            console.log(red('Usage: swarm remove <slug> [--force]'));
+            const message = e instanceof Error ? e.message : String(e);
+            console.log(yellow(`(Fuzzy search failed: ${message})`));
+            return 1;
+        }
     }
 
     const sandboxes = worktree_list(repoRoot);

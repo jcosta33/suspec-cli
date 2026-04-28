@@ -2,8 +2,10 @@
 
 import { existsSync, statSync, readdirSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { red, cyan, bold, dim, green, yellow, parse_args } from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
+import { spawn, type ChildProcess } from 'child_process';
+import { spinner } from '@clack/prompts';
+import { red, cyan, bold, dim, green, yellow, parse_args } from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 
 export function findFiles(dir: string): string[] {
     let results: string[] = [];
@@ -53,13 +55,15 @@ export function run(): number {
     console.log(dim(`Target: ${targetDir}`));
     console.log(dim(`Goal: ${goal}\n`));
 
+    const s = spinner();
+    s.start(`Scanning ${targetDir} for source files...`);
     const files = findFiles(fullPath);
     if (files.length === 0) {
-        console.log(yellow(`No source files found in ${targetDir}.`));
+        s.stop(yellow(`No source files found in ${targetDir}.`));
         return 0;
     }
 
-    console.log(`Found ${bold(String(files.length))} files. Chunking into bisectable tasks...`);
+    s.stop(`Found ${bold(String(files.length))} files. Chunking into bisectable tasks...`);
 
     const CHUNK_SIZE = 5; // Small chunks for safe parallel PRs
     const chunks: string[][] = [];

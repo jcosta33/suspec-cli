@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">84% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/25</span>
+                <span class='fraction'>21/25</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">87.5% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/8</span>
+                <span class='fraction'>7/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">50% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>1/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">84% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/25</span>
+                <span class='fraction'>21/25</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -133,42 +133,42 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -180,50 +180,50 @@ import {
     parse_args,
     prompt_input,
     red,
-} from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
+} from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 &nbsp;
 import { appendFileSync, existsSync } from 'fs';
 import { join } from 'path';
 &nbsp;
-export async function <span class="fstat-no" title="function not covered" >run(): Promise&lt;number&gt; {</span>
+export async function run(): Promise&lt;number&gt; {
     let repoRoot: string;
-<span class="cstat-no" title="statement not covered" >    try {</span>
-<span class="cstat-no" title="statement not covered" >        repoRoot = get_repo_root();</span>
+    try {
+        repoRoot = get_repo_root();
     } catch (_e: unknown) {
 <span class="cstat-no" title="statement not covered" >        console.error(red('Error: Not inside a git repository.'));</span>
 <span class="cstat-no" title="statement not covered" >        return 1;</span>
     }
 &nbsp;
-    const { <span class="cstat-no" title="statement not covered" >positional } = parse_args(process.argv.slice(2));</span>
-    const slug = <span class="cstat-no" title="statement not covered" >positional[0];</span>
+    const { positional } = parse_args(process.argv.slice(2));
+    const slug = positional[0];
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    if (!slug) {</span>
-<span class="cstat-no" title="statement not covered" >        console.log(red('Usage: swarm task &lt;slug&gt;'));</span>
-<span class="cstat-no" title="statement not covered" >        return 1;</span>
+    if (!slug) {
+        console.log(red('Usage: swarm task &lt;slug&gt;'));
+        return 1;
     }
 &nbsp;
-    const <span class="cstat-no" title="statement not covered" >taskFile = join(repoRoot, '.agents', 'tasks', `${slug}.md`);</span>
-<span class="cstat-no" title="statement not covered" >    if (!existsSync(taskFile)) {</span>
-<span class="cstat-no" title="statement not covered" >        console.error(red(`Task file not found: ${taskFile}`));</span>
-<span class="cstat-no" title="statement not covered" >        return 1;</span>
+    const taskFile = join(repoRoot, '.agents', 'tasks', `${slug}.md`);
+    if (!existsSync(taskFile)) {
+        console.error(red(`Task file not found: ${taskFile}`));
+        return 1;
     }
 &nbsp;
-    const note = <span class="cstat-no" title="statement not covered" >await prompt_input('Human note / feedback to append: ');</span>
-<span class="cstat-no" title="statement not covered" >    if (!note) {</span>
-<span class="cstat-no" title="statement not covered" >        console.log(red('No note provided. Aborting.'));</span>
-<span class="cstat-no" title="statement not covered" >        return 1;</span>
+    const note = await prompt_input('Human note / feedback to append: ');
+    if (!note) {
+        console.log(red('No note provided. Aborting.'));
+        return 1;
     }
 &nbsp;
-    const timestamp = <span class="cstat-no" title="statement not covered" >new Date().toISOString();</span>
-    const entry = <span class="cstat-no" title="statement not covered" >`\n\n## Human Feedback (${timestamp})\n${note}\n`;</span>
-<span class="cstat-no" title="statement not covered" >    appendFileSync(taskFile, entry, 'utf8');</span>
+    const timestamp = new Date().toISOString();
+    const entry = `\n\n## Human Feedback (${timestamp})\n${note}\n`;
+    appendFileSync(taskFile, entry, 'utf8');
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    console.log(green(`✓ Note appended to ${slug}.md`));</span>
-<span class="cstat-no" title="statement not covered" >    return 0;</span>
+    console.log(green(`✓ Note appended to ${slug}.md`));
+    return 0;
 }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >if (import.meta.url === `file://${process.argv[1]}`) {</span>
+<span class="missing-if-branch" title="if path not taken" >I</span>if (import.meta.url === `file://${process.argv[1]}`) {
 <span class="cstat-no" title="statement not covered" >    void run().<span class="fstat-no" title="function not covered" >then((c</span>ode) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >        process.exitCode = code;</span>
     });
@@ -235,7 +235,7 @@ export async function <span class="fstat-no" title="function not covered" >run()
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-24T23:09:44.803Z
+                at 2026-04-28T18:20:31.779Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

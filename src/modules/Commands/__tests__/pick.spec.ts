@@ -7,20 +7,20 @@ vi.mock('child_process', async (importOriginal) => {
     return { ...(actual as object), spawnSync: vi.fn() };
 });
 
-vi.mock('../../Workspace/index.ts', () => ({
+vi.mock('../../Workspace/useCases/index.ts', () => ({
     get_repo_root: vi.fn(() => '/tmp/repo'),
     worktree_list: vi.fn(() => [
         { path: '/tmp/repo/.agents/agent-foo', branch: 'agent/foo', head: 'abc' },
     ]),
 }));
 
-vi.mock('../../Terminal/index.ts', async (importOriginal) => {
+vi.mock('../../Terminal/useCases/index.ts', async (importOriginal) => {
     const actual = await importOriginal();
     return { ...(actual as object), fzf_select: vi.fn() };
 });
 
-import { fzf_select } from '../../Terminal/index.ts';
-import { worktree_list } from '../../Workspace/index.ts';
+import { fzf_select } from '../../Terminal/useCases/index.ts';
+import { worktree_list } from '../../Workspace/useCases/index.ts';
 
 describe('pick', () => {
     beforeEach(() => {

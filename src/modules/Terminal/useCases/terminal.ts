@@ -1,11 +1,21 @@
 
-import { write_state } from '../../AgentState/index.ts';
+import { write_state } from '../../AgentState/useCases/index.ts';
 import { blue, bold, cyan, dim } from './colors.ts';
 
 import { spawn, spawnSync } from 'child_process';
 import { existsSync as fsExistsSync, mkdirSync as fsMkdirSync, unlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+
+import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
+import { err, ok, type Result } from '../../../infra/errors/result.ts';
+
+export type TerminalLaunchError = AppError<
+    'TerminalLaunchFailed',
+    { backend: string; worktreePath: string; stderr: string }
+>;
+
+export type TerminalLaunchResult = Result<number | undefined, TerminalLaunchError>;
 
 /**
  * Resolve the effective terminal backend based on config/flag/platform.
@@ -38,24 +48,34 @@ export function build_banner(info: Record<string, string>): string {
  * Launch the agent in the given backend.
  * @returns Exit code for 'current' backend; undefined for async backends.
  */
-export function launch(backend: string, worktreePath: string, agentCmd: string, agentArgs: string[], bannerInfo: Record<string, string>, repoRoot: string): number | undefined {
+export function launch(backend: string, worktreePath: string, agentCmd: string, agentArgs: string[], bannerInfo: Record<string, string>, repoRoot: string): TerminalLaunchResult {
     switch (backend) {
         case 'current':
             return launch_current(worktreePath, agentCmd, agentArgs, bannerInfo, repoRoot);
-        case 'terminal':
-            launch_terminal_app(worktreePath, agentCmd, agentArgs, bannerInfo, repoRoot);
-            return;
-        case 'iterm':
-            launch_iterm(worktreePath, agentCmd, agentArgs, bannerInfo, repoRoot);
-            return;
+        case 'terminal': {
+            const res = launch_terminal_app(worktreePath, agentCmd, agentArgs, bannerInfo, repoRoot);
+            if (!res.ok) {
+                console.warn(`\n[!] ${res.error.message}`);
+                console.warn(`[!] Falling back to 'current' terminal backend...\n`);
+                return launch_current(worktreePath, agentCmd, agentArgs, bannerInfo, repoRoot);
+            }
+            return res;
+        }
+        case 'iterm': {
+            const res = launch_iterm(worktreePath, agentCmd, agentArgs, bannerInfo, repoRoot);
+            if (!res.ok) {
+                console.warn(`\n[!] ${res.error.message}`);
+                console.warn(`[!] Falling back to 'current' terminal backend...\n`);
+                return launch_current(worktreePath, agentCmd, agentArgs, bannerInfo, repoRoot);
+            }
+            return res;
+        }
         case 'linux-auto':
-            launch_linux_auto(worktreePath, agentCmd, agentArgs, bannerInfo, repoRoot);
-            return;
+            return launch_linux_auto(worktreePath, agentCmd, agentArgs, bannerInfo, repoRoot);
         case 'windows-auto':
-            launch_windows_auto(worktreePath, agentCmd, agentArgs, bannerInfo, repoRoot);
-            return;
+            return launch_windows_auto(worktreePath, agentCmd, agentArgs, bannerInfo, repoRoot);
         default:
-            throw new Error(`Unsupported terminal backend: "${backend}". Supported: auto, current, terminal, iterm`);
+            return err(createAppError('TerminalLaunchFailed', `Unsupported terminal backend: "${backend}". Supported: auto, current, terminal, iterm`, { backend, worktreePath, stderr: '' }));
     }
 }
 
@@ -63,7 +83,7 @@ export function launch(backend: string, worktreePath: string, agentCmd: string, 
  * Launch in the current terminal session (blocking — agent takes over stdio).
  * @returns The agent process exit code.
  */
-function launch_current(worktreePath: string, agentCmd: string, agentArgs: string[], bannerInfo: Record<string, string>, repoRoot: string): number {
+function launch_current(worktreePath: string, agentCmd: string, agentArgs: string[], bannerInfo: Record<string, string>, repoRoot: string): TerminalLaunchResult {
     process.stdout.write('\x1Bc'); // clear screen
     console.log(build_banner(bannerInfo));
     console.log('');
@@ -101,13 +121,13 @@ function launch_current(worktreePath: string, agentCmd: string, agentArgs: strin
                 shell: false,
             });
             if (retry.error) {
-                throw new Error(`Failed to launch ${agentCmd}: ${retry.error.message}`);
+                return err(createAppError('TerminalLaunchFailed', `Failed to launch ${agentCmd}: ${retry.error.message}`, { backend: 'current', worktreePath, stderr: retry.error.message }, retry.error));
             }
-            return retry.status ?? 0;
+            return ok(retry.status ?? 0);
         }
-        throw new Error(`Failed to launch ${agentCmd}: ${result.error.message}`);
+        return err(createAppError('TerminalLaunchFailed', `Failed to launch ${agentCmd}: ${result.error.message}`, { backend: 'current', worktreePath, stderr: result.error.message }, result.error));
     }
-    return result.status ?? 0;
+    return ok(result.status ?? 0);
 }
 
 /**
@@ -169,7 +189,7 @@ export function posix_quote(str: string): string {
 /**
  * Launch in a new macOS Terminal.app window.
  */
-function launch_terminal_app(worktreePath: string, agentCmd: string, agentArgs: string[], bannerInfo: Record<string, string>, repoRoot: string) {
+function launch_terminal_app(worktreePath: string, agentCmd: string, agentArgs: string[], bannerInfo: Record<string, string>, repoRoot: string): TerminalLaunchResult {
     if (repoRoot) {
         write_state(repoRoot, bannerInfo.slug, {
             backend: 'terminal',
@@ -199,17 +219,18 @@ function launch_terminal_app(worktreePath: string, agentCmd: string, agentArgs: 
         } catch {
             /* best effort */
         }
-        const err = (result.stderr || "").trim();
-        throw new Error(`Failed to open Terminal.app: ${err || 'unknown AppleScript error'}`);
+        const errorMsg = (result.stderr || "").trim() || 'unknown AppleScript error';
+        return err(createAppError('TerminalLaunchFailed', `Failed to open Terminal.app: ${errorMsg}`, { backend: 'terminal', worktreePath, stderr: errorMsg }));
     }
 
     console.log(`Opened Terminal.app for: ${bannerInfo.slug}`);
+    return ok(undefined);
 }
 
 /**
  * Launch in iTerm2.
  */
-function launch_iterm(worktreePath: string, agentCmd: string, agentArgs: string[], bannerInfo: Record<string, string>, repoRoot: string) {
+function launch_iterm(worktreePath: string, agentCmd: string, agentArgs: string[], bannerInfo: Record<string, string>, repoRoot: string): TerminalLaunchResult {
     if (repoRoot) {
         write_state(repoRoot, bannerInfo.slug, {
             backend: 'iterm',
@@ -242,11 +263,12 @@ function launch_iterm(worktreePath: string, agentCmd: string, agentArgs: string[
         } catch {
             /* best effort */
         }
-        const err = (result.stderr || "").trim();
-        throw new Error(`Failed to open iTerm2: ${err || 'unknown AppleScript error'}`);
+        const errorMsg = (result.stderr || "").trim() || 'unknown AppleScript error';
+        return err(createAppError('TerminalLaunchFailed', `Failed to open iTerm2: ${errorMsg}`, { backend: 'iterm', worktreePath, stderr: errorMsg }));
     }
 
     console.log(`Opened iTerm2 for: ${bannerInfo.slug}`);
+    return ok(undefined);
 }
 
 /**
@@ -285,7 +307,7 @@ export function check_backend(backend: string): { ok: boolean; reason?: string }
  * Launch in a new Linux terminal.
  * Tries gnome-terminal, konsole, xfce4-terminal, xterm.
  */
-function launch_linux_auto(worktreePath: string, agentCmd: string, agentArgs: string[], bannerInfo: Record<string, string>, repoRoot: string) {
+function launch_linux_auto(worktreePath: string, agentCmd: string, agentArgs: string[], bannerInfo: Record<string, string>, repoRoot: string): TerminalLaunchResult {
     if (repoRoot) {
         write_state(repoRoot, bannerInfo.slug, {
             backend: 'linux-auto',
@@ -313,18 +335,20 @@ function launch_linux_auto(worktreePath: string, agentCmd: string, agentArgs: st
 
     if (!launched) {
         console.error(`Could not find a supported Linux terminal. Falling back to current.`);
-        const exitCode = launch_current(worktreePath, agentCmd, agentArgs, bannerInfo, repoRoot);
-        if (exitCode !== 0) {
-            throw new Error(`Fallback launch failed with exit code ${String(exitCode)}`);
+        const exitCodeResult = launch_current(worktreePath, agentCmd, agentArgs, bannerInfo, repoRoot);
+        if (!exitCodeResult.ok) {
+            return exitCodeResult;
         }
+        return ok(exitCodeResult.value);
     }
+    return ok(undefined);
 }
 
 /**
  * Launch in a new Windows terminal.
  * Tries wt.exe (Windows Terminal) or falls back to cmd.exe.
  */
-function launch_windows_auto(worktreePath: string, agentCmd: string, agentArgs: string[], bannerInfo: Record<string, string>, repoRoot: string) {
+function launch_windows_auto(worktreePath: string, agentCmd: string, agentArgs: string[], bannerInfo: Record<string, string>, repoRoot: string): TerminalLaunchResult {
     if (repoRoot) {
         write_state(repoRoot, bannerInfo.slug, {
             backend: 'windows-auto',
@@ -340,4 +364,5 @@ function launch_windows_auto(worktreePath: string, agentCmd: string, agentArgs: 
     } else {
         spawn('cmd', ['/c', 'start', 'cmd', '/c', `"${scriptPath}"`], { detached: true, stdio: 'ignore' }).unref();
     }
+    return ok(undefined);
 }

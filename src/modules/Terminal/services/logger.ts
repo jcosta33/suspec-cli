@@ -19,6 +19,10 @@ function is_json_mode(): boolean {
     return process.env.SWARM_LOG_FORMAT === 'json';
 }
 
+function is_quiet(): boolean {
+    return process.env.SWARM_LOG_LEVEL === 'quiet';
+}
+
 function format_timestamp(): string {
     return new Date().toISOString();
 }
@@ -39,9 +43,13 @@ function output(level: string, msg: string): void {
         if (level === 'error') {
             console.error(prefix + msg);
         } else if (level === 'warn') {
-            console.warn(prefix + msg);
-        } else {
+            if (!is_quiet()) console.warn(prefix + msg);
+        } else if (level === 'info') {
+            if (!is_quiet()) console.log(prefix + msg);
+        } else if (level === 'debug') {
             console.log(prefix + msg);
+        } else {
+            if (!is_quiet()) console.log(prefix + msg);
         }
     }
 }
@@ -57,7 +65,7 @@ export const logger = {
         output('warn', msg);
     },
     debug(msg: string): void {
-        if (process.env.SWARM_DEBUG) {
+        if (process.env.SWARM_DEBUG || process.env.SWARM_LOG_LEVEL === 'verbose') {
             output('debug', msg);
         }
     },
@@ -66,7 +74,9 @@ export const logger = {
      * Use for structured visual output (banners, tables, boxes).
      */
     raw(msg: string): void {
-        process.stdout.write(`${msg}\n`);
+        if (!is_quiet()) {
+            process.stdout.write(`${msg}\n`);
+        }
     },
 };
 

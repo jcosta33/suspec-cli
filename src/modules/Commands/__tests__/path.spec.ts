@@ -1,12 +1,17 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { run } from '../useCases/path.ts';
 
-vi.mock('../../Workspace/index.ts', () => ({
+vi.mock('../../Workspace/useCases/index.ts', () => ({
     get_repo_root: vi.fn(() => '/tmp/repo'),
-    worktree_list: vi.fn(),
+    worktree_list: vi.fn(() => []),
 }));
 
-import { worktree_list } from '../../Workspace/index.ts';
+vi.mock('../../Terminal/useCases/index.ts', async (importOriginal) => {
+    const actual = await importOriginal();
+    return { ...(actual as object), fzf_select: vi.fn() };
+});
+
+import { worktree_list } from '../../Workspace/useCases/index.ts';
 
 describe('path', () => {
     beforeEach(() => {

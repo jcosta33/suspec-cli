@@ -6,9 +6,14 @@ import {
     green,
     parse_args,
     red,
-} from '../../Terminal/index.ts';
-import { is_process_running, read_state } from '../../AgentState/index.ts';
-import { get_repo_root, is_worktree_dirty, get_status_summary, worktree_list } from '../../Workspace/index.ts';
+    fzf_select,
+    yellow,
+    format_markdown,
+} from '../../Terminal/useCases/index.ts';
+import { is_process_running, read_state } from '../../AgentState/useCases/index.ts';
+import { get_repo_root, is_worktree_dirty, get_status_summary, worktree_list } from '../../Workspace/useCases/index.ts';
+import { readFileSync, existsSync } from 'fs';
+import { join } from 'path';
 
 export function run(): number {
     let repoRoot: string;
@@ -20,11 +25,28 @@ export function run(): number {
     }
 
     const { positional } = parse_args(process.argv.slice(2));
-    const slug = positional[0];
+    let slug = positional[0];
 
     if (!slug) {
-        console.log(red('Usage: swarm show <slug>'));
-        return 1;
+        const sandboxes = worktree_list(repoRoot);
+        const items = sandboxes.map((w) => w.branch?.replace('agent/', '')).filter((s): s is string => !!s);
+        if (items.length === 0) {
+            console.log(yellow('No active sandboxes.'));
+            return 1;
+        }
+        try {
+            const selected = fzf_select(items);
+            if (!selected) {
+                console.log(red('No selection made.'));
+                return 1;
+            }
+            slug = Array.isArray(selected) ? selected[0] : selected;
+        } catch (e: unknown) {
+            console.log(red('Usage: swarm show <slug>'));
+            const message = e instanceof Error ? e.message : String(e);
+            console.log(yellow(`(Fuzzy search failed: ${message})`));
+            return 1;
+        }
     }
 
     const sandboxes = worktree_list(repoRoot);
@@ -57,6 +79,14 @@ export function run(): number {
     if (state.lastUpdated) lines.push(`  Updated:   ${state.lastUpdated}`);
 
     box(`Sandbox Details: ${slug}`, lines);
+
+    const taskPath = join(match.path, '.agents', 'tasks', `${slug}.md`);
+    if (existsSync(taskPath)) {
+        console.log('');
+        const content = readFileSync(taskPath, 'utf8');
+        console.log(format_markdown(content));
+    }
+
     return 0;
 }
 

@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">84.21% </span>
+                <span class="strong">70.58% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>16/19</span>
+                <span class='fraction'>24/34</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">83.33% </span>
+                <span class="strong">50% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>5/6</span>
+                <span class='fraction'>7/14</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>2/2</span>
+                <span class='fraction'>4/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">83.33% </span>
+                <span class="strong">67.74% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>15/18</span>
+                <span class='fraction'>21/31</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -106,7 +106,28 @@
 <a name='L41'></a><a href='#L41'>41</a>
 <a name='L42'></a><a href='#L42'>42</a>
 <a name='L43'></a><a href='#L43'>43</a>
-<a name='L44'></a><a href='#L44'>44</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -132,6 +153,23 @@
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
@@ -154,11 +192,13 @@
 import {
     parse_args,
     red,
-} from '../../Terminal/index.ts';
+    yellow,
+    fzf_select,
+} from '../../Terminal/useCases/index.ts';
 import {
     get_repo_root,
     worktree_list,
-} from '../../Workspace/index.ts';
+} from '../../Workspace/useCases/index.ts';
 &nbsp;
 export function run(): number {
     let repoRoot: string;
@@ -170,11 +210,28 @@ export function run(): number {
     }
 &nbsp;
     const { positional } = parse_args(process.argv.slice(2));
-    const slug = positional[0];
+    let slug = positional[0];
 &nbsp;
     if (!slug) {
-        console.log(red('Usage: swarm path &lt;slug&gt;'));
-        return 1;
+        const sandboxes = worktree_list(repoRoot);
+        const items = sandboxes.map((w) =&gt; w.branch?.replace('agent/', '')).filter((s): s is string =&gt; !!s);
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (items.length === 0) {
+<span class="cstat-no" title="statement not covered" >            console.log(yellow('No active sandboxes.'));</span>
+<span class="cstat-no" title="statement not covered" >            return 1;</span>
+        }
+        try {
+            const selected = fzf_select(items);
+            <span class="missing-if-branch" title="else path not taken" >E</span>if (!selected) {
+                console.log(red('No selection made.'));
+                return 1;
+            }
+<span class="cstat-no" title="statement not covered" >            slug = Array.isArray(selected) ? selected[0] : selected;</span>
+        } catch (e: unknown) {
+<span class="cstat-no" title="statement not covered" >            console.log(red('Usage: swarm path &lt;slug&gt;'));</span>
+            const message = <span class="cstat-no" title="statement not covered" >e instanceof Error ? e.message : String(e);</span>
+<span class="cstat-no" title="statement not covered" >            console.log(yellow(`(Fuzzy search failed: ${message})`));</span>
+<span class="cstat-no" title="statement not covered" >            return 1;</span>
+        }
     }
 &nbsp;
     const sandboxes = worktree_list(repoRoot);
@@ -199,7 +256,7 @@ export function run(): number {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-24T23:09:44.803Z
+                at 2026-04-28T18:20:31.779Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

@@ -41,6 +41,7 @@
         "noEmit": true,
         "skipLibCheck": true,
         "useDefineForClassFields": true,
+        "jsx": "react-jsx",
 
         // ── Path aliases ────────────────────────────────────────────────────
         // Only used by the new src/infra/* package. Module code uses relative

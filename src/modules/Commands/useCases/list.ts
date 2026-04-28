@@ -9,9 +9,9 @@ import {
     red,
     warn,
     yellow,
-} from '../../Terminal/index.ts';
-import { is_process_running, read_state } from '../../AgentState/index.ts';
-import { get_repo_root, list_branches_by_prefix, worktree_list } from '../../Workspace/index.ts';
+} from '../../Terminal/useCases/index.ts';
+import { is_process_running, read_state } from '../../AgentState/useCases/index.ts';
+import { get_repo_root, list_branches_by_prefix, worktree_list } from '../../Workspace/useCases/index.ts';
 
 function format_status(state: { status?: string; pid?: number; backend?: string }) {
     if (!state.status) return dim('[IDLE]');

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
-import { bold, cyan, dim, green, parse_args, red, yellow } from '../../Terminal/index.ts';
-import { get_repo_root, resolve_within } from '../../Workspace/index.ts';
+import { spinner } from '@clack/prompts';
+import { bold, cyan, dim, green, parse_args, red, yellow } from '../../Terminal/useCases/index.ts';
+import { get_repo_root, resolve_within } from '../../Workspace/useCases/index.ts';
 
 import { spawnSync } from 'child_process';
 import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
@@ -70,19 +71,20 @@ export function run(): number {
         return 1;
     }
 
-    console.log(cyan(`\nCalculating blast radius for: ${bold(targetFile)}...`));
+    const s = spinner();
+    s.start(`Calculating blast radius for: ${bold(targetFile)}...`);
     const impactedSpecs = find_impacted_specs(repoRoot, resolved.value);
 
     if (impactedSpecs.length === 0) {
-        console.log(yellow(`No impacted spec files found. Blast radius is isolated.`));
+        s.stop(yellow(`No impacted spec files found. Blast radius is isolated.`));
         return 0;
     }
 
-    console.log(green(`Found ${String(impactedSpecs.length)} impacted spec file(s). Running subset...`));
-    impactedSpecs.forEach((s) => { console.log(dim(`  - ${s.replace(`${repoRoot}/`, '')}`)); });
+    s.stop(green(`Found ${String(impactedSpecs.length)} impacted spec file(s). Running subset...`));
+    impactedSpecs.forEach((sp) => { console.log(dim(`  - ${sp.replace(`${repoRoot}/`, '')}`)); });
 
     // Run vitest directly with the impacted specs
-    const res = spawnSync('pnpm', ['vitest', 'run', ...impactedSpecs.map((s) => s.replace(`${repoRoot}/`, ''))], {
+    const res = spawnSync('pnpm', ['vitest', 'run', ...impactedSpecs.map((sp) => sp.replace(`${repoRoot}/`, ''))], {
         stdio: 'inherit',
         cwd: repoRoot,
     });

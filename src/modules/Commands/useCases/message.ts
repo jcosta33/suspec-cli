@@ -2,9 +2,9 @@
 
 import { existsSync, mkdirSync, appendFileSync } from 'fs';
 import { join } from 'path';
-import { red, green, dim, parse_args, logger } from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
-import { read_state } from '../../AgentState/index.ts';
+import { red, green, dim, parse_args, logger } from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
+import { read_state } from '../../AgentState/useCases/index.ts';
 
 export function run(): number {
     let repoRoot: string;

@@ -19,13 +19,16 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.6.0",
     "@types/proper-lockfile": "^4.1.4",
+    "@types/react": "^19.2.14",
     "@vitest/coverage-v8": "^4.1.5",
     "dependency-cruiser": "^17.3.10",
     "eslint": "^10.2.1",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.5.0",
+    "ink-testing-library": "^4.0.0",
     "knip": "^6.5.0",
     "prettier": "^3.5.0",
+    "tsx": "^4.21.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.58.2",
     "vitest": "^4.1.4"
@@ -37,7 +40,9 @@
   "dependencies": {
     "@clack/prompts": "^1.2.0",
     "better-sqlite3": "^12.9.0",
+    "ink": "^7.0.1",
     "picocolors": "^1.1.1",
-    "proper-lockfile": "^4.1.2"
+    "proper-lockfile": "^4.1.2",
+    "react": "^19.2.5"
   }
 }

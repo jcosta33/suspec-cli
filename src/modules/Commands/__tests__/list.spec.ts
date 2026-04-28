@@ -1,18 +1,18 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { run } from '../useCases/list.ts';
 
-vi.mock('../../Workspace/index.ts', () => ({
+vi.mock('../../Workspace/useCases/index.ts', () => ({
     get_repo_root: vi.fn(() => '/tmp/repo'),
     worktree_list: vi.fn(),
     list_branches_by_prefix: vi.fn(),
 }));
 
-vi.mock('../../AgentState/index.ts', () => ({
+vi.mock('../../AgentState/useCases/index.ts', () => ({
     read_state: vi.fn(() => ({})),
     is_process_running: vi.fn(() => false),
 }));
 
-import { get_repo_root, worktree_list, list_branches_by_prefix } from '../../Workspace/index.ts';
+import { get_repo_root, worktree_list, list_branches_by_prefix } from '../../Workspace/useCases/index.ts';
 
 describe('list', () => {
     beforeEach(() => {

@@ -6,8 +6,8 @@ import {
     green,
     parse_args,
     red,
-} from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
+} from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 
 import { rename_symbol } from '../../../utils/ast.ts';
 

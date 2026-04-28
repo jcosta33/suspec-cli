@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { parse_args } from '../../Terminal/index.ts';
-import { list_capabilities } from '../index.ts';
+import { parse_args } from '../../Terminal/useCases/index.ts';
+import { list_capabilities } from '../services/registry.ts';
 
 export function run(): number {
     const { flags } = parse_args(process.argv.slice(2));

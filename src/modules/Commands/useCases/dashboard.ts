@@ -2,9 +2,9 @@
 
 import { confirm, intro, isCancel, log, note, outro, select, text } from '@clack/prompts';
 import { spawnSync } from 'child_process';
-import { read_state } from '../../AgentState/index.ts';
-import { red } from '../../Terminal/index.ts';
-import { get_repo_root, worktree_list } from '../../Workspace/index.ts';
+import { read_state } from '../../AgentState/useCases/index.ts';
+import { red } from '../../Terminal/useCases/index.ts';
+import { get_repo_root, worktree_list } from '../../Workspace/useCases/index.ts';
 
 function get_command_path(cmd: string): string {
     return new URL(`./${cmd}.ts`, import.meta.url).pathname;

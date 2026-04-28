@@ -7,7 +7,7 @@ vi.mock('child_process', async (importOriginal) => {
     return { ...(actual as object), spawnSync: vi.fn() };
 });
 
-vi.mock('../../Terminal/index.ts', async (importOriginal) => {
+vi.mock('../../Terminal/useCases/index.ts', async (importOriginal) => {
     const actual = await importOriginal();
     return {
         ...(actual as object),
@@ -18,12 +18,12 @@ vi.mock('../../Terminal/index.ts', async (importOriginal) => {
     };
 });
 
-vi.mock('../../Workspace/index.ts', () => ({
+vi.mock('../../Workspace/useCases/index.ts', () => ({
     get_repo_root: vi.fn(() => '/tmp/repo'),
 }));
 
-import { parse_args } from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
+import { parse_args } from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 
 describe('merge module', () => {
     beforeEach(() => {
@@ -35,27 +35,27 @@ describe('merge module', () => {
         vi.restoreAllMocks();
     });
 
-    it('returns 1 when not in a git repo', () => {
+    it('returns 1 when not in a git repo', async () => {
         vi.mocked(get_repo_root).mockImplementation(() => { throw new Error('not a repo'); });
-        expect(run()).toBe(1);
+        expect(await run()).toBe(1);
     });
 
-    it('returns 1 when args are missing', () => {
+    it('returns 1 when args are missing', async () => {
         vi.mocked(get_repo_root).mockReturnValue('/tmp/repo');
         vi.mocked(parse_args).mockReturnValue({ positional: [], flags: new Map() });
         process.argv = ['node', 'script'];
-        expect(run()).toBe(1);
+        expect(await run()).toBe(1);
     });
 
-    it('returns 1 on merge conflict', () => {
+    it('returns 1 on merge conflict', async () => {
         vi.mocked(get_repo_root).mockReturnValue('/tmp/repo');
         vi.mocked(parse_args).mockReturnValue({ positional: ['feature'], flags: new Map() });
         vi.mocked(spawnSync).mockReturnValueOnce({ status: 1, stdout: 'CONFLICT (content): Merge conflict in file.ts\n', stderr: '' } as ReturnType<typeof spawnSync>);
         process.argv = ['node', 'script'];
-        expect(run()).toBe(1);
+        expect(await run()).toBe(1);
     });
 
-    it('returns 0 on successful merge', () => {
+    it('returns 0 on successful merge', async () => {
         vi.mocked(get_repo_root).mockReturnValue('/tmp/repo');
         vi.mocked(parse_args).mockReturnValue({ positional: ['feature'], flags: new Map() });
         vi.mocked(spawnSync)
@@ -63,20 +63,20 @@ describe('merge module', () => {
             .mockReturnValueOnce({ status: 1, stdout: '', stderr: '' } as ReturnType<typeof spawnSync>)
             .mockReturnValueOnce({ status: 0, stdout: '', stderr: '' } as ReturnType<typeof spawnSync>);
         process.argv = ['node', 'script'];
-        expect(run()).toBe(0);
+        expect(await run()).toBe(0);
     });
 
-    it('returns 0 on empty merge', () => {
+    it('returns 0 on empty merge', async () => {
         vi.mocked(get_repo_root).mockReturnValue('/tmp/repo');
         vi.mocked(parse_args).mockReturnValue({ positional: ['feature'], flags: new Map() });
         vi.mocked(spawnSync)
             .mockReturnValueOnce({ status: 0, stdout: '', stderr: '' } as ReturnType<typeof spawnSync>)
             .mockReturnValueOnce({ status: 0, stdout: '', stderr: '' } as ReturnType<typeof spawnSync>);
         process.argv = ['node', 'script'];
-        expect(run()).toBe(0);
+        expect(await run()).toBe(0);
     });
 
-    it('returns 1 when commit fails after merge', () => {
+    it('returns 1 when commit fails after merge', async () => {
         vi.mocked(get_repo_root).mockReturnValue('/tmp/repo');
         vi.mocked(parse_args).mockReturnValue({ positional: ['feature'], flags: new Map() });
         vi.mocked(spawnSync)
@@ -84,18 +84,18 @@ describe('merge module', () => {
             .mockReturnValueOnce({ status: 1, stdout: '', stderr: '' } as ReturnType<typeof spawnSync>)
             .mockReturnValueOnce({ status: 1, stdout: '', stderr: '' } as ReturnType<typeof spawnSync>);
         process.argv = ['node', 'script'];
-        expect(run()).toBe(1);
+        expect(await run()).toBe(1);
     });
 
-    it('cascade returns 0 when no branches match', () => {
+    it('cascade returns 0 when no branches match', async () => {
         vi.mocked(get_repo_root).mockReturnValue('/tmp/repo');
         vi.mocked(parse_args).mockReturnValue({ positional: [], flags: new Map([['cascade', 'agent/*']]) });
         vi.mocked(spawnSync).mockReturnValue({ status: 0, stdout: '', stderr: '' } as ReturnType<typeof spawnSync>);
         process.argv = ['node', 'script'];
-        expect(run()).toBe(0);
+        expect(await run()).toBe(0);
     });
 
-    it('cascade merges branches successfully', () => {
+    it('cascade merges branches successfully', async () => {
         vi.mocked(get_repo_root).mockReturnValue('/tmp/repo');
         vi.mocked(parse_args).mockReturnValue({ positional: [], flags: new Map([['cascade', 'agent/*']]) });
         vi.mocked(spawnSync)
@@ -107,23 +107,23 @@ describe('merge module', () => {
             .mockReturnValueOnce({ status: 1, stdout: '', stderr: '' } as ReturnType<typeof spawnSync>)
             .mockReturnValueOnce({ status: 0, stdout: '', stderr: '' } as ReturnType<typeof spawnSync>);
         process.argv = ['node', 'script'];
-        expect(run()).toBe(0);
+        expect(await run()).toBe(0);
     });
 
-    it('cascade returns 1 when merge fails', () => {
+    it('cascade returns 1 when merge fails', async () => {
         vi.mocked(get_repo_root).mockReturnValue('/tmp/repo');
         vi.mocked(parse_args).mockReturnValue({ positional: [], flags: new Map([['cascade', 'agent/*']]) });
         vi.mocked(spawnSync)
             .mockReturnValueOnce({ status: 0, stdout: '  agent/foo\n', stderr: '' } as ReturnType<typeof spawnSync>)
             .mockReturnValueOnce({ status: 1, stdout: 'CONFLICT\n', stderr: '' } as ReturnType<typeof spawnSync>);
         process.argv = ['node', 'script'];
-        expect(run()).toBe(1);
+        expect(await run()).toBe(1);
     });
 
-    it('returns 1 when cascade pattern is missing', () => {
+    it('returns 1 when cascade pattern is missing', async () => {
         vi.mocked(get_repo_root).mockReturnValue('/tmp/repo');
         vi.mocked(parse_args).mockReturnValue({ positional: [], flags: new Map([['cascade', true]]) });
         process.argv = ['node', 'script'];
-        expect(run()).toBe(1);
+        expect(await run()).toBe(1);
     });
 });

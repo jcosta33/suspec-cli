@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
-import { parse_args, red, green, dim, logger, cyan } from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
+import { parse_args, red, green, dim, logger, cyan } from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 import {
     prune_events,
     prune_sessions,
     query_sessions,
     read_events,
-} from '../../AgentState/index.ts';
+} from '../../AgentState/useCases/index.ts';
 
 export function run(): number {
     let repoRoot: string;

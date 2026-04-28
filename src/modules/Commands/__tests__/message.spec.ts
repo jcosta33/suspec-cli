@@ -1,15 +1,15 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { run } from '../useCases/message.ts';
 
-vi.mock('../../Workspace/index.ts', () => ({
+vi.mock('../../Workspace/useCases/index.ts', () => ({
     get_repo_root: vi.fn(() => '/tmp/repo'),
 }));
 
-vi.mock('../../AgentState/index.ts', () => ({
+vi.mock('../../AgentState/useCases/index.ts', () => ({
     read_state: vi.fn(() => ({ foo: { status: 'running' } })),
 }));
 
-vi.mock('../../Terminal/index.ts', async (importOriginal) => {
+vi.mock('../../Terminal/useCases/index.ts', async (importOriginal) => {
     const actual = await importOriginal();
     return { ...(actual as object), logger: { info: vi.fn(), error: vi.fn(), raw: vi.fn() } };
 });

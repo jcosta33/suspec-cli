@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { parse_args, red, green, dim } from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
+import { parse_args, red, green, dim, cyan, summarize_insight } from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 import { spawnSync } from 'child_process';
 
 type MergeResult = {
@@ -72,7 +72,7 @@ function get_matching_branches(repoRoot: string, pattern: string): string[] {
         .filter((b) => b.length > 0);
 }
 
-export function run(): number {
+export async function run(): Promise<number> {
     let repoRoot: string;
     try {
         repoRoot = get_repo_root();
@@ -111,6 +111,13 @@ export function run(): number {
         }
 
         console.log(green('\nCascade merge complete.'));
+        
+        const insightPrompt = `I just cascade merged these branches: ${branches.join(', ')}. The result was successful. Summarize this in one short sentence for the developer.`;
+        const insight = await summarize_insight(repoRoot, insightPrompt);
+        if (insight) {
+            console.log(cyan(`✨ AI Insight: `) + dim(insight));
+        }
+        
         return 0;
     }
 
@@ -122,9 +129,26 @@ export function run(): number {
 
     const mergeResult = merge_branch(repoRoot, branch);
     console.log(JSON.stringify(mergeResult, null, 2));
+    
+    if (mergeResult.success) {
+        const insightPrompt = `I just merged branch ${branch}. The result was successful. Summarize this in one short sentence for the developer.`;
+        const insight = await summarize_insight(repoRoot, insightPrompt);
+        if (insight) {
+            console.log(cyan(`\n✨ AI Insight: `) + dim(insight));
+        }
+    } else {
+        const insightPrompt = `I just tried to merge branch ${branch}, but it failed with conflicts: ${JSON.stringify(mergeResult.conflicts)}. Suggest a next step in one short sentence.`;
+        const insight = await summarize_insight(repoRoot, insightPrompt);
+        if (insight) {
+            console.log(cyan(`\n✨ AI Insight: `) + dim(insight));
+        }
+    }
+    
     return mergeResult.success ? 0 : 1;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-    process.exitCode = run();
+    run().then(code => {
+        process.exitCode = code;
+    });
 }

@@ -74,10 +74,10 @@ module.exports = {
             name: 'no-cross-module-deep-import',
             severity: 'error',
             comment:
-                'Cross-module imports must target the destination module root (src/modules/<X>/index.ts). Deep imports into useCases/, models/, etc. from a different module are forbidden.',
+                'Cross-module imports must target the destination module barrel (src/modules/<X>/useCases/index.ts). Deep imports into models/, etc. from a different module are forbidden.',
             from: { path: '^src/modules/([^/]+)/' },
             to: {
-                path: '^src/modules/[^/]+/(?!index\\.ts$).+',
+                path: '^src/modules/[^/]+/(?!useCases/index\\.ts$).+',
                 pathNot: [
                     // Same-module relative imports are fine.
                     '^src/modules/$1/',
@@ -102,9 +102,9 @@ module.exports = {
             name: 'no-own-barrel',
             severity: 'error',
             comment:
-                'Files inside src/modules/<X>/ must not import from #/modules/<X> (their own barrel). Use relative paths to the defining file.',
+                'Files inside src/modules/<X>/ must not import from their own barrel (useCases/index.ts). Use relative paths directly to the defining file.',
             from: { path: '^src/modules/([^/]+)/.+' },
-            to: { path: '^src/modules/$1$' },
+            to: { path: '^src/modules/$1/useCases/index\\.ts$' },
         },
 
         // ── Hygiene ─────────────────────────────────────────────────────────

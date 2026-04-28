@@ -2,6 +2,7 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { get_persona_for_type } from './personas.ts';
 
 const METADATA_START = '## Metadata';
 
@@ -23,6 +24,7 @@ export function render_template(templateContent: string, data: Record<string, st
             // Fall back to defaults if commands JSON is malformed.
         }
     }
+    const persona = data.persona || get_persona_for_type(data.type || "");
     return templateContent
         .replace(/\{\{title\}\}/g, data.title || "")
         .replace(/\{\{slug\}\}/g, data.slug || "")
@@ -35,6 +37,7 @@ export function render_template(templateContent: string, data: Record<string, st
         .replace(/\{\{taskFile\}\}/g, data.taskFile || "")
         .replace(/\{\{specFile\}\}/g, data.specFile || "")
         .replace(/\{\{type\}\}/g, data.type || "")
+        .replace(/\{\{persona\}\}/g, persona)
         .replace(/\{\{cmdInstall\}\}/g, cmds.install || "npm i")
         .replace(/\{\{cmdTypecheck\}\}/g, cmds.typecheck || "npm run typecheck")
         .replace(/\{\{cmdValidateDeps\}\}/g, cmds.validateDeps || "npm run deps:validate")
@@ -133,9 +136,13 @@ function update_metadata_in_file(content: string, data: Record<string, string>) 
  * @returns {string}
  */
 function default_template(data: Record<string, string>) {
+    const persona = data.persona || get_persona_for_type(data.type || "");
     return `# ${data.title}
 
 ${build_metadata_block(data)}
+
+## Agent Persona
+${persona}
 
 ## Objective
 Describe the task here.

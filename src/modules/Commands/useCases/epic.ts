@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { bold, cyan, dim, green, parse_args, red } from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
+import { bold, cyan, dim, green, parse_args, red } from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { basename, join } from 'path';

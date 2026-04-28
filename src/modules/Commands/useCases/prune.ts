@@ -6,9 +6,9 @@ import {
     green,
     red,
     yellow,
-} from '../../Terminal/index.ts';
-import { load_config } from '../../Terminal/index.ts';
-import { remove_state } from '../../AgentState/index.ts';
+} from '../../Terminal/useCases/index.ts';
+import { load_config } from '../../Terminal/useCases/index.ts';
+import { remove_state } from '../../AgentState/useCases/index.ts';
 import {
     delete_branch,
     get_repo_root,
@@ -16,7 +16,7 @@ import {
     worktree_list,
     worktree_prune,
     worktree_remove,
-} from '../../Workspace/index.ts';
+} from '../../Workspace/useCases/index.ts';
 
 export function run(): number {
     let repoRoot: string;
@@ -66,11 +66,7 @@ export function run(): number {
     }
 
     // Also prune any stale git worktree refs
-    try {
-        worktree_prune(repoRoot);
-    } catch {
-        /* best effort */
-    }
+    worktree_prune(repoRoot);
 
     if (removedCount === 0) {
         console.log(dim('No merged sandboxes to prune.'));

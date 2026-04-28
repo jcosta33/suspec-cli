@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { readFileSync, existsSync } from 'fs';
-import { red, cyan, bold, dim, green, yellow, parse_args } from '../../Terminal/index.ts';
-import { get_repo_root, resolve_within } from '../../Workspace/index.ts';
+import { red, cyan, bold, dim, green, yellow, parse_args } from '../../Terminal/useCases/index.ts';
+import { get_repo_root, resolve_within } from '../../Workspace/useCases/index.ts';
 
 const RISKY_PATTERNS = [
     { regex: /\beval\s*\(/g, description: 'Usage of eval() is highly dangerous.' },

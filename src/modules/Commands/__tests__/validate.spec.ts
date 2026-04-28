@@ -7,7 +7,7 @@ vi.mock('child_process', async (importOriginal) => {
     return { ...(actual as object), spawnSync: vi.fn() };
 });
 
-vi.mock('../../Terminal/index.ts', async (importOriginal) => {
+vi.mock('../../Terminal/useCases/index.ts', async (importOriginal) => {
     const actual = await importOriginal();
     return {
         ...(actual as object),
@@ -16,12 +16,12 @@ vi.mock('../../Terminal/index.ts', async (importOriginal) => {
     };
 });
 
-vi.mock('../../Workspace/index.ts', () => ({
+vi.mock('../../Workspace/useCases/index.ts', () => ({
     get_repo_root: vi.fn(() => '/tmp/repo'),
 }));
 
-import { get_repo_root } from '../../Workspace/index.ts';
-import { load_config } from '../../Terminal/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
+import { load_config } from '../../Terminal/useCases/index.ts';
 
 describe('validate', () => {
     beforeEach(() => {

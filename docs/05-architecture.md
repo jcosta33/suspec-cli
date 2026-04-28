@@ -1,0 +1,132 @@
+# TypeScript Module Architecture
+
+This document defines the **TypeScript-side module architecture** for the Swarm CLI.
+
+It explains:
+- what a module is
+- which architectural concepts exist
+- what each concept is responsible for
+- which folders are public contracts vs private internals
+- what a normal module should look like
+- how modules interact
+
+This document is the source of truth for **TypeScript module anatomy and dependency direction**.
+
+---
+
+## 1. What a module is
+
+A **module** is a **DDD bounded context / ownership boundary**.
+
+A module is **not** just a CLI command. 
+A module is the unit that owns:
+- a slice of business truth
+- the invariants around that truth
+- the public useCases that may mutate that truth
+- the internal implementation details needed to support that ownership
+
+### Good examples of modules
+```text
+Commands
+Workspace
+TaskManagement
+AgentState
+Terminal
+```
+
+---
+
+## 2. Module anatomy
+
+A TypeScript module is composed of a **public contract surface** and **private internals**.
+
+### 2.1 Public contract surface
+
+Each module exposes independently-importable contract surfaces, typically through `index.ts`.
+
+| Contract folder        | Role                              | Import target                                                                                                                          |
+| ---------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `useCases/`            | public write boundary (functions) | `#/modules/<M>/useCases` — `export { fn }` only, **no** `export type` from `useCases/`.                                                |
+| `events/`              | domain event payload types        | `#/modules/<M>/events` — `export type` / values as needed                                                                              |
+
+### 2.2 Private internals
+
+These are implementation details and may change freely inside the module.
+
+```text
+models/
+repositories/
+services/
+validators/
+```
+
+These are private unless explicitly promoted to a contract-folder barrel.
+
+## 3. Architectural Concepts
+
+### 3.1 `useCases/`
+Use cases orchestrate workflows. They do NOT contain deep business logic (that goes in `services/` or `validators/`) or direct I/O (that goes in `repositories/`). 
+
+### 3.2 `repositories/`
+Repositories are the **I/O layer**.
+They are thin adapters between business logic and the outside world.
+
+A repository may access:
+- File system (`fs`)
+- Child processes (`spawn`, `exec`)
+- Git commands
+- SQLite database (`better-sqlite3`)
+
+### 3.3 `models/`
+Models are the plain data structures that represent your domain. They contain no logic. They are strictly private to their module.
+
+### 3.4 `services/`
+Services contain stateless business logic that spans multiple entities or concepts but does not belong in one use case. (e.g. specialized path resolution, AST parsing).
+
+### 3.5 `validators/`
+Validators enforce invariants. They are pure functions that check whether an operation is valid.
+
+## 4. Dependency direction
+
+Here is the intended dependency direction inside a module.
+
+```text
+Commands (CLI boundary)
+  -> useCases
+
+useCases
+  -> models
+  -> validators
+  -> services
+  -> repositories
+
+repositories
+  -> external APIs / fs / SQLite
+```
+
+Never the reverse. `repositories` MUST NOT import from `useCases`.
+
+## 5. Event-Driven Interaction
+
+Use when:
+- another concern should react independently (e.g. logging telemetry)
+- the emitter should not care who reacts
+
+```typescript
+import { swarmBus } from '#/infra/events/swarmBus';
+
+swarmBus.emit('agent.session.recorded', { slug, agent });
+```
+
+---
+
+## 6. Review checklist
+
+Before accepting TypeScript module architecture work, verify:
+1. Is the module boundary an ownership boundary?
+2. Are models plain and framework-free?
+3. Are use cases the real write boundary?
+4. Are use-case **types** kept private?
+5. Are repositories truly I/O-only?
+6. Are validators/services private and well-scoped?
+7. Is cross-module interaction happening only via approved patterns?

@@ -1,24 +1,29 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { run } from '../useCases/show.ts';
 
-vi.mock('../../Workspace/index.ts', () => ({
+vi.mock('../../Workspace/useCases/index.ts', () => ({
     get_repo_root: vi.fn(() => '/tmp/repo'),
-    worktree_list: vi.fn(),
+    worktree_list: vi.fn(() => []),
     is_worktree_dirty: vi.fn(() => false),
-    get_status_summary: vi.fn(() => 'clean'),
+    get_status_summary: vi.fn(() => 'M file.ts'),
 }));
 
-vi.mock('../../AgentState/index.ts', () => ({
+vi.mock('../../AgentState/useCases/index.ts', () => ({
     read_state: vi.fn(() => ({})),
-    is_process_running: vi.fn(() => false),
+    is_process_running: vi.fn(() => true),
 }));
 
-vi.mock('../../Terminal/index.ts', async (importOriginal) => {
+vi.mock('../../Terminal/useCases/index.ts', async (importOriginal) => {
+    const actual = await importOriginal();
+    return { ...(actual as object), fzf_select: vi.fn() };
+});
+
+vi.mock('../../Terminal/useCases/index.ts', async (importOriginal) => {
     const actual = await importOriginal();
     return { ...(actual as object), box: vi.fn() };
 });
 
-import { worktree_list } from '../../Workspace/index.ts';
+import { worktree_list } from '../../Workspace/useCases/index.ts';
 
 describe('show', () => {
     beforeEach(() => {

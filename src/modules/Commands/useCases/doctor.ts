@@ -3,9 +3,9 @@
 import { spawnSync } from 'child_process';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { cyan, green, red, bold, dim } from '../../Terminal/index.ts';
-import { get_repo_root, worktree_list } from '../../Workspace/index.ts';
-import { read_state } from '../../AgentState/index.ts';
+import { cyan, green, red, bold, dim, summarize_insight } from '../../Terminal/useCases/index.ts';
+import { get_repo_root, worktree_list } from '../../Workspace/useCases/index.ts';
+import { read_state } from '../../AgentState/useCases/index.ts';
 
 type CheckResult = {
     label: string;
@@ -21,7 +21,7 @@ export function check_command(cmd: string, args: string[]): { ok: boolean; versi
     return { ok: false, version: '' };
 }
 
-export function run(): number {
+export async function run(): Promise<number> {
     console.log(cyan('\n🩺 Swarm Doctor\n'));
 
     const results: CheckResult[] = [];
@@ -104,12 +104,20 @@ export function run(): number {
     let failures = 0;
     for (const r of results) {
         const icon = r.ok ? green('✓') : red('✗');
-        const color = r.ok ? dim : red;
-        console.log(`  ${icon} ${bold(r.label.padEnd(20))} ${color(r.message)}`);
+        const col = r.ok ? dim : red;
+        console.log(`  ${icon} ${bold(r.label.padEnd(20))} ${col(r.message)}`);
         if (!r.ok) failures++;
     }
 
     console.log('');
+    if (repoRoot) {
+        const summaryPrompt = `Summarize this Swarm CLI diagnostic output in one short, punchy sentence. Focus on whether the system is fully operational or if something is broken: ${JSON.stringify(results)}`;
+        const insight = await summarize_insight(repoRoot, summaryPrompt);
+        if (insight) {
+            console.log(cyan(`✨ AI Insight: `) + dim(insight) + '\n');
+        }
+    }
+
     if (failures === 0) {
         console.log(green('All checks passed. Swarm is healthy!\n'));
         return 0;
@@ -119,5 +127,7 @@ export function run(): number {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-    process.exitCode = run();
+    run().then(code => {
+        process.exitCode = code;
+    });
 }

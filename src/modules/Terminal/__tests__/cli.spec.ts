@@ -12,7 +12,7 @@ vi.mock('child_process', async (importOriginal) => {
 });
 
 import { spawnSync } from 'child_process';
-import { split_command, find_markdown_files, command_exists } from '../useCases/cli.ts';
+import { split_command, find_markdown_files, command_exists, fzf_select, parse_args } from '../useCases/cli.ts';
 
 describe('cli utilities', () => {
     describe('split_command', () => {
@@ -81,6 +81,51 @@ describe('cli utilities', () => {
         it('returns false when command is not found', () => {
             (spawnSync as ReturnType<typeof vi.fn>).mockReturnValue({ status: 1 });
             expect(command_exists('not-a-real-command')).toBe(false);
+        });
+    });
+
+    describe('fzf_select', () => {
+        it('throws when fzf is not installed', () => {
+            (spawnSync as ReturnType<typeof vi.fn>).mockReturnValue({ error: Object.assign(new Error('ENOENT'), { code: 'ENOENT' }) });
+            expect(() => fzf_select(['a', 'b'])).toThrow('fzf not found');
+        });
+
+        it('returns null when fzf exits with non-zero', () => {
+            (spawnSync as ReturnType<typeof vi.fn>).mockReturnValue({ status: 1, stdout: '' });
+            expect(fzf_select(['a', 'b'])).toBeNull();
+        });
+
+        it('returns selected item on success', () => {
+            (spawnSync as ReturnType<typeof vi.fn>).mockReturnValue({ status: 0, stdout: 'b\n' });
+            expect(fzf_select(['a', 'b'])).toBe('b');
+        });
+
+        it('returns array in multi mode', () => {
+            (spawnSync as ReturnType<typeof vi.fn>).mockReturnValue({ status: 0, stdout: 'a\nb\n' });
+            expect(fzf_select(['a', 'b'], { multi: true })).toEqual(['a', 'b']);
+        });
+    });
+
+    describe('parse_args', () => {
+        it('parses --flag=value syntax', () => {
+            const result = parse_args(['--name=foo']);
+            expect(result.flags.get('name')).toBe('foo');
+        });
+
+        it('parses -f value syntax', () => {
+            const result = parse_args(['-f', 'file']);
+            expect(result.flags.get('f')).toBe('file');
+        });
+
+        it('parses -- separator', () => {
+            const result = parse_args(['--flag', '--', 'pos1', 'pos2']);
+            expect(result.flags.get('flag')).toBe(true);
+            expect(result.positional).toEqual(['pos1', 'pos2']);
+        });
+
+        it('parses boolean short flag', () => {
+            const result = parse_args(['-v']);
+            expect(result.flags.get('v')).toBe(true);
         });
     });
 });

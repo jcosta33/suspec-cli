@@ -4,11 +4,13 @@ import {
     parse_args,
     red,
     split_command,
-} from '../../Terminal/index.ts';
+    fzf_select,
+    yellow,
+} from '../../Terminal/useCases/index.ts';
 import {
     get_repo_root,
     worktree_list,
-} from '../../Workspace/index.ts';
+} from '../../Workspace/useCases/index.ts';
 
 import { spawnSync } from 'child_process';
 
@@ -22,11 +24,28 @@ export function run(): number {
     }
 
     const { positional } = parse_args(process.argv.slice(2));
-    const slug = positional[0];
+    let slug = positional[0];
 
     if (!slug) {
-        console.log(red('Usage: swarm focus <slug>'));
-        return 1;
+        const sandboxes = worktree_list(repoRoot);
+        const items = sandboxes.map((w) => w.branch?.replace('agent/', '')).filter((s): s is string => !!s);
+        if (items.length === 0) {
+            console.log(yellow('No active sandboxes.'));
+            return 1;
+        }
+        try {
+            const selected = fzf_select(items);
+            if (!selected) {
+                console.log(red('No selection made.'));
+                return 1;
+            }
+            slug = Array.isArray(selected) ? selected[0] : selected;
+        } catch (e: unknown) {
+            console.log(red('Usage: swarm focus <slug>'));
+            const message = e instanceof Error ? e.message : String(e);
+            console.log(yellow(`(Fuzzy search failed: ${message})`));
+            return 1;
+        }
     }
 
     const sandboxes = worktree_list(repoRoot);

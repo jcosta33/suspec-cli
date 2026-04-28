@@ -5,8 +5,8 @@ import {
     parse_args,
     red,
     yellow,
-} from '../../Terminal/index.ts';
-import { get_repo_root, worktree_list } from '../../Workspace/index.ts';
+} from '../../Terminal/useCases/index.ts';
+import { get_repo_root, worktree_list } from '../../Workspace/useCases/index.ts';
 
 import { spawnSync } from 'child_process';
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'child_process';
-import { red, cyan, bold, dim, parse_args } from '../../Terminal/index.ts';
-import { get_repo_root, resolve_within } from '../../Workspace/index.ts';
+import { red, cyan, bold, dim, parse_args } from '../../Terminal/useCases/index.ts';
+import { get_repo_root, resolve_within } from '../../Workspace/useCases/index.ts';
 
 export function run(): number {
     let repoRoot;

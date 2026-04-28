@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
-import { cyan, dim, green, red, yellow } from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
+import { spinner } from '@clack/prompts';
+import { cyan, dim, green, red, yellow } from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 
 import { spawnSync } from 'child_process';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
@@ -21,11 +22,12 @@ export function run(): number {
         return 1;
     }
 
-    console.log(cyan('\nChecking for outdated dependencies...\n'));
+    const s = spinner();
+    s.start('Checking for outdated dependencies...');
 
     const pkgPath = join(repoRoot, 'package.json');
     if (!existsSync(pkgPath)) {
-        console.error(red('No package.json found.'));
+        s.stop(red('No package.json found.'));
         return 1;
     }
 
@@ -39,7 +41,7 @@ export function run(): number {
     try {
         if (res.stdout) outdated = JSON.parse(res.stdout) as Record<string, OutdatedInfo>;
     } catch (_e: unknown) {
-        console.error(
+        s.stop(
             yellow(
                 'Failed to parse npm outdated output. Make sure dependencies are installed.'
             )
@@ -49,11 +51,11 @@ export function run(): number {
 
     const packages = Object.keys(outdated);
     if (packages.length === 0) {
-        console.log(green('✓ All dependencies are up to date.'));
+        s.stop(green('✓ All dependencies are up to date.'));
         return 0;
     }
 
-    console.log(yellow(`Found ${packages.length.toString()} outdated packages.`));
+    s.stop(yellow(`Found ${packages.length.toString()} outdated packages.`));
 
     const tasksDir = join(repoRoot, '.agents', 'tasks');
     if (!existsSync(tasksDir)) mkdirSync(tasksDir, { recursive: true });

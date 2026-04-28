@@ -1,4 +1,5 @@
-import { parse_args, load_config } from '../../Terminal/index.ts';
+import { parse_args } from '../useCases/cli.ts';
+import { load_config } from '../useCases/config.ts';
 import { resolve_backend, check_backend, build_banner, strip_flag, posix_quote } from '../useCases/terminal.ts';
 
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';

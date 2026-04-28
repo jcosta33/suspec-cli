@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { parse_args, red, green, dim } from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
-import { claim_lock, list_locks, release_lock } from '../../AgentState/index.ts';
+import { parse_args, red, green, dim } from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
+import { claim_lock, list_locks, release_lock } from '../../AgentState/useCases/index.ts';
 
 export function run(): number {
     let repoRoot: string;

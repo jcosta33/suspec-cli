@@ -62,11 +62,11 @@ src/modules/Workspace/
 
 ## 4. Naming convention
 
-Every `it` block starts with `should` or `should not`, followed by a concise description of the behaviour under test:
+Every `it` block should clearly describe the behavior under test:
 
-- `it('should parse branch name from git output')`
-- `it('should not emit when config is empty')`
-- `it('should throw ConfigError when path is missing')`
+- `it('returns the current branch name')`
+- `it('does not emit when config is empty')`
+- `it('throws ConfigError when path is missing')`
 
 ---
 

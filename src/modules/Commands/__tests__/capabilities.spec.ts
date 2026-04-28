@@ -1,11 +1,11 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { run } from '../useCases/capabilities.ts';
 
-vi.mock('../index.ts', () => ({
+vi.mock('../services/registry.ts', () => ({
     list_capabilities: vi.fn(),
 }));
 
-import { list_capabilities } from '../index.ts';
+import { list_capabilities } from '../services/registry.ts';
 
 describe('capabilities', () => {
     beforeEach(() => {

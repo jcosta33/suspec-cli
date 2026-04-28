@@ -1,14 +1,14 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-vi.mock('../../Adapters/index.ts', () => ({
+vi.mock('../../Adapters/useCases/index.ts', () => ({
     get_adapter: vi.fn(),
 }));
 
-vi.mock('../../AgentState/index.ts', () => ({
+vi.mock('../../AgentState/useCases/index.ts', () => ({
     write_state: vi.fn(),
 }));
 
-vi.mock('../../Terminal/index.ts', () => ({
+vi.mock('../../Terminal/useCases/index.ts', () => ({
     check_backend: vi.fn(),
     command_exists: vi.fn(),
     error: vi.fn(),
@@ -16,10 +16,11 @@ vi.mock('../../Terminal/index.ts', () => ({
     load_config: vi.fn(),
     red: vi.fn((text: string) => text),
     resolve_backend: vi.fn((backend: string) => backend),
+    notify: vi.fn(),
 }));
 
-import { get_adapter } from '../../Adapters/index.ts';
-import { write_state } from '../../AgentState/index.ts';
+import { get_adapter } from '../../Adapters/useCases/index.ts';
+import { write_state } from '../../AgentState/useCases/index.ts';
 import {
     check_backend,
     command_exists,
@@ -27,7 +28,7 @@ import {
     launch,
     load_config,
     resolve_backend,
-} from '../../Terminal/index.ts';
+} from '../../Terminal/useCases/index.ts';
 import { launch_agent, run_agent_launch } from '../useCases/launch-agent.ts';
 
 describe('launch_agent', () => {
@@ -107,7 +108,7 @@ describe('launch_agent', () => {
         (resolve_backend as ReturnType<typeof vi.fn>).mockReturnValue('current');
         (check_backend as ReturnType<typeof vi.fn>).mockReturnValue({ ok: true });
         (get_adapter as ReturnType<typeof vi.fn>).mockReturnValue(undefined);
-        (launch as ReturnType<typeof vi.fn>).mockReturnValue(0);
+        (launch as ReturnType<typeof vi.fn>).mockReturnValue({ ok: true, value: 0 });
 
         const result = launch_agent({
             repoRoot: '/repo',
@@ -152,7 +153,7 @@ describe('launch_agent', () => {
             command: 'kimi',
             build_args,
         });
-        (launch as ReturnType<typeof vi.fn>).mockReturnValue(0);
+        (launch as ReturnType<typeof vi.fn>).mockReturnValue({ ok: true, value: 0 });
 
         const result = launch_agent({
             repoRoot: '/repo',
@@ -184,7 +185,7 @@ describe('launch_agent', () => {
         (command_exists as ReturnType<typeof vi.fn>).mockReturnValue(true);
         (resolve_backend as ReturnType<typeof vi.fn>).mockReturnValue('current');
         (check_backend as ReturnType<typeof vi.fn>).mockReturnValue({ ok: true });
-        (launch as ReturnType<typeof vi.fn>).mockReturnValue(0);
+        (launch as ReturnType<typeof vi.fn>).mockReturnValue({ ok: true, value: 0 });
 
         launch_agent({
             repoRoot: '/repo',
@@ -210,7 +211,7 @@ describe('launch_agent', () => {
         (command_exists as ReturnType<typeof vi.fn>).mockReturnValue(true);
         (resolve_backend as ReturnType<typeof vi.fn>).mockReturnValue('current');
         (check_backend as ReturnType<typeof vi.fn>).mockReturnValue({ ok: true });
-        (launch as ReturnType<typeof vi.fn>).mockReturnValue(0);
+        (launch as ReturnType<typeof vi.fn>).mockReturnValue({ ok: true, value: 0 });
 
         launch_agent({
             repoRoot: '/repo',
@@ -237,7 +238,7 @@ describe('launch_agent', () => {
         (command_exists as ReturnType<typeof vi.fn>).mockReturnValue(true);
         (resolve_backend as ReturnType<typeof vi.fn>).mockReturnValue('current');
         (check_backend as ReturnType<typeof vi.fn>).mockReturnValue({ ok: true });
-        (launch as ReturnType<typeof vi.fn>).mockReturnValue(42);
+        (launch as ReturnType<typeof vi.fn>).mockReturnValue({ ok: true, value: 42 });
 
         const result = launch_agent({
             repoRoot: '/repo',
@@ -257,7 +258,7 @@ describe('launch_agent', () => {
         (command_exists as ReturnType<typeof vi.fn>).mockReturnValue(true);
         (resolve_backend as ReturnType<typeof vi.fn>).mockReturnValue('terminal');
         (check_backend as ReturnType<typeof vi.fn>).mockReturnValue({ ok: true });
-        (launch as ReturnType<typeof vi.fn>).mockReturnValue(undefined);
+        (launch as ReturnType<typeof vi.fn>).mockReturnValue({ ok: true, value: undefined });
 
         const result = launch_agent({
             repoRoot: '/repo',
@@ -283,7 +284,7 @@ describe('run_agent_launch', () => {
         (command_exists as ReturnType<typeof vi.fn>).mockReturnValue(true);
         (resolve_backend as ReturnType<typeof vi.fn>).mockReturnValue('current');
         (check_backend as ReturnType<typeof vi.fn>).mockReturnValue({ ok: true });
-        (launch as ReturnType<typeof vi.fn>).mockReturnValue(0);
+        (launch as ReturnType<typeof vi.fn>).mockReturnValue({ ok: true, value: 0 });
 
         const result = run_agent_launch({
             repoRoot: '/repo',

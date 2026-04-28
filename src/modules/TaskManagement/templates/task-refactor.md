@@ -2,6 +2,9 @@
 
 ## Metadata
 
+## Agent Persona
+{{persona}}
+
 - Slug: {{slug}}
 - Agent: {{agent}}
 - Branch: {{branch}}

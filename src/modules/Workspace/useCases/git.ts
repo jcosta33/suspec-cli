@@ -7,7 +7,7 @@ import { basename } from 'path';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { err, ok, type Result } from '../../../infra/errors/result.ts';
 
-type WorktreeInfo = {
+export type WorktreeInfo = {
     path: string;
     head: string | null;
     branch: string | null;
@@ -196,11 +196,24 @@ export function worktree_remove(worktreePath: string, force: boolean, repoRoot: 
     return ok({ path: worktreePath });
 }
 
+export type WorktreePruneError = AppError<
+    'WorktreePruneFailed',
+    { stderr: string }
+>;
+
+export type WorktreePruneResult = Result<void, WorktreePruneError>;
+
 /**
  * Run `git worktree prune`.
  */
-export function worktree_prune(repoRoot: string) {
-    git(['worktree', 'prune'], { cwd: repoRoot });
+export function worktree_prune(repoRoot: string): WorktreePruneResult {
+    try {
+        git(['worktree', 'prune'], { cwd: repoRoot });
+        return ok(undefined);
+    } catch (e: unknown) {
+        const errorMsg = e instanceof Error ? e.message : String(e);
+        return err(createAppError('WorktreePruneFailed', `git worktree prune failed: ${errorMsg}`, { stderr: errorMsg }));
+    }
 }
 
 /**

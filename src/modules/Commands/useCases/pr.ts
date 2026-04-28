@@ -3,8 +3,8 @@
 import { spawnSync } from 'child_process';
 import { join } from 'path';
 import { readFileSync, existsSync } from 'fs';
-import { red, green, cyan, bold, dim, yellow, parse_args } from '../../Terminal/index.ts';
-import { get_repo_root, worktree_list } from '../../Workspace/index.ts';
+import { red, green, cyan, bold, dim, yellow, parse_args } from '../../Terminal/useCases/index.ts';
+import { get_repo_root, worktree_list } from '../../Workspace/useCases/index.ts';
 
 function findWorktreePath(slug: string, repoRoot: string) {
     const worktrees = worktree_list(repoRoot);

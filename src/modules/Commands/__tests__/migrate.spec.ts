@@ -8,7 +8,7 @@ vi.mock('child_process', async (importOriginal) => {
     return { ...(actual as object), spawnSync: vi.fn() };
 });
 
-vi.mock('../../Workspace/index.ts', () => ({
+vi.mock('../../Workspace/useCases/index.ts', () => ({
     get_repo_root: vi.fn(() => '/tmp/repo'),
     resolve_within: vi.fn((root: string, path: string) => ({ ok: true, value: `${root}/${path}` })),
 }));

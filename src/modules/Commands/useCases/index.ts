@@ -1,7 +1,7 @@
-export * from './services/registry.ts';
+export * from '../services/registry.ts';
 
-import { register_capability } from './services/registry.ts';
-import { adapter_capabilities } from '../Adapters/index.ts';
+import { register_capability } from '../services/registry.ts';
+import { adapter_capabilities } from '../../Adapters/useCases/index.ts';
 
 for (const cap of adapter_capabilities) {
     register_capability(cap);

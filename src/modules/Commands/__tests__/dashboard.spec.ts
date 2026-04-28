@@ -11,11 +11,11 @@ vi.mock('@clack/prompts', () => ({
     text: vi.fn(),
 }));
 
-vi.mock('../../AgentState/index.ts', () => ({
+vi.mock('../../AgentState/useCases/index.ts', () => ({
     read_state: vi.fn(),
 }));
 
-vi.mock('../../Workspace/index.ts', () => ({
+vi.mock('../../Workspace/useCases/index.ts', () => ({
     get_repo_root: vi.fn(),
     worktree_list: vi.fn(),
 }));
@@ -29,8 +29,8 @@ vi.mock('child_process', async (importOriginal) => {
 });
 
 import * as clack from '@clack/prompts';
-import { read_state } from '../../AgentState/index.ts';
-import { get_repo_root, worktree_list } from '../../Workspace/index.ts';
+import { read_state } from '../../AgentState/useCases/index.ts';
+import { get_repo_root, worktree_list } from '../../Workspace/useCases/index.ts';
 import { spawnSync } from 'child_process';
 import { run_dashboard } from '../useCases/dashboard.ts';
 

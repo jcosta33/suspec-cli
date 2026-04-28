@@ -2,8 +2,8 @@
 
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
 import { join, basename } from 'path';
-import { red, cyan, bold, dim, green, parse_args } from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
+import { red, cyan, bold, dim, green, parse_args } from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 
 export function generateBugSpec(content: string, slug: string): string {
     return `# Bug: ${slug}

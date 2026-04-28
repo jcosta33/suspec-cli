@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { get_adapter } from '../../Adapters/index.ts';
-import { write_state } from '../../AgentState/index.ts';
+import { get_adapter } from '../../Adapters/useCases/index.ts';
+import { write_state } from '../../AgentState/useCases/index.ts';
 import { swarmBus } from '../../../infra/events/swarmBus.ts';
 import {
     check_backend,
@@ -11,7 +11,8 @@ import {
     load_config,
     red,
     resolve_backend,
-} from '../../Terminal/index.ts';
+    notify,
+} from '../../Terminal/useCases/index.ts';
 
 type LaunchAgentInput = {
     repoRoot: string;
@@ -85,8 +86,27 @@ export function launch_agent(input: LaunchAgentInput): number {
         startedAt,
     });
 
-    const exitCode = launch(backend, worktreePath, agentCfg.command, args, bannerInfo, repoRoot);
+    const launchResult = launch(backend, worktreePath, agentCfg.command, args, bannerInfo, repoRoot);
     const finishedAt = new Date().toISOString();
+    
+    if (!launchResult.ok) {
+        error(`Failed to launch agent: ${launchResult.error.message}`);
+        
+        notify('Swarm CLI', `Failed to launch agent ${agentName} for ${slug}.`);
+        
+        void swarmBus.emit('agent.session.recorded', {
+            repoRoot,
+            slug,
+            agent: agentName,
+            startedAt,
+            finishedAt,
+            exitCode: null,
+        });
+        
+        return 1;
+    }
+
+    const exitCode = launchResult.value;
     const numericExitCode = typeof exitCode === 'number' ? exitCode : null;
 
     // Sync handlers (the telemetry recorder) run inline before emit() resolves,
@@ -101,6 +121,8 @@ export function launch_agent(input: LaunchAgentInput): number {
     });
 
     if (typeof exitCode === 'number') {
+        const msg = exitCode === 0 ? 'completed successfully.' : `failed with exit code ${String(exitCode)}.`;
+        notify('Swarm CLI', `Agent ${agentName} for task ${slug} ${msg}`);
         return exitCode;
     }
     return 0;

@@ -2,16 +2,16 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { run } from '../useCases/task.ts';
 import { writeFileSync, mkdirSync } from 'fs';
 
-vi.mock('../../Workspace/index.ts', () => ({
+vi.mock('../../Workspace/useCases/index.ts', () => ({
     get_repo_root: vi.fn(() => '/tmp/repo'),
 }));
 
-vi.mock('../../Terminal/index.ts', async (importOriginal) => {
+vi.mock('../../Terminal/useCases/index.ts', async (importOriginal) => {
     const actual = await importOriginal();
     return { ...(actual as object), prompt_input: vi.fn() };
 });
 
-import { prompt_input } from '../../Terminal/index.ts';
+import { prompt_input } from '../../Terminal/useCases/index.ts';
 
 describe('task', () => {
     beforeEach(() => {

@@ -3,12 +3,21 @@
 import { existsSync, mkdirSync, readFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { spawn, type ChildProcess } from 'child_process';
-import { parse_args, red, green, dim, cyan, bold } from '../../Terminal/index.ts';
-import { load_config } from '../../Terminal/index.ts';
-import { get_repo_root, get_repo_name, worktree_create, branch_exists } from '../../Workspace/index.ts';
-import { write_state } from '../../AgentState/index.ts';
-import { create_or_update_task_file, derive_names, validate_dag, topological_sort } from '../../TaskManagement/index.ts';
-import { get_adapter } from '../../Adapters/index.ts';
+import { parse_args, red, green, dim, cyan, bold } from '../../Terminal/useCases/index.ts';
+import { load_config } from '../../Terminal/useCases/index.ts';
+import { get_repo_root, get_repo_name, worktree_create, branch_exists } from '../../Workspace/useCases/index.ts';
+import { write_state } from '../../AgentState/useCases/index.ts';
+import { create_or_update_task_file, derive_names, validate_dag, topological_sort } from '../../TaskManagement/useCases/index.ts';
+import { get_adapter } from '../../Adapters/useCases/index.ts';
+import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
+import { err, ok, type Result } from '../../../infra/errors/result.ts';
+
+export type LoadTaskGraphError = AppError<
+    'InvalidTaskGraph',
+    { file: string; reason: string }
+>;
+
+export type LoadTaskGraphResult = Result<TaskNode[], LoadTaskGraphError>;
 
 type TaskNode = {
     id: string;
@@ -30,33 +39,40 @@ function is_task_node(value: unknown): value is TaskNode {
     return node.dependencies.every((d) => typeof d === 'string');
 }
 
-export function load_task_graph(path: string): TaskNode[] {
-    const text = readFileSync(path, 'utf8');
+export function load_task_graph(path: string): LoadTaskGraphResult {
+    let text: string;
+    try {
+        text = readFileSync(path, 'utf8');
+    } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : String(e);
+        return err(createAppError('InvalidTaskGraph', `Failed to read file: ${message}`, { file: path, reason: message }));
+    }
+
     let raw: unknown;
     try {
         raw = JSON.parse(text);
     } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
-        throw new Error(`Invalid JSON in task graph: ${message}`, { cause: e });
+        return err(createAppError('InvalidTaskGraph', `Invalid JSON in task graph: ${message}`, { file: path, reason: message }));
     }
 
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-        throw new Error('Invalid task graph: expected object with a "tasks" array');
+        return err(createAppError('InvalidTaskGraph', 'Invalid task graph: expected object with a "tasks" array', { file: path, reason: 'not an object' }));
     }
     const obj = raw as Record<string, unknown>;
     if (!Array.isArray(obj.tasks)) {
-        throw new Error('Invalid task graph: expected { tasks: [...] }');
+        return err(createAppError('InvalidTaskGraph', 'Invalid task graph: expected { tasks: [...] }', { file: path, reason: 'missing tasks array' }));
     }
 
     const invalid = obj.tasks.findIndex((t) => !is_task_node(t));
     if (invalid !== -1) {
-        throw new Error(`Invalid task at index ${String(invalid)}: each task needs { id: string, description: string, dependencies: string[] }`);
+        return err(createAppError('InvalidTaskGraph', `Invalid task at index ${String(invalid)}: each task needs { id: string, description: string, dependencies: string[] }`, { file: path, reason: 'invalid task node' }));
     }
 
-    return obj.tasks as TaskNode[];
+    return ok(obj.tasks as TaskNode[]);
 }
 
-function spawn_agent(
+export function spawn_agent(
     repoRoot: string,
     slug: string,
     worktreePath: string,
@@ -92,7 +108,7 @@ function spawn_agent(
     return child;
 }
 
-function track_child(child: ChildProcess): Promise<number> {
+export function track_child(child: ChildProcess): Promise<number> {
     return new Promise((resolve) => {
         child.on('exit', (code, signal) => {
             resolve(signal ? 1 : (code ?? 1));
@@ -103,7 +119,7 @@ function track_child(child: ChildProcess): Promise<number> {
     });
 }
 
-async function execute_dag(
+export async function execute_dag(
     tasks: TaskNode[],
     repoRoot: string,
     parentSlug: string,
@@ -256,13 +272,12 @@ export function run(): number {
     }
 
     let tasks: TaskNode[];
-    try {
-        tasks = load_task_graph(fullPath);
-    } catch (e: unknown) {
-        const message = e instanceof Error ? e.message : String(e);
-        console.error(red(`Failed to load task graph: ${message}`));
+    const loadResult = load_task_graph(fullPath);
+    if (!loadResult.ok) {
+        console.error(red(`Failed to load task graph: ${loadResult.error.message}`));
         return 1;
     }
+    tasks = loadResult.value;
 
     if (tasks.length > maxTasks) {
         console.log(dim(`Truncating to ${String(maxTasks)} tasks (found ${String(tasks.length)}).`));

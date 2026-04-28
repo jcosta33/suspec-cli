@@ -1,8 +1,14 @@
 # Documentation
 
-This documentation defines the documentation-first workflow, file types, and writing standards used by the Swarm CLI.
+This documentation defines the architectural rules, coding conventions, testing guidelines, and the documentation-first workflow used by the Swarm CLI.
 
-> **Note**: These files are meant for human reading. For the authoritative, machine-enforced rules that AI agents follow, see `.agents/skills/*/SKILL.md`.
+> **Note**: These files are meant for human reading and understanding the project's structure. For the authoritative, machine-enforced rules that AI agents follow, see `.agents/skills/*/SKILL.md`.
+
+## Engineering Guidelines
+
+- ➡️ **[Architecture](./05-architecture.md)** — DDD module boundaries, public contracts, and private internals.
+- ➡️ **[Testing](./06-testing.md)** — Vitest layout, mocks, and test file organization.
+- ➡️ **[Conventions](./07-conventions.md)** — Explicit control flow, naming, and language anti-patterns.
 
 ## Documentation workflow
 

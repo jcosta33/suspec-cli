@@ -7,10 +7,10 @@ import {
     load_config,
     red,
     yellow,
-} from '../../Terminal/index.ts';
-import { get_repo_root } from '../../Workspace/index.ts';
+} from '../../Terminal/useCases/index.ts';
+import { get_repo_root } from '../../Workspace/useCases/index.ts';
 import { spawnSync } from 'child_process';
-import { split_command } from '../../Terminal/index.ts';
+import { split_command } from '../../Terminal/useCases/index.ts';
 
 const MAX_LINES_PER_COMMAND = 50;
 

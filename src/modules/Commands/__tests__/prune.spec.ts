@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { run } from '../useCases/prune.ts';
 
-vi.mock('../../Workspace/index.ts', () => ({
+vi.mock('../../Workspace/useCases/index.ts', () => ({
     get_repo_root: vi.fn(() => '/tmp/repo'),
     worktree_list: vi.fn(),
     is_branch_merged_into: vi.fn(() => true),
@@ -10,11 +10,11 @@ vi.mock('../../Workspace/index.ts', () => ({
     worktree_prune: vi.fn(),
 }));
 
-vi.mock('../../AgentState/index.ts', () => ({
+vi.mock('../../AgentState/useCases/index.ts', () => ({
     remove_state: vi.fn(),
 }));
 
-import { worktree_list } from '../../Workspace/index.ts';
+import { worktree_list } from '../../Workspace/useCases/index.ts';
 
 describe('prune', () => {
     beforeEach(() => {

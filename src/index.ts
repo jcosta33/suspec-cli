@@ -15,15 +15,12 @@ import { fileURLToPath } from 'url';
 import color from 'picocolors';
 import { print_help } from './modules/Commands/useCases/help.ts';
 import { run_dashboard } from './modules/Commands/useCases/dashboard.ts';
-import { get_adapter } from './modules/Adapters/index.ts';
-import { run_with_context } from './modules/Terminal/index.ts';
-import { persist_event, record_session } from './modules/AgentState/index.ts';
+import { get_adapter } from './modules/Adapters/useCases/index.ts';
+import { run_with_context } from './modules/Terminal/useCases/index.ts';
+import { persist_event, record_session } from './modules/AgentState/useCases/index.ts';
 import { swarmBus } from './infra/events/swarmBus.ts';
 
 // ── Event-bus bootstrap ─────────────────────────────────────────────────────
-// Telemetry persistence is wired through the bus so that emitters
-// (launch-agent, etc.) don't need to know about the SQLite layer. Listeners
-// are registered exactly once per process — this file is the entry point.
 swarmBus.on('agent.session.recorded', (event) => {
     const id = `${event.slug}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     record_session(event.repoRoot, {
@@ -37,10 +34,6 @@ swarmBus.on('agent.session.recorded', (event) => {
     });
 });
 
-// Tail-able audit trail. Every event lands in .agents/logs/events.ndjson so
-// operators can `tail -f` the file or `swarm logs --events` to watch the
-// system in real time. Each event payload includes `repoRoot`, so the
-// listener routes to the correct file even across multi-repo invocations.
 swarmBus.onAny((eventName, payload) => {
     if (
         payload &&
@@ -64,6 +57,85 @@ const AGENT_INSTALL_INFO: Record<string, { install: string; desc: string } | und
     kimi: { install: 'npm install -g @moonshot/kimi-cli', desc: 'Moonshot Kimi CLI agent.' },
     opencode: { install: 'npm install -g opencode', desc: 'OpenCode CLI agent.' },
 };
+
+export * from './modules/Commands/services/registry.ts';
+import { register_capability } from './modules/Commands/services/registry.ts';
+import { adapter_capabilities } from './modules/Adapters/useCases/index.ts';
+
+for (const cap of adapter_capabilities) {
+    register_capability(cap);
+}
+
+const COMMAND_CATALOG = [
+    { name: 'new', description: 'Create a new isolated sandbox task' },
+    { name: 'open', description: 'Reopen an existing sandbox' },
+    { name: 'list', description: 'List active sandboxes' },
+    { name: 'show', description: 'Show detailed metadata for a sandbox' },
+    { name: 'status', description: 'Runtime status: state, telemetry, dirtiness' },
+    { name: 'remove', description: 'Forcefully remove a sandbox' },
+    { name: 'prune', description: 'Clean up merged or orphaned sandboxes' },
+    { name: 'validate', description: 'Run configured linters and typechecks' },
+    { name: 'test', description: 'Run the test runner' },
+    { name: 'test-radius', description: 'Run only the specs impacted by a file' },
+    { name: 'init', description: 'Setup Swarm in the current repository' },
+    { name: 'lock', description: 'Advisory file locking for parallel agents' },
+    { name: 'merge', description: 'Merge a branch with conflict detection' },
+    { name: 'capabilities', description: 'List registered capabilities' },
+    { name: 'help', description: 'Show command reference' },
+    { name: 'dashboard', description: 'Launch interactive TUI dashboard' },
+    { name: 'decompose', description: 'Decompose a task graph into a DAG' },
+    { name: 'logs', description: 'Query the telemetry database' },
+    { name: 'arch', description: 'Lint cross-module boundary invariants' },
+    { name: 'audit-sec', description: 'Scan for dangerous patterns and secrets' },
+    { name: 'ast-rename', description: 'Structural rename of a symbol' },
+    { name: 'chaos', description: 'Toggle latency/failure injection' },
+    { name: 'chat', description: 'Append-only IPC log between agents' },
+    { name: 'complexity', description: 'Cyclomatic complexity heuristic' },
+    { name: 'compress', description: 'Skeletonize a TS file' },
+    { name: 'context', description: 'Generate semantic export map for RAG' },
+    { name: 'daemon', description: 'Background watcher running test-radius on save' },
+    { name: 'dead-code', description: 'Find exported symbols never imported' },
+    { name: 'deps', description: 'Find outdated packages and queue upgrade tasks' },
+    { name: 'docs', description: 'Extract JSDoc blocks' },
+    { name: 'doctor', description: 'Deep environment diagnostics' },
+    { name: 'epic', description: 'Decompose a markdown checklist into child tasks' },
+    { name: 'find', description: 'Semantic-ish symbol search' },
+    { name: 'focus', description: 'Open a sandbox in your editor' },
+    { name: 'format', description: 'Run Prettier on a single file' },
+    { name: 'fuzz', description: 'Generate fuzz tests for a function' },
+    { name: 'graph', description: 'Map import/export dependency graph' },
+    { name: 'heal', description: 'Self-healing hotfix when typecheck fails' },
+    { name: 'health', description: 'Quick pre-flight environment check' },
+    { name: 'knowledge', description: 'Search past tasks, audits, specs, PRs' },
+    { name: 'memory', description: 'Cross-agent markdown memory bank' },
+    { name: 'message', description: 'Queue a structured message into a mailbox' },
+    { name: 'migrate', description: 'Translator + Verifier agent pair' },
+    { name: 'mock', description: 'Generate a TS mock factory for an interface' },
+    { name: 'path', description: 'Print absolute path of a sandbox' },
+    { name: 'pick', description: 'Fuzzy-finder over sandboxes' },
+    { name: 'pr', description: 'Auto-commit and optionally open a PR' },
+    { name: 'profile', description: 'Profile a Node process and assign optimizer' },
+    { name: 'refactor', description: 'Break a refactor into chunks' },
+    { name: 'references', description: 'Fast git-grep symbol usages' },
+    { name: 'release', description: 'Bump semver and draft release notes' },
+    { name: 'repro', description: 'Verify TDD: tests modified before source' },
+    { name: 'review', description: 'Spawn an adversarial peer-review agent' },
+    { name: 'screenshot', description: 'Capture a Playwright screenshot' },
+    { name: 'task', description: 'Append human feedback to a task file' },
+    { name: 'telemetry', description: 'Aggregated session metrics dashboard' },
+    { name: 'triage', description: 'Convert a raw bug report into a spec' },
+    { name: 'visual', description: 'Screenshot-based visual regression' },
+] as const;
+
+for (const cmd of COMMAND_CATALOG) {
+    register_capability({
+        name: cmd.name,
+        version: '1.0.0',
+        type: 'command',
+        description: cmd.description,
+        entry_point: `./useCases/${cmd.name}.ts`,
+    });
+}
 
 function get_git_info() {
     try {
@@ -90,13 +162,11 @@ function print_agent_banner(agentName: string, args: string[]) {
     const info = get_git_info();
     const model = extract_model_arg(args);
 
-    // Pick a stable color based on worktree path
     const colorsList = ['cyan', 'magenta', 'yellow', 'blue', 'green'] as const;
     const hash = info.worktree.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const themeColor = colorsList[hash % colorsList.length];
     const c = (color as unknown as Record<string, (text: string) => string>)[themeColor];
 
-    // Set Terminal Title
     process.stdout.write(`\x1b]0;[Swarm] ${info.repoName} | ${info.branch}\x07`);
 
     console.clear();
@@ -126,7 +196,20 @@ function print_agent_banner(agentName: string, args: string[]) {
     console.log('');
 }
 
-async function handle_unknown_command(cmd: string): Promise<number> {
+function levenshtein(a: string, b: string): number {
+    const matrix = Array.from({ length: a.length + 1 }, () => Array.from({ length: b.length + 1 }, () => 0));
+    for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
+    for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= a.length; i++) {
+        for (let j = 1; j <= b.length; j++) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            matrix[i][j] = Math.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j - 1] + cost);
+        }
+    }
+    return matrix[a.length][b.length];
+}
+
+async function handle_unknown_command(cmd: string, args: string[]): Promise<number> {
     const adapter = get_adapter(cmd);
     const installInfo = AGENT_INSTALL_INFO[cmd];
     let executable: string | null = null;
@@ -184,17 +267,54 @@ async function handle_unknown_command(cmd: string): Promise<number> {
             return 1;
         }
 
-        // Massive, un-missable beautiful header
-        print_agent_banner(cmd, process.argv.slice(3));
-
-        spawnSync(executable, process.argv.slice(3), { stdio: 'inherit', shell: false });
-
+        print_agent_banner(cmd, args);
+        spawnSync(executable, args, { stdio: 'inherit', shell: false });
         console.log('');
         outro(color.green(`Agent '${cmd}' execution completed.`));
         return 0;
     }
 
-    intro(color.bgCyan(color.black(' Swarm CLI ')));
+    // Try fuzzy matching to suggest a correct command
+    const validCommands = COMMAND_CATALOG.map(c => c.name);
+    const validAgents = Object.keys(AGENT_INSTALL_INFO);
+    const allValid = [...validCommands, ...validAgents];
+    
+    let closest = '';
+    let minDistance = Infinity;
+    
+    for (const valid of allValid) {
+        const d = levenshtein(cmd, valid);
+        if (d < minDistance) {
+            minDistance = d;
+            closest = valid;
+        }
+    }
+    
+    if (minDistance > 0 && minDistance <= 2) {
+        intro(color.bgCyan(color.black(' Swarm CLI ')));
+        log.warn(`Unknown command: ${color.red(cmd)}`);
+        
+        const isBuiltin = (validCommands as string[]).includes(closest);
+        const suggestionType = isBuiltin ? 'command' : 'agent';
+        
+        const shouldRun = await confirm({
+            message: `Did you mean the ${suggestionType} ${color.cyan(closest)}?`,
+            initialValue: true
+        });
+        
+        if (isCancel(shouldRun)) {
+            cancel('Aborted.');
+            return 1;
+        }
+        
+        if (shouldRun) {
+            outro();
+            return execute_command(closest, args);
+        }
+    } else {
+        intro(color.bgCyan(color.black(' Swarm CLI ')));
+    }
+
     log.error(color.red(`Unknown command: ${cmd}`));
     log.message(`Use ${color.cyan('swarm --help')} to see available commands.`);
     log.info(
@@ -208,33 +328,11 @@ function note(message: string, title: string) {
     log.message(`${color.cyan('│')} ${color.bold(title)}\n${color.cyan('│')} ${message}`);
 }
 
-async function main(): Promise<number> {
-    const argv = process.argv.slice(2);
-    if (argv[0] === '--help' || argv[0] === '-h') {
-        print_help();
-        return 0;
-    }
-
-    if (argv.length === 0) {
-        return run_dashboard();
-    }
-
-    const cmd = argv[0];
-
-    // Strict allowlist: command names are kebab-case ASCII. Rejects anything
-    // that could traverse paths or hit a symlinked file outside our useCases dir.
-    if (!/^[a-z0-9][a-z0-9-]*$/.test(cmd)) {
-        console.error(color.red(`Invalid command: ${cmd}`));
-        return 1;
-    }
-
+async function execute_command(cmd: string, args: string[]): Promise<number> {
     const useCasesDir = resolve(dirname(fileURLToPath(import.meta.url)), 'modules/Commands/useCases');
     const candidatePath = join(useCasesDir, `${cmd}.ts`);
 
     if (existsSync(candidatePath)) {
-        // Reject symlinks and verify the resolved path is still inside useCasesDir.
-        // Otherwise an attacker who can drop a file on disk could redirect a swarm
-        // command to an arbitrary script.
         try {
             const stat = lstatSync(candidatePath);
             if (stat.isSymbolicLink()) {
@@ -255,13 +353,13 @@ async function main(): Promise<number> {
 
         const res = spawnSync(
             process.execPath,
-            ['--experimental-strip-types', candidatePath, ...argv.slice(1)],
+            ['--experimental-strip-types', candidatePath, ...args],
             {
                 stdio: 'inherit',
                 cwd: process.cwd(),
             }
         );
-        // Forward signal exit codes correctly
+        
         if (res.signal) {
             process.kill(process.pid, res.signal);
             return 1;
@@ -269,7 +367,39 @@ async function main(): Promise<number> {
         return res.status ?? 1;
     }
 
-    return handle_unknown_command(cmd);
+    return handle_unknown_command(cmd, args);
+}
+
+async function main(): Promise<number> {
+    let argv = process.argv.slice(2);
+    
+    if (argv.includes('--quiet') || argv.includes('-q')) {
+        process.env.SWARM_LOG_LEVEL = 'quiet';
+        argv = argv.filter(a => a !== '--quiet' && a !== '-q');
+    }
+    
+    if (argv.includes('--verbose') || argv.includes('-v')) {
+        process.env.SWARM_LOG_LEVEL = 'verbose';
+        process.env.SWARM_DEBUG = '1';
+        argv = argv.filter(a => a !== '--verbose' && a !== '-v');
+    }
+
+    if (argv[0] === '--help' || argv[0] === '-h') {
+        print_help();
+        return 0;
+    }
+
+    if (argv.length === 0) {
+        return run_dashboard();
+    }
+
+    const cmd = argv[0];
+
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(cmd)) {
+        return handle_unknown_command(cmd, argv.slice(1));
+    }
+
+    return execute_command(cmd, argv.slice(1));
 }
 
 function generate_trace_id(): string {
@@ -283,8 +413,8 @@ function generate_trace_id(): string {
 const traceId = generate_trace_id();
 
 run_with_context({ trace_id: traceId }, () => main())
-    .then((code) => {
-        process.exitCode = code;
+    .then((code: number | void) => {
+        if (typeof code === 'number') process.exitCode = code;
     })
     .catch((err: unknown) => {
         const message = err instanceof Error ? err.stack ?? err.message : String(err);
