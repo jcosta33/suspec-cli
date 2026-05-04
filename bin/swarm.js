@@ -17,9 +17,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const scriptPath = join(__dirname, '../src/index.ts');
+const tsxPath = import.meta.resolve('tsx');
+
 const res = spawnSync(
     process.execPath,
-    ['--import', 'tsx', scriptPath, ...process.argv.slice(2)],
+    ['--import', tsxPath, scriptPath, ...process.argv.slice(2)],
     {
         stdio: 'inherit',
     }

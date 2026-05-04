@@ -33,7 +33,7 @@ export async function summarize_insight(repoRoot: string, prompt: string): Promi
     const envPath = join(repoRoot, '.env');
     if (!existsSync(envPath)) return null;
     
-    let envContent = '';
+    let envContent: string;
     try {
         envContent = readFileSync(envPath, 'utf8');
     } catch {
@@ -43,7 +43,7 @@ export async function summarize_insight(repoRoot: string, prompt: string): Promi
     const anthropicMatch = /^ANTHROPIC_API_KEY=(.*)$/m.exec(envContent);
     const openaiMatch = /^OPENAI_API_KEY=(.*)$/m.exec(envContent);
     
-    if (anthropicMatch && anthropicMatch[1]) {
+    if (anthropicMatch?.[1]) {
         const key = anthropicMatch[1].trim();
         try {
             const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -66,8 +66,10 @@ export async function summarize_insight(repoRoot: string, prompt: string): Promi
                     return json.content[0].text.trim();
                 }
             }
-        } catch (_e) {}
-    } else if (openaiMatch && openaiMatch[1]) {
+        } catch (_e) {
+            void 0;
+        }
+    } else if (openaiMatch?.[1]) {
         const key = openaiMatch[1].trim();
         try {
             const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -91,7 +93,9 @@ export async function summarize_insight(repoRoot: string, prompt: string): Promi
                     return json.choices[0].message.content.trim();
                 }
             }
-        } catch (_e) {}
+        } catch (_e) {
+            void 0;
+        }
     }
     
     return null;

@@ -46,16 +46,6 @@ import { spawnSync } from 'child_process';
 import { cmd_init } from '../useCases/init.ts';
 
 describe('cmd_init', () => {
-    const defaultGroupResults = {
-        anthropicKey: undefined,
-        openAIKey: undefined,
-        defaultAgent: 'claude',
-        editor: 'cursor',
-        defaultBaseBranch: 'main',
-        defaultTest: 'npm test',
-        defaultLint: 'tsc --noEmit',
-    };
-
     beforeEach(() => {
         vi.clearAllMocks();
         vi.spyOn(process, 'exit').mockImplementation((() => {}) as any);

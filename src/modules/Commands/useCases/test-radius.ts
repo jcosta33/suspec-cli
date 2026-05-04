@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spinner } from '@clack/prompts';
-import { bold, cyan, dim, green, parse_args, red, yellow } from '../../Terminal/useCases/index.ts';
+import { bold, dim, green, parse_args, red, yellow } from '../../Terminal/useCases/index.ts';
 import { get_repo_root, resolve_within } from '../../Workspace/useCases/index.ts';
 
 import { spawnSync } from 'child_process';

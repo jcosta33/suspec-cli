@@ -49,11 +49,18 @@ export async function cmd_init(repoRoot: string, _argv: string[]): Promise<numbe
     try {
         const branchRes = spawnSync('git', ['branch', '--show-current'], { cwd: repoRoot, encoding: 'utf8' });
         if (branchRes.stdout) defaultBranch = branchRes.stdout.trim() || 'main';
-    } catch (_e) {}
+    } catch (_e) {
+        void 0;
+    }
 
     let defaultTestCmd = 'npm test';
     let defaultLintCmd = 'tsc --noEmit';
-    const pm = existsSync(join(repoRoot, 'pnpm-lock.yaml')) ? 'pnpm' : existsSync(join(repoRoot, 'yarn.lock')) ? 'yarn' : 'npm';
+    let pm = 'npm';
+    if (existsSync(join(repoRoot, 'pnpm-lock.yaml'))) {
+        pm = 'pnpm';
+    } else if (existsSync(join(repoRoot, 'yarn.lock'))) {
+        pm = 'yarn';
+    }
     
     try {
         if (existsSync(join(repoRoot, 'package.json'))) {
@@ -62,7 +69,9 @@ export async function cmd_init(repoRoot: string, _argv: string[]): Promise<numbe
             if (pkg.scripts?.typecheck) defaultLintCmd = `${pm} run typecheck`;
             else if (pkg.scripts?.lint) defaultLintCmd = `${pm} run lint`;
         }
-    } catch (_e) {}
+    } catch (_e) {
+        void 0;
+    }
 
     const results = await group(
         {

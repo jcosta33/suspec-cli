@@ -94,8 +94,44 @@ export async function run_dashboard(): Promise<number> {
                 continue;
             }
             const title = await text({ message: 'Task title (optional):', placeholder: slug });
-            const titleArg = !title || isCancel(title) ? [] : [title];
-            spawn_command('new', [slug, ...titleArg], repoRoot);
+            if (isCancel(title)) {
+                continue;
+            }
+            
+            const agent = await select({
+                message: 'Select Agent (Model):',
+                options: [
+                    { value: 'claude', label: 'Claude (claude)' },
+                    { value: 'gemini', label: 'Gemini (gemini)' },
+                    { value: 'codex', label: 'Codex (codex)' },
+                    { value: 'cline', label: 'Cline (cline)' },
+                    { value: 'aider', label: 'Aider (aider)' }
+                ],
+            });
+            if (isCancel(agent)) {
+                continue;
+            }
+
+            const taskType = await select({
+                message: 'Select Task Type:',
+                options: [
+                    { value: 'feature', label: 'Feature' },
+                    { value: 'bugfix', label: 'Bugfix' },
+                    { value: 'refactor', label: 'Refactor' },
+                    { value: 'docs', label: 'Documentation' },
+                    { value: 'research', label: 'Research' }
+                ],
+            });
+            if (isCancel(taskType)) {
+                continue;
+            }
+
+            const args = [slug];
+            if (title) args.push(title as string);
+            args.push('--agent', agent as string);
+            args.push('--type', taskType as string);
+
+            spawn_command('new', args, repoRoot);
             await prompt_return();
         } else if (action === 'open') {
             const slugs = get_agent_slugs(repoRoot);

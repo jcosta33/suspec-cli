@@ -148,7 +148,7 @@ export async function run(): Promise<number> {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-    run().then(code => {
+    void run().then(code => {
         process.exitCode = code;
     });
 }

@@ -2,7 +2,6 @@
 
 import { existsSync, statSync, readdirSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { spawn, type ChildProcess } from 'child_process';
 import { spinner } from '@clack/prompts';
 import { red, cyan, bold, dim, green, yellow, parse_args } from '../../Terminal/useCases/index.ts';
 import { get_repo_root } from '../../Workspace/useCases/index.ts';
