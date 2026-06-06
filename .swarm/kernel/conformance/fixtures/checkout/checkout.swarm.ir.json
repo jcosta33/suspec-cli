@@ -1,0 +1,144 @@
+{
+  "meta": {
+    "id": "checkout",
+    "title": "Cart submission and checkout",
+    "language": "SOL/0.1",
+    "version": "0.1.0",
+    "status": "draft"
+  },
+  "nodes": [
+    {
+      "id": "INTERFACE.checkout.IF-010",
+      "kind": "INTERFACE",
+      "clauses": { "returns": "OrderConfirmation | CheckoutError" },
+      "owner": "checkout-service",
+      "verify_by": [
+        { "type": "contract", "adapter": "cmdValidate",
+          "ref": "openapi/checkout.yaml", "selector": "submitCart", "gate": "required" }
+      ],
+      "status": "UNVERIFIED",
+      "source": { "file": "checkout.swarm.md", "line_start": 30, "line_end": 37,
+                  "content_hash": "sha256:2a7c…d0" }
+    },
+    {
+      "id": "REQ.checkout.AC-010",
+      "kind": "REQ",
+      "modality": "MUST",
+      "clauses": { "trigger": { "kw": "WHEN", "expr": "the cart is submitted" },
+                   "subject": "checkout service",
+                   "predicate": "validate the cart" },
+      "risk": "medium",
+      "writes": ["api/src/checkout/submit.ts"],
+      "verify_by": [
+        { "type": "test", "adapter": "cmdTest",
+          "ref": "api/tests/checkout.spec.ts",
+          "selector": "validates-cart", "gate": "required" }
+      ],
+      "status": "UNVERIFIED",
+      "source": { "file": "checkout.swarm.md", "line_start": 41, "line_end": 47,
+                  "content_hash": "sha256:4b1f…12" }
+    },
+    {
+      "id": "REQ.checkout.AC-013",
+      "kind": "REQ",
+      "modality": "MUST",
+      "clauses": { "trigger": { "kw": "WHEN", "expr": "the cart is submitted" },
+                   "subject": "checkout service",
+                   "predicate": "charge the card" },
+      "risk": "high",
+      "writes": ["api/src/checkout/submit.ts"],
+      "verify_by": [
+        { "type": "test", "adapter": "cmdTest",
+          "ref": "api/tests/checkout.spec.ts",
+          "selector": "charges-card", "gate": "required" }
+      ],
+      "status": "UNVERIFIED",
+      "source": { "file": "checkout.swarm.md", "line_start": 49, "line_end": 55,
+                  "content_hash": "sha256:5c2a…34" }
+    },
+    {
+      "id": "REQ.checkout.AC-014",
+      "kind": "REQ",
+      "modality": "MUST",
+      "clauses": { "trigger": { "kw": "WHEN", "expr": "the cart is submitted" },
+                   "subject": "checkout service",
+                   "predicate": "email the receipt" },
+      "risk": "low",
+      "writes": ["api/src/checkout/submit.ts"],
+      "verify_by": [
+        { "type": "test", "adapter": "cmdTest",
+          "ref": "api/tests/checkout.spec.ts",
+          "selector": "emails-receipt", "gate": "required" }
+      ],
+      "status": "UNVERIFIED",
+      "source": { "file": "checkout.swarm.md", "line_start": 57, "line_end": 63,
+                  "content_hash": "sha256:6d3b…56" }
+    },
+    {
+      "id": "REQ.checkout.AC-011",
+      "kind": "REQ",
+      "modality": "MUST",
+      "clauses": { "trigger": { "kw": "WHEN", "expr": "the cart is submitted" },
+                   "subject": "checkout service",
+                   "predicate": "write the order record" },
+      "risk": "medium",
+      "writes": ["db/orders"],
+      "verify_by": [
+        { "type": "test", "adapter": "cmdTest",
+          "ref": "api/tests/order-record.spec.ts",
+          "selector": "writes-order", "gate": "required" }
+      ],
+      "status": "UNVERIFIED",
+      "source": { "file": "checkout.swarm.md", "line_start": 65, "line_end": 71,
+                  "content_hash": "sha256:7e4c…78" }
+    },
+    {
+      "id": "REQ.checkout.AC-012",
+      "kind": "REQ",
+      "modality": "MUST",
+      "clauses": { "trigger": { "kw": "WHEN", "expr": "the cart is submitted" },
+                   "subject": "checkout service",
+                   "predicate": "write the inventory ledger" },
+      "risk": "medium",
+      "writes": ["db/inventory"],
+      "verify_by": [
+        { "type": "test", "adapter": "cmdTest",
+          "ref": "api/tests/inventory.spec.ts",
+          "selector": "writes-ledger", "gate": "required" }
+      ],
+      "status": "UNVERIFIED",
+      "source": { "file": "checkout.swarm.md", "line_start": 73, "line_end": 80,
+                  "content_hash": "sha256:8f5d…9a" }
+    },
+    {
+      "id": "INVARIANT.checkout.I-010",
+      "kind": "INVARIANT",
+      "modality": "MUST NOT",
+      "clauses": { "subject": "a single submitted cart",
+                   "predicate": "result in more than one card charge" },
+      "verify_by": [
+        { "type": "property", "adapter": "cmdTest",
+          "ref": "api/tests/checkout.properties.ts",
+          "selector": "charge_at_most_once", "gate": "required" }
+      ],
+      "status": "UNVERIFIED",
+      "source": { "file": "checkout.swarm.md", "line_start": 84, "line_end": 87,
+                  "content_hash": "sha256:3b90…ee" }
+    }
+  ],
+  "edges": [
+    { "from": "REQ.checkout.AC-010", "to": "INTERFACE.checkout.IF-010",
+      "type": "depends_on", "hard": true },
+    { "from": "REQ.checkout.AC-013", "to": "INTERFACE.checkout.IF-010",
+      "type": "depends_on", "hard": true },
+    { "from": "REQ.checkout.AC-014", "to": "INTERFACE.checkout.IF-010",
+      "type": "depends_on", "hard": true },
+    { "from": "REQ.checkout.AC-012", "to": "REQ.checkout.AC-011",
+      "type": "depends_on", "hard": true },
+    { "from": "REQ.checkout.AC-013", "to": "INVARIANT.checkout.I-010",
+      "type": "affects", "hard": false }
+  ],
+  "diagnostics": [],
+  "provenance": { "hash": "sha256:c901…7f", "compiler_version": null,
+                  "compiled_at": "2026-06-02T00:00:00Z" }
+}

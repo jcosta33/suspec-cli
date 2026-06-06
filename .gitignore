@@ -30,3 +30,22 @@ node_modules
 
 # Coverage
 coverage
+# --- Swarm workspace (added by adoption) ---
+# Swarm — append these lines to your project's .gitignore.
+# Commit everything that defines, tracks, or reconciles intent; gitignore only
+# execution-local and scratch state (recreatable from sources, compacted into the ledger).
+
+# Generated task frames + scratch (recreatable from .swarm/sources/).
+.swarm/generated/tasks/
+.swarm/tmp/
+
+# Optional: active traces/reviews are compacted into .swarm/ledger/ on completion.
+# Remove these two lines if governance requires committing active trace/review files.
+.swarm/generated/traces/
+.swarm/generated/reviews/
+
+# Per-worker worktrees used during parallel decomposition.
+.worktrees/
+
+# NOTE: do NOT gitignore .swarm/sources/, .swarm/status/, .swarm/memory/,
+# .swarm/ledger/, .swarm/kernel/, .swarm/overlays/, or .swarm/archive/ — those are the durable record.

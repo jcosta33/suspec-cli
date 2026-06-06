@@ -1,0 +1,86 @@
+{
+  "meta": {
+    "id": "payment-5xx",
+    "title": "Payment-processor 5xx handling",
+    "language": "SOL/0.1",
+    "version": "0.1.0",
+    "status": "draft"
+  },
+  "nodes": [
+    {
+      "id": "INTERFACE.payment-5xx.IF-001",
+      "kind": "INTERFACE",
+      "clauses": { "accepts": "ChargeRequest", "returns": "Charge | ProcessorError" },
+      "owner": "payments-service",
+      "verify_by": [
+        { "type": "contract", "adapter": "cmdContract",
+          "ref": "charge-card-contract", "selector": null, "gate": "required" }
+      ],
+      "status": "UNVERIFIED",
+      "source": { "file": "payment-5xx.swarm.md", "line_start": 32, "line_end": 39,
+                  "content_hash": "sha256:2c8d…b1" }
+    },
+    {
+      "id": "REQ.payment-5xx.AC-020",
+      "kind": "REQ",
+      "modality": "MUST",
+      "clauses": { "trigger": { "kw": "WHEN", "expr": "the processor returns a 5xx" },
+                   "subject": "payments service",
+                   "predicate": "retry the charge at most 3 times under the same idempotency key" },
+      "risk": "high",
+      "writes": ["server/src/payments/charge.ts"],
+      "verify_by": [
+        { "type": "test", "adapter": "cmdTest",
+          "ref": "server/tests/payment-5xx.spec.ts",
+          "selector": "retries-bounded", "gate": "required" }
+      ],
+      "status": "UNVERIFIED",
+      "source": { "file": "payment-5xx.swarm.md", "line_start": 42, "line_end": 45,
+                  "content_hash": "sha256:4f6a…e2" }
+    },
+    {
+      "id": "REQ.payment-5xx.AC-021",
+      "kind": "REQ",
+      "modality": "MUST",
+      "clauses": { "trigger": { "kw": "WHEN", "expr": "the retry budget for a charge is exhausted" },
+                   "subject": "payments service",
+                   "predicate": "return HTTP 502 with a structured processor-unavailable error body within the 30s request budget" },
+      "risk": "medium",
+      "writes": ["server/src/payments/charge.ts"],
+      "verify_by": [
+        { "type": "test", "adapter": "cmdTest",
+          "ref": "server/tests/payment-fail.spec.ts",
+          "selector": "surfaces-502", "gate": "required" }
+      ],
+      "status": "UNVERIFIED",
+      "source": { "file": "payment-5xx.swarm.md", "line_start": 47, "line_end": 50,
+                  "content_hash": "sha256:9a01…7c" }
+    },
+    {
+      "id": "INVARIANT.payment-5xx.I-001",
+      "kind": "INVARIANT",
+      "modality": "MUST NOT",
+      "clauses": { "subject": "the same idempotency key",
+                   "predicate": "result in more than 1 captured charge" },
+      "verify_by": [
+        { "type": "monitor", "adapter": "cmdMonitor",
+          "ref": "dashboards/payments/duplicate-captures",
+          "selector": "zero_double_captures", "gate": "required" }
+      ],
+      "status": "UNVERIFIED",
+      "source": { "file": "payment-5xx.swarm.md", "line_start": 54, "line_end": 55,
+                  "content_hash": "sha256:b730…5d" }
+    }
+  ],
+  "edges": [
+    { "from": "REQ.payment-5xx.AC-020", "to": "INTERFACE.payment-5xx.IF-001",
+      "type": "depends_on", "hard": true },
+    { "from": "REQ.payment-5xx.AC-021", "to": "INTERFACE.payment-5xx.IF-001",
+      "type": "depends_on", "hard": true },
+    { "from": "REQ.payment-5xx.AC-020", "to": "INVARIANT.payment-5xx.I-001",
+      "type": "affects", "hard": false }
+  ],
+  "diagnostics": [],
+  "provenance": { "hash": "sha256:e91f…40", "compiler_version": null,
+                  "compiled_at": "2026-06-01T00:00:00Z" }
+}

@@ -1,0 +1,128 @@
+{
+  "meta": {
+    "id": "auth-refresh",
+    "title": "Silent token refresh on 401",
+    "language": "SOL/0.1",
+    "version": "0.1.0",
+    "status": "draft"
+  },
+  "nodes": [
+    {
+      "id": "INTERFACE.auth-refresh.IF-001",
+      "kind": "INTERFACE",
+      "clauses": { "returns": "Session | AuthExpired" },
+      "owner": "auth-client",
+      "verify_by": [
+        { "type": "contract", "adapter": "cmdContract",
+          "ref": "refresh-session-contract", "selector": null, "gate": "required" }
+      ],
+      "status": "UNVERIFIED",
+      "source": { "file": "auth-refresh.swarm.md", "line_start": 9, "line_end": 15,
+                  "content_hash": "sha256:1f4a…c0" }
+    },
+    {
+      "id": "REQ.auth-refresh.AC-001.1",
+      "kind": "REQ",
+      "modality": "MUST",
+      "clauses": { "trigger": { "kw": "WHEN", "expr": "a request returns 401 AND a refresh token is present" },
+                   "subject": "auth client",
+                   "predicate": "call refreshSession once" },
+      "risk": "high",
+      "writes": ["web/src/http/client.ts"],
+      "verify_by": [
+        { "type": "test", "adapter": "cmdTest",
+          "ref": "web/tests/auth-refresh-401.spec.ts",
+          "selector": "replays-after-refresh", "gate": "required" }
+      ],
+      "status": "UNVERIFIED",
+      "source": { "file": "auth-refresh.swarm.md", "line_start": 19, "line_end": 27,
+                  "content_hash": "sha256:9b2e…41" }
+    },
+    {
+      "id": "REQ.auth-refresh.AC-001.2",
+      "kind": "REQ",
+      "modality": "MUST",
+      "clauses": { "trigger": { "kw": "WHEN", "expr": "a request returns 401 AND a refresh token is present" },
+                   "subject": "auth client",
+                   "predicate": "replay the original request with the new session" },
+      "risk": "high",
+      "writes": ["web/src/http/client.ts"],
+      "verify_by": [
+        { "type": "test", "adapter": "cmdTest",
+          "ref": "web/tests/auth-refresh-401.spec.ts",
+          "selector": "replays-after-refresh", "gate": "required" }
+      ],
+      "status": "UNVERIFIED",
+      "source": { "file": "auth-refresh.swarm.md", "line_start": 19, "line_end": 27,
+                  "content_hash": "sha256:9b2e…41" }
+    },
+    {
+      "id": "REQ.auth-refresh.AC-002.1",
+      "kind": "REQ",
+      "modality": "MUST",
+      "clauses": { "trigger": { "kw": "WHEN", "expr": "the refresh token is expired" },
+                   "subject": "auth client",
+                   "predicate": "clear the local session" },
+      "risk": "medium",
+      "writes": ["web/src/http/client.ts"],
+      "verify_by": [
+        { "type": "test", "adapter": "cmdTest",
+          "ref": "web/tests/auth-refresh-expired.spec.ts",
+          "selector": "clears-and-redirects", "gate": "required" }
+      ],
+      "status": "UNVERIFIED",
+      "source": { "file": "auth-refresh.swarm.md", "line_start": 29, "line_end": 35,
+                  "content_hash": "sha256:e8f7…2d" }
+    },
+    {
+      "id": "REQ.auth-refresh.AC-002.2",
+      "kind": "REQ",
+      "modality": "MUST",
+      "clauses": { "trigger": { "kw": "WHEN", "expr": "the refresh token is expired" },
+                   "subject": "auth client",
+                   "predicate": "redirect to /login" },
+      "risk": "medium",
+      "writes": ["web/src/http/client.ts"],
+      "verify_by": [
+        { "type": "test", "adapter": "cmdTest",
+          "ref": "web/tests/auth-refresh-expired.spec.ts",
+          "selector": "clears-and-redirects", "gate": "required" }
+      ],
+      "status": "UNVERIFIED",
+      "source": { "file": "auth-refresh.swarm.md", "line_start": 29, "line_end": 35,
+                  "content_hash": "sha256:e8f7…2d" }
+    },
+    {
+      "id": "INVARIANT.auth-refresh.I-001",
+      "kind": "INVARIANT",
+      "modality": "MUST NOT",
+      "clauses": { "subject": "the retry count for a single original request",
+                   "predicate": "exceed 1" },
+      "verify_by": [
+        { "type": "property", "adapter": "cmdTest",
+          "ref": "web/tests/auth-refresh.properties.ts",
+          "selector": "no_unbounded_retry", "gate": "required" }
+      ],
+      "status": "UNVERIFIED",
+      "source": { "file": "auth-refresh.swarm.md", "line_start": 39, "line_end": 42,
+                  "content_hash": "sha256:7d10…aa" }
+    }
+  ],
+  "edges": [
+    { "from": "REQ.auth-refresh.AC-001.1", "to": "INTERFACE.auth-refresh.IF-001",
+      "type": "depends_on", "hard": true },
+    { "from": "REQ.auth-refresh.AC-001.2", "to": "INTERFACE.auth-refresh.IF-001",
+      "type": "depends_on", "hard": true },
+    { "from": "REQ.auth-refresh.AC-001.1", "to": "INVARIANT.auth-refresh.I-001",
+      "type": "affects", "hard": false },
+    { "from": "REQ.auth-refresh.AC-001.2", "to": "INVARIANT.auth-refresh.I-001",
+      "type": "affects", "hard": false },
+    { "from": "REQ.auth-refresh.AC-002.1", "to": "INTERFACE.auth-refresh.IF-001",
+      "type": "depends_on", "hard": true },
+    { "from": "REQ.auth-refresh.AC-002.2", "to": "INTERFACE.auth-refresh.IF-001",
+      "type": "depends_on", "hard": true }
+  ],
+  "diagnostics": [],
+  "provenance": { "hash": "sha256:c33b…9e", "compiler_version": null,
+                  "compiled_at": "2026-05-31T00:00:00Z" }
+}
