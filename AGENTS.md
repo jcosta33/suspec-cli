@@ -3,13 +3,13 @@
 <!-- Swarm bootloader (always-loaded, facts-only, MUST stay <= 200 lines / 25 KB).
      Pass procedures load on demand from the self-contained skills in `.claude/skills/`;
      the SOL/APS manual is not installed (read it in the swarm repo).
-     This repo is CO-LOCATED (Swarm spec-repo discipline, ADR-0050): it authors its own
-     toolchain specs (.agents/specs/*.swarm.md) AND implements them, so it carries the full
+     This repo is CO-LOCATED (Swarm spec-repo discipline, ADR-0050/0051): it authors its own
+     toolchain specs (top-level specs/*.swarm.md) AND implements them, so it carries the full
      authoring kit + the implement-and-verify skill. A pure code repo would carry far less. -->
 
 ## Swarm startup
 1. Read the current task file first.
-2. Swarm lives under `.agents/` (+ skills in `.claude/skills/` where Claude Code scans): `reference/` (rule cards), `templates/`, `specs/` (`*.swarm.md` sources), `tasks/` (frames; gitignored), `memory/` (recall). No `.swarm/` mount, no version file (the framework version is a producer release tag).
+2. Specs are top-level content: `specs/*.swarm.md` (this repo's toolchain specs). `.agents/` holds Swarm tooling — skills (in `.claude/skills/`, where Claude Code scans), `reference/` (rule cards), `templates/`, `memory/` (recall); `.agents/tasks/` holds task frames (gitignored execution scratch, since this repo also implements). No `.swarm/` mount, no version file.
 3. Treat `.swarm.md` blocks as authoritative over prose summaries.
 4. Use assigned obligation IDs as scope.
 5. Decide isolation before editing (see the `implement` pass): a code task with a source spec/audit runs in a `worktree+branch` named for the spec, off the base — never on it; a bare ad-hoc edit stays `in-place`.
@@ -35,7 +35,7 @@
 ## Pointers
 - Skills (a pass guide for each of the 9 passes, per-kind implement & author guides, persona-* stances, fragments — Swarm's + this repo's own, side by side): `.claude/skills/`. Each carries its pass *procedure* inline.
 - Operative reference cards (the shared closed-set rules — SOL grammar, proofs/verdicts/adequacy, the IR/edges): `.agents/reference/` (`sol.md`, `proofs.md`, `ir.md`). Load the card for the pass you're running.
-- Flow folders: `.agents/specs/` (source `*.swarm.md`), `.agents/tasks/` (frames; gitignored), `.agents/memory/` (recall; `INDEX.md` is the load-*when* map).
+- Specs: `specs/` (source `*.swarm.md`, top-level content). Execution scratch: `.agents/tasks/` (frames; gitignored). Recall: `.agents/memory/` (`INDEX.md` is the load-*when* map).
 - Project conventions: `.agents/repo-conventions.md` + `## Project facts` above. Project config: `.agents/swarm.config.yaml`.
 - Full SOL / APS / passes manuals (not installed — read in the `swarm` repo for the *why*): `<swarm-repo>/docs/`
 
