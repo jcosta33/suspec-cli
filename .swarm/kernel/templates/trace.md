@@ -10,7 +10,7 @@ created: {{createdAt}}
 
 > A trace records implementation *claims* against obligations and binds them to *evidence*. Its core
 > payload is one or more `TRACE` blocks plus the G11 drift-provenance fields the staleness join
-> ([../passes/review.md](../passes/review.md)) depends on. No runtime: every hash and verdict here is a content-hash contract a future tool computes —
+> (the `review` pass) depends on. No runtime: every hash and verdict here is a content-hash contract a future tool computes —
 > nothing runs.
 
 ## Claimed implementation
@@ -31,13 +31,13 @@ PROOF <verification output reference>
 
 ## Provenance
 
-<the canonical seven G11 fields **per binding** — this is what flips a PASS to STALE when source or surface drifts (see [../passes/review.md](../passes/review.md)); the recording timestamp lives in the frontmatter `created`, not here>
+<the canonical seven G11 fields **per binding** — this is what flips a PASS to STALE when source or surface drifts (see the `review` pass); the recording timestamp lives in the frontmatter `created`, not here>
 
 - `source_hash` — content hash of the obligation source (the exact bytes of the obligation block in `*.swarm.md`) at the time of the PASS.
-- `per_surface_hash[]` — one `{surface, hash, exercised}` per declared `WRITES` surface **and** per `READS` surface the proof exercised (see [../passes/review.md](../passes/review.md)); `exercised: true` iff the proof actually executed/analysed that surface.
-- `adapter` — the `cmd*` slot the proof resolved through (see [../passes/verify.md](../passes/verify.md)).
+- `per_surface_hash[]` — one `{surface, hash, exercised}` per declared `WRITES` surface **and** per `READS` surface the proof exercised (see the `review` pass); `exercised: true` iff the proof actually executed/analysed that surface.
+- `adapter` — the `cmd*` slot the proof resolved through (see the `verify` pass).
 - `verdict` — the core verdict recorded (`PASS` for a drift-trackable binding).
-- `tier` — the proof type (see [../passes/verify.md](../passes/verify.md)), same value as `type` in the IR `verify_by[]` element.
+- `tier` — the proof type (see the `verify` pass), same value as `type` in the IR `verify_by[]` element.
 - `origin_obligations[]` — the obligation IDs this PASS judged.
 - `origin_traces[]` — the trace(s) that produced the change being judged.
 
@@ -48,7 +48,7 @@ PROOF <verification output reference>
 
 ## Verification matrix
 
-<ID → required proof → actual proof → 7-value status; status ∈ PASS / FAIL / BLOCKED / UNVERIFIED (the four core verdicts; see [../passes/review.md](../passes/review.md)) — a STALE / WAIVED / CONTRADICTED lifecycle decorator is recorded at review time, not claimed here>
+<ID → required proof → actual proof → 7-value status; status ∈ PASS / FAIL / BLOCKED / UNVERIFIED (the four core verdicts; see the `review` pass) — a STALE / WAIVED / CONTRADICTED lifecycle decorator is recorded at review time, not claimed here>
 
 | ID     | Required proof | Actual proof | Status |
 | ------ | -------------- | ------------ | ------ |

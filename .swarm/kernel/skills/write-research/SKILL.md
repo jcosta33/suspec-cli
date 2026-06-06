@@ -87,7 +87,7 @@ a command; a guessed command produces a false proof.
   references as `<research-id>#R-NNN`; on acceptance it promotes to a standalone `finding.md`. Each
   open question carries forward as a `QUESTION` block in the promoted spec — *not* dropped, *not*
   silently settled here. Letting a finding or open question vanish on promotion is the loss the
-  loss budget forbids (see [`../../passes/lower.md`](../../passes/lower.md)).
+  loss budget forbids (see the `lower` pass).
 - **Source authority.** A lower-authority inquiry MUST NOT silently override a higher-authority
   artifact (an accepted finding, an ADR); where it appears to contradict one, record the tension as
   an open `Q-NNN`, do not overwrite the higher-authority fact (the authority order is approved
@@ -200,7 +200,7 @@ identical to technical mode.
 
 If the artifact distils a long-running investigation (a transcript, a scratch task file), append a
 short statement of what was **dropped** and **why the next stage does not need it**. *Why:* the
-loss budget ([`../../passes/lower.md`](../../passes/lower.md)) governs what may be dropped across the
+loss budget (the `lower` pass) governs what may be dropped across the
 boundary; an undeclared drop is silent loss, and
 the next author cannot tell a deliberate omission from a forgotten finding.
 

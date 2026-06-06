@@ -75,7 +75,7 @@ Paste all constraints and invariants this task must preserve.
 
 ## Promotion queue
 
-<Discoveries with target + promotion status (see [the promotion pass](../passes/promote.md)); all MUST be resolved before task close.>
+<Discoveries with target + promotion status (see the `promote` pass); all MUST be resolved before task close.>
 
 | Item | Target | Status |
 | ---- | ------ | ------ |

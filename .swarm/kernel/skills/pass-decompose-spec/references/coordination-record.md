@@ -1,6 +1,6 @@
 # Reference: the coordination record (`task-orchestration.md`)
 
-Deep field detail for step 8 of the `decompose` pass guide. The `SKILL.md` body carries the load-bearing discipline; this file is the field-by-field contract and a worked fan-out. The contract is fixed by the [`decompose` pass](../../../passes/decompose.md) (orchestration); this reference applies it, never redefines it.
+Deep field detail for step 8 of the `decompose` pass guide. The `SKILL.md` body carries the load-bearing discipline; this file is the field-by-field contract and a worked fan-out. The contract is fixed by the the `decompose` pass (orchestration); this reference applies it, never redefines it.
 
 A `task-orchestration.md` is **generated execution material** — emitted by the lead during `decompose` and updated as the parallel run proceeds. It is a plain `.md` working artifact: it MUST NOT carry the `.swarm.` infix (the infix is the sole discriminator for compiler-parsed/emitted files; a coordination record is neither a source spec nor a compiler output). It lives under `.swarm/generated/` (recreatable), never `.swarm/sources/` (durable intent). It is disposable: on reconciliation the durable record is the compacted ledger entry, the updated status, and any promoted findings.
 
@@ -36,7 +36,7 @@ It MAY embed SOL surface keywords (the `WRITES`-projected OWNED paths, preserved
 | `OWNED paths` | The worker's owned write surfaces; a subset of its obligations' declared `WRITES` (else `SOL-O005`). |
 | `FORBIDDEN paths` | The union of every other worker's OWNED paths. |
 | `Hand-off (deliverable / acceptance bar)` | One-line summary of the hand-off contract (full form below). |
-| `Branch` | The worker's branch (one worktree per task; conventionally `swarm/<spec-slug>/<task-slug>`). A single task implementing a whole spec collapses this to `swarm/<spec-slug>`; the two-level form is for one obligation or a fan-out worker — one grammar reconciles both (the per-task isolation rule + `base:` is the `implement` pass "Isolation" section, `../../../passes/implement.md`). |
+| `Branch` | The worker's branch (one worktree per task; conventionally `swarm/<spec-slug>/<task-slug>`). A single task implementing a whole spec collapses this to `swarm/<spec-slug>`; the two-level form is for one obligation or a fan-out worker — one grammar reconciles both (the per-task isolation rule + `base:` is the `implement` pass "Isolation" section, `implement`). |
 | `Status` | One of `not-started`, `in-progress`, `stalled`, `awaiting-review`, `kicked-back`, `merged`, `abandoned`. |
 | `Last progress` | The liveness marker — updated each time the lead checks the worker. |
 | `Last verdict` | The latest review verdict for the worker, or `—`. |

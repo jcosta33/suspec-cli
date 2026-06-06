@@ -183,7 +183,7 @@ reason. Map the test to the criterion and confirm it asserts the behaviour the c
 and fails when *that criterion* is violated — not when an adjacent passing condition changes. *Why:*
 a single concrete example is a weak oracle — a test can pass against behaviour the criterion did not
 intend (the test-oracle problem the proof-strength order and oracle adequacy, both in
-[`../../passes/verify.md`](../../passes/verify.md), guard).
+the `verify` pass, guard).
 If no fail-when-violated test can be built, that is a finding for the spec author (rebind the
 criterion to `command` / `manual`), never a licence to ship a green-but-irrelevant test.
 
@@ -254,7 +254,7 @@ redefine them. Two facts bound what this pass records:
   later at `review`, and the PASS decision is made by the profile-independent `verify` pass, never
   here. The Test-Author stance may influence which proofs are *demanded* (and may escalate a weak
   oracle to a stronger one per the oracle-adequacy rule in
-  [`../../passes/verify.md`](../../passes/verify.md)); it never decides whether a run PASSes.
+  the `verify` pass); it never decides whether a run PASSes.
 
 ## What does not belong
 

@@ -19,7 +19,7 @@ description: >-
 
 # Heuristic profile: skeptic
 
-A refute-by-default stance over the `review` and `verify` passes and the `fix` task_kind, where root-causing demands the same hostility to plausible explanations. Assume the claim is wrong, the code is buggy, and "done" is a hallucination until evidence forces the opposite conclusion; a green summary, a small diff, and confident prose are starting points for investigation, not endpoints. It tilts what the agent looks for and refuses while judging a completion claim — it does not change how the pass runs and owns no semantics: where it names a verdict (`PASS`, `UNVERIFIED`), a proof type, the proof-strength order, or the merge gate, it cites the `verify`/`review` pass contracts (proof taxonomy in [`verify`](../../passes/verify.md), verdict model and merge gate in [`review`](../../passes/review.md)), never redefining them.
+A refute-by-default stance over the `review` and `verify` passes and the `fix` task_kind, where root-causing demands the same hostility to plausible explanations. Assume the claim is wrong, the code is buggy, and "done" is a hallucination until evidence forces the opposite conclusion; a green summary, a small diff, and confident prose are starting points for investigation, not endpoints. It tilts what the agent looks for and refuses while judging a completion claim — it does not change how the pass runs and owns no semantics: where it names a verdict (`PASS`, `UNVERIFIED`), a proof type, the proof-strength order, or the merge gate, it cites the `verify`/`review` pass contracts (proof taxonomy in the `verify` pass, verdict model and merge gate in the `review` pass), never redefining them.
 
 ## Prevents
 

@@ -183,7 +183,7 @@ redefine them. Two facts bound what this pass records:
   via a later `author` pass, where its recommendations become SOL obligations; it never becomes code
   or an obligation directly.
 - The boundary forbidding a file from being both spec and audit is **not** policed by this guide or
-  any gatekeeper skill — the [distillation-loss budget](../../passes/lower.md) and source authority
+  any gatekeeper skill — the the `lower` pass and source authority
   hold it. Re-introducing a composition-policing skill is forbidden: such a skill would be a semantic
   owner and soft control presented as enforcement. Your job is to hold the stance, not
   enforce it on others.

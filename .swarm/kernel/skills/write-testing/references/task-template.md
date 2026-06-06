@@ -56,7 +56,7 @@ whose behaviour these tests exercise.)
 
 (The `CONSTRAINT` / `INVARIANT` SOL blocks this task MUST preserve, pasted verbatim. Note: an
 `INVARIANT` is a universal predicate — one concrete example is a weak oracle for it; prefer a
-property/metamorphic/mutation-backed test and record `oracle_adequacy`, per `../../../passes/verify.md`.)
+property/metamorphic/mutation-backed test and record `oracle_adequacy`, per `verify`.)
 
 -
 

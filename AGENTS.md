@@ -1,7 +1,8 @@
 # AGENTS.md — swarm-cli
 
 <!-- Swarm bootloader (always-loaded, facts-only, MUST stay <= 200 lines / 25 KB).
-     Pass procedures, the SOL/APS manual, and full memory load on demand from `.swarm/kernel/`. -->
+     Pass procedures load on demand from the self-contained skills under `.swarm/kernel/skills/`;
+     the SOL/APS manual is not installed (read it in the swarm repo). -->
 
 ## Swarm startup
 1. Read the current task file first.
@@ -29,19 +30,21 @@
 - Full architecture + conventions + safety detail: **`.swarm/overlays/repo-conventions.md`**. Human coding conventions: `docs/07-conventions.md`.
 
 ## Pointers
-- Language reference (SOL / APS / errors / versioning): `.swarm/kernel/language/`
+- Skills (self-contained pass guides, per-kind implement & author guides, persona-* stances, fragments): `.swarm/kernel/skills/`; this repo's own skills: `.swarm/skills/`
 - Memory recall map (says *when to load* each entry; never dumped here): `.swarm/memory/INDEX.md`
-- Passes + skills (pass guides, per-kind implement & author guides, heuristic-profile persona-* stances, fragments): `.swarm/kernel/`
 - Project rule bundles (overlays): `.swarm/overlays/` (project-owned; survives kernel upgrades)
+- Full SOL / APS / passes reference (not installed — read in the `swarm` repo for depth): `<swarm-repo>/docs/`
 
 ## Compatibility
-The kernel skills live at `.swarm/kernel/skills/`; this repo bridges them into `.claude/skills` (a symlink
-to `.swarm/kernel/skills/`) so Claude Code discovers them. That surface is a one-directional mirror;
-canonical Swarm artifacts live in `.swarm/`.
+Two skill sources are bridged into `.claude/skills/` (so Claude Code discovers them) as **per-skill
+symlinks**, not a single dir symlink: the framework skills at `.swarm/kernel/skills/` and this repo's own
+skills at `.swarm/skills/` (project-owned, survives kernel upgrades). The skills are **self-contained** —
+each carries the rules it needs inline and only *names* the deep reference, so `.swarm/kernel/` ships just
+`skills/` + `templates/`; the full SOL/APS/passes manuals are not installed (read them in the `swarm` repo).
 
 ## Commands
 <!-- Each `cmd*` slot is the adapter a `VERIFY BY <type>:<adapter>:<artifact>` clause resolves through
-     (see `.swarm/kernel/passes/verify.md`). SOFT control: names what a future launcher WOULD run. -->
+     (the `verify` pass; full reference in the Swarm repo). SOFT control: names what a future launcher WOULD run. -->
 | Slot         | Command                          | Resolves proof types          |
 | ------------ | -------------------------------- | ----------------------------- |
 | cmdTest      | `pnpm test:run`                  | test                          |

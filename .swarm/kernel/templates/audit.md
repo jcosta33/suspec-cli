@@ -12,7 +12,7 @@ updated: {{createdAt}}
 > present-state risk, debt, drift, duplication, unsafe patterns. It MUST NOT
 > prescribe a fix inline and MUST NOT author `REQ`/`CONSTRAINT`/`INVARIANT`/
 > `INTERFACE` obligation blocks. Obligations come into existence only when this
-> audit promotes to a `spec.swarm.md` via the [author pass](../passes/author.md). Until then this
+> audit promotes to a `spec.swarm.md` via the the `author` pass. Until then this
 > is non-authoritative evidence.
 
 ## Scope

@@ -12,7 +12,7 @@ created: {{createdAt}}
 # Review: {{title}}
 
 <!--
-This artifact IS the verdict record (see the [review pass](../passes/review.md)). There is no separate
+This artifact IS the verdict record (see the the `review` pass). There is no separate
 verdict.md. A VERDICT is a SOL block recorded here, never a standalone file.
 Markdown-only, no runtime: the merge gate below is a contract a deterministic
 check (CI / hook / merge-blocking status) enforces when one exists; it is
@@ -34,11 +34,11 @@ This is what the per-obligation verdicts below adjudicate against.
 
 <!--
 One VERDICT block per judged obligation (one per required VERIFY BY binding).
-Verdict line grammar (see the [review pass](../passes/review.md)):
+Verdict line grammar (see the the `review` pass):
   VERDICT <id>: <CORE> [(<lifecycle> by <authority>: <reason>[; <fields>])]
   core      ∈ PASS | FAIL | BLOCKED | UNVERIFIED
   lifecycle ∈ WAIVED | STALE | CONTRADICTED
-Mandatory lifecycle fields (see the [review pass](../passes/review.md)):
+Mandatory lifecycle fields (see the the `review` pass):
   WAIVED       → authority + reason + expiry (only on FAIL/UNVERIFIED)
   STALE        → prior-verdict ref + changed-surface (only on a prior PASS)
   CONTRADICTED → two conflicting EVIDENCE refs (one EVIDENCE line each)
@@ -87,7 +87,7 @@ Every change not traceable to an authorizing obligation.
 <!--
 The change-set merge-gate result. Merge IFF every required obligation
 (every required VERIFY BY binding) is PASS or WAIVED, and none is
-STALE / CONTRADICTED / FAIL / BLOCKED / UNVERIFIED (see the [review pass](../passes/review.md)).
+STALE / CONTRADICTED / FAIL / BLOCKED / UNVERIFIED (see the the `review` pass).
 -->
 
 Merge gate: PASS / BLOCKED

@@ -1,7 +1,7 @@
 # Worked example: `research.md → spec.swarm.md` distillation
 
 A concrete walk-through of the procedure in `SKILL.md` applied to a `research.md → spec.swarm.md`
-crossing — the first row of the per-boundary loss matrix in [`lower`](../../../passes/lower.md) (*permitted loss:* source digressions,
+crossing — the first row of the per-boundary loss matrix in the `lower` pass (*permitted loss:* source digressions,
 rejected options, low-confidence observations; *forbidden loss:* constraints, unresolved ambiguity,
 decision-changing evidence). The body keeps a one-line input/output pair to show the shape; this
 file carries the full per-item check (step 4) and the resulting `Preserved / Dropped /
@@ -35,10 +35,10 @@ transition-window line is *unresolved ambiguity* (forbidden to lose — it carri
 | Two-step server → client flow returning `client_secret` (constraint) | preserved | `CONSTRAINT C-001 (MUST)` — server creates the intent and returns `client_secret`; client confirms with Stripe.js. `VERIFY BY test:integration:cmdTest:payment-intent-flow` carried across intact. |
 | European SCA support (decision-changing evidence) | preserved (by structural choice) | The Payment Intents flow enforces SCA by design; encoded by `C-001`'s contract, not a separate obligation. |
 | Transition window vs. direct cut-over (unresolved ambiguity) | promoted to `QUESTION` | Open `QUESTION Q-001`, carried into *Still-uncertain* below — not resolved at this boundary. |
-| European SCA *historical* justification (source digression) | dropped (justified) | Survives in the linked `research.md`; the [`lower`](../../../passes/lower.md) MAY-drop list covers rationale recorded elsewhere — it does not change the contract. |
+| European SCA *historical* justification (source digression) | dropped (justified) | Survives in the linked `research.md`; the the `lower` pass MAY-drop list covers rationale recorded elsewhere — it does not change the contract. |
 | `/v1/charges` comparison + `curl` testing notes (rejected option / low-confidence observation) | dropped (justified) | Survives in the linked `research.md`; the `research → spec` matrix row names rejected options as permitted loss. |
 
-Every [`lower`](../../../passes/lower.md) MUST-survive item lands as `preserved` or `promoted` — none is `dropped`. The two
+Every the `lower` pass MUST-survive item lands as `preserved` or `promoted` — none is `dropped`. The two
 `dropped (justified)` rows are both on the permitted-loss side of this boundary's matrix row, and
 each names where it survives. The gate passes; the composing `lower`/author pass may finalize.
 
@@ -79,5 +79,5 @@ permitted loss for this boundary, and both survive in the linked source, so noth
 with its modality and `VERIFY BY` binding. The unresolved transition-window question is not silently
 resolved into an obligation — it is promoted to `Q-001` and left visible in *Still-uncertain*. Source
 and target can be read side by side: a reviewer can confirm no obligation, modality, verification
-binding, or open question went missing, and lint ([`SOL-V001` / `SOL-M…`](../../../language/errors.md)) has a concrete loss
+binding, or open question went missing, and lint (the SOL error catalogue) has a concrete loss
 statement to check against.

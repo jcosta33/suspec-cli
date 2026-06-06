@@ -20,7 +20,7 @@ is relevant to its current task. The entry format is:
 ```
 
 If an entry cannot name *when it matters*, remove it: an entry with no usable `Load when` is dead
-weight against the loss budget and the bootloader density cap (see the `promote` pass at `.swarm/kernel/passes/promote.md`).
+weight against the loss budget and the bootloader density cap (see the `promote` pass).
 
 ## Durable findings
 

@@ -13,7 +13,7 @@ updated: {{createdAt}}
   commits to NO decision. It records what the inquiry has found and what remains
   open; it does NOT author REQ / CONSTRAINT / INVARIANT / INTERFACE obligation
   blocks. Those are produced only when this research promotes to a `spec.swarm.md`
-  via the author pass (see `../passes/author.md`). As a detached first-class evidence
+  via the author pass (see `author`). As a detached first-class evidence
   store, one research artifact MAY feed many PRDs, specs, ADRs, findings, or audits at once.
 
   REQUIRED sections (in order): Question · Findings · Open questions · Recommendation.
@@ -52,7 +52,7 @@ updated: {{createdAt}}
 ## Open questions
 
 <!-- Unresolved points the inquiry surfaced but did not settle. Each is a QUESTION
-     candidate (Q-NNN) and MUST remain open until resolved (see `../passes/lint.md`); it carries forward
+     candidate (Q-NNN) and MUST remain open until resolved (see `lint`); it carries forward
      to the promoted spec rather than being silently dropped. Do not resolve a
      question here by asserting a decision — that would break the inquiry stance. -->
 
@@ -70,8 +70,8 @@ updated: {{createdAt}}
 {{recommendation}}
 
 <!--
-  PROMOTION: this research promotes to a `spec.swarm.md` via the author pass (see `../passes/author.md`).
+  PROMOTION: this research promotes to a `spec.swarm.md` via the author pass (see `author`).
   Accepted findings (R-NNN) become `finding.md` artifacts; open questions (Q-NNN)
   carry forward as the spec's QUESTION blocks; the recommendation seeds the spec's
-  obligations. Until then this document is non-authoritative evidence (see `../passes/promote.md`).
+  obligations. Until then this document is non-authoritative evidence (see `promote`).
 -->

@@ -1,7 +1,7 @@
 # Memory glossary — Tier-2 term store (seed)
 
 This is the **Tier-2 one-word-one-meaning term store** (see the two-tier memory model in the
-`promote` pass at `.swarm/kernel/passes/promote.md`): the project-level lexicon that
+`promote` pass): the project-level lexicon that
 enforces **one word, one meaning**. Each entry binds exactly one term to exactly one canonical
 definition. A term whose meaning is contested MUST be *split* into distinct terms, never
 overloaded. This glossary is the project-level fallback for term resolution; an in-file `TERM`

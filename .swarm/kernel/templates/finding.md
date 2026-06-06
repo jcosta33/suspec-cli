@@ -17,7 +17,7 @@ confidence: high | medium | low
 
 <!--
 A finding is one durable, provenance-anchored project fact discovered during work
-(see [the promote pass](../passes/promote.md)). It is the Tier-2 evidence store the
+(see the `promote` pass). It is the Tier-2 evidence store the
 memory index ([`../memory/INDEX.md`](../memory/INDEX.md)) links into.
 This is a source-doc: it records a fact, it does NOT declare obligations.
 No REQ / CONSTRAINT / INVARIANT / INTERFACE blocks belong here — those appear
@@ -26,7 +26,7 @@ only after a finding is promoted into a spec/audit by the author pass.
 Frontmatter provenance fields (all required for a promoted finding):
   status            candidate | accepted | promoted | rejected | stale | superseded
                     Goes `stale` when content_hash no longer matches the cited
-                    source/surfaces (see [the promote pass](../passes/promote.md)).
+                    source/surfaces (see the `promote` pass).
   created / updated provenance timestamp.
   origin_obligations[]  obligation IDs this fact was discovered against.
   origin_traces[]       trace IDs that produced it.
@@ -49,7 +49,7 @@ Frontmatter provenance fields (all required for a promoted finding):
 
 ## Applies when
 
-<!-- Mandatory scope. If this finding cannot name when it applies, it MUST NOT be promoted (see [the promote pass](../passes/promote.md)). -->
+<!-- Mandatory scope. If this finding cannot name when it applies, it MUST NOT be promoted (see the `promote` pass). -->
 
 - {{condition under which this fact holds}}
 

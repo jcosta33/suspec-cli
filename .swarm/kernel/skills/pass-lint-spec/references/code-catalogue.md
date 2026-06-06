@@ -1,6 +1,6 @@
 # `lint` code catalogue and worked example
 
-Lookup tables for the `pass-lint-spec` guide. The guide names each defect family in prose; this file carries the per-code defect text and the code→`improve`-op map so the body stays short. **This file restates the language's lint section ([`../../../language/errors.md`](../../../language/errors.md)) and APS prose families ([`../../../language/APS.md`](../../../language/APS.md)) for convenience — it does not redefine them.** When a code's exact meaning matters, the SOL lint section is authoritative; if this table and the language reference ever disagree, the language reference wins.
+Lookup tables for the `pass-lint-spec` guide. The guide names each defect family in prose; this file carries the per-code defect text and the code→`improve`-op map so the body stays short. **This file restates the language's lint section (the SOL error catalogue) and APS prose families (the APS prose standard) for convenience — it does not redefine them.** When a code's exact meaning matters, the SOL lint section is authoritative; if this table and the language reference ever disagree, the language reference wins.
 
 ## Principal BLOCKING codes
 
@@ -24,7 +24,7 @@ A code is BLOCKING iff its defect changes **what gets built** — the obligation
 | `SOL-P002` | Missing actor: an action with no `THE <actor>` subject. |
 | `SOL-P003` | Missing / informal modality (e.g. lowercase `should` where a binding modal is intended). |
 | `SOL-P004` | Bundled / overloaded obligation: separable obligations joined by `and`/`or`/`and/or` in one clause. |
-| `SOL-P005` | Vague-quality / high-risk word in a binding clause with no same-line observable criterion (see [`../../../language/APS.md`](../../../language/APS.md)). |
+| `SOL-P005` | Vague-quality / high-risk word in a binding clause with no same-line observable criterion (see the APS prose standard). |
 | `SOL-P006` | Undefined term used in a binding clause (no `TERM` / `memory/glossary.md` definition). |
 | `SOL-P007` | Negation ambiguity: bare `MUST NOT` not paired with the affirmative behaviour that should happen instead. |
 | `SOL-P008` | Uncaptured behavioural uncertainty: an ambiguity stated in prose that should be lifted to a `QUESTION` block. |
@@ -49,7 +49,7 @@ Record V/O codes only when the surface spec already determines them; otherwise l
 
 ## Principal ADVISORY codes (prose set `SOL-P050`–`SOL-P058`)
 
-ADVISORY iff the defect affects only **how it reads** — style, length, voice, redundancy — without changing built behaviour. Emit `warning`; never block on their own unless promoted by strict mode (see [`../../../language/errors.md`](../../../language/errors.md)).
+ADVISORY iff the defect affects only **how it reads** — style, length, voice, redundancy — without changing built behaviour. Emit `warning`; never block on their own unless promoted by strict mode (see the SOL error catalogue).
 
 | Code | Defect (style only) |
 | --- | --- |
@@ -59,13 +59,13 @@ ADVISORY iff the defect affects only **how it reads** — style, length, voice, 
 | `SOL-P053` | Non-present or non-active tense. |
 | `SOL-P054` | Prose noise: a decorative phrase that adds no constraint, context, or evidence. |
 | `SOL-P055` | Redundancy: repeated context that adds no new constraint. |
-| `SOL-P056` | Comparative / superlative without a baseline — **ADVISORY in commentary, BLOCKING in a binding clause** (see [`../../../language/APS.md`](../../../language/APS.md)). |
+| `SOL-P056` | Comparative / superlative without a baseline — **ADVISORY in commentary, BLOCKING in a binding clause** (see the APS prose standard). |
 | `SOL-P057` | Terminology drift: a term used inconsistently with its `memory/glossary.md` definition (still resolves, so not the blocking `SOL-P006`). |
-| `SOL-P058` | Deprecated modal alias: `SHALL`/`SHALL NOT` used as a modal (a recognized alias of `MUST`/`MUST NOT`, see [`../../../language/SOL.md`](../../../language/SOL.md)). |
+| `SOL-P058` | Deprecated modal alias: `SHALL`/`SHALL NOT` used as a modal (a recognized alias of `MUST`/`MUST NOT`, see the SOL reference). |
 
 ## Code → `improve` op map (the `suggest` field)
 
-`lint` only *names* the repair in `suggest`; applying it is the `improve` pass, which MUST be strictly semantics-preserving. The full map is in [`../../../passes/improve.md`](../../../passes/improve.md); the common rows:
+`lint` only *names* the repair in `suggest`; applying it is the `improve` pass, which MUST be strictly semantics-preserving. The full map is in the `improve` pass; the common rows:
 
 | Lint code(s) | `improve` op | What the op does |
 | --- | --- | --- |
@@ -82,7 +82,7 @@ ADVISORY iff the defect affects only **how it reads** — style, length, voice, 
 
 ## Worked diagnostic record
 
-A single conformant `{ code, severity, layer, span, message, suggest }` record (shape fixed by [`../../../language/errors.md`](../../../language/errors.md)):
+A single conformant `{ code, severity, layer, span, message, suggest }` record (shape fixed by the SOL error catalogue):
 
 ```json
 {
@@ -99,7 +99,7 @@ The IR lowers the same data SARIF-shaped into `diagnostics[]`: `severity`→`lev
 
 ## Waiver record (required fields)
 
-A BLOCKING code may be demoted only through one config surface (root `swarm.config.json`/`.yaml`, or the `lint:` section of `.swarm/config.yaml`) and only with a complete waiver. All fields are required (see [`../../../language/errors.md`](../../../language/errors.md)); an incomplete record does not take effect and the blocker stands:
+A BLOCKING code may be demoted only through one config surface (root `swarm.config.json`/`.yaml`, or the `lint:` section of `.swarm/config.yaml`) and only with a complete waiver. All fields are required (see the SOL error catalogue); an incomplete record does not take effect and the blocker stands:
 
 `code`, `scope`, `to` (`warning` | `off`), `authority`, `reason`, `expiry`, `recorded_at`.
 
