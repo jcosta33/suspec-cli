@@ -31,13 +31,15 @@ node_modules
 # Coverage
 coverage
 # --- Swarm workspace (added by adoption) ---
-# Swarm — append these lines to your project's .gitignore.
-# Commit everything that defines, tracks, or reconciles intent; gitignore only
-# execution-local and scratch state (recreatable from sources, compacted into the ledger).
+# Swarm — commit only real sources of truth + code; gitignore execution scratch.
+
+# Swarm task frames are throwaway execution state (ADR-0050) — gitignored.
+.agents/tasks/
 
 # Per-worker worktrees used during parallel decomposition.
 .worktrees/
 
-# NOTE: this repo TRACKS .agents/tasks/ as planning docs (not throwaway Swarm frames),
-# so it is intentionally NOT gitignored here. .agents/{state.json,locks.json,logs,*.db}
-# above are the runtime scratch. .agents/specs/ and .agents/memory/ are the durable record.
+# NOTE: .agents/specs/ and .agents/memory/ are the durable record (sources + learned
+# recall) and stay committed. Pre-existing planning docs already tracked under
+# .agents/tasks/ remain tracked (gitignore does not untrack); migrate any durable ones
+# to specs/findings if you want them kept.

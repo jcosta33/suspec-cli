@@ -2,11 +2,14 @@
 
 <!-- Swarm bootloader (always-loaded, facts-only, MUST stay <= 200 lines / 25 KB).
      Pass procedures load on demand from the self-contained skills in `.claude/skills/`;
-     the SOL/APS manual is not installed (read it in the swarm repo). -->
+     the SOL/APS manual is not installed (read it in the swarm repo).
+     This repo is CO-LOCATED (Swarm spec-repo discipline, ADR-0050): it authors its own
+     toolchain specs (.agents/specs/*.swarm.md) AND implements them, so it carries the full
+     authoring kit + the implement-and-verify skill. A pure code repo would carry far less. -->
 
 ## Swarm startup
 1. Read the current task file first.
-2. Swarm lives under `.agents/` (+ skills in `.claude/skills/` where Claude Code scans): `reference/` (rule cards), `templates/`, `specs/` (`*.swarm.md` sources), `tasks/` (frames; gitignored), `memory/` (recall). No `.swarm/` mount.
+2. Swarm lives under `.agents/` (+ skills in `.claude/skills/` where Claude Code scans): `reference/` (rule cards), `templates/`, `specs/` (`*.swarm.md` sources), `tasks/` (frames; gitignored), `memory/` (recall). No `.swarm/` mount, no version file (the framework version is a producer release tag).
 3. Treat `.swarm.md` blocks as authoritative over prose summaries.
 4. Use assigned obligation IDs as scope.
 5. Decide isolation before editing (see the `implement` pass): a code task with a source spec/audit runs in a `worktree+branch` named for the spec, off the base — never on it; a bare ad-hoc edit stays `in-place`.
