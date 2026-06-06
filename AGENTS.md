@@ -1,12 +1,12 @@
 # AGENTS.md — swarm-cli
 
 <!-- Swarm bootloader (always-loaded, facts-only, MUST stay <= 200 lines / 25 KB).
-     Pass procedures load on demand from the self-contained skills under `.swarm/kernel/skills/`;
+     Pass procedures load on demand from the self-contained skills in `.claude/skills/`;
      the SOL/APS manual is not installed (read it in the swarm repo). -->
 
 ## Swarm startup
 1. Read the current task file first.
-2. The Swarm workspace is `.swarm/` (canonical intent, status, memory, and the installed kernel).
+2. Swarm lives under `.agents/` (+ skills in `.claude/skills/` where Claude Code scans): `reference/` (rule cards), `templates/`, `specs/` (`*.swarm.md` sources), `tasks/` (frames; gitignored), `memory/` (recall). No `.swarm/` mount.
 3. Treat `.swarm.md` blocks as authoritative over prose summaries.
 4. Use assigned obligation IDs as scope.
 5. Decide isolation before editing (see the `implement` pass): a code task with a source spec/audit runs in a `worktree+branch` named for the spec, off the base — never on it; a bare ad-hoc edit stays `in-place`.
@@ -27,22 +27,17 @@
 - **The verification gate:** `pnpm deps:validate` (dependency-cruiser) MUST pass with **zero** architectural violations before a cross-module change is done.
 - **Safety (bypass-permissions mode):** never delete/rename/overwrite a file without an explicit instruction; no destructive git; no codemods / bulk find-replace / global `--fix`; stage only intentionally-changed files; when unsure, log a `QUESTION` rather than act.
 - **Working discipline:** show-don't-tell (paste real command output as proof); trace blast radius with `pnpm typecheck`; after 3 failed fix attempts, stop and re-strategize.
-- Full architecture + conventions + safety detail: **`.swarm/overlays/repo-conventions.md`**. Human coding conventions: `docs/07-conventions.md`.
+- Full architecture + conventions + safety detail: **`.agents/repo-conventions.md`**. Human coding conventions: `docs/07-conventions.md`.
 
 ## Pointers
-- Skills (a pass guide for each of the 9 passes, per-kind implement & author guides, persona-* stances, fragments): `.swarm/kernel/skills/`; this repo's own skills: `.swarm/skills/`. Each carries its pass *procedure* inline.
-- Operative reference cards (the shared closed-set rules — SOL grammar, proofs/verdicts/adequacy, the IR/edges): `.swarm/kernel/reference/` (`sol.md`, `proofs.md`, `ir.md`). Load the card for the pass you're running.
-- Memory recall map (says *when to load* each entry; never dumped here): `.swarm/memory/INDEX.md`
-- Project rule bundles (overlays): `.swarm/overlays/` (project-owned; survives kernel upgrades)
+- Skills (a pass guide for each of the 9 passes, per-kind implement & author guides, persona-* stances, fragments — Swarm's + this repo's own, side by side): `.claude/skills/`. Each carries its pass *procedure* inline.
+- Operative reference cards (the shared closed-set rules — SOL grammar, proofs/verdicts/adequacy, the IR/edges): `.agents/reference/` (`sol.md`, `proofs.md`, `ir.md`). Load the card for the pass you're running.
+- Flow folders: `.agents/specs/` (source `*.swarm.md`), `.agents/tasks/` (frames; gitignored), `.agents/memory/` (recall; `INDEX.md` is the load-*when* map).
+- Project conventions: `.agents/repo-conventions.md` + `## Project facts` above. Project config: `.agents/swarm.config.yaml`.
 - Full SOL / APS / passes manuals (not installed — read in the `swarm` repo for the *why*): `<swarm-repo>/docs/`
 
 ## Compatibility
-Two skill sources are bridged into `.claude/skills/` (so Claude Code discovers them) as **per-skill
-symlinks**, not a single dir symlink: the framework skills at `.swarm/kernel/skills/` and this repo's own
-skills at `.swarm/skills/` (project-owned, survives kernel upgrades). Each skill carries its pass
-*procedure* inline; the shared closed-set rules ship as the compact `reference/` cards. So `.swarm/kernel/`
-holds `skills/` + `reference/` + `templates/`; the full SOL/APS/passes manuals (the *why*) are not
-installed — read them in the `swarm` repo.
+Swarm's skills and this repo's own skills are **real directories in `.claude/skills/`** (the dir Claude Code scans), side by side — no separate home, no symlink bridge. Their names (`pass-*`/`persona-*`/`write-*` for Swarm; `architecture-violations`, `event-bus-and-results`, `state-and-write-paths`, `testing-file-layout`, `documentation-gatekeeper` for this repo) don't collide. An upgrade re-copies Swarm's named skills; the repo's own are untouched. The shared closed-set rules live in `.agents/reference/`; the full SOL/APS/passes manuals (the *why*) are not installed — read them in the `swarm` repo.
 
 ## Commands
 <!-- Each `cmd*` slot is the adapter a `VERIFY BY <type>:<adapter>:<artifact>` clause resolves through
