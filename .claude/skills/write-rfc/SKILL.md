@@ -204,7 +204,7 @@ bound what this pass records:
   commits to one advocated approach.
 - **Desired product outcomes** — *what outcome* is wanted and why is a PRD; an RFC proposes *how* a
   technical approach delivers an outcome, and its `## Problem` often cites the originating PRD.
-- **Kernel semantics** — the obligation-block grammar, modality, authority order, QUESTION blocking
+- **Swarm semantics** — the obligation-block grammar, modality, authority order, QUESTION blocking
   rule, verification verdicts, and lint codes are fixed by the SOL/APS references. This guide applies
   them; it never redefines them.
 
@@ -251,5 +251,5 @@ local task file:
   promotion target (an accepted ADR and/or an approved spec)?
 - **Frontmatter complete.** Are `type: rfc`, a stable `id`, a valid `status`, and `created` /
   `updated` all set, and is the filename plain `.md` with no `.swarm.` infix?
-- **Soft control.** Did this RFC stay a proposal that applies kernel semantics, never one that
+- **Soft control.** Did this RFC stay a proposal that applies Swarm semantics, never one that
   redefines them?

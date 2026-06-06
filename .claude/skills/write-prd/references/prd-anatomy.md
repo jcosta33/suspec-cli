@@ -1,6 +1,6 @@
 # PRD anatomy — section-by-section stance rules
 
-A lookup aid for `write-prd`. It restates the `prd.md` artifact contract for convenience; the kernel artifact contract is authoritative on any disagreement. Every rule below defends one boundary: a `prd.md` asserts **intent** (what outcome is wanted and why) and is **non-authoritative until authored** into a `spec.swarm.md`. It carries no obligations of its own.
+A lookup aid for `write-prd`. It restates the `prd.md` artifact contract for convenience; the Swarm artifact contract is authoritative on any disagreement. Every rule below defends one boundary: a `prd.md` asserts **intent** (what outcome is wanted and why) and is **non-authoritative until authored** into a `spec.swarm.md`. It carries no obligations of its own.
 
 ## Frontmatter
 

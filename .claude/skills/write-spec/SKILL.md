@@ -34,7 +34,7 @@ A spec is the contract between whoever specifies and whoever builds. An implemen
 
 - One `*.swarm.md` source spec. The `.swarm.` infix before the final extension is the sole discriminator marking it compiler-visible; a plain `.md` is a working artifact, never parsed as SOL. Name the spec `<slug>.swarm.md` (e.g. `auth-refresh.swarm.md`) and leave every parent (audit, research, PRD, RFC, finding, ADR) a plain `.md`. *Why:* the infix is what a future tool keys on to "parse this as obligations"; mis-naming a parent `.swarm.*` smuggles a non-spec into the compiler's view.
 
-The file carries YAML frontmatter (required set: `type: spec`, `id`, `swarm_language: SOL/0.1`, `aps_version`, `spec_version`, `status`) then the required sections in this exact order: `## Intent`, `## Non-goals`, `## Context`, `## Interfaces`, `## Obligations`, `## Constraints`, `## Invariants`, `## Questions`, `## Verification coverage`, `## Downstream tasks`, `## Distillation loss statement`. Copy the skeleton at the kernel's spec template (`templates/spec.swarm.md`) and replace every placeholder.
+The file carries YAML frontmatter (required set: `type: spec`, `id`, `swarm_language: SOL/0.1`, `aps_version`, `spec_version`, `status`) then the required sections in this exact order: `## Intent`, `## Non-goals`, `## Context`, `## Interfaces`, `## Obligations`, `## Constraints`, `## Invariants`, `## Questions`, `## Verification coverage`, `## Downstream tasks`, `## Distillation loss statement`. Copy the skeleton at Swarm's spec template (`templates/spec.swarm.md`) and replace every placeholder.
 
 ## Preserves
 

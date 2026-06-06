@@ -35,7 +35,7 @@ Run it with the **Skeptic** stance (the `skeptic` profile): assume each obligati
 
 - One `spec.swarm.md` (the surface artifact; prose + SOL blocks).
 - The language reference for codes and record shape — for lookup, never to redefine.
-- Optionally, a project `swarm.config.json`/`.yaml` (or the `lint:` section of `.swarm/config.yaml`) carrying severity overrides and waivers (see the SOL error catalogue), and `memory/glossary.md` for term resolution (`SOL-P006`/`SOL-P057`).
+- Optionally, a project `swarm.config.json`/`.yaml` (or the `lint:` section of `.agents/swarm.config.yaml`) carrying severity overrides and waivers (see the SOL error catalogue), and `memory/glossary.md` for term resolution (`SOL-P006`/`SOL-P057`).
 
 ## Produces
 

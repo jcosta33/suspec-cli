@@ -48,7 +48,7 @@ against it). Lowering is a faithful re-expression, not a rewrite: it adds no int
    the source MUST be recoverable from the IR. Permitted drops are only non-binding (rationale, source
    digressions recorded elsewhere); a dropped obligation/modality/binding is a distillation-loss defect
    (see the `distillation-discipline` skill).
-6. **Stay in the closed sets.** No node `kind`, edge `type`, or modal outside the kernel's closed sets —
+6. **Stay in the closed sets.** No node `kind`, edge `type`, or modal outside Swarm's closed sets —
    inventing one forks the language.
 
 ## Anti-patterns

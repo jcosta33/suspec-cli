@@ -29,7 +29,7 @@ Produce a `prd.md` that records **product intent** — the problem, who is affec
 ## Consumes
 
 - The chat or brief stating the product intent, plus any evidence grounding it (surveys, durable project facts, prior research).
-- The `prd.md` copyable skeleton in the kernel templates — copy it, then fill the seven sections.
+- The `prd.md` copyable skeleton in the Swarm templates — copy it, then fill the seven sections.
 - The `author`-pass and `prd.md` artifact contracts — for lookup, never redefined here.
 
 ## Produces
@@ -111,4 +111,4 @@ Before closing the pass, confirm — and where a step would otherwise leave no v
 
 ## Bundled resources
 
-- `references/prd-anatomy.md` — the seven sections with per-section stance rules, the success-metrics table shape, filename/placement rules, and a worked outcome-vs-mechanism before/after. A lookup aid restating the artifact contract for convenience; the kernel artifact contract is authoritative on any disagreement.
+- `references/prd-anatomy.md` — the seven sections with per-section stance rules, the success-metrics table shape, filename/placement rules, and a worked outcome-vs-mechanism before/after. A lookup aid restating the artifact contract for convenience; the Swarm artifact contract is authoritative on any disagreement.

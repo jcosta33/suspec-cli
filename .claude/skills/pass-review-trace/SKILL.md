@@ -36,7 +36,7 @@ The verdict vocabulary, proof-strength order, gate predicate, and waiver/contrad
 
 ## Produces
 
-`review.md` — that artifact **is** the verdict record, the canonical container of `VERDICT` blocks (the `review` pass, [`../../templates/review.md`](../../templates/review.md)). The kernel ships **no** `verdict.md`; a repo recording verdicts in a standalone `verdict.md` is non-conformant (the `review` pass). Do not create one.
+`review.md` — that artifact **is** the verdict record, the canonical container of `VERDICT` blocks (the `review` pass, [`../../templates/review.md`](../../templates/review.md)). Swarm ships **no** `verdict.md`; a repo recording verdicts in a standalone `verdict.md` is non-conformant (the `review` pass). Do not create one.
 
 ## Preserves — the Skeptic review discipline
 

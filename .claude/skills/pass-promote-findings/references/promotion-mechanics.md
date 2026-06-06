@@ -1,6 +1,6 @@
 # Promotion mechanics
 
-Deep material for the `promote` pass guide: the full provenance record, the per-status behaviour at the close gate, the two distinct status enums, the validation/rollback mechanics, and a worked queue. This file is referenced by `SKILL.md` rules 4, 5, and 10. It applies the canonical promotion rules — it does not redefine kernel semantics.
+Deep material for the `promote` pass guide: the full provenance record, the per-status behaviour at the close gate, the two distinct status enums, the validation/rollback mechanics, and a worked queue. This file is referenced by `SKILL.md` rules 4, 5, and 10. It applies the canonical promotion rules — it does not redefine Swarm semantics.
 
 ## The full provenance record
 
@@ -43,11 +43,11 @@ The seven promotion statuses do not all play the same role at closure:
 
 ## Staleness of a promoted finding
 
-A `promoted` finding does not stay authoritative forever. It becomes **`stale`** when its `content_hash` no longer matches the cited source/surfaces — the same drift signal behind the `STALE` lifecycle verdict and the spec↔code reconcile. A `stale` finding MUST NOT be relied on as authority; it routes to re-verification or supersession, and a `superseded` finding records its replacement in the INDEX's stale/superseded table. The kernel ships the *fields* (`content_hash`, `origin_traces`); the comparator that recomputes the hash is a harness/CLI concern, manual today.
+A `promoted` finding does not stay authoritative forever. It becomes **`stale`** when its `content_hash` no longer matches the cited source/surfaces — the same drift signal behind the `STALE` lifecycle verdict and the spec↔code reconcile. A `stale` finding MUST NOT be relied on as authority; it routes to re-verification or supersession, and a `superseded` finding records its replacement in the INDEX's stale/superseded table. Swarm ships the *fields* (`content_hash`, `origin_traces`); the comparator that recomputes the hash is a harness/CLI concern, manual today.
 
 ## What the `promotions/` ledger entry records
 
-A `promotions/` ledger entry under `.swarm/ledger/promotions/` records the durable target each promoted discovery landed at — a spec amendment, an ADR, a finding, a pattern, a glossary entry, or a pass-guide-plus-pointer — and the disposition of every queue item. It is immutable and append-only (a correction is a new entry referencing the one it amends). It introduces no new evidence: it is a projection of the resolved queue into compact, committed history, so `.swarm/generated/` packets can be discarded without severing the backward trace from code to the discoveries that produced it.
+A promotions-history entry (a compact, committed log your project keeps, created on first promote) records the durable target each promoted discovery landed at — a spec amendment, an ADR, a finding, a pattern, a glossary entry, or a pass-guide-plus-pointer — and the disposition of every queue item. It is immutable and append-only (a correction is a new entry referencing the one it amends). It introduces no new evidence: it is a projection of the resolved queue into compact, committed history, so throwaway execution packets can be discarded without severing the backward trace from code to the discoveries that produced it.
 
 ## Worked example: a queue with two faces, a validation gate, and a local detail
 
@@ -55,7 +55,7 @@ A `review[profile: skeptic]` pass on an auth-refresh change surfaces four discov
 
 | # | Discovery | Kind | Route | Status |
 |---|---|---|---|---|
-| 1 | "Refresh tokens are accepted after logout — a replay window exists." | Reproduced defect evidence | `bug-report` at `.swarm/sources/bugs/refresh-token-replay.md` (diagnosis-only; fix promotes onward to a `task_kind: fix`) | `promoted` |
+| 1 | "Refresh tokens are accepted after logout — a replay window exists." | Reproduced defect evidence | a `type: bug-report` doc (diagnosis-only; fix promotes onward to a `task_kind: fix`) | `promoted` |
 | 2 | "The refresh endpoint trusts the client clock for token expiry." | Reusable project fact, high-consequence | `finding.md` — passes `pending → validated → promoted` (re-run proof + second reviewer); full provenance; INDEX `Load when`: "Touching auth token expiry or refresh endpoints" | `promoted` |
 | 3 | "Client-clock-trust is the same shape we saw in the session-cookie work." | Repeated cross-task pattern | Held: only one corroborating finding (#2) exists today | `blocked` — reason "needs a second corroborating finding before a pattern" |
 | 4 | "The test fixture seeds three users; only one is used." | Purely local execution detail | Keep in `task.md` | `rejected` — reason "execution-local" |

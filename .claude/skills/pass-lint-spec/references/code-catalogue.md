@@ -99,7 +99,7 @@ The IR lowers the same data SARIF-shaped into `diagnostics[]`: `severity`→`lev
 
 ## Waiver record (required fields)
 
-A BLOCKING code may be demoted only through one config surface (root `swarm.config.json`/`.yaml`, or the `lint:` section of `.swarm/config.yaml`) and only with a complete waiver. All fields are required (see the SOL error catalogue); an incomplete record does not take effect and the blocker stands:
+A BLOCKING code may be demoted only through one config surface (root `swarm.config.json`/`.yaml`, or the `lint:` section of `.agents/swarm.config.yaml`) and only with a complete waiver. All fields are required (see the SOL error catalogue); an incomplete record does not take effect and the blocker stands:
 
 `code`, `scope`, `to` (`warning` | `off`), `authority`, `reason`, `expiry`, `recorded_at`.
 

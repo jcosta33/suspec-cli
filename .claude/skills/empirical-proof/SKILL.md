@@ -40,7 +40,7 @@ Eliminate hallucinated completion. A model is a pattern-completer, and the patte
 task" includes confident language ("all tests pass", "looks correct") it emits *regardless* of
 whether the claim is true. The structural defence is forced visible output: a `PASS` cannot be
 recorded without first pasting the real, re-runnable output the bound proof produced. This is the
-canonical instance of the kernel-wide rule — *if a step's compliance is otherwise invisible, require
+canonical instance of the Swarm-wide rule — *if a step's compliance is otherwise invisible, require
 it to emit a marker the next reader can see* — because a verification step that yields only "it
 passed" is the easiest to drop unnoticed. The governing invariant is **CODE IS REALITY**: a
 proof may falsify an obligation but never silently amend its intent, and **schema-valid output is

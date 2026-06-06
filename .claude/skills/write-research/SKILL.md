@@ -21,7 +21,7 @@ description: >-
 > carries, the source-authority order, or the distillation-loss budget — those live in the language
 > references and the `research` contract, which govern where they disagree with this guide. Every
 > load-bearing term below (the inquiry stance, the `R-NNN`/`Q-NNN` local ids, the source-authority
-> order, the loss budget) is *delivered* by the kernel, not redefined here. The `author` pass
+> order, the loss budget) is *delivered* by Swarm, not redefined here. The `author` pass
 > ships no stdlib guide in the base language version; this is the later-release SOFT guide the pass
 > contract permits — it adds discipline, grants no new authority. It carries the **Surveyor /
 > Researcher** stance: map the decision space well, leave it open, and let every claim that cannot

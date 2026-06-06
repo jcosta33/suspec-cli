@@ -2,7 +2,7 @@
 
 Deep field detail for step 8 of the `decompose` pass guide. The `SKILL.md` body carries the load-bearing discipline; this file is the field-by-field contract and a worked fan-out. The contract is fixed by the the `decompose` pass (orchestration); this reference applies it, never redefines it.
 
-A `task-orchestration.md` is **generated execution material** — emitted by the lead during `decompose` and updated as the parallel run proceeds. It is a plain `.md` working artifact: it MUST NOT carry the `.swarm.` infix (the infix is the sole discriminator for compiler-parsed/emitted files; a coordination record is neither a source spec nor a compiler output). It lives under `.swarm/generated/` (recreatable), never `.swarm/sources/` (durable intent). It is disposable: on reconciliation the durable record is the compacted ledger entry, the updated status, and any promoted findings.
+A `task-orchestration.md` is **generated execution material** — emitted by the lead during `decompose` and updated as the parallel run proceeds. It is a plain `.md` working artifact: it MUST NOT carry the `.swarm.` infix (the infix is the sole discriminator for compiler-parsed/emitted files; a coordination record is neither a source spec nor a compiler output). It is recreatable execution material (created on first write, not a pre-built location), never a durable source artifact. It is disposable: on reconciliation the durable record is the compacted promotions-history entry, the updated status, and any promoted findings.
 
 It MAY embed SOL surface keywords (the `WRITES`-projected OWNED paths, preserved constraints/invariants) as **quoted data**; embedding them does not make it a SOL source, and a conformant tool MUST NOT parse it as a spec.
 
@@ -58,7 +58,7 @@ The same four fields are carried **verbatim** into the worker's child `task.md` 
 
 - **Liveness marker** — the `Last progress` column; the lead updates it each check.
 - **STALL threshold** — a worker whose `Last progress` has not advanced across **two consecutive checks** is `stalled`. (A chosen design constant for the recorded marker, not an empirical borrowing.)
-- **STALL action** — on `stalled`, take one recorded action: **re-plan**, **re-scope**, **escalate**, or **abandon**; write the action and rationale to `## Decisions`. A recorded contract a future launcher could automate, not a stall detector the kernel runs.
+- **STALL action** — on `stalled`, take one recorded action: **re-plan**, **re-scope**, **escalate**, or **abandon**; write the action and rationale to `## Decisions`. A recorded contract a future launcher could automate, not a stall detector Swarm runs.
 
 ## Merge log and INTENT-PRESERVED-PROOF
 
@@ -66,7 +66,7 @@ The merge log records merge order, conflicts, and resolution. The INTENT-PRESERV
 
 ## The per-task merge gate
 
-The per-task merge gate is **not a second gate** — it is the one merge gate ("every required obligation's required `VERIFY BY` bindings are all `PASS`/`WAIVED`") evaluated at the moment a task's branch would merge. `decompose` only fixes the scope (the task's assigned obligations) and the orchestration overlay; the verdicts themselves are `review`'s output. A task MUST NOT merge if: the trace or review is missing (1); any assigned obligation's verdict is `FAIL`/`UNVERIFIED`, including a `PASS (STALE)` (2); a blocking `QUESTION` reaches assigned work (3); the promotion queue is unhandled (4); a write-surface conflict remains — an OWNED overlap with a concurrent worker (`SOL-O001`), an OWNED path outside declared `WRITES` (`SOL-O005`), or an unmerged `DEPENDS ON` dependency (5); or the base branch is dirty / out of policy (6). Conditions 1–4 are the merge gate at task scope; condition 5 is the orchestration overlay; this is a recorded contract a future launcher reads, not a gate the kernel runs.
+The per-task merge gate is **not a second gate** — it is the one merge gate ("every required obligation's required `VERIFY BY` bindings are all `PASS`/`WAIVED`") evaluated at the moment a task's branch would merge. `decompose` only fixes the scope (the task's assigned obligations) and the orchestration overlay; the verdicts themselves are `review`'s output. A task MUST NOT merge if: the trace or review is missing (1); any assigned obligation's verdict is `FAIL`/`UNVERIFIED`, including a `PASS (STALE)` (2); a blocking `QUESTION` reaches assigned work (3); the promotion queue is unhandled (4); a write-surface conflict remains — an OWNED overlap with a concurrent worker (`SOL-O001`), an OWNED path outside declared `WRITES` (`SOL-O005`), or an unmerged `DEPENDS ON` dependency (5); or the base branch is dirty / out of policy (6). Conditions 1–4 are the merge gate at task scope; condition 5 is the orchestration overlay; this is a recorded contract a future launcher reads, not a gate Swarm runs.
 
 ## Worked fan-out (the `auth-refresh` fragment)
 
