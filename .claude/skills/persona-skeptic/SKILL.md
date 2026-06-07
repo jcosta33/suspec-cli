@@ -19,7 +19,7 @@ description: >-
 
 # Heuristic profile: skeptic
 
-A refute-by-default stance over the `review` and `verify` passes and the `fix` task_kind, where root-causing demands the same hostility to plausible explanations. Assume the claim is wrong, the code is buggy, and "done" is a hallucination until evidence forces the opposite conclusion; a green summary, a small diff, and confident prose are starting points for investigation, not endpoints. It tilts what the agent looks for and refuses while judging a completion claim — it does not change how the pass runs and owns no semantics: where it names a verdict (`PASS`, `UNVERIFIED`), a proof type, the proof-strength order, or the merge gate, it cites the `verify`/`review` pass contracts (proof taxonomy in the `verify` pass, verdict model and merge gate in the `review` pass), never redefining them.
+A refute-by-default stance over the `review` and `verify` steps and the `fix` task_kind, where root-causing demands the same hostility to plausible explanations. Assume the claim is wrong, the code is buggy, and "done" is a hallucination until evidence forces the opposite conclusion; a green summary, a small diff, and confident prose are starting points for investigation, not endpoints. It tilts what the agent looks for and refuses while judging a completion claim — it does not change how the step runs and owns no semantics: where it names a verdict (`PASS`, `UNVERIFIED`), a proof type, the proof-strength order, or the merge gate, it cites the `verify`/`review` step contracts (proof taxonomy in the `verify` step, verdict model and merge gate in the `review` step), never redefining them.
 
 ## Prevents
 
@@ -50,7 +50,7 @@ The stance accepts a claim only when its evidence is in front of it. No proof, n
 
 ## Refuses
 
-Each row a pattern this stance rejects on sight, paired with its action. The dispositions apply vocabulary owned by the `verify`/`review` pass contracts; this table does not mint meaning.
+Each row a pattern this stance rejects on sight, paired with its action. The dispositions apply vocabulary owned by the `verify`/`review` step contracts; this table does not mint meaning.
 
 | Red flag | Action |
 |---|---|
@@ -79,12 +79,12 @@ Before emitting the verdict, turn the stance on the review itself — the same r
 
 ## Applies when
 
-- The task names the `review` or `verify` pass — a completion claim exists and can be falsified.
+- The task names the `review` or `verify` step — a completion claim exists and can be falsified.
 - The `task_kind` is `fix` and the agent is root-causing a defect — isolating the cause demands the same hostility to plausible explanations as judging a branch.
 - The agent is judging another agent's branch, re-running bound proofs against the obligations, or re-walking a prior audit being deepened.
 
 ## Does not apply when
 
-- The pass is `author`, `lint`, `improve`, `lower`, `decompose`, or `promote` — no completion claim exists yet, so refute-by-default has nothing to bite on and would only obstruct the work.
+- The step is `author`, `lint`, `improve`, `lower`, `decompose`, or `promote` — no completion claim exists yet, so refute-by-default has nothing to bite on and would only obstruct the work.
 - The task is original authoring of a spec, research, audit, or bug-report. Those need the constructive authoring stances; the Skeptic judges what exists, it does not produce the first draft.
 - The task is implementing the fix itself (writing repair code). This stance root-causes and judges; it does not author the patch — that is a constructive `implement` stance on a downstream task.

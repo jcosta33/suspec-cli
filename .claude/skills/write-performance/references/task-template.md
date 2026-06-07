@@ -142,7 +142,7 @@ different numbers and the comparison is meaningless. Record it once and re-use i
 
 ---
 
-## Implementation or pass trace
+## Implementation or step trace
 
 (What changed, per assigned obligation, and the per-change benchmark delta. One short paragraph
 each.)
@@ -262,7 +262,7 @@ status. `implement` records only the observed `proof_result`; the verdict is dec
   self-certify a PASS?
   Answer:
 
-### Final adversarial pass
+### Final adversarial step
 
 - What might still be slow that you did not profile? Could the speedup be giving back downstream
   what it gained? Do not close without this.

@@ -15,12 +15,12 @@ description: >-
   migrations, net-new features.
 ---
 
-# Pass guide: implement — performance
+# Step guide: implement — performance
 
 > **SOFT control (Invariant 2).** This guide tells you *how* to run a
-> `performance` implement pass. It does **not** define modality, authority
+> `performance` implement step. It does **not** define modality, authority
 > order, verification semantics, verdict values, or proof taxonomy — those are
-> owned only by SOL and the typed IR. Every load-bearing term below (a
+> owned only by SOL and the typed structured form. Every load-bearing term below (a
 > `REQ`/`CONSTRAINT`/`INVARIANT`/`INTERFACE` obligation, a `TRACE` block,
 > `IMPLEMENTS`/`PRESERVES`/`CHANGED`/`PROOF`, the 7-value verdict, a lint code
 > like `SOL-O005`) is **cited, not redefined**. Where this guide and the language
@@ -58,9 +58,9 @@ procedure below and never decides a verdict.
 
 ## Consumes
 
-- One `task.md` — the lowered work packet for this single pass. `implement`
+- One `task.md` — the structured work packet for this single step. `implement`
   works against the packet `decompose` handed it, **not** the surface spec or
-  the IR. Read in particular: `assigned_obligations`, `constraints`,
+  the structured form. Read in particular: `assigned_obligations`, `constraints`,
   `invariants`, `interfaces` (the SOL blocks pasted verbatim that fix scope —
   including any performance `REQ` stating the target as a number, and the
   `CONSTRAINT`/`INVARIANT` pinning the correctness the speedup must not break);
@@ -202,7 +202,7 @@ structural parse error (`SOL-S014`), and an `IMPLEMENTS`/`PRESERVES` naming an
 unknown obligation is the unbound cross-reference `SOL-M003`. The observed
 `proof_result` (`passed | failed | blocked | unverified`) is only the core run
 observation; the `PASS` decision is made downstream by the profile-independent
-`verify` pass, and the lifecycle decorators (the 7-value verdict's `WAIVED` /
+`verify` step, and the lifecycle decorators (the 7-value verdict's `WAIVED` /
 `STALE` / `CONTRADICTED`) are applied later at `review` — never here. *Rationale:*
 the observed `proof_result` is the only thing `verify` can turn into a verdict;
 a perf claim with no pasted before/after figure is one the pipeline cannot judge,
@@ -326,7 +326,7 @@ guide does not redefine them.
 - **Scope and verdict:** Every change traces to an assigned obligation (no
   `SOL-O005`, no silent second optimisation)? All promotion items resolved? I
   recorded only the observed `proof_result` and did not self-certify a PASS?
-- **Final adversarial pass:** What might still be slow that I did not profile?
+- **Final adversarial step:** What might still be slow that I did not profile?
   Could the speedup be giving back downstream what it gained? Do not close
   without this.
 

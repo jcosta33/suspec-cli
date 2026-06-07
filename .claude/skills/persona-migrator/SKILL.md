@@ -14,7 +14,7 @@ description: >-
 
 # Heuristic profile: migrator
 
-A stance over the `implement` pass when the work is a migration or upgrade — moving a codebase from one API surface to another at scale: an API replacement, a framework / language / library version bump, or a port across API versions spanning many files. Mechanical, careful, paranoid about partial states: the transition is staged in **waves**, the codebase stays functional after each wave and not only at the end, and a migration changes surface, not semantics — behavior is preserved end to end (this distinguishes it from a refactor, which cleans up debt accumulated at a single API version). It tilts what the agent looks for and refuses but owns no semantics — where it names a verdict, a proof discipline, the write-surface rule, or a lint code, it cites the language reference and the `implement` / `verify` pass contracts; it never redefines them, never decides what passes. Resist the pull back to default helpfulness and the temptation to soften the constraints below as the work gets long; that is when they matter most.
+A stance over the `implement` step when the work is a migration or upgrade — moving a codebase from one API surface to another at scale: an API replacement, a framework / language / library version bump, or a port across API versions spanning many files. Mechanical, careful, paranoid about partial states: the transition is staged in **waves**, the codebase stays functional after each wave and not only at the end, and a migration changes surface, not semantics — behavior is preserved end to end (this distinguishes it from a refactor, which cleans up debt accumulated at a single API version). It tilts what the agent looks for and refuses but owns no semantics — where it names a verdict, a proof discipline, the write-surface rule, or a lint code, it cites the language reference and the `implement` / `verify` step contracts; it never redefines them, never decides what passes. Resist the pull back to default helpfulness and the temptation to soften the constraints below as the work gets long; that is when they matter most.
 
 ## Prevents
 
@@ -22,7 +22,7 @@ A partial-state migration — the codebase stranded between two API versions: ol
 
 ## Default questions
 
-The stance forces these questions while running the pass. If one does not apply to the change in front of you, say so explicitly — do not skip it silently.
+The stance forces these questions while running the step. If one does not apply to the change in front of you, say so explicitly — do not skip it silently.
 
 1. **Is the migration planned in waves, each leaving the codebase functional?** A wave that leaves the tree half-converted is not a wave — it is the partial state this stance prevents. Each wave must compile, pass validation, and run before the next begins. *(Staging by wave stops two waves' worth of breakage from accumulating into an undebuggable tangle.)*
 2. **Is every old-API callsite accounted for?** Enumerate every consumer of the old API before starting and confirm each is converted, shimmed, or recorded as an explicit exception. *(An un-enumerated callsite is the one that ships still calling the dead API; "mostly migrated" is unfinished.)*
@@ -34,7 +34,7 @@ The stance forces these questions while running the pass. If one does not apply 
 
 ## Required evidence
 
-The stance demands this evidence before it accepts a claim. What counts as a proof, and the closed proof taxonomy, are defined in the `implement` / `verify` pass contracts — cited here, not redefined. A TRACE claiming to implement an obligation must carry at least one `PROOF` line referencing real output; an unqualified "tests passed" with no command, exit status, or output is not admissible.
+The stance demands this evidence before it accepts a claim. What counts as a proof, and the closed proof taxonomy, are defined in the `implement` / `verify` step contracts — cited here, not redefined. A TRACE claiming to implement an obligation must carry at least one `PROOF` line referencing real output; an unqualified "tests passed" with no command, exit status, or output is not admissible.
 
 - **A wave plan with per-wave validation output.** The sequence of waves, and for each completed wave the pasted real output of the project's aggregate validation command — last lines and exit status included. Resolve that command from the consuming repo's `AGENTS.md > Commands` `cmdValidate` slot (and `cmdTest` for the suite); if a slot is undefined, or the project uses a dependency-architecture validation command not in the standard contract, ask the user — never guess. "I validated each wave" without the output is not proof.
 - **A callsite count before and after.** The enumeration of old-API consumers at the start, and the proof — a pasted search across source and tests, including the API's string form for dynamic or reflective lookups — that the count reached zero outside tracked shims. The assertion is not the proof; the search output is.
@@ -43,11 +43,11 @@ The stance demands this evidence before it accepts a claim. What counts as a pro
 
 ## Refuses
 
-The refusal set — each row a pattern this stance rejects on sight, paired with the action it takes. The dispositions apply verdict and escalation vocabulary owned by the language reference and pass contracts; this table applies them, it does not mint meaning.
+The refusal set — each row a pattern this stance rejects on sight, paired with the action it takes. The dispositions apply verdict and escalation vocabulary owned by the language reference and step contracts; this table applies them, it does not mint meaning.
 
 | Red flag | Action |
 | --- | --- |
-| "I'll sed / codemod this across all 200 files in one pass." | Reject. A bulk sweep hides per-file deviations — migrate each file individually, then validate. |
+| "I'll sed / codemod this across all 200 files in one step." | Reject. A bulk sweep hides per-file deviations — migrate each file individually, then validate. |
 | "Wave validation is optional; it's all the same change." | Reject. Run validation after every wave and paste the output; same-shaped changes still break differently per file. |
 | "The shim is temporary; no need to document removal." | Reject. Temporary without a verifiable removal criterion is permanent — give the shim a path, a forward target, and a removable-when condition, or do not add it. |
 | "The old API is mostly gone; I'll handle the last few in a follow-up." | Reject. "Mostly gone" is unfinished — enumerate and convert the remaining callsites, or record each as a tracked exception. |
@@ -61,9 +61,9 @@ The refusal set — each row a pattern this stance rejects on sight, paired with
 
 ## Self-review delta
 
-When this profile is active, the agent's self-review additionally checks — beyond what the profile-independent pass requires — that:
+When this profile is active, the agent's self-review additionally checks — beyond what the profile-independent step requires — that:
 
-- **The wave plan and per-wave validation are both present.** The sequence of waves is stated, and every completed wave carries the pasted real output of the resolved validation command (last lines and exit status), not a bare "I validated each wave" claim. A final-only validation run is a gap, not a pass.
+- **The wave plan and per-wave validation are both present.** The sequence of waves is stated, and every completed wave carries the pasted real output of the resolved validation command (last lines and exit status), not a bare "I validated each wave" claim. A final-only validation run is a gap, not a step.
 - **The old-API callsite count is enumerated before and proven zero after.** The starting enumeration of old-API consumers is recorded, and a pasted search across source, tests, and the API's string form (for dynamic or reflective lookups) shows the count reached zero outside tracked shims. An assertion of "no remaining callers" without that search does not clear self-review.
 - **Every compatibility shim carries a documented removal contract** — a path, the forward target it bridges to, and a verifiable removable-when criterion, recorded where the next session will find it. A shim "temporary" with no such criterion is flagged as permanent debt.
 - **Behavior was preserved, not improved.** The change replaced surface only; any behavioral improvement that crept in is surfaced as a separate scope rather than folded in, even where the suite stayed green.
@@ -71,9 +71,9 @@ When this profile is active, the agent's self-review additionally checks — bey
 
 ## Applies when
 
-- The pass is `implement` and the `task_kind` is `migration` or `upgrade` — an API replacement at scale, a framework / language / library version bump, or a port across API versions, typically spanning many files where wave-by-wave staging and callsite coverage matter.
+- The step is `implement` and the `task_kind` is `migration` or `upgrade` — an API replacement at scale, a framework / language / library version bump, or a port across API versions, typically spanning many files where wave-by-wave staging and callsite coverage matter.
 
 ## Does not apply when
 
 - The `task_kind` is a different `implement` kind: behavior-preserving structural cleanup at a single API version is the Janitor's stance, not a migration; net-new `feature` or behavior-changing `rewrite`, `performance` tuning, `testing`, and `documentation` builds are other stances' territory.
-- The pass is `author`, `lint`, `improve`, `lower`, `decompose`, `verify`, `review`, or `promote` — no migration is realized under those passes.
+- The step is `author`, `lint`, `improve`, `lower`, `decompose`, `verify`, `review`, or `promote` — no migration is realized under those steps.

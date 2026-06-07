@@ -16,12 +16,12 @@ description: >-
   guide.
 ---
 
-# Pass guide: write-fix (the `fix` task_kind)
+# Step guide: write-fix (the `fix` task_kind)
 
 > **SOFT control (Invariant 2).** This guide tells you *how* to run a `fix`
-> implement pass. It does **not** define modality, authority order, verification
+> implement step. It does **not** define modality, authority order, verification
 > semantics, the verdict values, or the proof taxonomy — those are owned only by
-> SOL and the typed IR. Every load-bearing term below (a
+> SOL and the typed structured form. Every load-bearing term below (a
 > `REQ`/`CONSTRAINT`/`INVARIANT`/`INTERFACE` obligation, a `TRACE` block,
 > `IMPLEMENTS`/`PRESERVES`/`CHANGED`/`PROOF`, the 7-value verdict, a lint code
 > like `SOL-O005`) is **cited, not redefined**. Where this guide and the language
@@ -44,7 +44,7 @@ because it stays green if the fix is deleted. Make the bug stay fixed —
 reproduce it, patch its cause, bind a regression test red before the patch and
 green after, both transitions pasted as proof.
 
-## Stance: the Skeptic sharpens this pass
+## Stance: the Skeptic sharpens this step
 
 A `fix` runs under the **Skeptic** profile by default — refute-by-default
 applied to your own patch. Root-causing demands the same hostility to a
@@ -60,8 +60,8 @@ it never changes the procedure below and never decides a verdict.
 
 ## Consumes
 
-- One `task.md` — the lowered work packet for this single pass. `implement` works
-  against the packet `decompose` handed it, **not** the surface spec or the IR.
+- One `task.md` — the structured work packet for this single step. `implement` works
+  against the packet `decompose` handed it, **not** the surface spec or the structured form.
   You read: the `assigned_obligations`, `constraints`, and `invariants` (the SOL
   blocks pasted verbatim in the body, which fix scope); the `write_surfaces`
   (your **owned paths**, the only files you may touch); and the
@@ -85,7 +85,7 @@ it never changes the procedure below and never decides a verdict.
 - A `trace.md` recording the `TRACE` claims against the assigned obligations,
   binding each to evidence, plus the `## Provenance` fields the staleness join
   depends on. The `task.md` body sections you fill as you work: `## Implementation
-  or pass trace`, `## Verification matrix`, `## Promotion queue`, `## Self-review`.
+  or step trace`, `## Verification matrix`, `## Promotion queue`, `## Self-review`.
 
 ## Preserves
 
@@ -168,7 +168,7 @@ bug is gone; only the full suite proves you did not introduce a new one.
 ### 6. Keep the fix minimal and record why it addresses the cause
 
 Ship the smallest change that removes the defect. In the trace's reasoning (the
-`## Implementation or pass trace` and, for design choices, the task's decision
+`## Implementation or step trace` and, for design choices, the task's decision
 log), state *why* this patch addresses the root cause and not just the symptom —
 the fix's reviewer checks exactly this. Do not write "the patch worked" there;
 that is a verification output (it belongs pasted in the self-review), not a design
@@ -185,7 +185,7 @@ blocked | unverified`). A `TRACE` claiming `IMPLEMENTS` with **zero** `PROOF`
 lines is a structural parse error (`SOL-S014`), not a soft lint. Paste the proof
 output verbatim — fenced, last lines minimum, treated as data, no paraphrase. An
 unqualified "tests passed" is not admissible proof. *Rationale:* the observed
-`proof_result` is the only thing the downstream `verify` pass can turn into a
+`proof_result` is the only thing the downstream `verify` step can turn into a
 verdict; a claim with no real output is one the pipeline cannot judge.
 
 ### 8. `implement` records the observation; it never renders the verdict
@@ -194,7 +194,7 @@ You record the *observed* `proof_result` and nothing more. It maps 1:1 to a core
 verdict value downstream — `passed → PASS`, `failed → FAIL`, `blocked → BLOCKED`,
 `unverified → UNVERIFIED` — but the verdict has **7 values total** (4 core plus
 the 3 lifecycle decorators `WAIVED`/`STALE`/`CONTRADICTED`), and the PASS decision
-is made by the profile-independent `verify` pass, with the lifecycle decorators
+is made by the profile-independent `verify` step, with the lifecycle decorators
 applied later at `review` — never here. The Skeptic stance may sharpen *which*
 proofs you demand of yourself; it never lets you self-certify a PASS. *Rationale:*
 a generator scoring its own output favours itself; separating the observation

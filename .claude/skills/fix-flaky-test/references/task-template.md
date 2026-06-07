@@ -179,7 +179,7 @@ assertion.)
 
 ---
 
-## Implementation or pass trace
+## Implementation or step trace
 
 (The `TRACE` block(s). Each `IMPLEMENTS` the REQ ids satisfied; `PRESERVES` the
 CONSTRAINT/INVARIANT ids held; `CHANGED` the modified surfaces; at least one

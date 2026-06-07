@@ -44,7 +44,7 @@ The Builder accepts a finished change only against these. Each turns a claim int
 
 ## Refuses
 
-Each row is a pattern this stance rejects on sight while building. The dispositions cite vocabulary owned by the language reference and pass guides — they apply it, never mint it.
+Each row is a pattern this stance rejects on sight while building. The dispositions cite vocabulary owned by the language reference and step guides — they apply it, never mint it.
 
 | Red flag | Action |
 | --- | --- |
@@ -61,7 +61,7 @@ Each row is a pattern this stance rejects on sight while building. The dispositi
 
 ## Self-review delta
 
-With this stance active, self-review additionally checks — beyond whatever the pass already requires:
+With this stance active, self-review additionally checks — beyond whatever the step already requires:
 
 - The obligation-to-change map is complete: every assigned obligation has a part of the diff behind it, by obligation ID, and no part of the diff exists without an obligation behind it.
 - Every acceptance criterion carries the verbatim result of its bound check (`test`, `static`, `perf`, or `manual`) — not a paraphrase — and no criterion is declared met while its result is missing or stays `UNVERIFIED` (`SOL-V001`).
@@ -72,12 +72,12 @@ With this stance active, self-review additionally checks — beyond whatever the
 
 ## Applies when
 
-- The pass is `implement` and the task kind is `feature` — realizing a new behaviour from a spec as working code under the assigned scope.
-- The pass is `implement` and the task kind is `rewrite` — re-realizing a module against a recorded behaviour delta, preserving everything outside it.
+- The step is `implement` and the task kind is `feature` — realizing a new behaviour from a spec as working code under the assigned scope.
+- The step is `implement` and the task kind is `rewrite` — re-realizing a module against a recorded behaviour delta, preserving everything outside it.
 
 ## Does not apply when
 
-- The pass is bug-fix work against an existing implementation — that is the refute-by-default root-causing stance.
-- The pass is a behaviour-preserving refactor — that is the tidy-as-you-go stance.
+- The step is bug-fix work against an existing implementation — that is the refute-by-default root-causing stance.
+- The step is a behaviour-preserving refactor — that is the tidy-as-you-go stance.
 - The work is a migration or upgrade, performance work, test authoring, or documentation — other stances' `implement` territory.
-- The pass is any non-implement pass (authoring, linting, lowering, decomposing, verifying, reviewing, or promoting): the Builder builds, it does not author, check, or normalize.
+- The step is any non-implement step (authoring, linting, structuring, decomposing, verifying, reviewing, or promoting): the Builder builds, it does not author, check, or normalize.

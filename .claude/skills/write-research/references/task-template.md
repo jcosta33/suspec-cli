@@ -43,7 +43,7 @@ lookahead?" not "how does scheduling work".
 
 - **No source/config/dependency changes — research document only.**
 - **No obligation blocks.** A `research.md` authors no `REQ`/`CONSTRAINT`/`INVARIANT`/`INTERFACE`;
-  evidence acquires obligation force only when promoted into a `spec.swarm.md` via the author pass.
+  evidence acquires obligation force only when promoted into a `spec.swarm.md` via the author step.
 - **Inquiry stance — commit to no decision.** Findings survey; the recommendation is advisory.
 - Use search tools aggressively — codebase, official docs, papers, standards, library source.
 - Mark unverified claims `[unconfirmed]`; never present them as findings.

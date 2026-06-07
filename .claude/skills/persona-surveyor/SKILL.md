@@ -65,6 +65,6 @@ When this stance is active, the self-review additionally checks:
 
 ## Does not apply when
 
-- The work is **depth research** — one question investigated against primary sources (a library, API, algorithm, standard, or peer-reviewed result). That is the depth-mode sibling stance of the same `author` (research) pass; this stance is breadth across many examples, not depth on one.
+- The work is **depth research** — one question investigated against primary sources (a library, API, algorithm, standard, or peer-reviewed result). That is the depth-mode sibling stance of the same `author` (research) step; this stance is breadth across many examples, not depth on one.
 - The `author` work is non-research: capturing forward-looking intent as a spec, recording the present state as an audit, or reproducing a defect as a bug report — each has its own authoring stance.
-- The pass is `implement`, `verify`, `review`, `lint`, `improve`, `lower`, `decompose`, or `promote` — the surveyor stance governs gathering and grounding survey evidence under `author`, not realizing, checking, or normalizing it.
+- The step is `implement`, `verify`, `review`, `lint`, `improve`, `lower`, `decompose`, or `promote` — the surveyor stance governs gathering and grounding survey evidence under `author`, not realizing, checking, or normalizing it.

@@ -15,7 +15,7 @@ applies_to: implement pass; documentation task_kind (human-facing docs only).
 
 # Heuristic profile: documentarian
 
-This stance sharpens an `implement` pass whose `task_kind` is `documentation` — docs a human reads — for a reader who has not read the code and has one question, where every word that does not survive being run or cited is a liability. Pick exactly one Diátaxis frame — tutorial (linear hands-on learning), how-to (a recipe for one task), reference (exhaustive lookup, no narrative), or explanation (the *why*) — and hold it throughout; an unrun example is a hypothesis, an uncited behaviour claim a guess. It tilts *what you write and refuse* — it does not run the pass and owns no semantics, so where it names a proof outcome or verdict it cites vocabulary defined elsewhere, never minting it.
+This stance sharpens an `implement` step whose `task_kind` is `documentation` — docs a human reads — for a reader who has not read the code and has one question, where every word that does not survive being run or cited is a liability. Pick exactly one Diátaxis frame — tutorial (linear hands-on learning), how-to (a recipe for one task), reference (exhaustive lookup, no narrative), or explanation (the *why*) — and hold it throughout; an unrun example is a hypothesis, an uncited behaviour claim a guess. It tilts *what you write and refuse* — it does not run the step and owns no semantics, so where it names a proof outcome or verdict it cites vocabulary defined elsewhere, never minting it.
 
 ## Prevents
 
@@ -43,7 +43,7 @@ The Documentarian accepts a doc as done only against these. Each turns a claim i
 
 ## Refuses
 
-Each row is a pattern this stance rejects on sight. The dispositions apply vocabulary owned by the language reference and the pass guide; they do not define it.
+Each row is a pattern this stance rejects on sight. The dispositions apply vocabulary owned by the language reference and the step guide; they do not define it.
 
 | Red flag | Action |
 | --- | --- |
@@ -54,29 +54,29 @@ Each row is a pattern this stance rejects on sight. The dispositions apply vocab
 | A throat-clearing intro that buries the action | Reject. Lead with what the reader needs to do in the first ~100 words. |
 | Documenting past the obligations, or "while I'm here" polish | Reject. Document only what the obligations name; promote the rest, do not silently fix. |
 | A doc you own left contradicting the one you just wrote | Reject. Reconcile owned docs in this change; promote contradictions in docs you do not own. |
-| Touching a doc file outside the assigned write surfaces | Reject. The write surface is amended upstream, never widened from inside the pass. |
+| Touching a doc file outside the assigned write surfaces | Reject. The write surface is amended upstream, never widened from inside the step. |
 | "The example works" claimed because the command was guessed | Reject. Ask the user for the real command; a guess is a false proof. |
-| The stance quietly switching to building, reviewing, or default helpfulness | Reject. Surface the concern; do not switch. The Documentarian constraints hold for the whole pass. |
+| The stance quietly switching to building, reviewing, or default helpfulness | Reject. Surface the concern; do not switch. The Documentarian constraints hold for the whole step. |
 
 ## Self-review delta
 
-When this stance is active, self-review additionally checks — beyond whatever the pass guide already requires:
+When this stance is active, self-review additionally checks — beyond whatever the step guide already requires:
 
 - **Every example was actually run, with real output captured verbatim** — no plausible snippet stands in for a runner result; each example carries its captured output, not "this works".
 - **Every behaviour claim carries a `file:line` anchor** — re-walk each claim and confirm the cited line still makes it true; an uncited or stale claim is dropped or re-verified, not trusted.
 - **The page holds exactly one Diátaxis frame** — re-read end to end for drift; if it switched frames mid-page, it is two docs and must be split.
 - **No hedging the reader cannot act on** — sweep for "should" / "might" / "could" and replace each with the behaviour or the condition under which it holds.
 - **The action appears in the first ~100 words** — confirm the opening leads with what the reader's question asks for, not throat-clearing or history.
-- **Nothing was written past the assigned obligations** — confirm no "while I'm here" polish or neighbouring-doc edit crept in, and the write surface was not widened from inside the pass.
+- **Nothing was written past the assigned obligations** — confirm no "while I'm here" polish or neighbouring-doc edit crept in, and the write surface was not widened from inside the step.
 - **No owned doc now contradicts what was just written** — confirm docs you own here were reconciled, and contradictions in docs you do not own were promoted, not silently fixed.
 - **The format/lint result is real** — confirm the format-hygiene (and any doc-lint) command was run on touched docs with output pasted, and no command was guessed; a guess is a false proof.
 
 ## Applies when
 
-- The pass is `implement` and the task kind is `documentation` — producing or updating a README, tutorial, how-to, reference page, explanation, or contributor guide a **human** reads, for the obligations the work packet assigns.
+- The step is `implement` and the task kind is `documentation` — producing or updating a README, tutorial, how-to, reference page, explanation, or contributor guide a **human** reads, for the obligations the work packet assigns.
 
 ## Does not apply when
 
-- The material is agent-facing — pass guides, task templates, internal flow docs — a different audience following different conventions.
-- The pass is any other `implement` kind (feature, fix, refactor, rewrite, migration, performance, testing).
+- The material is agent-facing — step guides, task templates, internal flow docs — a different audience following different conventions.
+- The step is any other `implement` kind (feature, fix, refactor, rewrite, migration, performance, testing).
 - The deliverable is a spec, research write-up, audit, or bug report in its own right — other stances' territory.

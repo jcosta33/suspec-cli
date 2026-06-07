@@ -15,7 +15,7 @@ description: >-
   task), authoring a present-state audit, or writing a spec declaring intent.
 ---
 
-# Pass guide: write-bug-report (the `bug-report-writing` task_kind)
+# Step guide: write-bug-report (the `bug-report-writing` task_kind)
 
 > **SOFT control.** *How* to author a bug-report. It does **not** define what a bug-report
 > may assert, the diagnosis-only stance, the obligation-block grammar, or verification
@@ -26,7 +26,7 @@ description: >-
 
 ## Stance: Bug Hunter
 
-Run this pass as a **Bug Hunter**: forensic, hypothesis-driven, **read-only on code**.
+Run this step as a **Bug Hunter**: forensic, hypothesis-driven, **read-only on code**.
 Mistrust your first plausible explanation — a wrong cause wastes the fixer's whole session
 and lets the defect ship. Refute by default: when an explanation fits, try to disprove it,
 don't write it down. *Why:* diagnosis and remedy are different mindsets with different
@@ -49,7 +49,7 @@ A bug-report whose body, in order, is **Symptom · Reproduction · Root cause ·
 obligations** — a defect record, not a remedy. The reproduction carries verbatim pasted
 output; the root cause is a precise interaction; the affected-obligations section
 references the violated obligation by id only and authors no new obligation. The report
-promotes forward into a **fix task** (`task_kind: fix`, an `implement`-pass input) — never
+promotes forward into a **fix task** (`task_kind: fix`, an `implement`-step input) — never
 into a fix it dictates, never directly into code.
 
 ## Core rules
@@ -145,7 +145,7 @@ evidence the next reader can check.
 - **In `## Reproduction`:** "should reproduce" or "in theory". Either it reproduces (paste
   it) or it is marked `[unable to reproduce]` with an explanation (rule 8).
 - **In the filename:** the `.swarm.` infix. A bug-report is a working artifact named plain
-  `.md`; the infix marks a compiler-visible spec, which this is not.
+  `.md`; the infix marks a Swarm-visible spec, which this is not.
 
 ## Anti-patterns
 

@@ -124,7 +124,7 @@ the convention closest to the code under test; do not guess.)
 
 ---
 
-## Implementation or pass trace
+## Implementation or step trace
 
 (What was added/changed, per assigned obligation. One short paragraph each.)
 
@@ -186,7 +186,7 @@ downstream at `verify`/`review`.)
 
 ## Self-review
 
-Stop. Tests that pass when the code is commented out, tests that assert on internals, and tests that
+Stop. Tests that step when the code is commented out, tests that assert on internals, and tests that
 bundle unrelated behaviours are net-negative — they cost maintenance and catch nothing. Act as a
 senior engineer hostile to all three, about to greenlight this work for the merge gate.
 
@@ -201,7 +201,7 @@ senior engineer hostile to all three, about to greenlight this work for the merg
 - For each new test: the flip transition — output proving it FAILS when the assertion is flipped (or
   the production path is commented out), then PASSES when restored. Paste a representative sample:
 
-### Did I do only this pass?
+### Did I do only this step?
 
 - Every change traces to an assigned obligation, or it is recorded as an unassigned change with a
   reason + authorizing ID or `none`. No production code touched without an authorising obligation?
@@ -245,11 +245,11 @@ senior engineer hostile to all three, about to greenlight this work for the merg
   given a target and status? Nothing left unpromoted?
   Answer:
 
-### Final adversarial pass
+### Final adversarial step
 
 - What behaviour is still untested that I should have covered? What break in the code would still
   pass my suite? Did I actually run all the gates, or did I trust my memory? Do not leave the work
-  without this final pass.
+  without this final step.
   Answer:
 
 Only when every answer above is written, and every verification output is the real pasted result, is

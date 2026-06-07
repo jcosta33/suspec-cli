@@ -15,12 +15,12 @@ description: >-
   API/framework migrations, perf tuning, net-new features on fresh specs.
 ---
 
-# Pass guide: implement — rewrite
+# Step guide: implement — rewrite
 
 > **This guide is SOFT control (Invariant 2).** It tells you *how* to run a
 > `rewrite` implementation; it never defines verdict values, the proof taxonomy,
 > modality, authority order, or any load-bearing meaning — those live only in SOL
-> and the IR. Every load-bearing term below (the 7-value verdict, `proof_result`,
+> and the structured form. Every load-bearing term below (the 7-value verdict, `proof_result`,
 > the `SOL-O005` owned-path rule, the COVERAGE gate) is *delivered*, not redefined
 > here. Where this guide and the spec disagree, the spec governs.
 
@@ -59,8 +59,8 @@ guessed command produces a false proof.
 
 ## Consumes
 
-- **One `task.md`** — the lowered work packet for this single pass, **not** the
-  surface spec or the IR; `implement` works against the packet `decompose`
+- **One `task.md`** — the structured work packet for this single step, **not** the
+  surface spec or the structured form; `implement` works against the packet `decompose`
   handed it. Read: the assigned obligations pasted verbatim (the `REQ` /
   `CONSTRAINT` / `INVARIANT` / `INTERFACE` blocks that fix scope and encode which
   behaviours change and which are held); the `write_surfaces` (your owned paths,
@@ -82,8 +82,8 @@ guessed command produces a false proof.
   surfaces, and at least one `PROOF` line with pasted, re-runnable output. Its
   `## Provenance` section carries the per-binding drift fields the staleness join
   depends on. Externalising the run's intermediate work into this durable
-  artifact is what lets the downstream `verify` and `review` passes judge it. Fill
-  the `task.md` body sections as you work (`## Implementation or pass trace`,
+  artifact is what lets the downstream `verify` and `review` steps judge it. Fill
+  the `task.md` body sections as you work (`## Implementation or step trace`,
   `## Verification matrix`, `## Promotion queue`, `## Self-review`).
 
 ## Preserves
@@ -196,7 +196,7 @@ output: a `PROOF` line referencing real run output is admissible; an unqualified
 `IMPLEMENTS`/`PRESERVES` naming an unknown obligation is the unbound
 cross-reference `SOL-M003`. The observed `proof_result` (`passed | failed |
 blocked | unverified`) is only the core run observation; the `PASS` decision is
-made downstream by the profile-independent `verify` pass, and the lifecycle
+made downstream by the profile-independent `verify` step, and the lifecycle
 decorators (the 7-value verdict's `WAIVED` / `STALE` / `CONTRADICTED`) are
 applied later at `review` — never here.
 
@@ -254,9 +254,9 @@ this guide does not redefine them.
   obligation is `SOL-M003`.
 - The observed `proof_result` maps 1:1 to the downstream core verdict
   (`passed → PASS`, `failed → FAIL`, `blocked → BLOCKED`,
-  `unverified → UNVERIFIED`); a `rewrite` pass records only this core
+  `unverified → UNVERIFIED`); a `rewrite` step records only this core
   observation. The `PASS` gate is decided by the profile-independent `verify`
-  pass, and the 3 lifecycle decorators of the 7-value verdict (`WAIVED` / `STALE`
+  step, and the 3 lifecycle decorators of the 7-value verdict (`WAIVED` / `STALE`
   / `CONTRADICTED`) are applied later at `review` — not here. The Builder stance
   may influence which proofs are *demanded*; it never decides whether a run
   PASSes.
@@ -318,7 +318,7 @@ this guide does not redefine them.
   estimate is noted in decisions, not reverted.
 - **Completeness:** Is anything left stubbed, TODO'd, or half-rewritten? Could the
   next developer continue from this task file alone?
-- **Final adversarial pass:** What is now subtly different that the oracle does
+- **Final adversarial step:** What is now subtly different that the oracle does
   not cover? What else could make this more stable or correct? Do not close
   without this.
 

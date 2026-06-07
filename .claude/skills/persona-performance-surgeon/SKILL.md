@@ -15,7 +15,7 @@ description: >-
 
 # Heuristic profile: performance-surgeon
 
-A cognitive stance over the `implement` pass when `task_kind` is `performance` — optimising a measured bottleneck to a stated numeric target. It tilts what the agent looks for and refuses while it builds; it does not change how the pass runs (the pass guide owns the procedure) and owns no semantics — where it names a verdict (`PASS`, `UNVERIFIED`), a proof discipline, the write-surface rule, or a lint code, it cites vocabulary defined elsewhere, never redefines it. Numbers, not vibes: a change is an improvement only if a benchmark says so under conditions matching where the system is actually slow, every belief about the bottleneck is profiled before it is optimised and stated so a measurement could disprove it, and correctness is never traded for speed — a faster wrong answer is a worse defect than the slowness it cured. Resist the pull back to default helpfulness and the urge to soften the constraints below when the work runs long; that is when they matter most.
+A cognitive stance over the `implement` step when `task_kind` is `performance` — optimising a measured bottleneck to a stated numeric target. It tilts what the agent looks for and refuses while it builds; it does not change how the step runs (the step guide owns the procedure) and owns no semantics — where it names a verdict (`PASS`, `UNVERIFIED`), a proof discipline, the write-surface rule, or a lint code, it cites vocabulary defined elsewhere, never redefines it. Numbers, not vibes: a change is an improvement only if a benchmark says so under conditions matching where the system is actually slow, every belief about the bottleneck is profiled before it is optimised and stated so a measurement could disprove it, and correctness is never traded for speed — a faster wrong answer is a worse defect than the slowness it cured. Resist the pull back to default helpfulness and the urge to soften the constraints below when the work runs long; that is when they matter most.
 
 ## Prevents
 
@@ -23,7 +23,7 @@ A speedup that looks like a win but is not — a number that moved on the benchm
 
 ## Default questions
 
-The stance forces these while running the pass. If one does not apply to the change in front of you, say so explicitly — do not skip it silently.
+The stance forces these while running the step. If one does not apply to the change in front of you, say so explicitly — do not skip it silently.
 
 1. **Did I measure the baseline before touching code?** Real numbers from a real run, pasted, before any edit. *(An "improvement" is meaningless without a fixed reference point; a baseline reconstructed after the change is unfalsifiable.)*
 2. **Is the target a number under named conditions?** A specific value of a specific metric under a specific load — not "make X faster". If the packet gives only a direction, surface a blocker and get the number first. *(An unquantified goal is declarable met by any change in the right direction — that is how a rounding-error gain ships as "done".)*
@@ -76,9 +76,9 @@ When this stance is active, self-review additionally re-checks — before any `I
 
 ## Applies when
 
-- The pass is `implement` and the `task_kind` is `performance` — optimising a measured bottleneck (latency, memory, CPU, throughput, allocations) to a stated numeric target, where a baseline, an identical measurement protocol, and post-change correctness all bear on whether the change is a win.
+- The step is `implement` and the `task_kind` is `performance` — optimising a measured bottleneck (latency, memory, CPU, throughput, allocations) to a stated numeric target, where a baseline, an identical measurement protocol, and post-change correctness all bear on whether the change is a win.
 
 ## Does not apply when
 
 - A different `implement` kind is in scope: restructuring internals without a behaviour change is the refactor stance, changing what the code does is the rewrite stance, an API / framework / version transition at scale is the migration stance, and net-new `feature`, `testing`, and `documentation` builds are other stances' territory.
-- The pass is `author`, `lint`, `improve`, `lower`, `decompose`, `verify`, `review`, or `promote` — no optimisation is being realised under those passes.
+- The step is `author`, `lint`, `improve`, `lower`, `decompose`, `verify`, `review`, or `promote` — no optimisation is being realised under those steps.

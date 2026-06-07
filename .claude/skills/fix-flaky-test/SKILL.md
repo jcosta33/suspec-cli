@@ -15,15 +15,15 @@ description: >-
   authoring new tests, and any non-`fix` task kind.
 ---
 
-# Pass guide: implement — fix (flaky test)
+# Step guide: implement — fix (flaky test)
 
-> **Scope of this file.** A *pass guide*: the `fix` branch of the `implement`
+> **Scope of this file.** A *step guide*: the `fix` branch of the `implement`
 > pass, narrowed to a non-deterministic failing test. It documents *how* to
 > stabilise a flake; it does **not** redefine `VERDICT`, the proof taxonomy, the
 > proof-strength order, the proof_result→verdict mapping, or any load-bearing
-> meaning — those are fixed by the SOL/IR language references and applied here,
+> meaning — those are fixed by the SOL/structured-form language references and applied here,
 > never restated. Where this guide and the spec disagree, the spec governs. A
-> pass guide is SOFT control: it influences how an agent works; it constrains
+> step guide is SOFT control: it influences how an agent works; it constrains
 > nothing.
 >
 > Carrier profile: **Builder**; the **Skeptic** stance is the natural sharpener
@@ -63,11 +63,11 @@ matches a different `task_kind` or a different `fix`:
 
 ## Consumes
 
-- One `task.md` work packet (the lowered packet `decompose` handed you), naming
+- One `task.md` work packet (the structured packet `decompose` handed you), naming
   `pass: implement`, `task_kind: fix`. Read the assigned obligations pasted
   verbatim, the `write_surfaces` (your owned paths), the `verification_bindings`,
   and the constraints/invariants to preserve — `implement` works against the
-  packet, not the surface spec or the IR.
+  packet, not the surface spec or the structured form.
 - The flaky test under judgment plus the failing-run evidence that named it
   flaky — the symptom, not yet the cause. Also the conditions under which it last
   fired (CI vs local, parallel siblings, load, seed, clock); these get
@@ -208,7 +208,7 @@ whether or not the loop ran. So two pasted, verbatim, re-runnable proofs against
 the bound test are the hard gate, never a paraphrase or a prediction:
 
 - **The repro proof** — the test, looped, failing non-deterministically *before*
-  the fix (both passes and failures visible, plus the failure rate).
+  the fix (both steps and failures visible, plus the failure rate).
 - **The fix proof** — the same test, looped under the conditions in which it
   failed, *all* runs passing *after* the fix.
 
@@ -221,7 +221,7 @@ proof; a green tick without the tally is not a proof.
 
 This guide defines no new block, verdict value, proof type, or lint code; the
 repro and fix proofs land in the trace and verdict containers the `implement` and
-`verify` passes already own.
+`verify` steps already own.
 
 - Each `TRACE` claiming `IMPLEMENTS` MUST carry at least one `PROOF` line; a
   no-`PROOF` trace is a structural parse error (`SOL-S014`), not a soft lint. An
@@ -231,7 +231,7 @@ repro and fix proofs land in the trace and verdict containers the `implement` an
   `unverified → UNVERIFIED`. The full verdict has 7 values (4 core + the 3
   lifecycle decorators `WAIVED` / `STALE` / `CONTRADICTED`), but the decorators
   apply later at `review` and the `PASS` decision is made by the
-  profile-independent `verify` pass — never recorded here.
+  profile-independent `verify` step — never recorded here.
 - For a flake, the observed result is `passed` **only** when the fix proof shows
   every looped run passing; a single failure among many is `failed`; a flake that
   could not be looped (no defined loop-runner, an environmental block) is
@@ -251,7 +251,7 @@ Before closing, confirm — and paste the evidence into the `task.md`
   test setup — not in the assertion, not by a sleep, a timeout bump, a widened
   check, a try/catch swallow, or quarantine.
 - **Fix proof pasted?** The same bound test, looped under the failing conditions,
-  every run passing — not a single pass.
+  every run passing — not a single step.
 - **Documented and handed off?** The cause is documented inline, and any
   production-side root cause was promoted as a downstream fix with the stabilised
   test as its regression guard.
@@ -266,7 +266,7 @@ output — make skipping reproduction a visible cost, not an argument to win.
 
 | 🚩 Evasion | Response |
 | --- | --- |
-| "It passed when I re-ran it, so it's fixed." | A pass after a re-run is the bug, not the fix. Loop it and prove it. |
+| "It passed when I re-ran it, so it's fixed." | A step after a re-run is the bug, not the fix. Loop it and prove it. |
 | "I added a small sleep and it stopped failing." | The race is still there; the window just got wider. Wait on the contract or fix the cause. |
 | "I can't reproduce it, so there's nothing to fix." | It is un-isolated, not unreal. Broaden conditions: load, parallel siblings, seed, clock. |
 | "I loosened the assertion so it tolerates the drift." | A check too weak to fire isn't a proof. Fix what makes the value drift. |

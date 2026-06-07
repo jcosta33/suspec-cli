@@ -12,7 +12,7 @@ created: <date>    # authoring date
 updated: <date>    # last-revision date
 ```
 
-The `id` is the name the author pass and every downstream obligation cite back to. `status` moves draft → accepted → superseded as the intent is ratified or replaced.
+The `id` is the name the author step and every downstream obligation cite back to. `status` moves draft → accepted → superseded as the intent is ratified or replaced.
 
 ## The seven sections, in order
 
@@ -26,7 +26,7 @@ The `id` is the name the author pass and every downstream obligation cite back t
 | 6 | `## Release constraints` | Date, rollout, compliance, or dependency limits on shipping. | Constraints on *delivery* — never authored obligation blocks. |
 | 7 | `## Linked evidence` | References to the research and findings that ground the intent. | Cross-file refs use `<source-id>#<local-id>` where an evidence item has a local id. |
 
-Omitting or reordering a required section breaks the contract the author pass relies on.
+Omitting or reordering a required section breaks the contract the author step relies on.
 
 ## The success-metrics table
 
@@ -41,7 +41,7 @@ Each row is the seed of a future observable check. When the PRD promotes, a metr
 
 ## Filename and placement
 
-- A `prd.md` is a **working artifact**: plain `.md`, and its filename **MUST NOT** contain the `.swarm.` infix. That infix marks compiler-visible files (the one human-authored source spec is `*.swarm.md`; emitted artifacts take `*.swarm.*` names). A PRD is neither — it is a hand-authored source that *feeds* a spec, never parsed or emitted by a compiler.
+- A `prd.md` is a **working artifact**: plain `.md`, and its filename **MUST NOT** contain the `.swarm.` infix. That infix marks Swarm-visible files (the one human-authored source spec is `*.swarm.md`; emitted artifacts take `*.swarm.*` names). A PRD is neither — it is a hand-authored source that *feeds* a spec, never parsed or emitted by Swarm.
 - In an adopted project it is a **durable source** and lives under the workspace `sources/` tree, beside the other parents of a spec (specs, RFCs, research, audits, findings, ADRs).
 - It is **never** placed under `generated/` (derived execution packets — task frames, traces, reviews) and **never** under `memory/` (durable recall — index, glossary, patterns). Desired-state source belongs in `sources/`.
 
@@ -60,7 +60,7 @@ WHEN a user requests a protected page
 THE auth service MUST return the cached session in under 50ms
 ```
 
-This pre-decides the *how* (Redis, TTL) and authors a `REQ` — letting an intent be read as an approved contract and bypassing the author pass.
+This pre-decides the *how* (Redis, TTL) and authors a `REQ` — letting an intent be read as an approved contract and bypassing the author step.
 
 **Right — outcome and signal, mechanism deferred to the spec:**
 
@@ -84,4 +84,4 @@ drop-off on the checkout flow.
 | Protected-page p95 latency | < 200ms | request-latency dashboard |
 ```
 
-The goals state outcomes; the metrics name how each is observed; the mechanism (cache, store, TTL) is left for the `author` pass to author into the spec as obligations, where it can be weighed and bound to proof.
+The goals state outcomes; the metrics name how each is observed; the mechanism (cache, store, TTL) is left for the `author` step to author into the spec as obligations, where it can be weighed and bound to proof.

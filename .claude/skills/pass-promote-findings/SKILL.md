@@ -12,17 +12,17 @@ description: >-
   or implementation.
 ---
 
-# Pass guide: promote
+# Step guide: promote
 
-> **Scope of this file.** A *pass guide*: a procedural how-to for running the `promote` pass well. SOFT control — it conditions *how* an agent runs the pass; it constrains nothing and defines no Swarm semantics. The seven-value promotion-status enum, discovery-to-target routing, mandatory provenance fields, authority floor, loss budget, validation/rollback, and ledger shape are canonical Swarm rules; this guide *applies* them and restates their load-bearing meaning inline so the pass runs from this file alone — never redefining them.
+> **Scope of this file.** A *step guide*: a procedural how-to for running the `promote` step well. SOFT control — it conditions *how* an agent runs the step; it constrains nothing and defines no Swarm semantics. The seven-value promotion-status enum, discovery-to-target routing, mandatory provenance fields, authority floor, loss budget, validation/rollback, and ledger shape are canonical Swarm rules; this guide *applies* them and restates their load-bearing meaning inline so the step runs from this file alone — never redefining them.
 
 ## Purpose
 
-`promote` is the last of nine passes (`author → lint → improve → lower → decompose → implement → verify → review → promote`). It is the durable feedback loop: a discovery does **not** become memory by being written down — it becomes memory by being **promoted**. This pass takes each discovery a task surfaced, routes it to a durable target, indexes it, records its disposition, and resolves the promotion queue so the task may close.
+`promote` is the last of nine steps (`author → lint → improve → lower → decompose → implement → verify → review → promote`). It is the durable feedback loop: a discovery does **not** become memory by being written down — it becomes memory by being **promoted**. This step takes each discovery a task surfaced, routes it to a durable target, indexes it, records its disposition, and resolves the promotion queue so the task may close.
 
 The failure mode it prevents: chat transcripts and inline prose are not memory — they are unindexed, unprovenanced, unfalsifiable. The procedure earns durability through a *recorded* promotion into a two-tier, provenance-anchored model — a compact Tier-1 map (`memory/INDEX.md` + `memory/glossary.md`) over an immutable Tier-2 evidence store (`finding.md` / `adr.md` / `audit.md` / `bug-report.md` / `memory/patterns/*.md`).
 
-Like every Swarm pass, `promote` has **no runtime**: a contract a human, agent, or future tool performs by hand against the files Swarm ships. One borrowed discipline applies throughout, restated rather than linked: at the `task.md → finding.md` boundary, distillation MAY drop the step-by-step execution log but MUST preserve the actionable claim, its applicability envelope, and its evidence — silent loss of any of the three is not compression, it changes what becomes memory (the loss-budget discipline).
+Like every Swarm step, `promote` has **no runtime**: a contract a human, agent, or future tool performs by hand against the files Swarm ships. One borrowed discipline applies throughout, restated rather than linked: at the `task.md → finding.md` boundary, distillation MAY drop the step-by-step execution log but MUST preserve the actionable claim, its applicability envelope, and its evidence — silent loss of any of the three is not compression, it changes what becomes memory (the loss-budget discipline).
 
 ## Consumes
 
@@ -57,7 +57,7 @@ The kinds are mutually exclusive by intent. A discovery with two faces (e.g. bot
 | Reusable project fact (durable evidenced claim) | A finding (`type: finding`), indexed in the memory index with `Load when` + full provenance |
 | Repeated cross-task pattern (recurring solution shape across >1 task) | `memory/patterns/*.md` |
 | Terminology clarification (ambiguous/drifted term) | `memory/glossary.md` (resolves `SOL-P006` undefined-term / `SOL-P057` terminology-drift at the source) |
-| Universal workflow rule (a procedure for every future task) | A **pass-guide edit (the procedure) PLUS at most a one-line `AGENTS.md` pointer** — never inline procedure |
+| Universal workflow rule (a procedure for every future task) | A **step-guide edit (the procedure) PLUS at most a one-line `AGENTS.md` pointer** — never inline procedure |
 | Purely local execution detail (relevant only to this run) | Keep in the task only (`task.md`); disposition `rejected`, reason "execution-local" |
 
 **Rationale:** the *kind* fixes a discovery's single durable home, keeping memory sorted by epistemic stance — observations in audits, decisions in ADRs, intended behaviour in the spec. Mis-routing (e.g. filing an observation as an obligation) launders a present-state fact into intent without the authoring act rule 4 demands.
@@ -94,7 +94,7 @@ Do not promote a single finding **directly** to a `memory/patterns/*.md` pattern
 
 ### 8. For a universal workflow rule, apply the G9 tie-break
 
-Put the *procedure* in the owning pass guide; add at most **one line** to `AGENTS.md` — the pointer plus its load-when, nothing procedural. **Rationale:** the bootloader (`AGENTS.md`) holds persistent *facts*, not steps, under a tight line budget; inlining a procedure pushes load-bearing content into a place always loaded yet read shallowly. Example: promoting "always run the migration dry-run before applying" adds the dry-run procedure to the `implement` guide; `AGENTS.md` gains only `- Before applying a migration, load the implement pass guide (migration section).`
+Put the *procedure* in the owning step guide; add at most **one line** to `AGENTS.md` — the pointer plus its load-when, nothing procedural. **Rationale:** the bootloader (`AGENTS.md`) holds persistent *facts*, not steps, under a tight line budget; inlining a procedure pushes load-bearing content into a place always loaded yet read shallowly. Example: promoting "always run the migration dry-run before applying" adds the dry-run procedure to the `implement` guide; `AGENTS.md` gains only `- Before applying a migration, load the implement step guide (migration section).`
 
 ### 9. Handle rollback when withdrawing a fact
 
@@ -114,17 +114,17 @@ Disposition every queue item to one of the **seven** canonical statuses. A task 
 | `validated` | High-consequence intermediate (`pending → validated → promoted`); independent corroboration | No — non-terminal |
 | `rolled-back` | A promoted finding later withdrawn, recorded as a retraction | Post-promotion disposition |
 
-**Rationale:** the seven values are a fixed vocabulary; inventing an eighth (`maybe`, `partial`) or treating `validated` as terminal reopens the close gate the pass exists to enforce. The per-status gate behaviour (why `validated` and `rolled-back` are special) is in `references/promotion-mechanics.md`.
+**Rationale:** the seven values are a fixed vocabulary; inventing an eighth (`maybe`, `partial`) or treating `validated` as terminal reopens the close gate the step exists to enforce. The per-status gate behaviour (why `validated` and `rolled-back` are special) is in `references/promotion-mechanics.md`.
 
 ### 11. Record the resolved queue in the `promotions/` ledger
 
-Once the queue is fully resolved, write a promotions-history entry (a compact, committed log your project keeps — created on first promote, never pre-stubbed): the durable target each promoted discovery landed at, and the disposition of every queue item. The entry is **immutable and append-only** — a correction is a *new* entry referencing the one it amends, never an in-place edit. **Rationale:** memory preserves *durable facts*; this history preserves *compact reconciled record* — the audit trail letting a project discard verbose throwaway execution packets without losing the backward trace from today's code to the discoveries it produced. Because a task cannot close with any `pending` item, the entry records a fully-resolved queue *by construction*. It introduces no new evidence type — a projection of the resolved queue this pass already produced.
+Once the queue is fully resolved, write a promotions-history entry (a compact, committed log your project keeps — created on first promote, never pre-stubbed): the durable target each promoted discovery landed at, and the disposition of every queue item. The entry is **immutable and append-only** — a correction is a *new* entry referencing the one it amends, never an in-place edit. **Rationale:** memory preserves *durable facts*; this history preserves *compact reconciled record* — the audit trail letting a project discard verbose throwaway execution packets without losing the backward trace from today's code to the discoveries it produced. Because a task cannot close with any `pending` item, the entry records a fully-resolved queue *by construction*. It introduces no new evidence type — a projection of the resolved queue this step already produced.
 
 ## What does not belong
 
 - **Swarm semantics.** Modality, the source-authority order, verification verdicts, the routing/status definitions, and the lint codes are fixed by SOL and the reference layer. This guide *applies*, never redefines them. If you are explaining *what* `SOL-M004` means rather than *how* to act on it, that text belongs in the reference.
 - **The staleness comparator and any automation.** Swarm ships the *fields* that make staleness computable (`content_hash`, `origin_traces`); it does **not** ship the comparator. Recomputing the hash and flipping `accepted → stale` is a harness/CLI concern, manual today. Embedding retrieval, automatic eviction, validation *scoring*, and memory analytics are deferred post-v0.1 — `validated` today is satisfied by human / second-finding / re-run corroboration, not a scored gate.
-- **Spec authoring, verdict rendering, implementation.** Amending a spec, deciding the merge gate, or writing code are other passes; promotion only *routes* discoveries to their inputs.
+- **Spec authoring, verdict rendering, implementation.** Amending a spec, deciding the merge gate, or writing code are other steps; promotion only *routes* discoveries to their inputs.
 
 ## Anti-patterns
 
@@ -134,7 +134,7 @@ Once the queue is fully resolved, write a promotions-history entry (a compact, c
 - ❌ An INDEX entry whose `Load when` is blank or "always" → dead weight; if it cannot name *when it matters*, it is not durable.
 - ❌ Promoting a one-witness observation straight to `memory/patterns/*.md` → promote a `finding.md` first; a pattern needs a second corroborating finding it cites.
 - ❌ Filing a present-state observation as a spec obligation → that re-labels observation as intent; route observations to an audit, re-state intent only as a deliberate authoring act with its own ID, modality, and `VERIFY BY`.
-- ❌ Inlining a workflow-rule procedure into `AGENTS.md` → procedure goes in the pass guide; `AGENTS.md` gets one pointer line (G9).
+- ❌ Inlining a workflow-rule procedure into `AGENTS.md` → procedure goes in the step guide; `AGENTS.md` gets one pointer line (G9).
 - ❌ A promotion that quietly relaxes an obligation "because the finding shows it's not needed" → a `SOL-M004` floor breach; route to amendment, never write it as memory.
 - ❌ Deleting a withdrawn finding → record a `rolled-back` retraction in the INDEX so the chain stays auditable.
 - ❌ Dropping the actionable claim, its applicability, or its evidence at the `task.md → finding.md` boundary "to keep it short" → silent loss, not compression; only the execution log MAY be dropped.
@@ -147,10 +147,10 @@ Not complete until every box is checked, on the record:
 - [ ] Is every item dispositioned, and is **nothing** still `pending`?
 - [ ] Does every `promoted` finding have a Tier-2 body, an INDEX `Load when`, and full provenance?
 - [ ] Did any item route to two faces (decision + pattern, etc.) and land as **separate** queue items?
-- [ ] Did a high-consequence or externally-authored promotion pass `pending → validated → promoted` rather than skipping `validated`?
+- [ ] Did a high-consequence or externally-authored promotion step `pending → validated → promoted` rather than skipping `validated`?
 - [ ] Was a pattern created only with ≥2 corroborating findings it cites?
 - [ ] Did any promotion weaken an obligation as memory (a `SOL-M004` floor breach)? If so, was it rejected and routed to amendment, not written?
-- [ ] For a workflow-rule promotion, did the procedure go to a pass guide and only a one-line pointer to `AGENTS.md`?
+- [ ] For a workflow-rule promotion, did the procedure go to a step guide and only a one-line pointer to `AGENTS.md`?
 - [ ] Was any withdrawal recorded as a `rolled-back` retraction (with re-opened obligations), not a silent delete?
 - [ ] Was the resolved queue written to a `promotions/` ledger entry (append-only)?
 - [ ] Did this guide stay procedural — applying, not redefining, the routing, status, provenance, and ledger rules?

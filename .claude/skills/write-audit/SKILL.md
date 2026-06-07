@@ -15,11 +15,11 @@ description: >-
   or surveying open options.
 ---
 
-# Pass guide: write-audit (`author` · audit deliverable)
+# Step guide: write-audit (`author` · audit deliverable)
 
 > **This guide is SOFT control.** It tells you *how* to author an audit; it never defines
 > the artifact's stance, obligation-block semantics, severity meaning, source-authority order, or
-> what gates the spec boundary — the language and the artifact and pass contracts fix those, and
+> what gates the spec boundary — the language and the artifact and step contracts fix those, and
 > this guide only *applies* them. Where guide and contract or spec disagree, they govern. It carries
 > the **Auditor** stance: read the system as if it hides its flaws, record only what *is*, and assert
 > nothing the evidence does not show.
@@ -33,10 +33,10 @@ is intent and belongs in a spec), or they stay vague (impressions and TODO-scrap
 which a downstream author cannot act). This guide pins the audit to its **observation-only** stance:
 specific, severity-calibrated, evidence-anchored.
 
-`author` is the entry pass of the nine (`author → lint → improve → lower → decompose → implement →
-verify → review → promote`) — the boundary where unstructured intent becomes a compiler-visible
+`author` is the entry step of the nine (`author → lint → improve → lower → decompose → implement →
+verify → review → promote`) — the boundary where unstructured intent becomes a Swarm-visible
 spec. An audit is *not* that spec: it is one of `author`'s recognized **parents**, a working `.md`
-artifact whose observed risk acquires obligation force only when a later `author` pass promotes its
+artifact whose observed risk acquires obligation force only when a later `author` step promotes its
 recommendations *into* a `spec.swarm.md`. This guide produces that parent.
 
 ## Project context (the `cmd*` slots)
@@ -58,7 +58,7 @@ guess; a guessed command produces a false observation, and an audit's whole valu
 ## Produces
 
 - One `audit.md` working artifact (plain `.md`, never `*.swarm.md` — the `.swarm.` infix marks the
-  one human-authored compiler-visible spec, so naming an audit that way mislabels an observation as
+  one human-authored Swarm-visible spec, so naming an audit that way mislabels an observation as
   an approved contract). Required sections, **in order**: `## Scope` (In/Out), `## Observations`,
   `## Risks`, `## Recommended obligations`, under a title and the observation-only stance note. A
   document missing a required section or ordering them wrong is the required-section defect `SOL-S012`.
@@ -81,11 +81,11 @@ These MUST NOT appear in a finalised audit:
 
 - **An obligation block.** An audit MUST NOT author `REQ` / `CONSTRAINT` / `INVARIANT` / `INTERFACE`
   blocks. Observed risk carries no binding force here; it acquires force only when a downstream
-  `author` pass promotes it into a `spec.swarm.md`. An obligation block in an audit lets an
+  `author` step promotes it into a `spec.swarm.md`. An obligation block in an audit lets an
   observation be read as an approved contract and bypass authoring — the exact failure the
   observation-only stance exists to prevent.
 - **A prescribed fix.** An audit names what *is* and the risk it carries, not the remedy inline. The
-  remedy is a downstream decision owned by an author pass (for a spec change) or a fix task (for a
+  remedy is a downstream decision owned by an author step (for a spec change) or a fix task (for a
   defect). Nominating *candidate obligations a future spec should carry*, in plain prose, is expected
   — that is the `## Recommended obligations` section. Writing them as remedies-to-apply is not.
 - **An assertion of intended behaviour.** What the system *should* do is intent; it belongs to a
@@ -107,7 +107,7 @@ downstream author who tries to act on it.
 
 Approach the code assuming it hides its flaws. If deepening a prior audit, set its framing aside and
 re-read with fresh eyes; verify its cited `file:line` references still resolve. *Why:* findings are
-observation, not narrative validation of a previous pass; inheriting a prior conclusion is how a real
+observation, not narrative validation of a previous step; inheriting a prior conclusion is how a real
 defect stays hidden across two audits.
 
 ### 3. Ground every observation in evidence
@@ -128,7 +128,7 @@ the output. *Why:* the highest-value findings are those a careful read misses �
 ### 5. Search for "no callers anywhere"
 
 For every public surface you observe, grep for callers across the whole codebase, not just the
-audited module. Zero-caller code is itself an observation (a cleanup candidate), not a tacit pass.
+audited module. Zero-caller code is itself an observation (a cleanup candidate), not a tacit step.
 *Why:* dead code labelled as working is a standing risk; the cross-module grep is the only thing
 distinguishing a live surface from a fossil.
 
@@ -151,10 +151,10 @@ radius keeps severity falsifiable instead of a vibe, and is what a downstream au
 ### 8. Nominate candidate obligations in prose, never as blocks
 
 `## Recommended obligations` describes, in plain prose, what a future spec SHOULD require — the
-candidate obligations a downstream `author` pass would promote into a `spec.swarm.md`'s SOL blocks.
+candidate obligations a downstream `author` step would promote into a `spec.swarm.md`'s SOL blocks.
 Write what the spec should carry, not how to change the code. *Why:* this is the audit's one
 permitted forward-looking gesture; keeping it prose-only preserves the observation-only stance and
-stops the audit from smuggling intent across the boundary the author pass guards.
+stops the audit from smuggling intent across the boundary the author step guards.
 
 ### 9. Pre-deliver visibility gate (forced visible output)
 
@@ -173,17 +173,17 @@ next reader can see, and closes the bypass where an ungrounded finding ships as 
 ## Output contract
 
 The artifact contract and the language fix the audit's stance and section shape; this guide does not
-redefine them. Two facts bound what this pass records:
+redefine them. Two facts bound what this step records:
 
 - An `audit.md` carries **no obligations of its own**. It is non-authoritative evidence under the
   source-authority order (an approved spec or ADR outranks the task, which outranks chat): an
   observation MUST NOT silently override a higher-authority
   artifact such as an approved spec or ADR; a lower-authority block that weakens a higher-authority
   obligation is the authority-conflict defect `SOL-M004`. The audit promotes *into* a `spec.swarm.md`
-  via a later `author` pass, where its recommendations become SOL obligations; it never becomes code
+  via a later `author` step, where its recommendations become SOL obligations; it never becomes code
   or an obligation directly.
 - The boundary forbidding a file from being both spec and audit is **not** policed by this guide or
-  any gatekeeper skill — the the `lower` pass and source authority
+  any gatekeeper skill — the the `lower` step and source authority
   hold it. Re-introducing a composition-policing skill is forbidden: such a skill would be a semantic
   owner and soft control presented as enforcement. Your job is to hold the stance, not
   enforce it on others.
@@ -213,7 +213,7 @@ redefine them. Two facts bound what this pass records:
 - ❌ Severity sorted by discovery order or how scary it feels → calibrate by blast radius and record
   the reasoning for any contestable call.
 - ❌ Inheriting a prior audit's framing → read it closed and re-derive every finding from the code.
-- ❌ Naming the audit `*.swarm.md` → that marks an observation as a compiler-visible spec; an audit
+- ❌ Naming the audit `*.swarm.md` → that marks an observation as a Swarm-visible spec; an audit
   is plain `.md`.
 
 ## Self-review delta

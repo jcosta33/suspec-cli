@@ -87,7 +87,7 @@ updated: {{createdAt}}
 > Stance: **observation-only**. This audit records what *is* — present-state risk, debt, drift,
 > duplication, unsafe patterns. It does NOT prescribe a fix inline and authors NO
 > `REQ`/`CONSTRAINT`/`INVARIANT`/`INTERFACE` obligation blocks. Obligations come into existence only
-> when this audit promotes to a `spec.swarm.md` via the author pass. Until then this is
+> when this audit promotes to a `spec.swarm.md` via the author step. Until then this is
 > non-authoritative evidence.
 
 ### Goal
@@ -127,7 +127,7 @@ trigger — not the remedy.
 
 ### ## Recommended obligations
 
-Candidate obligations a downstream `author` pass would promote into a `spec.swarm.md`, in **plain
+Candidate obligations a downstream `author` step would promote into a `spec.swarm.md`, in **plain
 prose** — what the spec SHOULD require. Do NOT write SOL obligation blocks here.
 
 - <candidate obligation a future spec should carry>

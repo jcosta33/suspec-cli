@@ -16,7 +16,7 @@ description: >-
 
 # Heuristic profile: auditor
 
-A cognitive stance over the `author` pass when the artifact is an audit of present state — code audit, architecture review, technical-debt survey, quality assessment. An audit is observation, not prescription: make a code area legible against a goal the agent states up front — what exists, what is broken, what risk lurks — so a downstream session can plan from it. The stance is adversarial — assume the codebase hides its flaws and the obvious reading is incomplete — and asserts no new intended behavior; observed risk acquires obligation force only later, authored into a spec, never inside the audit. It tilts what the agent looks for and refuses while writing; it does not change how the pass runs and owns no semantics: where it names an artifact stance or obligation block, it cites vocabulary from the language and pass references, never redefining it.
+A cognitive stance over the `author` step when the artifact is an audit of present state — code audit, architecture review, technical-debt survey, quality assessment. An audit is observation, not prescription: make a code area legible against a goal the agent states up front — what exists, what is broken, what risk lurks — so a downstream session can plan from it. The stance is adversarial — assume the codebase hides its flaws and the obvious reading is incomplete — and asserts no new intended behavior; observed risk acquires obligation force only later, authored into a spec, never inside the audit. It tilts what the agent looks for and refuses while writing; it does not change how the step runs and owns no semantics: where it names an artifact stance or obligation block, it cites vocabulary from the language and step references, never redefining it.
 
 ## Prevents
 
@@ -43,7 +43,7 @@ The stance accepts a claim only when its evidence is in the audit. No proof, no 
 
 ## Refuses
 
-Each row a pattern this stance rejects on sight, paired with the action. The dispositions apply vocabulary owned by the language and pass references; this table does not mint meaning.
+Each row a pattern this stance rejects on sight, paired with the action. The dispositions apply vocabulary owned by the language and step references; this table does not mint meaning.
 
 | Red flag | Action |
 |---|---|
@@ -55,7 +55,7 @@ Each row a pattern this stance rejects on sight, paired with the action. The dis
 | A structural or "it works" claim with no pasted command output. | Reject as unverified; run the check and paste the real output, or state the claim cannot be verified and why. |
 | "No callers" / "this is dead/live code" asserted without a search. | Reject; run the grep and paste the result. Dead code labeled working — or live code presumed without a caller — is itself a finding. |
 | A speculation about future work stated as present-state observation. | Reject; observation describes what *is*, not what *might be done*. Move it out of the findings. |
-| Source files edited during the audit. | Refuse. Audit sessions are read-only; modifying code is a different pass. |
+| Source files edited during the audit. | Refuse. Audit sessions are read-only; modifying code is a different step. |
 | "The prior audit already covers this; I'll just update it." | Reject the shortcut; read the code with the prior audit closed, then reconcile. A stale audit re-confirmed is not a fresh observation. |
 
 ## Self-review delta
@@ -70,7 +70,7 @@ When this stance is active, the agent re-checks its own draft audit before decla
 
 ## Applies when
 
-- The task names the `author` pass and the artifact is an audit / architecture review / technical-debt or quality survey of present state (the audit-writing authoring kind).
+- The task names the `author` step and the artifact is an audit / architecture review / technical-debt or quality survey of present state (the audit-writing authoring kind).
 - The agent is describing what currently exists in a code area against a stated goal, and the output asserts no new intended behavior.
 
 

@@ -10,12 +10,12 @@ description: >-
   normalizing a research/audit/PRD/RFC/NFR parent into binding intent. Never prescribe
   implementations, put obligation force in prose outside a block, ship a `[blocking]` QUESTION, or
   drop intent silently. Skip present-state code, defect reproduction, surveying without deciding,
-  partitioning the IR, or writing code.
+  partitioning the structured form, or writing code.
 ---
 
-# Pass guide: write-spec (author)
+# Step guide: write-spec (author)
 
-How to perform the `author` pass — first of the nine passes (`author → lint → improve → lower → decompose → implement → verify → review → promote`) and the only one that *writes* a `*.swarm.md` source spec. `author` sits **outside** the seven analysis phases: the entry pass before `PARSE`, the boundary where unstructured intent (chat, a research/audit/PRD/RFC parent) becomes the first compiler-visible artifact. Analysis begins at the next pass, which reads this pass's output.
+How to perform the `author` step — first of the nine steps (`author → lint → improve → lower → decompose → implement → verify → review → promote`) and the only one that *writes* a `*.swarm.md` source spec. `author` sits **outside** the seven analysis phases: the entry step before `PARSE`, the boundary where unstructured intent (chat, a research/audit/PRD/RFC parent) becomes the first Swarm-visible artifact. Analysis begins at the next step, which reads this step's output.
 
 This guide is SOFT control: procedure, not meaning. The load-bearing facts — what each block type, modal, and proof type *means*, the required section order — are fixed by the SOL grammar (`reference/sol.md`, shipped) and the spec artifact contract, applied here, never redefined; load `reference/sol.md` for the exact block shapes, ids, modals, and section list while authoring. A correctly authored spec is understandable without this guide.
 
@@ -32,7 +32,7 @@ A spec is the contract between whoever specifies and whoever builds. An implemen
 
 ## Produces
 
-- One `*.swarm.md` source spec. The `.swarm.` infix before the final extension is the sole discriminator marking it compiler-visible; a plain `.md` is a working artifact, never parsed as SOL. Name the spec `<slug>.swarm.md` (e.g. `auth-refresh.swarm.md`) and leave every parent (audit, research, PRD, RFC, finding, ADR) a plain `.md`. *Why:* the infix is what a future tool keys on to "parse this as obligations"; mis-naming a parent `.swarm.*` smuggles a non-spec into the compiler's view.
+- One `*.swarm.md` source spec. The `.swarm.` infix before the final extension is the sole discriminator marking it Swarm-visible; a plain `.md` is a working artifact, never parsed as SOL. Name the spec `<slug>.swarm.md` (e.g. `auth-refresh.swarm.md`) and leave every parent (audit, research, PRD, RFC, finding, ADR) a plain `.md`. *Why:* the infix is what a future tool keys on to "parse this as obligations"; mis-naming a parent `.swarm.*` smuggles a non-spec into the Swarm's view.
 
 The file carries YAML frontmatter (required set: `type: spec`, `id`, `swarm_language: SOL/0.1`, `aps_version`, `spec_version`, `status`) then the required sections in this exact order: `## Intent`, `## Non-goals`, `## Context`, `## Interfaces`, `## Obligations`, `## Constraints`, `## Invariants`, `## Questions`, `## Verification coverage`, `## Downstream tasks`, `## Distillation loss statement`. Copy the skeleton at Swarm's spec template (`templates/spec.swarm.md`) and replace every placeholder.
 
@@ -46,7 +46,7 @@ Refuse to finalize the spec, and surface the problem, when any of these hold. Ea
 
 - A behavioral requirement stated only in prose, outside a block. Obligation force lives only inside `REQ`/`CONSTRAINT`/`INVARIANT` blocks; prose frames and explains but is never a contract. Hedged behavioral prose that should be a decision is the hedged-ambiguity defect `SOL-P008`.
 - A binding obligation with no `VERIFY BY` — the missing-proof defect `SOL-V001`. An `INTERFACE` bound to anything but a `contract:` proof is `SOL-V006`; a proof type outside the closed nine is `SOL-V009`.
-- A `[blocking]` `QUESTION` left open. It prevents lowering of every obligation it `AFFECTS`; one that reaches the next pass is an orchestration error — an unresolved decision being compiled into tasks.
+- A `[blocking]` `QUESTION` left open. It prevents structuring of every obligation it `AFFECTS`; one that reaches the next step is an orchestration error — an unresolved decision being compiled into tasks.
 - The required sections missing or out of order — the document-level defect `SOL-S012`.
 - An implementation prescribed where a requirement belongs (see rule 2), or a parent's stance violated — e.g. authoring an audit's observation directly as a `REQ` without lifting it into intent here.
 
@@ -70,7 +70,7 @@ The implementer picks the implementation; the spec fixes the obligation. Write t
 
 The seven block types each have a fixed grammar and a dedicated section; restated here so you author it right the first time:
 
-- `REQ` (Obligations) — `WHEN <trigger>` / `THE <actor> MUST <observable response>`. Conditions use the EARS keywords in order (`WHERE → WHILE → WHEN → IF`); `THEN` is optional sugar after `IF` only. `AND THE …` chains a second consequence (each lowers to a separate obligation). A condition with no actor clause is `SOL-S001`; an actor clause with no modal is `SOL-S003`.
+- `REQ` (Obligations) — `WHEN <trigger>` / `THE <actor> MUST <observable response>`. Conditions use the EARS keywords in order (`WHERE → WHILE → WHEN → IF`); `THEN` is optional sugar after `IF` only. `AND THE …` chains a second consequence (each structures into a separate obligation). A condition with no actor clause is `SOL-S001`; an actor clause with no modal is `SOL-S003`.
 - `CONSTRAINT` (Constraints) — `THE <actor-or-surface> MUST NOT <forbidden action>`; bounds *how* obligations may be met. Carry a `static`, `contract`, or `manual:` proof. No `POLICY` block, no surface authority clause.
 - `INVARIANT` (Invariants) — `<property> MUST|MUST NOT <hold>`; an always-held property, never a one-time triggered behavior (that is a `REQ`). Do not write `ALWAYS`/`NEVER` (redundant). Prefer a `property`, `model`, or `static` proof — binding an invariant only to a unit `test` is the weak-proof warning `SOL-V003`.
 - `INTERFACE` (Interfaces) — `<signature> RETURNS <type>` with contiguous `ACCEPTS:`/`ERRORS:` bullet continuation lines (a blank line closes the body). MUST bind a `contract:` proof (else `SOL-V006`).
@@ -85,7 +85,7 @@ The obligation's force is carried by exactly five uppercase modals — `MUST`, `
 
 ### 5. Lift every behavioral ambiguity into a `[blocking]` QUESTION — and resolve it before you finish
 
-A `[blocking]` QUESTION is one whose answer would change the spec's content. Capture it as a `QUESTION Q-NNN [blocking]:` block naming what it `AFFECTS` — never as hedged prose (that is `SOL-P008`). The spec is not finishable while a blocking question is open: either route it to a parent that resolves it (research, ADR, audit) and resume, or, if a reasonable default answers it, **make the decision**, record it in `## Context` (or as a resolved note), and downgrade the question to `[non-blocking]`. *Why:* a blocking question that reaches lowering is an unresolved decision being compiled into tasks — an orchestration error, not a deferrable nicety. Non-blocking questions MAY remain open if they touch no assigned obligation.
+A `[blocking]` QUESTION is one whose answer would change the spec's content. Capture it as a `QUESTION Q-NNN [blocking]:` block naming what it `AFFECTS` — never as hedged prose (that is `SOL-P008`). The spec is not finishable while a blocking question is open: either route it to a parent that resolves it (research, ADR, audit) and resume, or, if a reasonable default answers it, **make the decision**, record it in `## Context` (or as a resolved note), and downgrade the question to `[non-blocking]`. *Why:* a blocking question that reaches structuring is an unresolved decision being compiled into tasks — an orchestration error, not a deferrable nicety. Non-blocking questions MAY remain open if they touch no assigned obligation.
 
 ### 6. Survey existing patterns before introducing a new one
 
@@ -93,7 +93,7 @@ Before specifying a new interface or behavior, check what the consuming project 
 
 ### 7. Forced visible output: close the distillation-loss statement and the blocking-question list
 
-The deliverable *is* the proof for this pass, so the gate is written and inspectable. Before handoff, the spec MUST carry a complete `## Distillation loss statement` with three subsections — `### Preserved` (intent carried forward), `### Dropped` (detail intentionally not carried, and why downstream does not need it), `### Still uncertain` (open uncertainty) — and you MUST paste the blocking-question status verbatim into the task file:
+The deliverable *is* the proof for this step, so the gate is written and inspectable. Before handoff, the spec MUST carry a complete `## Distillation loss statement` with three subsections — `### Preserved` (intent carried forward), `### Dropped` (detail intentionally not carried, and why downstream does not need it), `### Still uncertain` (open uncertainty) — and you MUST paste the blocking-question status verbatim into the task file:
 
 ```
 ## [blocking] QUESTION status
@@ -108,20 +108,20 @@ The deliverable *is* the proof for this pass, so the gate is written and inspect
 
 - Present-state observations of existing code → an audit (observation stance), not a spec.
 - A defect's reproduction and root cause → a bug-report, which promotes into a fix task, not a spec.
-- An options survey committing to nothing → a research write-up; it promotes *into* a spec via this pass, but is not itself the spec.
+- An options survey committing to nothing → a research write-up; it promotes *into* a spec via this step, but is not itself the spec.
 - Implementation step-by-step, the data structure, the chosen library → the implementer's concern; the spec states the requirement that constrains the choice.
 - Unmeasurable acceptance language ("intuitive", "performant", "fast") in any obligation → reword to the concrete observable, or it is an untestable wish.
 
 ## Anti-patterns
 
-- ❌ Stating a behavioral requirement in prose ("the client should clear the session on expiry") instead of a block → prose carries no obligation force; the requirement is invisible to lowering and verification. Put it in a `REQ` with a `VERIFY BY`.
+- ❌ Stating a behavioral requirement in prose ("the client should clear the session on expiry") instead of a block → prose carries no obligation force; the requirement is invisible to structuring and verification. Put it in a `REQ` with a `VERIFY BY`.
 - ❌ Authoring a `REQ`/`CONSTRAINT`/`INVARIANT` with no `VERIFY BY` because "it's obvious how to test it" → that is `SOL-V001`; an unbound obligation lets work be marked done with nothing to judge it. Bind the proof at author time.
 - ❌ Binding an `INTERFACE` to a `test:` proof → an interface boundary requires a `contract:` proof that its shape matches reality (`SOL-V006`); a unit test does not check the boundary contract.
 - ❌ Binding an `INVARIANT` only to a unit `test` → a unit test checks one state, not all states (`SOL-V003`); prefer `property`/`model`/`static`.
 - ❌ Specifying the mechanism (`use a Map`, `store in Redis`) instead of the requirement → over-constrains the solution and turns the spec into unchecked implementation. State the bound (`O(1) per key`) and let the implementer choose.
 - ❌ Leaving an unresolved decision as hedged prose ("we'll probably redirect to /login") → that is `SOL-P008`; lift it into a `[blocking]` QUESTION and resolve or decide before finishing.
-- ❌ Shipping the spec with a `[blocking]` QUESTION still open → it blocks lowering of everything it `AFFECTS` and is an orchestration error if it reaches the next pass. Resolve, decide, or route it first.
-- ❌ Naming a parent `audit.swarm.md` / `research.swarm.md` → the `.swarm.` infix marks the one compiler-visible spec; a parent is plain `.md`. Mis-naming smuggles a non-spec into the compiler's view.
+- ❌ Shipping the spec with a `[blocking]` QUESTION still open → it blocks structuring of everything it `AFFECTS` and is an orchestration error if it reaches the next step. Resolve, decide, or route it first.
+- ❌ Naming a parent `audit.swarm.md` / `research.swarm.md` → the `.swarm.` infix marks the one Swarm-visible spec; a parent is plain `.md`. Mis-naming smuggles a non-spec into the Swarm's view.
 - ❌ Dropping an architectural constraint, payload shape, or acceptance criterion into the loss statement's `### Dropped` → those are never droppable; only narrative, rejected alternatives, and survey prose may be dropped, and only with an accounting.
 - ❌ Writing the sections in a convenient order, or omitting `## Verification coverage` / `## Downstream tasks` → required sections out of order or missing is the document-level defect `SOL-S012`.
 - ❌ Hardcoding a concrete test/validate command into a `VERIFY BY` adapter → resolve `cmd*` slots through the consuming repo's `AGENTS.md > Commands`; if a slot is undefined, ask the user.

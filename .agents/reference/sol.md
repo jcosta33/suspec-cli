@@ -59,7 +59,7 @@ VERIFY BY contract:<adapter>:<artifact>     ← MUST be a contract proof (else S
 ```
 
 **QUESTION** — `QUESTION Q-001 [blocking|non-blocking]:` then the text, then `AFFECTS <id|surface>`. A
-`[blocking]` question blocks lowering of what it `AFFECTS`.
+`[blocking]` question blocks structuring of what it `AFFECTS`.
 
 ## Metadata clauses (may trail REQ/CONSTRAINT/INVARIANT; feed orchestration, no behavioural force)
 `DEPENDS ON <ids>` · `WRITES <surfaces>` · `READS <surfaces>` · `TOUCHES <surfaces>` (advisory) ·
@@ -72,7 +72,7 @@ VERIFY BY contract:<adapter>:<artifact>     ← MUST be a contract proof (else S
 verdict model are in `reference/proofs.md`.
 
 ## Closed-set counts (MUST reconcile)
-7 block types · 5 modals · 7 verdicts (4 core + 3 lifecycle) · 9 proof types · 7 phases · 9 passes ·
+7 block types · 5 modals · 7 verdicts (4 core + 3 lifecycle) · 9 proof types · 7 phases · 9 steps ·
 10 improve ops · 5 lint layers (S/P/M/V/O) · 7 edge types · 17 `task_kind`.
 
 ## Lint floors (the SOL-<LAYER>NNN namespace; full catalogue: `pass-lint-spec/references/code-catalogue.md`)

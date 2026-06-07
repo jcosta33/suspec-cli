@@ -122,7 +122,7 @@ verbal-feedback loop the next iteration reads to avoid repeating a dead end.)
 
 ---
 
-## Implementation or pass trace
+## Implementation or step trace
 
 (What changed, per obligation, and *why this patch addresses the cause* — not the
 symptom. The reviewer checks this.)

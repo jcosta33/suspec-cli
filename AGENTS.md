@@ -1,7 +1,7 @@
 # AGENTS.md — swarm-cli
 
 <!-- Swarm bootloader (always-loaded, facts-only, MUST stay <= 200 lines / 25 KB).
-     Pass procedures load on demand from the self-contained skills in `.claude/skills/`;
+     Step procedures load on demand from the self-contained skills in `.claude/skills/`;
      the SOL/APS manual is not installed (read it in the swarm repo).
      This repo is CO-LOCATED (Swarm spec-repo discipline, ADR-0050/0051): it authors its own
      toolchain specs (top-level specs/*.swarm.md) AND implements them, so it carries the full
@@ -33,8 +33,8 @@
 - Full architecture + conventions + safety detail: **`.agents/repo-conventions.md`**. Human coding conventions: `docs/07-conventions.md`.
 
 ## Pointers
-- Skills (a pass guide for each of the 9 passes, per-kind implement & author guides, persona-* stances, fragments — Swarm's + this repo's own, side by side): `.claude/skills/`. Each carries its pass *procedure* inline.
-- Operative reference cards (the shared closed-set rules — SOL grammar, proofs/verdicts/adequacy, the IR/edges): `.agents/reference/` (`sol.md`, `proofs.md`, `ir.md`). Load the card for the pass you're running.
+- Skills (a step guide for each of the 9 steps, per-kind implement & author guides, persona-* stances, fragments — Swarm's + this repo's own, side by side): `.claude/skills/`. Each carries its step *procedure* inline.
+- Operative reference cards (the shared closed-set rules — SOL grammar, proofs/verdicts/adequacy, the IR/edges): `.agents/reference/` (`sol.md`, `proofs.md`, `ir.md`). Load the card for the step you're running.
 - Specs: `specs/` (source `*.swarm.md`, top-level content). Execution scratch: `.agents/tasks/` (frames; gitignored). Recall: `.agents/memory/` (`INDEX.md` is the load-*when* map).
 - Project conventions: `.agents/repo-conventions.md` + `## Project facts` above. Project config: `.agents/swarm.config.yaml`.
 - Full SOL / APS / passes manuals (not installed — read in the `swarm` repo for the *why*): `<swarm-repo>/docs/`

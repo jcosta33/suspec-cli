@@ -38,7 +38,7 @@ A code is BLOCKING iff its defect changes **what gets built** — the obligation
 
 ### V / O layers — surfaced only when already determinable from the surface spec
 
-| Code | Defect | Owner pass |
+| Code | Defect | Owner step |
 | --- | --- | --- |
 | `SOL-V001` | Missing verification path: a binding obligation (`REQ`/`CONSTRAINT`/`INVARIANT`) or `INTERFACE` with no `VERIFY BY`. | `verify` |
 | `SOL-O001` | Write-conflict marked parallel: two work packets sharing a write surface scheduled in parallel. | `decompose` |
@@ -65,7 +65,7 @@ ADVISORY iff the defect affects only **how it reads** — style, length, voice, 
 
 ## Code → `improve` op map (the `suggest` field)
 
-`lint` only *names* the repair in `suggest`; applying it is the `improve` pass, which MUST be strictly semantics-preserving. The full map is in the `improve` pass; the common rows:
+`lint` only *names* the repair in `suggest`; applying it is the `improve` step, which MUST be strictly semantics-preserving. The full map is in the `improve` step; the common rows:
 
 | Lint code(s) | `improve` op | What the op does |
 | --- | --- | --- |
@@ -82,7 +82,7 @@ ADVISORY iff the defect affects only **how it reads** — style, length, voice, 
 
 ## Worked diagnostic record
 
-A single conformant `{ code, severity, layer, span, message, suggest }` record (shape fixed by the SOL error catalogue):
+A single valid `{ code, severity, layer, span, message, suggest }` record (shape fixed by the SOL error catalogue):
 
 ```json
 {
@@ -95,7 +95,7 @@ A single conformant `{ code, severity, layer, span, message, suggest }` record (
 }
 ```
 
-The IR lowers the same data SARIF-shaped into `diagnostics[]`: `severity`→`level` (`BLOCKING`→`error`, `ADVISORY`→`warning`), `span`→`source { file, line_start, line_end }`, `code` identical across both, and `to: off` waivers suppressed from the array entirely (a waiver is not an IR `level`).
+The structured form structures the same data SARIF-shaped into `diagnostics[]`: `severity`→`level` (`BLOCKING`→`error`, `ADVISORY`→`warning`), `span`→`source { file, line_start, line_end }`, `code` identical across both, and `to: off` waivers suppressed from the array entirely (a waiver is not a structured form `level`).
 
 ## Waiver record (required fields)
 

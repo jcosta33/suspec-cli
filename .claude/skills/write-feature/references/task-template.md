@@ -82,7 +82,7 @@ code. No new dependencies the obligations did not authorize.
 
 ---
 
-## Implementation or pass trace
+## Implementation or step trace
 
 (What changed, per assigned obligation. One short paragraph each.)
 
@@ -155,7 +155,7 @@ engineer about to greenlight this work for the merge gate.
 - Assertion-flip transition for each `test`-bound criterion (fails when flipped → passes when
   restored):
 
-### Did I do only this pass?
+### Did I do only this step?
 
 - Every change traces to an assigned obligation, or it is recorded as an unassigned change with a
   reason + authorizing ID or `none`. Anything outside the obligations?
@@ -194,10 +194,10 @@ engineer about to greenlight this work for the merge gate.
 - Are all promotion-queue items resolved? Nothing stubbed, TODO'd, or half-implemented?
   Answer:
 
-### Final adversarial pass
+### Final adversarial step
 
 - What did I leave behind? Did I actually run all the gates, or did I trust my memory? Do not leave
-  the work without this final pass.
+  the work without this final step.
   Answer:
 
 Only when every answer above is written, and every verification output is the real pasted result,

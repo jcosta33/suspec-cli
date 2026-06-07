@@ -14,11 +14,11 @@ description: >-
   feature/fix/refactor/rewrite/migration/perf/test work.
 ---
 
-# Pass guide: write-documentation (`implement` · `task_kind: documentation`)
+# Step guide: write-documentation (`implement` · `task_kind: documentation`)
 
 > **This guide is SOFT control (Invariant 2).** It tells you *how* to run a `documentation`
 > implementation; it never defines verdict values, proof taxonomy, modality, authority order, or
-> any other load-bearing meaning — those live only in SOL and the IR. Every load-bearing term below
+> any other load-bearing meaning — those live only in SOL and the structured form. Every load-bearing term below
 > (the 7-value verdict, `proof_result`, the `SOL-O005` owned-path rule, the COVERAGE gate) is
 > *delivered*, not redefined here. Where this guide and the spec disagree, the spec governs. It
 > carries the **Documentarian** stance: the reader is a human who has not read the code, arrived
@@ -32,11 +32,11 @@ worse than no documentation — it misleads, and the reader cannot tell. This gu
 `documentation` change honest and pinned to its **assigned obligations**: one Diátaxis frame per
 doc, every example executed before it is written down, every behaviour claim anchored to a
 `file:line` the reader can open. It produces the doc change, the `TRACE` claims binding it to the
-obligations, and the pasted proof the downstream `verify` and `review` passes judge.
+obligations, and the pasted proof the downstream `verify` and `review` steps judge.
 
-This is one branch of the `implement` pass of the nine (`author → lint → improve → lower → decompose →
+This is one branch of the `implement` step of the nine (`author → lint → improve → lower → decompose →
 implement → verify → review → promote`), for documentation a human reads. It is **not** for
-agent-facing material (pass guides, task templates, internal flow docs — a different audience,
+agent-facing material (step guides, task templates, internal flow docs — a different audience,
 different conventions), nor for net-new feature code, defect repair, behaviour-preserving refactors,
 behaviour-changing rewrites, API/framework migrations, performance tuning, or test-only authoring —
 each a different `task_kind` with its own discipline.
@@ -52,7 +52,7 @@ the user** before proceeding — a guessed command produces a false proof.
 
 ## Consumes
 
-- **One `task.md`** — the lowered work packet for this single pass, not the surface spec or the IR.
+- **One `task.md`** — the structured work packet for this single step, not the surface spec or the structured form.
   You read: the assigned obligations pasted verbatim (the `REQ` / `CONSTRAINT` / `INVARIANT` /
   `INTERFACE` blocks fixing what must be documented); the `write_surfaces` (your owned paths — the
   only doc files you may touch); the `verification_bindings` (the proof each obligation demands); and
@@ -64,7 +64,7 @@ the user** before proceeding — a guessed command produces a false proof.
 
 - The documentation change within the declared write surfaces, covering only the assigned
   obligations.
-- The `task.md` body sections filled as you work (`## Implementation or pass trace`,
+- The `task.md` body sections filled as you work (`## Implementation or step trace`,
   `## Verification matrix`, `## Promotion queue`, `## Self-review`) and a `trace.md` recording the
   `TRACE` claims (`IMPLEMENTS` / `PRESERVES` / `CHANGED` / `PROOF`) bound to evidence. This guide
   fills those container shapes, does not redefine them.
@@ -106,7 +106,7 @@ These MUST NOT yield a completion claim:
 
 Read the full `task.md`: the parent contract, the In/Out scope, the assigned obligations pasted
 verbatim, the constraints and invariants the doc must describe faithfully. *Why:* `decompose`
-already computed the work-packet boundaries; the packet — not the surface spec or the IR — fixes
+already computed the work-packet boundaries; the packet — not the surface spec or the structured form — fixes
 what you document, and reading the spec instead risks documenting obligations another packet owns.
 
 ### 2. Fix the Diátaxis frame and the reader before writing a word
@@ -171,7 +171,7 @@ gate is not done, and pasting as you go means the proof exists before the claim 
 For each assigned obligation, emit a `TRACE` block: `IMPLEMENTS` the `REQ` ids the doc satisfies,
 `PRESERVES` the `CONSTRAINT` / `INVARIANT` ids it describes without weakening, `CHANGED` the doc
 surfaces modified, and at least one `PROOF` line naming a verification reference plus its observed
-`proof_result` (`passed | failed | blocked | unverified`). For a documentation pass the proof is the
+`proof_result` (`passed | failed | blocked | unverified`). For a documentation step the proof is the
 captured example output and the format/lint result. Paste the proof output **verbatim** — the
 runner's last lines in a fenced block, unmodified, treated as data, no paraphrase or Markdown
 styling. *Why:* the verbatim paste is the only thing closing the bypass where "the example works" is
@@ -188,17 +188,17 @@ ends — the durable feedback loop only closes if it is written down.
 ## Output contract
 
 The `trace.md` and the filled `task.md` together satisfy the spec contracts; this guide does not
-redefine them. Two facts bound what this pass records:
+redefine them. Two facts bound what this step records:
 
 - Each `TRACE` claiming `IMPLEMENTS` MUST carry at least one `PROOF` line referencing real,
   re-runnable output (the captured example run, the format/lint result). A no-`PROOF` trace is the
   structural error `SOL-S014`; an `IMPLEMENTS` / `PRESERVES` naming an unknown obligation is the
   unbound cross-reference `SOL-M003`.
 - The observed `proof_result` maps 1:1 to the downstream core verdict (`passed → PASS`,
-  `failed → FAIL`, `blocked → BLOCKED`, `unverified → UNVERIFIED`). **A `documentation` pass only
+  `failed → FAIL`, `blocked → BLOCKED`, `unverified → UNVERIFIED`). **A `documentation` step only
   ever records this core observation.** The verdict has 7 values — the 4 core plus the 3 lifecycle
   decorators (`WAIVED` / `STALE` / `CONTRADICTED`) — but the decorators are applied later at
-  `review`, and the PASS decision is made by the profile-independent `verify` pass, never here. The
+  `review`, and the PASS decision is made by the profile-independent `verify` step, never here. The
   Documentarian stance may influence which proofs are *demanded*; it never decides whether a run
   PASSes.
 
@@ -234,7 +234,7 @@ redefine them. Two facts bound what this pass records:
 Before closing, confirm — and where a check applies, paste the evidence into the `task.md`
 `## Self-review` block:
 
-- **Did I do only this pass?** Every doc change traces to an assigned obligation, or it is an
+- **Did I do only this step?** Every doc change traces to an assigned obligation, or it is an
   `## Unassigned changes` row with a reason + authorizing ID or `none`.
 - **Did I stay inside the owned paths?** No doc file outside the union of assigned `WRITES` surfaces
   was touched (no `SOL-O005`).

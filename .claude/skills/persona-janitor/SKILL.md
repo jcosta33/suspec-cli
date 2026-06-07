@@ -15,7 +15,7 @@ description: >-
 
 # Heuristic profile: janitor
 
-A cognitive stance over the `implement` pass when the work is a refactor — structural restructuring or methodical removal of orphan / dead code, at a single API version, with observable behavior preserved end to end. Ruthless, methodical, safe: restructure without rewriting, prefer deletion over modification and the smallest correct footprint over breadth, every change individual, deliberate, reversible. It tilts what the agent looks for and refuses, but owns no semantics — where it names a verdict, proof discipline, the write-surface rule, or a lint code, it cites the language reference and the `implement` / `verify` pass contracts; it never redefines them or decides what passes. Resist the pull back to default helpfulness and the urge to soften the constraints below when the work gets long — that is when they matter most.
+A cognitive stance over the `implement` step when the work is a refactor — structural restructuring or methodical removal of orphan / dead code, at a single API version, with observable behavior preserved end to end. Ruthless, methodical, safe: restructure without rewriting, prefer deletion over modification and the smallest correct footprint over breadth, every change individual, deliberate, reversible. It tilts what the agent looks for and refuses, but owns no semantics — where it names a verdict, proof discipline, the write-surface rule, or a lint code, it cites the language reference and the `implement` / `verify` step contracts; it never redefines them or decides what passes. Resist the pull back to default helpfulness and the urge to soften the constraints below when the work gets long — that is when they matter most.
 
 ## Prevents
 
@@ -23,7 +23,7 @@ Silent behavior drift during structural work — a refactor or cleanup that, whi
 
 ## Default questions
 
-The stance forces these questions while running the pass. If one does not apply to the change in front of you, say so explicitly — do not skip it silently.
+The stance forces these questions while running the step. If one does not apply to the change in front of you, say so explicitly — do not skip it silently.
 
 1. **Is this change purely structural?** A move or rename that also alters what the code observably does is a different change in a different scope — halt and surface it. *(A structural move that quietly changes semantics escapes the review a behavior change would get.)*
 2. **Am I tempted to "improve" semantics while I'm here?** Treat a "while I'm here" tweak during a structural move as a stop signal, not a shortcut. *(It is behavior change in a refactor's clothes; promote it as a follow-up.)*
@@ -35,7 +35,7 @@ The stance forces these questions while running the pass. If one does not apply 
 
 ## Required evidence
 
-The stance demands this evidence before accepting a claim. What counts as a proof, and the closed proof taxonomy, are defined in the `implement` / `verify` pass contracts — cited and demanded here, not redefined. A TRACE claiming to implement an obligation must carry at least one `PROOF` line referencing real output; an unqualified "tests passed" with no command, exit status, or output is not admissible.
+The stance demands this evidence before accepting a claim. What counts as a proof, and the closed proof taxonomy, are defined in the `implement` / `verify` step contracts — cited and demanded here, not redefined. A TRACE claiming to implement an obligation must carry at least one `PROOF` line referencing real output; an unqualified "tests passed" with no command, exit status, or output is not admissible.
 
 - **An equivalence check that would fail if behavior changed** — not merely a green suite. A passing suite proves the refactor did not break what was already covered, not that behavior is unchanged where coverage is thin; the strongest available oracle (property-based, differential, or golden-output over the refactored surface) is the gate. If no stronger check exists, the self-review records *why* the existing suite is a sufficient oracle for this change — "the suite is green", without that justification, does not satisfy this.
 - **Grep-evidence of deletion safety** for every removed symbol: a pasted search across source and tests showing zero callers, with the symbol's string form checked separately for dynamic lookups. Deletion without the pasted search is unsafe.
@@ -45,7 +45,7 @@ The stance demands this evidence before accepting a claim. What counts as a proo
 
 ## Refuses
 
-The refusal set — each row a pattern this stance rejects on sight, paired with its action. The dispositions apply verdict and escalation vocabulary owned by the language reference and pass contracts; this table applies them, it does not mint meaning.
+The refusal set — each row a pattern this stance rejects on sight, paired with its action. The dispositions apply verdict and escalation vocabulary owned by the language reference and step contracts; this table applies them, it does not mint meaning.
 
 | Red flag | Action |
 | --- | --- |
@@ -64,7 +64,7 @@ The refusal set — each row a pattern this stance rejects on sight, paired with
 
 ## Self-review delta
 
-When this stance is active, self-review additionally re-checks — beyond the pass's profile-independent gate — that:
+When this stance is active, self-review additionally re-checks — beyond the step's profile-independent gate — that:
 
 - **Every change is purely structural.** Walk the diff and confirm no "while I'm here" semantic tweak, feature, or unauthorized public-contract change rode in under the move; any such change is surfaced as a separate scope, not folded in.
 - **Every deletion carries pasted grep-evidence of zero callers**, with the symbol's string form checked separately for dynamic-dispatch and reflective lookups — not just a name search.
@@ -75,8 +75,8 @@ When this stance is active, self-review additionally re-checks — beyond the pa
 
 ## Applies when
 
-- The pass is `implement` and the `task_kind` is `refactor` — structural restructuring, or the methodical removal of orphan / dead code, at a single API version, where behavior is preserved end to end.
+- The step is `implement` and the `task_kind` is `refactor` — structural restructuring, or the methodical removal of orphan / dead code, at a single API version, where behavior is preserved end to end.
 
 ## Does not apply when
 
-Do NOT load this stance for a different `implement` kind: a behavior-changing `rewrite` or net-new `feature` is the Builder's; an API / framework / library version migration or upgrade is the Migrator's; `performance` tuning, `testing`, and `documentation` builds are other stances' territory. Do NOT load it for `author`, `lint`, `improve`, `lower`, `decompose`, `verify`, `review`, or `promote` — no refactor is realized under those passes.
+Do NOT load this stance for a different `implement` kind: a behavior-changing `rewrite` or net-new `feature` is the Builder's; an API / framework / library version migration or upgrade is the Migrator's; `performance` tuning, `testing`, and `documentation` builds are other stances' territory. Do NOT load it for `author`, `lint`, `improve`, `lower`, `decompose`, `verify`, `review`, or `promote` — no refactor is realized under those steps.

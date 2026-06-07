@@ -14,7 +14,7 @@ description: >-
   upgrades, perf tuning, and net-new feature work.
 ---
 
-# Pass guide: implement — refactor
+# Step guide: implement — refactor
 
 ## Purpose
 
@@ -29,9 +29,9 @@ refactor — it is a `rewrite` (behaviour deliberately changes) or a `migration`
 (API A → API B). Relabel the task and load the matching discipline; do not
 proceed under `refactor`.
 
-This guide is SOFT control (Invariant 2): it tells you *how* to run the pass, not
+This guide is SOFT control (Invariant 2): it tells you *how* to run the step, not
 modality, authority order, verification semantics, verdict values, or the proof
-taxonomy — those are owned only by SOL and the IR. Where this guide and the spec
+taxonomy — those are owned only by SOL and the structured form. Where this guide and the spec
 disagree, the spec governs.
 
 ## Stance: Janitor
@@ -44,8 +44,8 @@ for and refuse*; it never changes the procedure or decides a verdict.
 
 ## Consumes
 
-- One `task.md` — the lowered packet for this pass. `implement` works against the
-  packet `decompose` handed it, **not** the surface spec or the IR. Read in
+- One `task.md` — the structured packet for this step. `implement` works against the
+  packet `decompose` handed it, **not** the surface spec or the structured form. Read in
   particular: `assigned_obligations`, `constraints`, `invariants`, `interfaces`
   (the SOL blocks pasted verbatim that fix scope); `write_surfaces` (your owned
   paths, the only files you may touch); `verification_bindings` (the proofs each
@@ -68,7 +68,7 @@ for and refuse*; it never changes the procedure or decides a verdict.
   pasted, re-runnable output. Its `## Provenance` section carries the per-binding
   drift fields the staleness join depends on. Externalising the run's work into
   this durable artifact (not leaving it in context) is what lets the downstream
-  `verify` and `review` passes judge it.
+  `verify` and `review` steps judge it.
 
 ## Preserves
 
@@ -151,7 +151,7 @@ passed" or "validation clean" is not — a no-`PROOF` `TRACE` that claims
 `IMPLEMENTS`/`PRESERVES` naming an unknown obligation is the unbound
 cross-reference `SOL-M003`. The observed `proof_result` (`passed | failed |
 blocked | unverified`) is only the core run observation; the `PASS` decision is
-made downstream by the profile-independent `verify` pass, and the lifecycle
+made downstream by the profile-independent `verify` step, and the lifecycle
 decorators (the 7-value verdict's `WAIVED` / `STALE` / `CONTRADICTED`) are
 applied later at `review` — never here.
 
@@ -205,7 +205,7 @@ applied later at `review` — never here.
 - ❌ Skipping the per-checkpoint validation and validating only at the end →
   rule 2.
 - ❌ Refactoring tests "for clarity" alongside production code → tests are the
-  oracle; changing them in the same pass removes the proof that behaviour held.
+  oracle; changing them in the same step removes the proof that behaviour held.
 - ❌ A shim with no removable-when criterion → rule 4; that is permanent debt.
 - ❌ Adapting a failing test to the new output and calling it green → that is a
   behaviour change; relabel the task as `rewrite` or revert (rule 1).
@@ -242,7 +242,7 @@ this guide does not redefine them.
   if behaviour changed? Are test results before and after identical? If any test
   changed, is the change mechanical (e.g. import paths) or behavioural drift? If
   the suite was the only oracle, is the sufficient-oracle justification recorded?
-- **Architectural cleanliness:** Did validation pass at *every* checkpoint, or
+- **Architectural cleanliness:** Did validation step at *every* checkpoint, or
   did issues accumulate to the end?
 - **Shim hygiene:** Is every shim documented with a verifiable removable-when
   criterion?
@@ -251,7 +251,7 @@ this guide does not redefine them.
 - **Scope:** Did I touch only the assigned obligations and declared write
   surfaces? Anything that should have moved but didn't, or moved but shouldn't
   have? Did "while I'm here" creep in? Are all promotion items resolved?
-- **Final adversarial pass:** What changed besides what I intended? What is now
+- **Final adversarial step:** What changed besides what I intended? What is now
   subtly different that the oracle does not cover? Do not close without this.
 
 ## Bundled resources

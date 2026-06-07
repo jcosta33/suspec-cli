@@ -1,6 +1,6 @@
 # Promotion mechanics
 
-Deep material for the `promote` pass guide: the full provenance record, the per-status behaviour at the close gate, the two distinct status enums, the validation/rollback mechanics, and a worked queue. This file is referenced by `SKILL.md` rules 4, 5, and 10. It applies the canonical promotion rules — it does not redefine Swarm semantics.
+Deep material for the `promote` step guide: the full provenance record, the per-status behaviour at the close gate, the two distinct status enums, the validation/rollback mechanics, and a worked queue. This file is referenced by `SKILL.md` rules 4, 5, and 10. It applies the canonical promotion rules — it does not redefine Swarm semantics.
 
 ## The full provenance record
 
@@ -12,7 +12,7 @@ Every finding that reaches `accepted` or `promoted` MUST carry every field below
 | `evidence` | The file / command / output / source that grounds the claim |
 | `origin_obligations[]` | The obligation IDs (`AC-`/`C-`/`I-`/`IF-…`) the finding was discovered against |
 | `origin_traces[]` | The `*.swarm.trace.md` entries that produced the evidence |
-| `pass` + `profile` | The pass and heuristic profile it was found under (e.g. `review` + `skeptic`) |
+| `pass` + `profile` | The step and heuristic profile it was found under (e.g. `review` + `skeptic`) |
 | `reviewer_or_tool` | The human reviewer or tool/adapter that confirmed it |
 | `timestamp` | When it was promoted |
 | `content_hash` | Hash of the cited source/surfaces at promotion time (drives staleness) |
@@ -47,11 +47,11 @@ A `promoted` finding does not stay authoritative forever. It becomes **`stale`**
 
 ## What the `promotions/` ledger entry records
 
-A promotions-history entry (a compact, committed log your project keeps, created on first promote) records the durable target each promoted discovery landed at — a spec amendment, an ADR, a finding, a pattern, a glossary entry, or a pass-guide-plus-pointer — and the disposition of every queue item. It is immutable and append-only (a correction is a new entry referencing the one it amends). It introduces no new evidence: it is a projection of the resolved queue into compact, committed history, so throwaway execution packets can be discarded without severing the backward trace from code to the discoveries that produced it.
+A promotions-history entry (a compact, committed log your project keeps, created on first promote) records the durable target each promoted discovery landed at — a spec amendment, an ADR, a finding, a pattern, a glossary entry, or a step-guide-plus-pointer — and the disposition of every queue item. It is immutable and append-only (a correction is a new entry referencing the one it amends). It introduces no new evidence: it is a projection of the resolved queue into compact, committed history, so throwaway execution packets can be discarded without severing the backward trace from code to the discoveries that produced it.
 
 ## Worked example: a queue with two faces, a validation gate, and a local detail
 
-A `review[profile: skeptic]` pass on an auth-refresh change surfaces four discoveries. The promote pass resolves them:
+A `review[profile: skeptic]` step on an auth-refresh change surfaces four discoveries. The promote step resolves them:
 
 | # | Discovery | Kind | Route | Status |
 |---|---|---|---|---|

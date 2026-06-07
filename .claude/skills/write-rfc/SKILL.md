@@ -12,13 +12,13 @@ description: >-
   audit, a bug-report, or commit-to-nothing research.
 ---
 
-# Pass guide: write-rfc (`author` · `rfc.md`)
+# Step guide: write-rfc (`author` · `rfc.md`)
 
 > **This guide is SOFT control.** It tells you *how* to author an RFC well; it never defines
 > SOL/APS semantics, modality, authority order, the obligation-block grammar, the QUESTION
 > blocking rule, or any verification meaning — those live only in the SOL/APS language references
-> and the IR. This guide *applies* them, restating their load-bearing meaning inline so the RFC is
-> authorable from this file alone; where the two disagree, the references govern. The `author` pass
+> and the structured form. This guide *applies* them, restating their load-bearing meaning inline so the RFC is
+> authorable from this file alone; where the two disagree, the references govern. The `author` step
 > emits no lint codes and runs no gate — it produces the source the rest of the pipeline reads.
 > This guide carries the **proposal** stance: advocate one approach in enough detail to be
 > evaluated, record the comparison that justifies it, and decide nothing.
@@ -36,10 +36,10 @@ an immutable architecture decision, into the obligation-bearing behavioral contr
 the proposal stance preserved across the promotion. The failure this guide prevents is a proposal
 read as what it is not: an approved contract, or a settled choice.
 
-`author` is the first of the nine passes (`author → lint → improve → lower → decompose → implement
-→ verify → review → promote`), the entry pass that runs before analysis begins — where new intent
+`author` is the first of the nine steps (`author → lint → improve → lower → decompose → implement
+→ verify → review → promote`), the entry step that runs before analysis begins — where new intent
 and its parents legitimately *enter* the pipeline. An RFC is one of the recognized **parents of a
-spec** the `author` pass normalizes forward; this guide authors that parent, **not** the artifacts
+spec** the `author` step normalizes forward; this guide authors that parent, **not** the artifacts
 an RFC sits beside or promotes into, each with its own stance and discipline (see *What does not
 belong*).
 
@@ -63,7 +63,7 @@ undefined, ask before claiming the file is clean.
 
 ## Produces
 
-- One `rfc.md` — a **working artifact** (plain `.md`, **never** the `.swarm.` infix; no compiler
+- One `rfc.md` — a **working artifact** (plain `.md`, **never** the `.swarm.` infix; no tool
   parses or emits it). In an adopted project it lives under the sources tree beside the other parents
   of a spec, never under the generated-packets or memory tree.
 - The six required sections, in order, each on the proposal side of the line: `## Problem`,
@@ -73,18 +73,18 @@ undefined, ask before claiming the file is clean.
 ## Preserves
 
 - **The proposal stance.** Every sentence stays pre-decision. A sentence reading as an approved
-  behavioral contract belongs in the spec the `author` pass will produce; one reading as a settled
+  behavioral contract belongs in the spec the `author` step will produce; one reading as a settled
   choice belongs in the ADR. Neither belongs in the RFC.
 - **Provenance.** The `## Problem` cites the upstream source that forced the proposal rather than
   re-deriving it, keeping the chain from pressure to proposal auditable.
 
 ## Rejects
 
-These MUST NOT appear in a conformant RFC, and any blocks the file from being delivered:
+These MUST NOT appear in a valid RFC, and any blocks the file from being delivered:
 
 - **Obligation blocks.** An RFC MUST NOT author `REQ`, `CONSTRAINT`, `INVARIANT`, or `INTERFACE`
   blocks. Those come into existence only when the RFC promotes — into an accepted ADR, an approved
-  spec, or both — via the `author` pass. Embedding one lets a *proposal* be read as an
+  spec, or both — via the `author` step. Embedding one lets a *proposal* be read as an
   already-approved contract, bypassing both the authoring step where a proposal acquires obligation
   force and the decision step where it acquires commitment. This is the same boundary that keeps a
   product source's goals from being read as obligations and a defect diagnosis from prescribing its
@@ -149,8 +149,8 @@ In `## Open questions`, list each unresolved point that gates the decision. Each
 brackets before the colon: `QUESTION Q-001 [blocking]:` or `[non-blocking]`. *Why:* behavioral
 uncertainty must be lifted into an explicit marked question, never left as hedged prose ("it might…",
 "we could…") — unmarked hedging is the `SOL-P008` failure the downstream gate flags. Marking it makes
-the gate enforceable: a **blocking** question prevents the proposal from being lowered into tasks
-while it stands (an unresolved blocking question reaching the lower pass is `SOL-O003`), so an RFC
+the gate enforceable: a **blocking** question prevents the proposal from being structured into tasks
+while it stands (an unresolved blocking question reaching the lower step is `SOL-O003`), so an RFC
 with any blocking question open MUST NOT be promoted.
 
 ### 6. State the exact decision requested and name the promotion target
@@ -176,10 +176,10 @@ one failure that voids an RFC — a proposal that reads as a decision or a contr
 The delivered `rfc.md` carries the frontmatter contract and the six sections in order, every
 statement on the proposal side of the line, no obligation block and no `TRACE` block anywhere, a
 non-empty `## Alternatives`, and a `## Decision requested` that names its promotion target. Two facts
-bound what this pass records:
+bound what this step records:
 
 - The RFC authors **no** binding force of its own. Obligations and the decision are authored
-  downstream, on promotion, by the `author` pass (into a spec and/or an ADR) — never inside the RFC.
+  downstream, on promotion, by the `author` step (into a spec and/or an ADR) — never inside the RFC.
   The RFC is the durable, decidable record of the proposal those obligations and that decision will
   serve.
 - A lower-stance source must not smuggle higher-stance content across the authoring boundary: a
@@ -221,9 +221,9 @@ bound what this pass records:
 - ❌ Hedged prose carrying a real open question ("we might also need to…") → lift it into a marked
   `QUESTION Q-NNN [blocking|non-blocking]:` in `## Open questions` (unmarked hedging is `SOL-P008`).
 - ❌ Promoting an RFC with a blocking question still open → resolve or downgrade it first; a blocking
-  question reaching lowering is `SOL-O003`.
+  question reaching structuring is `SOL-O003`.
 - ❌ A `.swarm.` infix in the filename → an RFC is a working artifact; it stays plain `.md`, never the
-  compiler-visible infix.
+  Swarm-visible infix.
 - ❌ A `## Decision requested` that names no promotion target → name the accepted ADR and/or approved
   spec the proposal promotes into, or the decision cannot be acted on.
 

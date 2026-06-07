@@ -14,11 +14,11 @@ description: >-
   tuning, test-only authoring.
 ---
 
-# Pass guide: write-feature (`implement` · `task_kind: feature`)
+# Step guide: write-feature (`implement` · `task_kind: feature`)
 
 > **This guide is SOFT control (Invariant 2).** It tells you *how* to run a `feature`
 > implementation; it never defines the verdict values, proof taxonomy, modality, authority order,
-> or any other load-bearing meaning — those live only in SOL and the IR. Every load-bearing term
+> or any other load-bearing meaning — those live only in SOL and the structured form. Every load-bearing term
 > below (the 7-value verdict, `proof_result`, the `SOL-O005` owned-path rule, the COVERAGE gate) is
 > *delivered*, not redefined here. Where this guide and the spec disagree, the spec governs. It
 > carries the **Builder** stance: build exactly what the obligations specify, reuse before you
@@ -31,9 +31,9 @@ Features fail when the builder improvises around the spec — implementing past 
 behaviour. This guide pins a net-new change to its **assigned obligations** while leaving the
 builder free on choices the obligations do not constrain. It produces the change, the `TRACE`
 claims binding it to those obligations, and the pasted proof the downstream `verify` and `review`
-passes judge.
+steps judge.
 
-This is one branch of the `implement` pass of the nine (`author → lint → improve → lower → decompose
+This is one branch of the `implement` step of the nine (`author → lint → improve → lower → decompose
 → implement → verify → review → promote`). It adds capability that did not exist. It is **not** for
 repairing a defect in shipped code, restructuring internals without changing behaviour, a
 behaviour-changing rewrite of an existing module, moving from one API to another, tuning a measured
@@ -50,8 +50,8 @@ produces a false proof.
 
 ## Consumes
 
-- **One `task.md`** — the lowered work packet for this single pass, not the surface spec or the
-  IR. You read: the assigned obligations pasted verbatim (the `REQ` / `CONSTRAINT` / `INVARIANT` /
+- **One `task.md`** — the structured work packet for this single step, not the surface spec or the
+  structured form. You read: the assigned obligations pasted verbatim (the `REQ` / `CONSTRAINT` / `INVARIANT` /
   `INTERFACE` blocks that fix scope); the `write_surfaces` (your owned paths, the only files you
   may touch); the `verification_bindings` (the proof each criterion demands); the `## Scope` In/Out
   list.
@@ -61,7 +61,7 @@ produces a false proof.
 ## Produces
 
 - Code and tests within the declared write surfaces, implementing only the assigned obligations.
-- The `task.md` body sections filled as you work (`## Implementation or pass trace`,
+- The `task.md` body sections filled as you work (`## Implementation or step trace`,
   `## Verification matrix`, `## Promotion queue`, `## Self-review`) and a `trace.md` recording the
   `TRACE` claims (`IMPLEMENTS` / `PRESERVES` / `CHANGED` / `PROOF`) bound to evidence. This guide
   fills those container shapes, it does not redefine them.
@@ -101,7 +101,7 @@ These MUST NOT yield a completion claim:
 
 Read the full `task.md`: the parent contract, the In/Out scope, the assigned obligations pasted
 verbatim, the constraints and invariants to preserve. *Why:* `decompose` already computed the
-work-packet boundaries; the packet — not the surface spec or the IR — fixes your scope, and
+work-packet boundaries; the packet — not the surface spec or the structured form — fixes your scope, and
 reading the spec instead risks implementing obligations another packet owns.
 
 ### 2. Map every acceptance criterion to an implementation step before coding
@@ -175,17 +175,17 @@ ends — the durable feedback loop only closes if it is written down.
 ## Output contract
 
 The `trace.md` and the filled `task.md` together satisfy the spec contracts; this guide does not
-redefine them. Two facts bound what this pass records:
+redefine them. Two facts bound what this step records:
 
 - Each `TRACE` claiming `IMPLEMENTS` MUST carry at least one `PROOF` line referencing real,
   re-runnable output. A no-`PROOF` trace is the structural error `SOL-S014`; an
   `IMPLEMENTS` / `PRESERVES` naming an unknown obligation is the unbound cross-reference `SOL-M003`.
 - The observed `proof_result` maps 1:1 to the downstream core verdict value
   (`passed → PASS`, `failed → FAIL`, `blocked → BLOCKED`, `unverified → UNVERIFIED`). **A
-  `feature` pass only ever records this core observation.** The verdict has 7 values total — the 4
+  `feature` step only ever records this core observation.** The verdict has 7 values total — the 4
   core plus the 3 lifecycle decorators (`WAIVED` / `STALE` / `CONTRADICTED`) — but the decorators
   are applied later at `review`, and the PASS decision is made by the profile-independent `verify`
-  pass, never here. The Builder stance may influence which proofs are *demanded*; it never decides
+  step, never here. The Builder stance may influence which proofs are *demanded*; it never decides
   whether a run PASSes.
 
 ## What does not belong
@@ -217,7 +217,7 @@ redefine them. Two facts bound what this pass records:
 Before closing, confirm — and where a check applies, paste the evidence into the `task.md`
 `## Self-review` block:
 
-- **Did I do only this pass?** Every change traces to an assigned obligation, or it is an
+- **Did I do only this step?** Every change traces to an assigned obligation, or it is an
   `## Unassigned changes` row with a reason + authorizing ID or `none`.
 - **Did I stay inside the owned paths?** No file outside the union of assigned `WRITES` surfaces
   was touched (no `SOL-O005`).

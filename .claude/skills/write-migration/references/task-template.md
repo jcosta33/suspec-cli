@@ -169,7 +169,7 @@ modules): _[count once known]_
 
 ---
 
-## Implementation or pass trace
+## Implementation or step trace
 
 (What changed, per obligation — which callsites moved from A to B, in which wave.)
 

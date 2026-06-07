@@ -14,12 +14,12 @@ description: >-
   refactors, rewrites, migrations, perf tuning.
 ---
 
-# Pass guide: write-testing (`implement` · `task_kind: testing`)
+# Step guide: write-testing (`implement` · `task_kind: testing`)
 
 > **This guide is SOFT control (Invariant 2).** It tells you *how* to run a `testing`
 > implementation; it never defines the verdict values, the proof taxonomy, the proof-strength
 > order, oracle adequacy, modality, authority order, or any other load-bearing meaning — those live
-> only in SOL and the IR. Every load-bearing term used below (the 7-value verdict, `proof_result`,
+> only in SOL and the structured form. Every load-bearing term used below (the 7-value verdict, `proof_result`,
 > the proof-strength order, the `oracle_adequacy` record and its `SOL-V011` finding, the
 > `SOL-O005` owned-path rule, the COVERAGE gate) is *delivered*, not redefined here. Where guide and
 > spec disagree, the spec governs. It carries the **Test-Author** stance: a test is a specification
@@ -36,7 +36,7 @@ net-negative — they cost maintenance and catch nothing. This guide keeps a `te
 honest: behaviour-focused, one-reason-to-fail, proven to fire, and robust against
 behaviour-preserving refactors.
 
-This is one branch of the `implement` pass of the nine (`author → lint → improve → lower → decompose
+This is one branch of the `implement` step of the nine (`author → lint → improve → lower → decompose
 → implement → verify → review → promote`), for **adding or improving test coverage as a
 deliverable in its own right**. It is **not** for writing tests *as part of* building a feature or
 fixing a defect (tests already ride inside those deliverables), nor for stabilising a test that
@@ -54,7 +54,7 @@ false proof.
 
 ## Consumes
 
-- **One `task.md`** — the lowered work packet for this pass, not the surface spec or the IR. Read in
+- **One `task.md`** — the structured work packet for this step, not the surface spec or the structured form. Read in
   particular: the assigned obligations pasted verbatim (the `REQ` / `CONSTRAINT` / `INVARIANT` /
   `INTERFACE` blocks fixing what behaviour you test); the `write_surfaces` (your owned paths — the
   test files and any test-support surface, never production code unless an obligation authorises it);
@@ -71,7 +71,7 @@ false proof.
 - For every test, the pasted **flip-the-assertion** transition — the test failing when its assertion
   is flipped (or the production path it exercises is commented out) and passing when restored —
   proving the test is not a tautology.
-- The `task.md` body sections filled as you work (`## Implementation or pass trace`,
+- The `task.md` body sections filled as you work (`## Implementation or step trace`,
   `## Verification matrix`, `## Promotion queue`, `## Self-review`) and a `trace.md` recording the
   `TRACE` claims (`IMPLEMENTS` / `PRESERVES` / `CHANGED` / `PROOF`) bound to that evidence. This
   guide fills those container shapes; it does not redefine them.
@@ -122,7 +122,7 @@ These MUST NOT yield a completion claim:
 Read the full `task.md`: the parent contract, In/Out scope, assigned obligations pasted verbatim,
 the constraints and invariants to preserve, and the driving doc's "Needed: test" item if there is
 one. *Why:* `decompose` already computed the work-packet boundaries; the packet — not the surface
-spec or IR — fixes which behaviour you test, and reading the spec instead risks testing behaviour
+spec or structured form — fixes which behaviour you test, and reading the spec instead risks testing behaviour
 another packet owns.
 
 ### 2. Name the coverage gap as a behaviour, before writing any test
@@ -183,7 +183,7 @@ reason. Map the test to the criterion and confirm it asserts the behaviour the c
 and fails when *that criterion* is violated — not when an adjacent passing condition changes. *Why:*
 a single concrete example is a weak oracle — a test can pass against behaviour the criterion did not
 intend (the test-oracle problem the proof-strength order and oracle adequacy, both in
-the `verify` pass, guard).
+the `verify` step, guard).
 If no fail-when-violated test can be built, that is a finding for the spec author (rebind the
 criterion to `command` / `manual`), never a licence to ship a green-but-irrelevant test.
 
@@ -221,7 +221,7 @@ runner's last lines in a fenced block, unmodified, as data, no paraphrase and no
 Writing tests routinely surfaces real bugs and hard-to-test designs. Every such discovery — a bug
 the test exposed, production code too coupled to test cleanly, a missing acceptance criterion — gets
 a `## Promotion queue` row with a target and status; all MUST be resolved before the task closes.
-*Why:* a bug a test exposed is the highest-value finding the pass can produce; unwritten, it is lost
+*Why:* a bug a test exposed is the highest-value finding the step can produce; unwritten, it is lost
 the moment the session ends.
 
 ## Forced visible output
@@ -242,7 +242,7 @@ no quoting, no Markdown styling, no inline annotation. A test with no pasted fli
 ## Output contract
 
 The `trace.md` and filled `task.md` together satisfy the spec contracts; this guide does not
-redefine them. Two facts bound what this pass records:
+redefine them. Two facts bound what this step records:
 
 - Each `TRACE` claiming `IMPLEMENTS` MUST carry at least one `PROOF` line referencing real,
   re-runnable output. A no-`PROOF` trace is the structural error `SOL-S014`; an
@@ -251,10 +251,10 @@ redefine them. Two facts bound what this pass records:
   (`passed → PASS`, `failed → FAIL`, `blocked → BLOCKED`, `unverified → UNVERIFIED`). **A `testing`
   pass only ever records this core observation.** The verdict has 7 values total — the 4 core plus
   the 3 lifecycle decorators (`WAIVED` / `STALE` / `CONTRADICTED`) — but the decorators are applied
-  later at `review`, and the PASS decision is made by the profile-independent `verify` pass, never
+  later at `review`, and the PASS decision is made by the profile-independent `verify` step, never
   here. The Test-Author stance may influence which proofs are *demanded* (and may escalate a weak
   oracle to a stronger one per the oracle-adequacy rule in
-  the `verify` pass); it never decides whether a run PASSes.
+  the `verify` step); it never decides whether a run PASSes.
 
 ## What does not belong
 
@@ -292,7 +292,7 @@ redefine them. Two facts bound what this pass records:
 Before closing, confirm — and where a check applies, paste the evidence into the `task.md`
 `## Self-review` block:
 
-- **Did I do only this pass?** Every change traces to an assigned obligation, or it is an
+- **Did I do only this step?** Every change traces to an assigned obligation, or it is an
   `## Unassigned changes` row with a reason + authorizing ID or `none`. No production code touched
   without an authorising obligation.
 - **Did I stay inside the owned paths?** No file outside the union of assigned `WRITES` surfaces
@@ -310,8 +310,8 @@ Before closing, confirm — and where a check applies, paste the evidence into t
   flake under CI.
 - **Are all promotion items resolved?** No bug the tests exposed, and no hard-to-test finding, left
   unpromoted.
-- **Final adversarial pass:** what behaviour is still untested that I should have covered? What
-  break in the code would still pass my suite? Do not leave the work without this pass.
+- **Final adversarial step:** what behaviour is still untested that I should have covered? What
+  break in the code would still pass my suite? Do not leave the work without this step.
 
 When the Test-Author stance carries its own self-review checks, run those too — they add to these,
 not replace them.

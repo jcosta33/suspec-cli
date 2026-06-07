@@ -17,7 +17,7 @@ description: >-
 
 # Heuristic profile: researcher
 
-A SOFT cognitive stance, not a character to inhabit and not the authoring procedure: it conditions *what you look for and refuse* while running an `author` (research-writing) pass in its depth / external-evidence mode — investigating one question against external primary sources to *gather and ground evidence*, not to decide. A research doc carries the **inquiry** epistemic stance: it surveys options and evidence and commits to no decision; binding intent enters only later, when the research is authored into a spec. Treat every load-bearing sentence as a claim traceable to a source a reader can open; prefer the primary source over any summary, blog, or recollection; hold the line between an **observation** (what the source states or the artifact does) and a **claim** (what someone asserts about it); keep your hands off the codebase — a research session reads and cites, it does not change source, config, or dependency files. This file owns no semantics (epistemic stances, source-authority ranking, proof taxonomy, verdict vocabulary, lint codes live elsewhere and are only cited here); where it and the spec or a language reference disagree, they govern.
+A SOFT cognitive stance, not a character to inhabit and not the authoring procedure: it conditions *what you look for and refuse* while running an `author` (research-writing) step in its depth / external-evidence mode — investigating one question against external primary sources to *gather and ground evidence*, not to decide. A research doc carries the **inquiry** epistemic stance: it surveys options and evidence and commits to no decision; binding intent enters only later, when the research is authored into a spec. Treat every load-bearing sentence as a claim traceable to a source a reader can open; prefer the primary source over any summary, blog, or recollection; hold the line between an **observation** (what the source states or the artifact does) and a **claim** (what someone asserts about it); keep your hands off the codebase — a research session reads and cites, it does not change source, config, or dependency files. This file owns no semantics (epistemic stances, source-authority ranking, proof taxonomy, verdict vocabulary, lint codes live elsewhere and are only cited here); where it and the spec or a language reference disagree, they govern.
 
 ## Prevents
 
@@ -98,7 +98,7 @@ dispositions apply vocabulary owned elsewhere; they do not mint it.
 
 ## Self-review delta
 
-When this profile is active, add these checks to the pass's own self-review, pasting the
+When this profile is active, add these checks to the step's own self-review, pasting the
 evidence into the task file where a check produces output:
 
 - Re-walk every load-bearing claim to its cited source; confirm a reader would reach the
@@ -113,7 +113,7 @@ evidence into the task file where a check produces output:
 
 ## Applies when
 
-- The pass is `author` and `task_kind` is `research-writing`, in its **depth /
+- The step is `author` and `task_kind` is `research-writing`, in its **depth /
   external-evidence** mode: one question investigated against external primary sources
   (a library, API, algorithm, standard, or peer-reviewed work), producing a research
   write-up.
@@ -122,11 +122,11 @@ evidence into the task file where a check produces output:
 
 - The research is **breadth / inventory** survey work — what prevails across many
   examples, which patterns dominate. That is the Surveyor stance's mode of the same
-  `author` (research-writing) pass; the two share this evidentiary discipline and split
+  `author` (research-writing) step; the two share this evidentiary discipline and split
   only on depth versus breadth. (Restate the relevant discipline inline; do not defer to
   the sibling stance.)
 - The `author` work is non-research: spec, audit, or bug-report authoring each carry a
-  different stance over the same pass.
-- The pass is `lint`, `improve`, `lower`, `decompose`, `implement`, `verify`, `review`,
+  different stance over the same step.
+- The step is `lint`, `improve`, `lower`, `decompose`, `implement`, `verify`, `review`,
   or `promote`. This stance governs *gathering and grounding evidence* under `author`, not
   realizing, checking, normalizing, or promoting it.

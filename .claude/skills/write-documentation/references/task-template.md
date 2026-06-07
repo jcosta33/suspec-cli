@@ -116,14 +116,14 @@ supports it? Which examples and which `file:line` citations does each obligation
 - [ ] Docs I own that contradict this one searched for and reconciled; contradictions in docs I do
       not own promoted
 - [ ] `{{cmdFormat}}` run on every touched file (paste output below)
-- [ ] `{{cmdValidate}}` / doc-lint passes if the project lints docs (paste output below)
+- [ ] `{{cmdValidate}}` / doc-lint steps if the project lints docs (paste output below)
 - [ ] TRACE claims written (`IMPLEMENTS` / `PRESERVES` / `CHANGED` / `PROOF` per obligation)
 - [ ] Promotion queue resolved (no discovery left unpromoted)
 - [ ] Self-review hard gate fully answered
 
 ---
 
-## Implementation or pass trace
+## Implementation or step trace
 
 (What was written or updated, per assigned obligation. One short paragraph each.)
 
@@ -196,7 +196,7 @@ engineer hostile to vagueness, about to greenlight this doc for the merge gate.
 - `{{cmdFormat}}` on touched files (last 2 lines):
 - `{{cmdValidate}}` / doc-lint, if the project lints docs (last 2 lines):
 
-### Did I do only this pass?
+### Did I do only this step?
 
 - Every doc change traces to an assigned obligation, or it is recorded as an unassigned change with
   a reason + authorizing ID or `none`. Anything outside the obligations?
@@ -250,11 +250,11 @@ engineer hostile to vagueness, about to greenlight this doc for the merge gate.
 - Are all promotion-queue items resolved? Nothing stubbed, deferred, or half-documented?
   Answer:
 
-### Final adversarial pass
+### Final adversarial step
 
 - Will a reader who has not seen the code understand this? Is anything in this doc going to be wrong
   in three months? Did I actually run the gates, or did I trust my memory? Do not leave the work
-  without this final pass.
+  without this final step.
   Answer:
 
 Only when every answer above is written, and every verification output is the real pasted result, is

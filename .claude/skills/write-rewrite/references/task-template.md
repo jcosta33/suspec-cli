@@ -32,7 +32,7 @@ The inherited hand-off: objective + deliverable + acceptance bar + boundaries
 
 ## Scope
 
-**In:** what this pass rewrites.
+**In:** what this step rewrites.
 **Out:** do not implement unassigned obligations; do not change behaviour outside
 the assigned write surfaces or outside the behaviour-delta table below; do not
 weaken constraints, invariants, or non-goals.
@@ -102,7 +102,7 @@ The SOL blocks this task MUST preserve, pasted verbatim.
 
 ---
 
-## Implementation or pass trace
+## Implementation or step trace
 
 What changed, per obligation.
 
@@ -214,7 +214,7 @@ continue from this task file alone?
 
 Answer:
 
-### Final adversarial pass
+### Final adversarial step
 
 What is now subtly different that the oracle does not cover? What else could make
 this more stable or correct? Do not close without this.

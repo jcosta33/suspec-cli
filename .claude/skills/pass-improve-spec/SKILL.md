@@ -8,12 +8,12 @@ description: >-
   `improve` pass, a lint report's codes must be repaired, or a spec must be normalized before `lower`.
   Never change an obligation's actor/trigger/modality/response set (that is authoring, not improve),
   invent an operation outside the ten, drop an obligation or binding, or resolve a blocking QUESTION by
-  guessing. Skip detecting defects (`lint`), authoring new intent (`author`), or building the IR (`lower`).
+  guessing. Skip detecting defects (`lint`), authoring new intent (`author`), or building the structured form (`lower`).
 ---
 
-# Pass guide: improve
+# Step guide: improve
 
-How to run the `improve` pass. **SOFT control** — procedure, not meaning. It owns no semantics: the lint
+How to run the `improve` step. **SOFT control** — procedure, not meaning. It owns no semantics: the lint
 codes, the improve-operation set, and what counts as intent-changing are fixed by the SOL reference
 (`reference/sol.md`) and the lint catalogue (`pass-lint-spec/references/code-catalogue.md`); this guide
 applies them.
@@ -84,6 +84,6 @@ In spec order: `NORMALIZE  ATOMIZE  CONCRETIZE  QUANTIFY  BIND  SCOPE  CLARIFY  
 - Was anything dropped that should have been promoted instead?
 
 ## Related
-- The `lint` pass (names the defects this repairs) — `pass-lint-spec`.
+- The `lint` step (names the defects this repairs) — `pass-lint-spec`.
 - The loss discipline — `distillation-discipline`.
 - Surface grammar — `reference/sol.md`. Code catalogue — `pass-lint-spec/references/code-catalogue.md`.

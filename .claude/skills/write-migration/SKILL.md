@@ -15,12 +15,12 @@ description: >-
   rewrites, and net-new features at the new version.
 ---
 
-# Pass guide: write-migration (`implement` · `task_kind: migration` | `upgrade`)
+# Step guide: write-migration (`implement` · `task_kind: migration` | `upgrade`)
 
 > **SOFT control (Invariant 2).** This guide tells you *how* to run a `migration`
-> or `upgrade` implement pass. It does **not** define modality, authority order,
+> or `upgrade` implement step. It does **not** define modality, authority order,
 > verification semantics, the verdict values, or the proof taxonomy — those are
-> owned only by SOL and the typed IR. Every load-bearing term below (a
+> owned only by SOL and the typed structured form. Every load-bearing term below (a
 > `REQ`/`CONSTRAINT`/`INVARIANT`/`INTERFACE` obligation, a `TRACE` block,
 > `IMPLEMENTS`/`PRESERVES`/`CHANGED`/`PROOF`, the 7-value verdict, the `SOL-O005`
 > owned-path rule, the COVERAGE gate) is **cited, not redefined**. Where this
@@ -30,7 +30,7 @@ description: >-
 > procedure: both move the implementation across an API boundary while preserving
 > the surface. They differ only in the *trigger* (an internal API sunset vs a
 > framework/language/library version bump), not the method, so one guide carries
-> both. This is a narrow branch of the `implement` pass of the nine (`author → lint →
+> both. This is a narrow branch of the `implement` step of the nine (`author → lint →
 > improve → lower → decompose → implement → verify → review → promote`), carrying
 > the full migration discipline at depth for the two kinds it names.
 
@@ -66,8 +66,8 @@ never decides a verdict.
 
 ## Consumes
 
-- One `task.md` — the lowered work packet for this single pass. `implement` works
-  against the packet `decompose` handed it, **not** the surface spec or the IR.
+- One `task.md` — the structured work packet for this single step. `implement` works
+  against the packet `decompose` handed it, **not** the surface spec or the structured form.
   Read in particular: `assigned_obligations`, `constraints`, `invariants`,
   `interfaces` (the SOL blocks pasted verbatim that fix scope); `write_surfaces`
   (your **owned paths**, the only files you may touch); `verification_bindings`
@@ -95,7 +95,7 @@ never decides a verdict.
   `CHANGED` the modified surfaces, and at least one `PROOF` line with pasted,
   re-runnable output. Its `## Provenance` section carries the per-binding drift
   fields the staleness join depends on. Externalising the run's intermediate work
-  into this durable artifact lets the downstream `verify` and `review` passes
+  into this durable artifact lets the downstream `verify` and `review` steps
   judge it.
 
 ## Preserves
@@ -211,7 +211,7 @@ output. A `PROOF` line referencing real run output is admissible; an unqualified
 an `IMPLEMENTS`/`PRESERVES` naming an unknown obligation is the unbound
 cross-reference `SOL-M003`. The observed `proof_result` (`passed | failed | blocked
 | unverified`) is only the core run observation; the `PASS` decision is made
-downstream by the profile-independent `verify` pass, and the lifecycle decorators
+downstream by the profile-independent `verify` step, and the lifecycle decorators
 (the 7-value verdict's `WAIVED`/`STALE`/`CONTRADICTED`) are applied later at
 `review` — never here. *Rationale:* the verbatim paste is the only thing that
 closes the bypass where "the wave passed" is asserted but the command was never
@@ -219,9 +219,9 @@ run — the execution failure mode this gate defends against.
 
 ## Procedure
 
-The pass has a common spine and the migration-specific waves below.
+The step has a common spine and the migration-specific waves below.
 
-1. **Read the packet and the spec, not the IR.** Read the full `task.md` (parent
+1. **Read the packet and the spec, not the structured form.** Read the full `task.md` (parent
    contract, In/Out scope, obligations verbatim, constraints/invariants) and the
    migration spec / driving audit. Resolve project commands from `AGENTS.md >
    Commands`; ask the user for any undefined slot.
@@ -341,7 +341,7 @@ guide does not redefine them.
 - **Scope:** Did I touch only the assigned obligations and only the declared write
   surfaces (no `SOL-O005`)? Are all promotion items resolved? Did "while I'm
   migrating" creep in?
-- **Final adversarial pass:** What did I leave behind? Is the old API removed, or
+- **Final adversarial step:** What did I leave behind? Is the old API removed, or
   is its removal scheduled with a clear, tracked timeline? Any TODOs,
   half-migrated files, or stub-shimmed modules left behind? Do not close without
   this.

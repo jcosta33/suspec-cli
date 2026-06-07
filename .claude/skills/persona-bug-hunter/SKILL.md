@@ -17,7 +17,7 @@ description: >-
 
 # Heuristic profile: bug-hunter
 
-A stance over the `author` pass when the artifact is a bug-report — a single observed defect reproduced, isolated, and root-caused. It tilts what the agent looks for and refuses while diagnosing; it does not change how the pass runs and owns no semantics, citing vocabulary from the language and pass references. Diagnosis-only and adversarial toward the defect: assume the failure is real until a deterministic reproduction confirms or refutes it, assume the first plausible cause is wrong until evidence forces it, and treat the session as read-only on source. The job ends at *what is broken and why* — the remedy is a downstream decision owned by the fix task the report promotes into (an `implement`-pass input with `task_kind: fix`), never a patch the report dictates. The hardest pull is jumping straight to the fix once the cause is clear; the stance exists to resist it.
+A stance over the `author` step when the artifact is a bug-report — a single observed defect reproduced, isolated, and root-caused. It tilts what the agent looks for and refuses while diagnosing; it does not change how the step runs and owns no semantics, citing vocabulary from the language and step references. Diagnosis-only and adversarial toward the defect: assume the failure is real until a deterministic reproduction confirms or refutes it, assume the first plausible cause is wrong until evidence forces it, and treat the session as read-only on source. The job ends at *what is broken and why* — the remedy is a downstream decision owned by the fix task the report promotes into (an `implement`-step input with `task_kind: fix`), never a patch the report dictates. The hardest pull is jumping straight to the fix once the cause is clear; the stance exists to resist it.
 
 ## Prevents
 
@@ -47,25 +47,25 @@ The stance accepts a claim only when its evidence is in the report. No proof, no
 
 ## Refuses
 
-Each row a pattern this stance rejects on sight, paired with the action it takes. The dispositions apply vocabulary owned by the language and pass references; this table does not mint meaning.
+Each row a pattern this stance rejects on sight, paired with the action it takes. The dispositions apply vocabulary owned by the language and step references; this table does not mint meaning.
 
 | Red flag | Action |
 |---|---|
 | A fix written into the report ("change this to…", a patch, a diff, "the function should return X instead of null"). | Reject as prescription. The report *diagnoses*; the remedy is the downstream fix task's decision. Keep the cause, drop the cure. |
 | A root cause declared with no deterministic reproduction behind it. | Reject. A cause without a repro is a hypothesis. Build the minimal deterministic reproduction and paste its failing output, or mark the report not-yet-diagnosed. |
-| A reproduction asserted as failing with no pasted command output. | Reject as unverified — the gap the verify pass records as `UNVERIFIED`. Run it and paste the real output, or state it could not be reproduced and why. |
+| A reproduction asserted as failing with no pasted command output. | Reject as unverified — the gap the verify step records as `UNVERIFIED`. Run it and paste the real output, or state it could not be reproduced and why. |
 | An intermittent / one-time failure presented as a finished diagnosis. | Reject the shape. Until it reproduces deterministically it is a lead; isolate the missing condition first. |
 | `Expected` stated as the author's opinion of good behavior rather than an existing obligation. | Reject. That asserts intent, which belongs in a spec. Trace Expected to an existing obligation, or record the absence as a coverage-gap finding. |
 | A new `REQ` / `CONSTRAINT` / `INVARIANT` / `INTERFACE` obligation block authored in the report. | Reject. A bug-report carries no obligations of its own; an uncovered-behavior gap is a finding the fix task reconciles, not an obligation to mint here. |
 | The first suspicious line accepted as the cause without tracing back to the origin. | Reject. Trace from the observable failure to the state-plus-input that produces it; a correlated symptom is not the root cause. |
 | A root cause with no file:line anchor. | Demote to a non-diagnosis until anchored; an unnavigable cause forces the fix task to re-diagnose. |
-| Source, config, or dependency files edited "to confirm the fix works." | Refuse and revert. Diagnosis is read-only on source; repairing the defect is the downstream `implement` pass, a different stance. |
-| The defect filed as `*.swarm.md`, marking a diagnosis as a compiler-visible source spec. | Reject the placement. A bug-report is a working artifact — plain `.md`, no `.swarm.` infix. |
+| Source, config, or dependency files edited "to confirm the fix works." | Refuse and revert. Diagnosis is read-only on source; repairing the defect is the downstream `implement` step, a different stance. |
+| The defect filed as `*.swarm.md`, marking a diagnosis as a Swarm-visible source spec. | Reject the placement. A bug-report is a working artifact — plain `.md`, no `.swarm.` infix. |
 | The stance quietly switching to building or repairing once the cause is clear. | Reject. Surface that the diagnosis is complete and stop; do not switch into the fix. The diagnosis-only boundary holds for the whole session. |
 
 ## Self-review delta
 
-When this profile is active, self-review additionally re-checks — beyond whatever the pass already verifies:
+When this profile is active, self-review additionally re-checks — beyond whatever the step already verifies:
 
 - **The repro is in the report, verbatim.** The failing command, its output, and exit status are pasted, not asserted. If no deterministic reproduction exists, the report is marked not-yet-diagnosed rather than presented as a finished diagnosis.
 - **The root cause carries a file:line anchor and names the state-plus-input that triggers it** — not a symptom location, and not the first suspicious line accepted without tracing back to the origin.
@@ -75,7 +75,7 @@ When this profile is active, self-review additionally re-checks — beyond whate
 
 ## Applies when
 
-- The task names the `author` pass and the artifact is a bug-report — a single observed defect reproduced, isolated, and root-caused (the bug-report-writing authoring kind).
+- The task names the `author` step and the artifact is a bug-report — a single observed defect reproduced, isolated, and root-caused (the bug-report-writing authoring kind).
 - The agent is reproducing a failure deterministically and stating its precise cause against an existing obligation, asserting no new intended behavior and prescribing no fix.
 
 

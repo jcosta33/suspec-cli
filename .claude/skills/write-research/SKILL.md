@@ -14,15 +14,15 @@ description: >-
   upstream input, not a substitute.
 ---
 
-# Pass guide: write-research (`author` · `task_kind: research-writing`)
+# Step guide: write-research (`author` · `task_kind: research-writing`)
 
-> **This guide is SOFT control (Invariant 2).** It conditions *how* you run an `author` pass on a
+> **This guide is SOFT control (Invariant 2).** It conditions *how* you run an `author` step on a
 > research artifact; it never defines what a `research.md` *is*, what obligation force evidence
 > carries, the source-authority order, or the distillation-loss budget — those live in the language
 > references and the `research` contract, which govern where they disagree with this guide. Every
 > load-bearing term below (the inquiry stance, the `R-NNN`/`Q-NNN` local ids, the source-authority
-> order, the loss budget) is *delivered* by Swarm, not redefined here. The `author` pass
-> ships no stdlib guide in the base language version; this is the later-release SOFT guide the pass
+> order, the loss budget) is *delivered* by Swarm, not redefined here. The `author` step
+> ships no stdlib guide in the base language version; this is the later-release SOFT guide the step
 > contract permits — it adds discipline, grants no new authority. It carries the **Surveyor /
 > Researcher** stance: map the decision space well, leave it open, and let every claim that cannot
 > survive a citation fall out of the document.
@@ -33,11 +33,11 @@ A research artifact answers one decision-informing question by surveying the opt
 field, then stops. Its job is to leave the decision space well-mapped, not to close it: it asserts
 **inquiry**, not intent. This guide prevents the failure the inquiry stance exists to stop — an
 inquiry hardening into a decision (or worse, obligation blocks) and being read downstream as an
-approved contract, bypassing the `author` pass, the only place surveyed evidence legitimately
+approved contract, bypassing the `author` step, the only place surveyed evidence legitimately
 acquires binding force. The discipline is *evidentiary*: cite or omit; vague attribution is not
 citation; an unverified claim is bracketed, never presented as fact.
 
-This is one branch of the **entry pass** of the nine (`author → lint → improve → lower → decompose →
+This is one branch of the **entry step** of the nine (`author → lint → improve → lower → decompose →
 implement → verify → review → promote`). It produces a detached, citable evidence store one or many
 downstream artifacts may reference — the upstream *input* to a spec, never the spec itself, never a
 present-state audit or a defect diagnosis.
@@ -87,7 +87,7 @@ a command; a guessed command produces a false proof.
   references as `<research-id>#R-NNN`; on acceptance it promotes to a standalone `finding.md`. Each
   open question carries forward as a `QUESTION` block in the promoted spec — *not* dropped, *not*
   silently settled here. Letting a finding or open question vanish on promotion is the loss the
-  loss budget forbids (see the `lower` pass).
+  loss budget forbids (see the `lower` step).
 - **Source authority.** A lower-authority inquiry MUST NOT silently override a higher-authority
   artifact (an accepted finding, an ADR); where it appears to contradict one, record the tension as
   an open `Q-NNN`, do not overwrite the higher-authority fact (the authority order is approved
@@ -99,10 +99,10 @@ These MUST NOT appear in the artifact you deliver:
 
 - **Any obligation block.** A `research.md` MUST NOT author `REQ` / `CONSTRAINT` / `INVARIANT` /
   `INTERFACE` blocks. Surveyed evidence has no obligation force until *promoted into a
-  `spec.swarm.md`* by the `author` pass; writing obligation blocks here lets an inquiry be read as an
+  `spec.swarm.md`* by the `author` step; writing obligation blocks here lets an inquiry be read as an
   approved contract and bypass authoring — exactly what the inquiry stance prevents.
 - **A `.swarm.` infix on the filename.** A research artifact is a plain `.md` working source-doc, not
-  a compiler-visible spec; the missing infix is the proof it is not parsed as SOL. `*.swarm.md` would
+  a Swarm-visible spec; the missing infix is the proof it is not parsed as SOL. `*.swarm.md` would
   mis-class it as the one human-authored spec.
 - **Opinion presented as a finding.** A `## Findings` claim without a citation is opinion. "Best
   practice" / "common practice" without a cited primary source is opinion in a costume.
@@ -177,7 +177,7 @@ trusting it.
 Every point the inquiry raised but did not answer becomes an open `Q-NNN`, with what answering it
 would unblock. *Why:* an open question carries forward as a `QUESTION` block in the promoted spec;
 resolving it here by asserting a decision breaks the inquiry stance and hides the unknown from the
-author pass that should adjudicate it.
+author step that should adjudicate it.
 
 ### 10. Write an actionable, advisory recommendation — or say why none is possible
 
@@ -200,7 +200,7 @@ identical to technical mode.
 
 If the artifact distils a long-running investigation (a transcript, a scratch task file), append a
 short statement of what was **dropped** and **why the next stage does not need it**. *Why:* the
-loss budget (the `lower` pass) governs what may be dropped across the
+loss budget (the `lower` step) governs what may be dropped across the
 boundary; an undeclared drop is silent loss, and
 the next author cannot tell a deliberate omission from a forgotten finding.
 
@@ -236,7 +236,7 @@ table into the file converts that silent gap into a marker the next reviewer can
   evidence; obligation force is acquired only when the artifact promotes into a `spec.swarm.md`.
 - ❌ Opinion presented as a finding → every `## Findings` claim cites a source, or it is `[unconfirmed]`.
 - ❌ Settling an open question by asserting a decision → record it as an open `Q-NNN`; let the author
-  pass adjudicate.
+  step adjudicate.
 - ❌ "It depends" with no *on what* → state the condition, or name the open `Q-NNN` that would unblock
   a recommendation.
 - ❌ Citing a blog as the source → find and cite the RFC / paper / doc / code it rests on.
