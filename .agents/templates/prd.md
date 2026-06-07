@@ -8,6 +8,8 @@ updated: {{createdAt}}
 
 # PRD: {{title}}
 
+*Lives in: `specs/<feature>/` — beside the spec it scopes. A pre-spec PRD starts the feature folder.*
+
 <!--
 Stance: intent-only. This source doc states WHAT outcome is wanted and WHY,
 never the mechanism. It MUST NOT author REQ/CONSTRAINT/INVARIANT/INTERFACE

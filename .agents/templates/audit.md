@@ -8,6 +8,8 @@ updated: {{createdAt}}
 
 # Audit: {{title}}
 
+*Lives in: `specs/<feature>/` — beside the spec whose feature it audits. A pre-spec audit starts the feature folder it explores.*
+
 > Stance: **observation-only**. An audit records what *is* —
 > present-state risk, debt, drift, duplication, unsafe patterns. It MUST NOT
 > prescribe a fix inline and MUST NOT author `REQ`/`CONSTRAINT`/`INVARIANT`/

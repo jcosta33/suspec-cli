@@ -5,6 +5,8 @@ id: {{slug}}
 
 # Threat model: {{title}}
 
+*Lives in: `specs/<feature>/` — beside the spec it hardens.*
+
 <!--
   CONDITIONAL source-doc (security extension). Stance: threat OBSERVATION, not intent.
   This file holds NO obligation blocks (no REQ/CONSTRAINT/INVARIANT/INTERFACE). A modelled

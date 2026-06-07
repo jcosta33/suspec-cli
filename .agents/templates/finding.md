@@ -15,6 +15,8 @@ confidence: high | medium | low
 
 # Finding: {{title}}
 
+*Lives in: `.agents/memory/` — durable recall, indexed by `memory/INDEX.md` (the load-when map).*
+
 <!--
 A finding is one durable, provenance-anchored project fact discovered during work
 (see the `promote` pass). It is the Tier-2 evidence store the

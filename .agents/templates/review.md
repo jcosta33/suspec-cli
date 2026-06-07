@@ -11,6 +11,8 @@ created: {{createdAt}}
 
 # Review: {{title}}
 
+*Lives in: gitignored execution scratch by default (recreatable; the linked PR is the trace/verdict). A review you deliberately keep goes in `specs/<feature>/`.*
+
 <!--
 This artifact IS the verdict record (see the the `review` pass). There is no separate
 verdict.md. A VERDICT is a SOL block recorded here, never a standalone file.

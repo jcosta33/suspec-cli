@@ -33,7 +33,7 @@ Like every Swarm step, `promote` has **no runtime**: a contract a human, agent, 
 
 ## Produces
 
-- Durable writes: source artifacts (findings, ADRs, audits, bug-reports — each a `type:`-tagged document kept in your repo's docs/sources location) and memory (patterns, glossary), routed per the table in rule 2.
+- Durable writes routed per the table in rule 2: findings (`.agents/memory/`), ADRs (`decisions/`), audits & bug-reports (`specs/<feature>/`, beside the spec), and memory (patterns, glossary).
 - An updated `memory/INDEX.md`: a new `Load when` row for every `promoted` finding, a retraction row for every `rolled-back` finding.
 - A **fully-resolved promotion queue**: every item carries one of the seven canonical statuses, and **no item is `pending`**.
 - A **`promotions/` ledger entry** recording the resolved queue as compact, immutable history (rule 11).
@@ -51,10 +51,10 @@ The kinds are mutually exclusive by intent. A discovery with two faces (e.g. bot
 | Discovery | Promote to |
 |---|---|
 | New intended behaviour (a real obligation to build against) | `spec.swarm.md` (new/amended `REQ`/`CONSTRAINT`/`INVARIANT`/`INTERFACE`), or an ADR when gated on an undecided architectural/product choice |
-| Durable architectural/product decision (choice + alternatives + trade-offs) | An ADR (`type: adr`), kept with your repo's ADRs |
-| Present-state risk or debt (what *is*, observed, not yet a chosen change) | An audit (`type: audit`) — observation-only, never prescriptive |
-| Reproduced defect evidence (root cause + expected vs actual) | A bug-report (`type: bug-report`) — diagnosis-only; the fix promotes onward to a `task_kind: fix` task |
-| Reusable project fact (durable evidenced claim) | A finding (`type: finding`), indexed in the memory index with `Load when` + full provenance |
+| Durable architectural/product decision (choice + alternatives + trade-offs) | An ADR (`type: adr`) in `decisions/` — project-wide, sequentially numbered |
+| Present-state risk or debt (what *is*, observed, not yet a chosen change) | An audit (`type: audit`) in `specs/<feature>/`, beside the spec it concerns — observation-only, never prescriptive |
+| Reproduced defect evidence (root cause + expected vs actual) | A bug-report (`type: bug-report`) in `specs/<feature>/`, beside the spec whose obligation it breaks — diagnosis-only; the fix promotes onward to a `task_kind: fix` task |
+| Reusable project fact (durable evidenced claim) | A finding (`type: finding`) in `.agents/memory/`, indexed in the memory index with `Load when` + full provenance |
 | Repeated cross-task pattern (recurring solution shape across >1 task) | `memory/patterns/*.md` |
 | Terminology clarification (ambiguous/drifted term) | `memory/glossary.md` (resolves `SOL-P006` undefined-term / `SOL-P057` terminology-drift at the source) |
 | Universal workflow rule (a procedure for every future task) | A **step-guide edit (the procedure) PLUS at most a one-line `AGENTS.md` pointer** — never inline procedure |

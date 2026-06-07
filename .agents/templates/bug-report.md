@@ -8,6 +8,8 @@ updated: {{createdAt}}
 
 # Bug: {{title}}
 
+*Lives in: `specs/<feature>/` — beside the spec whose obligation it diagnoses.*
+
 <!--
   Stance: DIAGNOSIS-ONLY. This document reproduces and root-causes a defect; it
   MUST NOT contain the fix. It names the broken obligation, not the remedy.

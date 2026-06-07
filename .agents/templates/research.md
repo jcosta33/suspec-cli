@@ -8,6 +8,8 @@ updated: {{createdAt}}
 
 # Research: {{title}}
 
+*Lives in: `specs/<feature>/` — beside the spec it informs. A detached inquiry that feeds many specs may start its own feature folder.*
+
 <!--
   STANCE: investigation / inquiry. This document SURVEYS options and evidence and
   commits to NO decision. It records what the inquiry has found and what remains

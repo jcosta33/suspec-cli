@@ -8,6 +8,8 @@ updated: {{createdAt}}
 
 # RFC: {{title}}
 
+*Lives in: `specs/<feature>/` — beside the spec it proposes. It promotes to a spec there, or to an ADR in `decisions/` once the decision is made.*
+
 <!--
 Stance: proposal / pre-decision. An RFC advocates ONE technical approach but
 commits to none until the requested decision is made. It authors NO obligation

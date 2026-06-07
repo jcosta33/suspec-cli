@@ -3,13 +3,13 @@
 <!-- Swarm bootloader (always-loaded, facts-only, MUST stay <= 200 lines / 25 KB).
      Step procedures load on demand from the self-contained skills in `.claude/skills/`;
      the SOL/APS manual is not installed (read it in the swarm repo).
-     This repo is CO-LOCATED (Swarm spec-repo discipline, ADR-0050/0051): it authors its own
-     toolchain specs (top-level specs/*.swarm.md) AND implements them, so it carries the full
-     authoring kit + the implement-and-verify skill. A pure code repo would carry far less. -->
+     This repo is CO-LOCATED (Swarm spec-repo discipline, ADR-0050/0051/0052): it authors its own
+     toolchain specs (per-feature folders under specs/<feature>/) AND implements them, so it carries the
+     full authoring kit + the implement-and-verify skill. A pure code repo would carry far less. -->
 
 ## Swarm startup
 1. Read the current task file first.
-2. Specs are top-level content: `specs/*.swarm.md` (this repo's toolchain specs). `.agents/` holds Swarm tooling — skills (in `.claude/skills/`, where Claude Code scans), `reference/` (rule cards), `templates/`, `memory/` (recall); `.agents/tasks/` holds task frames (gitignored execution scratch, since this repo also implements). No `.swarm/` mount, no version file.
+2. Specs live in per-feature folders: `specs/<feature>/spec.swarm.md` (this repo's toolchain specs — e.g. `specs/001-swarm-cli/`, `specs/002-swarm-core-parser/`), with any feature-scoped supporting docs beside the spec; ADRs go in `decisions/` (numbered). `.agents/` holds Swarm tooling — skills (in `.claude/skills/`, where Claude Code scans), `reference/` (rule cards), `templates/`, `memory/` (recall + findings); `.agents/tasks/` holds task frames (gitignored execution scratch, since this repo also implements). No `.swarm/` mount, no version file.
 3. Treat `.swarm.md` blocks as authoritative over prose summaries.
 4. Use assigned obligation IDs as scope.
 5. Decide isolation before editing (see the `implement` pass): a code task with a source spec/audit runs in a `worktree+branch` named for the spec, off the base — never on it; a bare ad-hoc edit stays `in-place`.
@@ -35,7 +35,7 @@
 ## Pointers
 - Skills (a step guide for each of the 9 steps, per-kind implement & author guides, persona-* stances, fragments — Swarm's + this repo's own, side by side): `.claude/skills/`. Each carries its step *procedure* inline.
 - Operative reference cards (the shared closed-set rules — SOL grammar, proofs/verdicts/adequacy, the IR/edges): `.agents/reference/` (`sol.md`, `proofs.md`, `ir.md`). Load the card for the step you're running.
-- Specs: `specs/` (source `*.swarm.md`, top-level content). Execution scratch: `.agents/tasks/` (frames; gitignored). Recall: `.agents/memory/` (`INDEX.md` is the load-*when* map).
+- Specs: `specs/<feature>/spec.swarm.md` (+ feature-scoped supporting docs beside it). Decisions: `decisions/` (numbered ADRs). Execution scratch: `.agents/tasks/` (frames; gitignored). Recall: `.agents/memory/` (`INDEX.md` is the load-*when* map).
 - Project conventions: `.agents/repo-conventions.md` + `## Project facts` above. Project config: `.agents/swarm.config.yaml`.
 - Full SOL / APS / passes manuals (not installed — read in the `swarm` repo for the *why*): `<swarm-repo>/docs/`
 

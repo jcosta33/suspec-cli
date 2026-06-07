@@ -10,6 +10,8 @@ superseded_by:
 
 # ADR: {{title}}
 
+*Lives in: `decisions/` — project-wide decisions, sequentially numbered (`0001-`, `0002-`, …), one per file, superseded rather than rewritten.*
+
 ## Context
 
 <what forced the decision: the problem, constraints, or pressure that made a choice necessary>
