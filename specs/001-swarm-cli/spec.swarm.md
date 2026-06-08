@@ -3,46 +3,52 @@ type: spec
 id: swarm-cli
 swarm_language: SOL/0.1
 aps_version: 0.1
-spec_version: 0.1.0
+spec_version: 0.2.0
 status: draft
 title: swarm-cli — the operator for the fixed Swarm pipeline
 owners: []
 imports: []
 domain: architecture
 created: 2026-06-06
-updated: 2026-06-06
+updated: 2026-06-08
 ---
 
 # Spec: swarm-cli — the operator for the fixed Swarm pipeline
 
 ## Intent
 
-`swarm-cli` is the interactive and scriptable **operator** for a Swarm-adopted repository: it consumes the
-installed kernel and project overlays, exposes the fixed Swarm pipeline as a small command surface, and
+`swarm-cli` is the interactive and scriptable **operator** for a Swarm-adopted repository: it installs and
+operates the **in-place adoption layout**, exposes the fixed Swarm pipeline as a small command surface, and
 delegates implementation work to external agent adapters and verifier toolchains. This spec fixes the
-**spine** — kernel/workspace consumption and the canonical command surface. The semantics each command
-invokes (SOL parsing/IR, the verifier runner, the worktree-lease manager, the lower→…→promote pipeline,
-the ledger) are owned by `swarm-core` and specified in sibling specs (`swarm-core-parser`,
+**spine** — the adoption surface it consumes and the canonical command surface. The semantics each command
+invokes (SOL parsing/IR, the verifier runner + merge gate, the worktree-lease manager, the lower→…→promote
+pipeline, the ledger) are owned by `swarm-core` and specified in sibling specs (`swarm-core-parser`,
 `swarm-core-verify`, `swarm-core-worktree`, `swarm-core-pipeline`) and the operator specs
-(`swarm-cli-adapters`, `swarm-cli-tui`, `swarm-cli-ledger`, `swarm-cli-versioning`).
+(`swarm-cli-adapters`, `swarm-cli-tui`, `swarm-cli-ledger`).
+
+The adoption surface is the one the Swarm framework defines (ADR-0049/0050/0051/0052): **install-in-place,
+no mount.** `AGENTS.md` at the repo root (the bootloader + command bindings), the Swarm skills in the
+directory the agent CLI scans (`.claude/skills/` for Claude Code, else `.agents/skills/`), the reference
+cards / templates / memory seed under `.agents/`, and **`specs/` + `decisions/` top-level**. There is no
+`.swarm/` workspace, no mounted kernel, and no `overlays/` directory (project conventions live in `AGENTS.md`).
 
 ## Non-goals
 
-- This spec does not define SOL grammar, the verdict model, or the workspace contract — those are the
-  kernel's, consumed here, not redefined.
-- It does not specify the internals of any single command's pass (lower/verify/decompose/…); those are
+- This spec does not define SOL grammar, the verdict model, the merge gate, or the artifact-home model —
+  those are the Swarm framework's, consumed here, not redefined.
+- It does not specify the internals of any single command's step (lower/verify/decompose/…); those are
   the `swarm-core-*` specs.
 - It does not own agent-provider authentication or the chat loop, nor a browser UI.
 
 ## Context
 
-The repository is a TypeScript prototype (`~59` file-dispatched commands over a `.agents/` sandbox model)
-being redesigned into a kernel-native toolchain laid out as a pnpm monorepo
+The repository is a TypeScript prototype (`~59` file-dispatched commands over a legacy `.agents/` model)
+being redesigned into a Swarm-native toolchain laid out as a pnpm monorepo
 `packages/{core,cli,tui,adapter-sdk,verifier-exec,testkit}` — `core` (`swarm-core`) owns semantics; `cli`
-and `tui` are the operator shell. The redesign collapses the command garden to the fixed pipeline. Design
-inputs: the swarm-cli redesign research report and the subsystem analysis recorded under
-`.swarm/sources/research/` (to be added). The kernel workspace contract is `.swarm/kernel/model/` /
-`.swarm/kernel/language/`.
+and `tui` are the operator shell. The redesign collapses the command garden to the fixed pipeline. The
+adoption layout this operator installs and reads is defined by the framework's `ADOPTING.md` (install-in-place,
+ADR-0049). Design inputs: the swarm-cli redesign research and the toolchain-alignment audit
+([`audit.md`](audit.md)).
 
 ## Interfaces
 
@@ -53,25 +59,26 @@ ACCEPTS:
   - `args: string[]`
 ERRORS:
   - unknown-command
-  - kernel-version-skew
+  - workspace-not-initialized
 OWNED BY swarm-cli
 VERIFY BY contract:cmdTest:packages/cli/test/contract/command-surface.contract.spec.ts#canonical_surface
 
 ## Obligations
 
 REQ AC-001:
-WHEN the cli starts a command
-THE cli MUST load the active kernel and then the project overlays — via swarm-core — before executing the command
-VERIFY BY test:cmdTest:packages/cli/test/startup/load-order.spec.ts#kernel_then_overlays_before_command
+WHEN the cli starts a command other than `init`
+THE cli MUST resolve the repository's Swarm adoption surface — the `AGENTS.md` command bindings and the `.agents/` reference/config — via swarm-core before executing the command
+VERIFY BY test:cmdTest:packages/cli/test/startup/resolve-surface.spec.ts#surface_resolved_before_command
 DEPENDS ON IF-001
-READS .swarm/kernel/**, .swarm/overlays/**
+READS AGENTS.md, .agents/**
 RISK high
 
 REQ AC-002:
-WHEN the active kernel, core, and cli versions are mutually incompatible
+WHEN the installed kit's SOL language version is incompatible with the cli's `swarm-core`
 THE cli MUST refuse to run the command
-AND THE cli MUST report the version skew
-VERIFY BY test:cmdTest:packages/cli/test/version/skew-guard.spec.ts#refuses_and_reports_on_skew
+AND THE cli MUST report the language-version skew
+BECAUSE swarm-core parses against one SOL language version; running it over a kit authored for an incompatible version would mis-parse or silently mislint
+VERIFY BY test:cmdTest:packages/cli/test/version/language-skew-guard.spec.ts#refuses_and_reports_on_skew
 DEPENDS ON AC-001
 RISK high
 
@@ -82,11 +89,11 @@ DEPENDS ON IF-001
 RISK medium
 
 REQ AC-004:
-WHEN `swarm init` runs in a repository that has no `.swarm/` workspace
-THE cli MUST create the canonical `.swarm/` workspace partition
-AND THE cli MUST install a kernel version and record its compatibility metadata
-VERIFY BY test:cmdTest:packages/cli/test/init/workspace-layout.spec.ts#creates_canonical_partition
-WRITES .swarm/**
+WHEN `swarm init` runs in a repository that has no Swarm adoption layout
+THE cli MUST install the in-place layout — `AGENTS.md` at the repo root, the Swarm skills in the agent CLI's scan directory, the reference cards / templates / memory seed under `.agents/`, and top-level `specs/` and `decisions/`
+AND THE cli MUST place the skills in `.claude/skills/` when the target uses Claude Code, otherwise `.agents/skills/`
+VERIFY BY test:cmdTest:packages/cli/test/init/adoption-layout.spec.ts#installs_in_place_layout
+WRITES AGENTS.md, .claude/skills/**, .agents/**, specs/**, decisions/**
 RISK high
 
 REQ AC-005:
@@ -112,13 +119,13 @@ RISK medium
 
 CONSTRAINT C-001:
 THE cli MUST NOT expose a non-namespaced top-level command outside the canonical surface of IF-001
-BECAUSE the redesign's value is a small kernel-aligned surface; a plugin MAY add commands, but only namespaced (`swarm <plugin>:<cmd>`), never on the canonical top-level face
+BECAUSE the redesign's value is a small framework-aligned surface; a plugin MAY add commands, but only namespaced (`swarm <plugin>:<cmd>`), never on the canonical top-level face
 VERIFY BY static:cmdTest:packages/cli/test/contract/command-surface.contract.spec.ts#no_extra_toplevel_commands
 
 CONSTRAINT C-002:
-THE cli MUST NOT redefine SOL, verdict, or workspace semantics
-BECAUSE the kernel is the single source of those semantics; a second definition forks the language
-VERIFY BY static:cmdTest:packages/core/test/conformance/no-semantic-fork.spec.ts#enums_match_kernel
+THE cli MUST NOT redefine SOL, verdict, or artifact-home semantics
+BECAUSE the Swarm framework is the single source of those semantics; a second definition forks the language
+VERIFY BY static:cmdTest:packages/core/test/conformance/no-semantic-fork.spec.ts#enums_match_reference
 
 CONSTRAINT C-003:
 THE cli MUST NOT import or bundle a provider's authentication or chat-loop SDK
@@ -131,26 +138,30 @@ BECAUSE the prototype vendored a dependency-cruiser tarball and source tree — 
 VERIFY BY static:cmdTest:packages/core/test/repo/no-vendored-analyzer.spec.ts#no_analyzer_source_in_tree
 
 CONSTRAINT C-005:
-THE cli MUST NOT overwrite or delete an existing `.swarm/` workspace during `init`
-BECAUSE `init` is create-only; upgrading the kernel is a separate explicit operation, and clobbering project-owned sources/status/memory would be unrecoverable
+THE cli MUST NOT overwrite or delete an existing adoption artifact during `init`
+BECAUSE `init` is create-only; an existing `AGENTS.md` is merged by heading with approval, and clobbering project-owned `specs/`, `decisions/`, or `.agents/memory/` would be unrecoverable
 VERIFY BY test:cmdTest:packages/cli/test/init/idempotent.spec.ts#init_does_not_clobber_existing
 
 ## Invariants
 
 INVARIANT I-001:
-the `.swarm/` workspace MUST preserve its canonical partition (`kernel/`, `overlays/`, `sources/`, `status/`, `generated/`, `memory/`, `ledger/`, `archive/`, `tmp/`) across every workspace operation
-VERIFY BY property:cmdTest:packages/core/test/workspace/partition.property.spec.ts#partition_holds_under_operations
+every cli and swarm-core operation MUST write each artifact to its canonical home — specs under `specs/<feature>/`, ADRs under `decisions/`, durable findings under `.agents/memory/`, execution scratch gitignored — and MUST NOT invent a parallel tree
+VERIFY BY property:cmdTest:packages/core/test/workspace/artifact-homes.property.spec.ts#artifacts_land_in_canonical_homes
 
 INVARIANT I-002:
-every cli and swarm-core operation MUST leave `.swarm/kernel/` byte-unchanged
-BECAUSE the kernel is replaceable framework payload, overwritten wholesale on upgrade
-VERIFY BY property:cmdTest:packages/core/test/workspace/kernel-readonly.property.spec.ts#operations_leave_kernel_unchanged
+WHEN the cli upgrades the installed kit
+THE cli MUST re-copy only the named Swarm skills, reference cards, and templates, AND MUST leave the repository's own skills, `specs/`, `decisions/`, and `.agents/memory/` unchanged
+VERIFY BY property:cmdTest:packages/core/test/workspace/upgrade-scope.property.spec.ts#upgrade_touches_only_swarm_payload
 
 ## Questions
 
 QUESTION Q-001 [non-blocking]:
 Should the visual surface stay TUI-only in v1, or ship a browser-based inspector as a first-class companion?
 AFFECTS AC-006
+
+QUESTION Q-002 [non-blocking]:
+How should `init` detect "the agent CLI's scan directory" — probe for `.claude/`, read a flag, or prompt — when a repo could be adopted by more than one agent tool?
+AFFECTS AC-004
 
 ## Verification coverage
 
@@ -163,20 +174,20 @@ import-graph facts, a test for filesystem/behaviour facts).
 | ID     | VERIFY BY                                                                                              |
 | ------ | ----------------------------------------------------------------------------------------------------- |
 | IF-001 | contract:cmdTest:packages/cli/test/contract/command-surface.contract.spec.ts#canonical_surface        |
-| AC-001 | test:cmdTest:packages/cli/test/startup/load-order.spec.ts#kernel_then_overlays_before_command         |
-| AC-002 | test:cmdTest:packages/cli/test/version/skew-guard.spec.ts#refuses_and_reports_on_skew                 |
+| AC-001 | test:cmdTest:packages/cli/test/startup/resolve-surface.spec.ts#surface_resolved_before_command        |
+| AC-002 | test:cmdTest:packages/cli/test/version/language-skew-guard.spec.ts#refuses_and_reports_on_skew         |
 | AC-003 | contract:cmdTest:packages/cli/test/contract/command-surface.contract.spec.ts#exactly_fourteen          |
-| AC-004 | test:cmdTest:packages/cli/test/init/workspace-layout.spec.ts#creates_canonical_partition               |
+| AC-004 | test:cmdTest:packages/cli/test/init/adoption-layout.spec.ts#installs_in_place_layout                   |
 | AC-005 | test:cmdTest:packages/cli/test/parity/single-dispatch-path.spec.ts#tui_actions_dispatch_through_command_layer |
 | AC-006 | test:cmdTest:packages/cli/test/tui/launch.spec.ts#no_args_launches_tui_when_interactive                |
 | AC-007 | test:cmdTest:packages/cli/test/adapters/neutrality.spec.ts#no_hardcoded_provider                       |
 | C-001  | static:cmdTest:packages/cli/test/contract/command-surface.contract.spec.ts#no_extra_toplevel_commands  |
-| C-002  | static:cmdTest:packages/core/test/conformance/no-semantic-fork.spec.ts#enums_match_kernel               |
+| C-002  | static:cmdTest:packages/core/test/conformance/no-semantic-fork.spec.ts#enums_match_reference            |
 | C-003  | static:cmdValidate:no-provider-sdk-import                                                               |
 | C-004  | static:cmdTest:packages/core/test/repo/no-vendored-analyzer.spec.ts#no_analyzer_source_in_tree          |
 | C-005  | test:cmdTest:packages/cli/test/init/idempotent.spec.ts#init_does_not_clobber_existing                  |
-| I-001  | property:cmdTest:packages/core/test/workspace/partition.property.spec.ts#partition_holds_under_operations |
-| I-002  | property:cmdTest:packages/core/test/workspace/kernel-readonly.property.spec.ts#operations_leave_kernel_unchanged |
+| I-001  | property:cmdTest:packages/core/test/workspace/artifact-homes.property.spec.ts#artifacts_land_in_canonical_homes |
+| I-002  | property:cmdTest:packages/core/test/workspace/upgrade-scope.property.spec.ts#upgrade_touches_only_swarm_payload |
 
 ## Downstream tasks
 
@@ -188,30 +199,28 @@ import-graph facts, a test for filesystem/behaviour facts).
 
 ### Preserved
 
-- The kernel-aligned command surface (14 commands), kernel/overlay consumption, the `.swarm/` partition,
-  non-interactive parity, and provider-neutrality — the load-bearing decisions of the redesign research.
-- The four hard restrictions (no extra commands, no semantic fork, no provider-runtime ownership, no
-  vendored analyzers) that keep the product disciplined.
+- The framework-aligned command surface (14 commands), provider-neutrality, the non-interactive parity rule,
+  and the three hard restrictions (no extra commands, no semantic fork, no provider-runtime ownership, no
+  vendored analyzers) — the load-bearing decisions of the redesign research.
 
 ### Dropped
 
 - The research draft's per-command `INTERFACE`/`REQ` detail for every subcommand (lower/decompose/task/
   worktree/trace/review/merge/promote/drift) — carried into the `swarm-core-*` sibling specs, not here,
-  to keep this spine spec readable and each command's semantics with its owning pass.
-- The draft's non-conformant ids (`CLI-GOAL-001`, `KERNEL-001`, …) and `<type>:swarm-core:<artifact>`
-  bindings — rewritten to the kernel's `PREFIX-NNN` ids and real `cmd*` adapter bindings (a dogfooding
-  correction: the kernel's `SOL-S005`/`SOL-V002` rules reject the draft's forms).
-- The **mechanics** of kernel/overlay resolution — moved to a `swarm-core` spec; AC-001 here is only the
-  cli's obligation to *load via swarm-core* before executing (a skeptic-review fix: resolution is core's
-  job, not the cli's).
-- The ledger-format and branch-name-encoding questions — moved to `swarm-cli-ledger` and
-  `swarm-core-worktree`, where their `AFFECTS` targets actually live (a skeptic-review fix: their links
-  here were incoherent).
+  to keep this spine spec readable and each command's semantics with its owning step.
+- The draft's non-conformant ids (`CLI-GOAL-001`, `KERNEL-001`, …) — rewritten to `PREFIX-NNN` ids and real
+  `cmd*` adapter bindings (a dogfooding correction).
+- **The `.swarm/` workspace + mounted-kernel + overlays model** (spec_version 0.1.0) — retired by ADR-0049
+  (install-in-place, no mount, no imposed workspace), 0050/0051 (specs top-level; `.agents/` = tooling), and
+  the per-repo version marker (ADR-0050). Realigned in 0.2.0: `init` lays down the in-place adoption layout
+  (AC-004); the partition invariant becomes the artifact-home invariant (I-001); kernel-readonly becomes
+  upgrade-scope (I-002); kernel-version-skew becomes SOL language-version skew (AC-002). See [`audit.md`](audit.md).
 
 ### Still uncertain
 
 - Whether `check` should re-run all bound proofs or only those whose `evidence_path` is stale (a
-  `swarm-core-verify` concern).
+  `swarm-core-verify` concern, now informed by ADR-0055's adequacy gating).
 - The exact split of `status` vs `drift` output (overlapping projections over the ledger).
-- C-002 (no semantic fork) is only testable once `swarm-core` can parse the kernel's canonical sets — a
-  real ordering dependency on the parser spec; until then C-002 is `BLOCKED`, not `PASS`.
+- How `init` resolves the agent CLI's skills directory across tools (Q-002).
+- C-002 (no semantic fork) is only testable once `swarm-core` can parse the canonical sets — a real ordering
+  dependency on `swarm-core-parser`; until then C-002 is `BLOCKED`, not `PASS`.

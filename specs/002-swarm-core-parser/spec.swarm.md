@@ -29,7 +29,7 @@ real defects surface and feed back upstream.
 
 - Not verification, lowering-to-task-frames, worktree allocation, or the merge gate — those are
   `swarm-core-verify`, `swarm-core-pipeline`, `swarm-core-worktree`.
-- Not kernel/overlay resolution (where the spec file comes from) — that is the `swarm-core` workspace
+- Not workspace resolution (where the spec file comes from) — that is the `swarm-core` workspace
   concern `swarm-cli` AC-001 delegates to.
 - Not authoring or repairing a spec — a human authors; `write-spec`/`improve` repair. The parser only
   *reads* and *reports*.
@@ -110,8 +110,8 @@ BECAUSE parsing is a read-only derivation; a parser that edits the source is doi
 VERIFY BY test:cmdTest:packages/core/test/parser/readonly.spec.ts#source_byte_identical_after_parse
 
 CONSTRAINT C-002:
-THE parser MUST NOT emit a block `kind`, lint `code`, edge `type`, or modal outside the kernel's closed sets
-BECAUSE the closed sets are the kernel's; inventing a value forks the language (the `swarm-cli` no-semantic-fork constraint, made concrete here)
+THE parser MUST NOT emit a block `kind`, lint `code`, edge `type`, or modal outside Swarm's closed sets
+BECAUSE the closed sets are Swarm's (the language reference); inventing a value forks the language (the `swarm-cli` no-semantic-fork constraint, made concrete here)
 VERIFY BY static:cmdTest:packages/core/test/conformance/closed-sets.spec.ts#emitted_values_in_closed_sets
 
 CONSTRAINT C-003:
