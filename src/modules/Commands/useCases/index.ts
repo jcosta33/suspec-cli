@@ -15,6 +15,7 @@
 export const COMMAND_CATALOG = [
     // Canonical (built)
     { name: 'init', description: 'Setup Swarm in the current repository' },
+    { name: 'lint', description: 'Lint a *.swarm.md spec (SOL diagnostics)' },
     { name: 'format', description: 'Run Prettier on a single file' },
     { name: 'decompose', description: 'Decompose a task graph into a DAG' },
     { name: 'task', description: 'Append human feedback to a task file' },
