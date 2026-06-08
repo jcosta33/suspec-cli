@@ -7,7 +7,7 @@
 - Stance: Auditor
 - Created: {{createdAt}}
 - Status: active
-- Deliverable: `audit.md` (plain `.md`, never `*.swarm.md`) at `<your-audits-dir>/{{slug}}.md`
+- Deliverable: `audit.md` (plain `.md`, never `*.swarm.md`) at `specs/<feature>/audit.md`
 
 ---
 
@@ -29,7 +29,7 @@ What area, goal, or initiative this audit covers and why it is being audited now
 ## Linked inputs
 
 - Triggering ask: <path or one-line description of the human's prompt>
-- Prior audit (if deepening): `<your-audits-dir>/<prior-slug>.md` — read with its framing CLOSED
+- Prior audit (if deepening): `specs/<feature>/<prior-slug>.md` — read with its framing CLOSED
 
 ---
 
@@ -42,7 +42,7 @@ What area, goal, or initiative this audit covers and why it is being audited now
 - Cite `file:line` or other evidence for every observation; vague impressions get demoted or removed.
 - Verify dynamic invariants, not just static text — concurrency, lifecycle, resource cleanup.
 - Search for "no callers anywhere" across the whole codebase — dead code labelled as working is an observation.
-- Proactively read related artifacts under `<your-audits-dir>/`, `<your-specs-dir>/`, `AGENTS.md`,
+- Proactively read related artifacts under `specs/<feature>/`, `AGENTS.md`,
   and the project skills directory.
 
 ---
@@ -66,7 +66,7 @@ What area, goal, or initiative this audit covers and why it is being audited now
 
 ## Deliverable
 
-> Copy everything between this line and `--- END DELIVERABLE ---` into `<your-audits-dir>/{{slug}}.md`
+> Copy everything between this line and `--- END DELIVERABLE ---` into `specs/<feature>/audit.md`
 > at session close. The file is a plain `.md` working artifact — never name it `*.swarm.md`.
 >
 > ⚠️ **ADVERSARIAL READING — ALWAYS.** Do not trust that existing code works as intended. Assume the

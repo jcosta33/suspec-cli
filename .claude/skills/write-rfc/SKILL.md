@@ -64,8 +64,8 @@ undefined, ask before claiming the file is clean.
 ## Produces
 
 - One `rfc.md` — a **working artifact** (plain `.md`, **never** the `.swarm.` infix; no tool
-  parses or emits it). In an adopted project it lives under the sources tree beside the other parents
-  of a spec, never under the generated-packets or memory tree.
+  parses or emits it). In an adopted project it lives in its feature folder `specs/<feature>/`, beside
+  the spec it can promote into — never in durable recall (`.agents/memory/`) or gitignored execution scratch.
 - The six required sections, in order, each on the proposal side of the line: `## Problem`,
   `## Proposal`, `## Alternatives`, `## Migration plan`, `## Open questions`, `## Decision
   requested`, under the frontmatter contract (`type: rfc`, `id`, `status`, `created`, `updated`).

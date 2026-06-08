@@ -29,7 +29,7 @@ Ask these before accepting any obligation. Each forces a defect open while it is
 3. **What observable behavior would demonstrate this obligation?** Every binding `REQ`, `CONSTRAINT`, and `INTERFACE` needs a behavior a `VERIFY BY` binding can attach to at structuring. *(A requirement no one can verify is a wish — and a binding obligation with no `VERIFY BY` is the lint defect `SOL-V001`.)*
 4. **What existing pattern, module, or contract already covers this — and did I survey for it, or recall it from memory?** Memory is not a survey. *(Recall misses the helper added last week and reinvents what exists.)*
 5. **What downstream callers or contracts does this boundary break, and is that breakage stated?** A boundary change that strands a caller is a defect the spec must surface, not discover in production. *(Unstated breakage ships as a regression.)*
-6. **Is any ambiguity load-bearing enough to capture as a `QUESTION` block rather than guess?** Behavioral uncertainty left as hedged prose is `SOL-P008`; a guess compiled into an obligation is worse — it commits a decision no one made. *(Capturing it keeps the decision visible until someone answers.)*
+6. **Is any ambiguity load-bearing enough to capture as a `QUESTION` block rather than guess?** Behavioral uncertainty left as hedged prose is `SOL-P008`; a guess lowered into an obligation is worse — it commits a decision no one made. *(Capturing it keeps the decision visible until someone answers.)*
 7. **For each non-trivial structural choice: which alternatives were considered, and why this one?** *(A decision with no recorded alternatives cannot be reviewed or revisited; the reasoning is the durable artifact.)*
 
 ## Required evidence

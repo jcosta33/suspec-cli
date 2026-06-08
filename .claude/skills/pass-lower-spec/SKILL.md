@@ -33,7 +33,7 @@ against it). Structuring is a faithful re-expression, not a rewrite: it adds no 
 
 ## Procedure
 1. **Gate first.** If any in-scope obligation is affected by a `[blocking]` QUESTION, **do not structure it** —
-   a blocking question reaching `lower` is `SOL-O003` (an unresolved decision compiled into the graph).
+   a blocking question reaching `lower` is `SOL-O003` (an unresolved decision lowered into the graph).
 2. **One node per block.** Emit a node per SOL block with `kind` from the 7 closed types; structure keyword
    clauses to `snake_case` fields (`VERIFY BY`→`verify_by[]`, `WRITES/READS/TOUCHES`→ the scope sets,
    `RISK`/`DOMAIN`→ fields). Split each `THE …`/`AND THE …` consequence into a **separate** node carrying

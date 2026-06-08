@@ -34,7 +34,7 @@ Produce a `prd.md` that records **product intent** — the problem, who is affec
 
 ## Produces
 
-- One `prd.md` — a **working artifact**, plain `.md`, whose filename **MUST NOT** carry the `.swarm.` infix (that infix marks Swarm-visible files only; a PRD is never parsed or emitted by Swarm). In an adopted project it lives under the workspace `sources/` tree (home for parents of a spec), never under `generated/` (derived packets) or `memory/` (durable recall).
+- One `prd.md` — a **working artifact**, plain `.md`, whose filename **MUST NOT** carry the `.swarm.` infix (that infix marks Swarm-visible files only; a PRD is never parsed or emitted by Swarm). In an adopted project it lives in its feature folder `specs/<feature>/`, co-located with the spec it scopes — never in durable recall (`.agents/memory/`) or gitignored execution scratch.
 - The seven required sections in fixed order, each on the **intent** side of the line. No obligation blocks. The PRD is the input an `author` step distills into a spec — not that spec.
 
 ## Procedure
@@ -79,7 +79,7 @@ Authoring a PRD needs **no `cmd*` slot**: it is a hand-authored source document,
 
 ## Output contract
 
-- One valid `prd.md`: `type: prd` frontmatter + the seven sections in order; plain `.md`, no `.swarm.` infix; under the workspace `sources/` tree in an adopted project.
+- One valid `prd.md`: `type: prd` frontmatter + the seven sections in order; plain `.md`, no `.swarm.` infix; in its feature folder `specs/<feature>/` in an adopted project.
 - **Zero obligation blocks.** No `REQ`, `CONSTRAINT`, `INVARIANT`, or `INTERFACE` anywhere. Goals are outcomes; release constraints are delivery limits; success metrics are signals.
 - `## Non-goals` is present and non-empty.
 - Every statement sits on the intent side of the line — no mechanism, no obligation, no claim the PRD governs the codebase. The PRD remains the durable record of intent the eventual spec's obligations serve.
@@ -93,7 +93,7 @@ Concrete failure modes, each with the correction:
 - ❌ Leaving `## Non-goals` empty or omitting it. → It is mandatory and MUST NOT be empty; an absent boundary of intent is a defect. Name at least one outcome you are deliberately not pursuing.
 - ❌ A success metric with no observable column ("the feature feels faster"). → Each metric should name *how it is observed* so it can later seed a proof on the obligation it justified; an unobservable metric strands its goal.
 - ❌ Writing a `CONSTRAINT` block under `## Release constraints`. → Release constraints limit *delivery* (date/rollout/compliance/dependency); a `CONSTRAINT` restricts the solution space and is authored only into the spec.
-- ❌ Naming the PRD `<slug>.swarm.md` or placing it under `generated/`. → A PRD is a working artifact: plain `.md`, no `.swarm.` infix, under `sources/` (a parent of a spec, never a derived packet or recall record).
+- ❌ Naming the PRD `<slug>.swarm.md` or placing it under `generated/`. → A PRD is a working artifact: plain `.md`, no `.swarm.` infix, in `specs/<feature>/`, co-located with the spec it scopes (never a recall record or gitignored scratch).
 - ❌ Treating the PRD as governing the codebase or as "the spec." → A PRD is non-authoritative until authored; it feeds the author step, which produces the obligation-bearing spec. The PRD asserts *desire*, the spec asserts *contract*.
 - ❌ Pasting research/findings into `## Linked evidence` instead of referencing them. → Link by `<source-id>#<local-id>`; the evidence artifact stays authoritative on its own facts, and the two cannot drift.
 

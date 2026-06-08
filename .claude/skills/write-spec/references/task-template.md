@@ -8,7 +8,7 @@
 - Profile: Architect
 - Created: {{createdAt}}
 - Status: active
-- Deliverable: `<spec-dir>/{{slug}}.swarm.md`
+- Deliverable: `specs/<feature>/spec.swarm.md`
 
 ---
 

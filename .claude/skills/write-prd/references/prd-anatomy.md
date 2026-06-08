@@ -42,8 +42,8 @@ Each row is the seed of a future observable check. When the PRD promotes, a metr
 ## Filename and placement
 
 - A `prd.md` is a **working artifact**: plain `.md`, and its filename **MUST NOT** contain the `.swarm.` infix. That infix marks Swarm-visible files (the one human-authored source spec is `*.swarm.md`; emitted artifacts take `*.swarm.*` names). A PRD is neither — it is a hand-authored source that *feeds* a spec, never parsed or emitted by Swarm.
-- In an adopted project it is a **durable source** and lives under the workspace `sources/` tree, beside the other parents of a spec (specs, RFCs, research, audits, findings, ADRs).
-- It is **never** placed under `generated/` (derived execution packets — task frames, traces, reviews) and **never** under `memory/` (durable recall — index, glossary, patterns). Desired-state source belongs in `sources/`.
+- In an adopted project it is a **durable source** and lives in its feature folder `specs/<feature>/`, beside the spec it scopes and that feature.s other supporting docs.
+- It is **never** gitignored execution scratch and **never** durable recall (`.agents/memory/`); desired-state source belongs in the feature folder `specs/<feature>/`.
 
 ## Worked example: outcome vs mechanism
 

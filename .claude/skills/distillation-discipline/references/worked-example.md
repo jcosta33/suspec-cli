@@ -31,7 +31,7 @@ transition-window line is *unresolved ambiguity* (forbidden to lose — it carri
 
 | Source item | Disposition | Survives as / why droppable |
 | ----------- | ----------- | --------------------------- |
-| Use Payment Intents, not legacy `/v1/charges` (decision-changing evidence) | preserved | `REQ R-001` — *Provider: Stripe Payment Intents API* |
+| Use Payment Intents, not legacy `/v1/charges` (decision-changing evidence) | preserved | `REQ AC-001` — *Provider: Stripe Payment Intents API* |
 | Two-step server → client flow returning `client_secret` (constraint) | preserved | `CONSTRAINT C-001 (MUST)` — server creates the intent and returns `client_secret`; client confirms with Stripe.js. `VERIFY BY test:integration:cmdTest:payment-intent-flow` carried across intact. |
 | European SCA support (decision-changing evidence) | preserved (by structural choice) | The Payment Intents flow enforces SCA by design; encoded by `C-001`'s contract, not a separate obligation. |
 | Transition window vs. direct cut-over (unresolved ambiguity) | promoted to `QUESTION` | Open `QUESTION Q-001`, carried into *Still-uncertain* below — not resolved at this boundary. |
@@ -47,7 +47,7 @@ each names where it survives. The gate passes; the composing `lower`/author step
 ```markdown
 ## Payment processing architecture
 
-- **Provider:** Stripe Payment Intents API  (REQ R-001)
+- **Provider:** Stripe Payment Intents API  (REQ AC-001)
 - **Flow (CONSTRAINT C-001, MUST):**
   1. Server creates `PaymentIntent` → returns `client_secret`
   2. Client confirms with `Stripe.js` `confirmCardPayment(client_secret)`

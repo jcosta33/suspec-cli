@@ -118,7 +118,10 @@ fix task. The `## Affected obligations` section references the *existing* obliga
 defect violates (`<spec-id>#<REQ|CONSTRAINT|INVARIANT|INTERFACE>-NNN`) and how; it MUST NOT
 author a new `REQ`/`CONSTRAINT`/`INVARIANT`/`INTERFACE` block. If no existing obligation
 covers the broken behaviour, say so explicitly — that gap is itself a finding the promoted
-fix task must reconcile, not a licence to declare the missing obligation here. *Why:*
+fix task must reconcile by **authoring the covering obligation first** (a spec amendment, since
+an uncovered change can't clear the merge gate by vacuity — ADR-0055), not a licence to declare
+the missing obligation here. The report's `## Affected obligations` is what populates the fix
+task's `assigned_obligations`. *Why:*
 declaring intent or dictating the patch crosses the diagnosis-only boundary; a defect
 becomes binding intent only when authored into a spec, and the remedy is intent work with
 its own proofs. A report that does either has stopped being a defect record.

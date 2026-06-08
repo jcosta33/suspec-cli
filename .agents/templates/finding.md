@@ -15,7 +15,7 @@ confidence: high | medium | low
 
 # Finding: {{title}}
 
-*Lives in: `.agents/memory/` — durable recall, indexed by `memory/INDEX.md` (the load-when map).*
+*Lives in: `.agents/memory/findings/` — durable recall, indexed by `memory/INDEX.md` (the load-when map).*
 
 <!--
 A finding is one durable, provenance-anchored project fact discovered during work

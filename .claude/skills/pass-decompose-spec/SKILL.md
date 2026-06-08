@@ -44,7 +44,7 @@ If an obligation reaches `decompose` with no `verify_by`, that is a `SOL-V001`-c
 
   Each `packets[]` record carries: `id`, `pass` (one of the nine), optional `profile`, `inputs`, `outputs`, `writes`, `reads`, `depends_on`, optional `lane`/`batch`, and `merge_safe` (see the `decompose` step). There is **no `locks` field anywhere** — a lock group *is* a named write SURFACE, so lock analysis reduces to write-set analysis (see the `decompose` step).
 
-- When the run fans out, the **coordination record** `task-orchestration.md` — a plain `.md` working artifact (no `.swarm.` infix; the infix marks Swarm-parsed/emitted files, which a coordination record is not), generated and updated by hand as the run proceeds (see the the `decompose` step orchestration contract). Its shape and discipline are restated in the Coordination-record section below; field-by-field detail lives one hop away in `references/coordination-record.md`.
+- When the run fans out, the **coordination record** `task-orchestration.md` — a plain `.md` working artifact (no `.swarm.` infix; the infix marks parsed or emitted files, which a coordination record is not), generated and updated by hand as the run proceeds (see the the `decompose` step orchestration contract). Its shape and discipline are restated in the Coordination-record section below; field-by-field detail lives one hop away in `references/coordination-record.md`.
 
 ## Preserves
 

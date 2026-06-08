@@ -7,7 +7,7 @@
 - Pass: author · task_kind: research-writing
 - Created: {{createdAt}}
 - Status: active
-- Deliverable path: `sources/research/{{slug}}.md` (plain `.md` — no `.swarm.` infix)
+- Deliverable path: `specs/<feature>/research.md` (plain `.md` — no `.swarm.` infix)
 
 ---
 
@@ -73,14 +73,14 @@ lookahead?" not "how does scheduling work".
 - [ ] Recommendation actionable (or: why none + the unblocking `Q-NNN`)
 - [ ] Distillation Loss Statement written (if distilling a longer investigation)
 - [ ] Visibility gate table all ✅
-- [ ] `## Deliverable` block copied to `sources/research/{{slug}}.md`
+- [ ] `## Deliverable` block copied to `specs/<feature>/research.md`
 
 ---
 
 ## Deliverable
 
 > Copy everything between this line and `--- END DELIVERABLE ---` into
-> `sources/research/{{slug}}.md` at session close, matching the `research.md` frontmatter
+> `specs/<feature>/research.md` at session close, matching the `research.md` frontmatter
 > (`type: research`, `id`, `status`, `created`/`updated`).
 >
 > ⚠️ **EVERY FINDING CITES A SOURCE.** Vague attribution ("according to common practice") is not
@@ -217,7 +217,7 @@ it:** <why>.
 
 ### Filename / placement
 
-- Is the deliverable a plain `.md` (no `.swarm.` infix) under `sources/research/`?
+- Is the deliverable a plain `.md` (no `.swarm.` infix) in `specs/<feature>/`?
   Answer:
 
 ### Source coverage

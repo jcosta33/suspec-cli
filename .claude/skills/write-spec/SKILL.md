@@ -46,7 +46,7 @@ Refuse to finalize the spec, and surface the problem, when any of these hold. Ea
 
 - A behavioral requirement stated only in prose, outside a block. Obligation force lives only inside `REQ`/`CONSTRAINT`/`INVARIANT` blocks; prose frames and explains but is never a contract. Hedged behavioral prose that should be a decision is the hedged-ambiguity defect `SOL-P008`.
 - A binding obligation with no `VERIFY BY` — the missing-proof defect `SOL-V001`. An `INTERFACE` bound to anything but a `contract:` proof is `SOL-V006`; a proof type outside the closed nine is `SOL-V009`.
-- A `[blocking]` `QUESTION` left open. It prevents structuring of every obligation it `AFFECTS`; one that reaches the next step is an orchestration error — an unresolved decision being compiled into tasks.
+- A `[blocking]` `QUESTION` left open. It prevents structuring of every obligation it `AFFECTS`; one that reaches the next step is an orchestration error — an unresolved decision being lowered into tasks.
 - The required sections missing or out of order — the document-level defect `SOL-S012`.
 - An implementation prescribed where a requirement belongs (see rule 2), or a parent's stance violated — e.g. authoring an audit's observation directly as a `REQ` without lifting it into intent here.
 
@@ -85,7 +85,7 @@ The obligation's force is carried by exactly five uppercase modals — `MUST`, `
 
 ### 5. Lift every behavioral ambiguity into a `[blocking]` QUESTION — and resolve it before you finish
 
-A `[blocking]` QUESTION is one whose answer would change the spec's content. Capture it as a `QUESTION Q-NNN [blocking]:` block naming what it `AFFECTS` — never as hedged prose (that is `SOL-P008`). The spec is not finishable while a blocking question is open: either route it to a parent that resolves it (research, ADR, audit) and resume, or, if a reasonable default answers it, **make the decision**, record it in `## Context` (or as a resolved note), and downgrade the question to `[non-blocking]`. *Why:* a blocking question that reaches structuring is an unresolved decision being compiled into tasks — an orchestration error, not a deferrable nicety. Non-blocking questions MAY remain open if they touch no assigned obligation.
+A `[blocking]` QUESTION is one whose answer would change the spec's content. Capture it as a `QUESTION Q-NNN [blocking]:` block naming what it `AFFECTS` — never as hedged prose (that is `SOL-P008`). The spec is not finishable while a blocking question is open: either route it to a parent that resolves it (research, ADR, audit) and resume, or, if a reasonable default answers it, **make the decision**, record it in `## Context` (or as a resolved note), and downgrade the question to `[non-blocking]`. *Why:* a blocking question that reaches structuring is an unresolved decision being lowered into tasks — an orchestration error, not a deferrable nicety. Non-blocking questions MAY remain open if they touch no assigned obligation.
 
 ### 6. Survey existing patterns before introducing a new one
 

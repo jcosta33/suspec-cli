@@ -17,7 +17,8 @@ in a contradiction; it does **not** close it (see CONTRADICTED).
 ## Oracle adequacy (the high-risk rule)
 A proof must be *adequate* to its obligation, not merely green. For `RISK high|critical`, a single
 example `test` is **inadequate**: record an `oracle_adequacy` note — what surfaces it exercised, with
-mutation / metamorphic / property / coverage evidence — else it is `SOL-V011`. A green suite proves only
+mutation / metamorphic / property / coverage evidence — else it is `SOL-V011`, which **BLOCKS the merge
+gate at this RISK** (advisory only for `RISK low|medium`; ADR-0055). A green suite proves only
 what it covers. `static`/schema-valid output constrains *shape*, never *truth*.
 
 ## The 7-value verdict model (4 core + 3 lifecycle)
@@ -30,10 +31,12 @@ needs prior-verdict ref + changed-surface) · `CONTRADICTED` (any core — needs
 evidence refs). Line: `VERDICT <id>: <CORE> [(<lifecycle> by <authority>: <reason>)]` + `REASON` + ≥1 `EVIDENCE`.
 
 ## The merge gate (the one normative predicate)
-A change set MAY be promoted **iff**, for every required `VERIFY BY` binding of every required obligation
-(`REQ`/`CONSTRAINT`/`INVARIANT`/`INTERFACE` in scope), the latest verdict is `PASS` or `WAIVED`, and
-**none** is `STALE`/`CONTRADICTED`/`FAIL`/`BLOCKED`/`UNVERIFIED`. One verdict per binding; node `status`
-is the aggregate.
+A change set MAY be promoted **iff** **(a)** for every required `VERIFY BY` binding of every required
+obligation (`REQ`/`CONSTRAINT`/`INVARIANT`/`INTERFACE` in scope), the latest verdict is `PASS` or `WAIVED`,
+and **none** is `STALE`/`CONTRADICTED`/`FAIL`/`BLOCKED`/`UNVERIFIED`; **(b)** every `RISK high|critical`
+obligation has an **adequate oracle** (no open `SOL-V011`); **and (c)** the in-scope set is **non-empty** —
+an **uncovered change never passes by vacuity** (author the covering obligation first; a bug fix routes
+through the bug-report → fix-task seam). One verdict per binding; node `status` is the aggregate. (ADR-0055.)
 
 ## CONTRADICTED resolution (never silent)
 Two proofs disagree → it **blocks**; record both evidence refs; the stronger oracle is the working

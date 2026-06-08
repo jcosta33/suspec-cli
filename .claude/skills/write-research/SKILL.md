@@ -72,7 +72,7 @@ a command; a guessed command produces a false proof.
 
 ## Produces
 
-- One `research.md` under the workspace's `sources/research/` — a detached evidence store keyed by a
+- One `research.md` in the feature folder `specs/<feature>/` — a detached evidence store keyed by a
   stable `id`, committed and durable (not generated, not scratch).
 - Findings each carrying a stable local id `R-NNN` (Claim · Evidence · Confidence · Bears on), the
   open `Q-NNN` questions the inquiry surfaced, and an advisory `## Recommendation` naming the
@@ -262,4 +262,4 @@ table into the file converts that silent gap into a marker the next reviewer can
   state-separate-from-the-deliverable, and visibility-gate criteria, so it ships a template.
   Instantiate it into your task file, resolve `cmdFormat` from `AGENTS.md > Commands` (asking the
   user for any undefined slot), and copy the `## Deliverable` block to its final home under
-  `sources/research/<slug>.md` at session close.
+  `specs/<feature>/research.md` at session close.

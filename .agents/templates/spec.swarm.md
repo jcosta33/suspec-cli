@@ -42,6 +42,18 @@ created, updated.
 
 <only load-bearing background; link research, findings, ADRs, audits — do not paste them>
 
+## Source inputs
+
+<!-- OPTIONAL (delete if there's no upstream provenance to record). The upstream artifacts this spec
+     normalizes, as plain link rows — tool-agnostic: a ticket, PRD, RFC, doc, research, or audit appears as a
+     link, never via a connector. `class` is a recognized source class (intent | evidence | proposal |
+     decision | observation | defect | discovery | scenario | interface | quality; see the artifacts
+     reference §3). Keep this section immediately after ## Context when present. -->
+
+| Source | Class | Contribution | Must preserve |
+| ------ | ----- | ------------ | ------------- |
+| {{link-or-id}} | {{class}} | {{what it contributes to this spec}} | {{the invariant that MUST survive}} |
+
 ## Interfaces
 
 <INTERFACE blocks; each MUST bind `VERIFY BY contract:<adapter>:<artifact>` (see the `verify` pass)>

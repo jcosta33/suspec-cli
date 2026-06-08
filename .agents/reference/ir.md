@@ -13,7 +13,7 @@ the structured form is `snake_case` JSON. Full schema + worked instance: `docs/r
   `provenance[]`.
 - **edges[]**: `{ from, to, type, hard }`.
 - **diagnostics[]**: the lint records.
-- **provenance**: `{ hash, compiler_version, compiled_at }`.
+- **provenance**: `{ hash, tool_version, emitted_at }`. All **tool-emitted** (Invariant 1: no shipped hasher); a by-hand run records a documented placeholder (`pending:tool` or a git blob/commit ref), never a fabricated digest — same for `content_hash` / `source_hash` / `per_surface_hash[]`. A hand-written hash is untrusted until a tool recomputes it.
 
 ## The 7 edge types (closed)
 `depends_on` · `blocks` · `conflicts_with` · `verified_by` · `affects` · `implements` · `preserves`.
