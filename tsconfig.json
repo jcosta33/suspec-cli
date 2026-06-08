@@ -50,7 +50,7 @@
             "#/*": ["./src/*"]
         }
     },
-    "include": ["src", "bin"],
+    "include": ["src", "bin", "packages"],
     "exclude": [
         "dist",
         "build",
