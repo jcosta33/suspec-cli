@@ -143,9 +143,10 @@ AFFECTS AC-004
 ## Verification coverage
 
 Adapters resolve through `AGENTS.md > Commands` (`cmdTest` = `pnpm test:run`). **Implemented + passing**
-(increments 1-2, `src/modules/Sol`): IF-001, IF-002, AC-001, AC-002, AC-003, AC-004, C-001, C-002, I-001, I-002.
-**Pending** (`UNVERIFIED` until built — the diagnostics increment): AC-005, AC-006, C-003 (their bound
-`diagnostics.spec.ts` does not exist yet).
+(increments 1-3, `src/modules/Sol`): IF-001, IF-002, AC-001, AC-002, AC-003, AC-004, AC-005 (block-level —
+`SOL-S001`/`S003`/`S005`/`S006`), C-001, C-002, C-003, I-001, I-002.
+**Pending**: AC-006 (the `AND THE` consequence split) and AC-005's **section-level** case (`SOL-S012`,
+missing/out-of-order section) — increment 4.
 
 | ID     | VERIFY BY                                                                                       |
 | ------ | ----------------------------------------------------------------------------------------------- |
@@ -169,7 +170,8 @@ Adapters resolve through `AGENTS.md > Commands` (`cmdTest` = `pnpm test:run`). *
 | ---- | ------ |
 | increment 1 (merged) — parser core | IF-001, IF-002, AC-001, AC-004, C-001 |
 | increment 2 (merged) — clauses + edges | AC-002, AC-003, I-001, I-002, C-002 |
-| increment 3 (pending) — diagnostics | AC-005, AC-006, C-003 |
+| increment 3 (merged) — block diagnostics | AC-005 (block-level), C-003 |
+| increment 4 (pending) — AND-THE + sections | AC-006, AC-005 `SOL-S012` |
 
 ## Distillation loss statement
 
