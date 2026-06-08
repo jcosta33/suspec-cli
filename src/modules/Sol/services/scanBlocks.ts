@@ -6,7 +6,7 @@ import { BLOCK_KINDS, type BlockKind, type SourceSpan } from '../models/ir.ts';
 const HEADER_PATTERN = /^(REQ|CONSTRAINT|INVARIANT|INTERFACE|QUESTION|TRACE|VERDICT)\s+([A-Za-z][A-Za-z0-9-]*)\s*(?:\[[^\]]*\])?\s*:/;
 const SECTION_PATTERN = /^##\s/;
 
-const isBlockKind = (token: string): token is BlockKind => (BLOCK_KINDS as readonly string[]).includes(token);
+const is_block_kind = (token: string): token is BlockKind => (BLOCK_KINDS as readonly string[]).includes(token);
 
 // A recognized block before clause-lowering: its identity + source span + the body lines under its header.
 export type RawBlock = Readonly<{
@@ -23,7 +23,7 @@ export type ScanBlocksInput = Readonly<{
 }>;
 
 // The 0-based indices where a block ends: a block header or a `## ` section header (both close the prior block).
-const findBoundaries = (lines: readonly string[], firstBodyIndex: number): number[] => {
+function find_boundaries(lines: readonly string[], firstBodyIndex: number): number[] {
     const boundaries: number[] = [];
     for (let index = firstBodyIndex; index < lines.length; index += 1) {
         if (HEADER_PATTERN.test(lines[index]) || SECTION_PATTERN.test(lines[index])) {
@@ -31,11 +31,11 @@ const findBoundaries = (lines: readonly string[], firstBodyIndex: number): numbe
         }
     }
     return boundaries;
-};
+}
 
 // One raw block per recognized block header (AC-001, AC-004). Pure; reads `lines`, never writes.
-export const scanBlocks = (input: ScanBlocksInput): RawBlock[] => {
-    const boundaries = findBoundaries(input.lines, input.first_body_index);
+export function scan_blocks(input: ScanBlocksInput): RawBlock[] {
+    const boundaries = find_boundaries(input.lines, input.first_body_index);
     const blocks: RawBlock[] = [];
     for (let position = 0; position < boundaries.length; position += 1) {
         const headerIndex = boundaries[position];
@@ -44,7 +44,7 @@ export const scanBlocks = (input: ScanBlocksInput): RawBlock[] => {
             continue; // a `## ` section boundary, not a block header
         }
         const keyword = headerMatch[1];
-        if (!isBlockKind(keyword)) {
+        if (!is_block_kind(keyword)) {
             continue;
         }
         const nextBoundary = position + 1 < boundaries.length ? boundaries[position + 1] : input.lines.length;
@@ -66,4 +66,4 @@ export const scanBlocks = (input: ScanBlocksInput): RawBlock[] => {
         });
     }
     return blocks;
-};
+}

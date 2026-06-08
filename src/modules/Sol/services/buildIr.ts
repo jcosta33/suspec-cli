@@ -1,4 +1,4 @@
-import type { RawBlock } from './scan-blocks.ts';
+import type { RawBlock } from './scanBlocks.ts';
 import type { IrNode, IrEdge, ObligationClauses } from '../models/ir.ts';
 
 // Surface-keyword clause lines, lowered to their snake_case IR fields (AC-002). Each matches at the
@@ -12,15 +12,16 @@ const RISK = /^RISK\s+(.+)$/;
 const DEPENDS_ON = /^DEPENDS ON\s+(.+)$/;
 const AFFECTS = /^AFFECTS\s+(.+)$/;
 
-const splitList = (rest: string): string[] =>
-    rest
+function split_list(rest: string): string[] {
+    return rest
         .split(',')
         .map((item) => item.trim())
         .filter((item) => item.length > 0);
+}
 
 // Lower a block's surface-keyword clauses to snake_case fields (AC-002). Relationship clauses are skipped
 // here — they become edges, never node scalars (I-001).
-export const lowerClauses = (bodyLines: readonly string[]): ObligationClauses => {
+export function lower_clauses(bodyLines: readonly string[]): ObligationClauses {
     const verifyBy: string[] = [];
     let writes: readonly string[] = [];
     let reads: readonly string[] = [];
@@ -35,12 +36,12 @@ export const lowerClauses = (bodyLines: readonly string[]): ObligationClauses =>
         }
         const writesMatch = WRITES.exec(line);
         if (writesMatch !== null) {
-            writes = splitList(writesMatch[1]);
+            writes = split_list(writesMatch[1]);
             continue;
         }
         const readsMatch = READS.exec(line);
         if (readsMatch !== null) {
-            reads = splitList(readsMatch[1]);
+            reads = split_list(readsMatch[1]);
             continue;
         }
         const riskMatch = RISK.exec(line);
@@ -49,35 +50,35 @@ export const lowerClauses = (bodyLines: readonly string[]): ObligationClauses =>
         }
     }
     return { verify_by: verifyBy, writes, reads, risk };
-};
+}
 
 // Extract the explicit relationship clauses of one block as edges (AC-003). Each is recorded once, in
 // `edges[]` only (I-001). `DEPENDS ON` is a hard edge (a real prerequisite); `AFFECTS` is soft.
-export const extractEdges = (fromId: string, bodyLines: readonly string[]): IrEdge[] => {
+export function extract_edges(fromId: string, bodyLines: readonly string[]): IrEdge[] {
     const edges: IrEdge[] = [];
     for (const raw of bodyLines) {
         const line = raw.trim();
         const dependsMatch = DEPENDS_ON.exec(line);
         if (dependsMatch !== null) {
-            for (const target of splitList(dependsMatch[1])) {
+            for (const target of split_list(dependsMatch[1])) {
                 edges.push({ from: fromId, to: target, type: 'depends_on', hard: true });
             }
             continue;
         }
         const affectsMatch = AFFECTS.exec(line);
         if (affectsMatch !== null) {
-            for (const target of splitList(affectsMatch[1])) {
+            for (const target of split_list(affectsMatch[1])) {
                 edges.push({ from: fromId, to: target, type: 'affects', hard: false });
             }
         }
     }
     return edges;
-};
+}
 
 export type BuiltIr = Readonly<{ nodes: IrNode[]; edges: IrEdge[] }>;
 
 // Turn raw blocks into the final nodes (with lowered clauses) + the single relationship store (edges[]).
-export const buildNodesAndEdges = (blocks: readonly RawBlock[]): BuiltIr => {
+export function build_nodes_and_edges(blocks: readonly RawBlock[]): BuiltIr {
     const nodes: IrNode[] = [];
     const edges: IrEdge[] = [];
     for (const block of blocks) {
@@ -85,9 +86,9 @@ export const buildNodesAndEdges = (blocks: readonly RawBlock[]): BuiltIr => {
             id: block.id,
             kind: block.kind,
             source: block.source,
-            clauses: lowerClauses(block.body_lines),
+            clauses: lower_clauses(block.body_lines),
         });
-        edges.push(...extractEdges(block.id, block.body_lines));
+        edges.push(...extract_edges(block.id, block.body_lines));
     }
     return { nodes, edges };
-};
+}

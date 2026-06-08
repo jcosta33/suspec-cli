@@ -36,8 +36,8 @@ module.exports = {
         {
             name: 'core-isolation',
             severity: 'error',
-            comment: 'Core modules (Workspace, AgentState) must not depend on Commands or Terminal.',
-            from: { path: '^src/modules/(Workspace|AgentState)/' },
+            comment: 'Core modules (Workspace, AgentState, Sol) must not depend on Commands or Terminal.',
+            from: { path: '^src/modules/(Workspace|AgentState|Sol)/' },
             to: { path: '^src/modules/(Commands|Terminal)/' },
         },
         {

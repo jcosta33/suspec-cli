@@ -1,6 +1,6 @@
 // The typed obligation IR — the machine-checkable form of a *.swarm.md spec.
-// Shapes follow the Swarm IR reference (reference/ir.md): meta, nodes[], edges[], diagnostics[], provenance.
-// snake_case fields are deliberate: they match the IR schema the rest of the pipeline reads.
+// Shapes follow the Swarm IR reference (.agents/reference/ir.md): meta, nodes[], edges[], diagnostics[],
+// provenance. snake_case fields are deliberate: they match the IR schema the rest of the pipeline reads.
 
 export const BLOCK_KINDS = ['REQ', 'CONSTRAINT', 'INVARIANT', 'INTERFACE', 'QUESTION', 'TRACE', 'VERDICT'] as const;
 export type BlockKind = (typeof BLOCK_KINDS)[number];
@@ -44,7 +44,7 @@ export type IrNode = Readonly<{
     clauses: ObligationClauses;
 }>;
 
-// A relationship between two nodes. The sole home of relationships (later increment, AC-003 / I-001).
+// A relationship between two nodes — the sole home of relationships (AC-003 / I-001).
 export type IrEdge = Readonly<{
     from: string;
     to: string;
@@ -53,7 +53,7 @@ export type IrEdge = Readonly<{
 }>;
 
 // A lint record (later increment, AC-005). Shaped per the IR reference; emitted by the parser at parse time
-// and by the linter (spec 004) over the assembled IR.
+// and by the linter over the assembled IR.
 export type Diagnostic = Readonly<{
     code: string;
     severity: 'BLOCKING' | 'ADVISORY';
@@ -70,7 +70,7 @@ export type IrMeta = Readonly<{
 }>;
 
 // Provenance hashes are tool-emitted (the parser computes them); emitted_at is left null until a clock is
-// injected, keeping a parse deterministic. (Swarm IR reference + ADR-0055 hash-provenance rule.)
+// injected, keeping a parse deterministic.
 export type IrProvenance = Readonly<{
     hash: string;
     tool_version: string;
