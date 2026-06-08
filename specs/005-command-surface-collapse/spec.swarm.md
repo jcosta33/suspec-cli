@@ -95,9 +95,15 @@ VERIFY BY property:cmdTest:src/modules/Commands/__tests__/commandSurface.spec.ts
 
 ## Questions
 
-QUESTION Q-001 [blocking]:
-The agent-runtime cluster (`daemon`, `launch-agent`, `chat`, `message`, `lock`) and git-flow (`pr`, `release`, `remove`) — cut, fold, or keep as a re-scoped capability? This depends on whether the multi-agent-orchestration vision (whose specs were dropped) is still alive.
+QUESTION Q-001 [resolved 2026-06-08]:
+The agent-runtime cluster (`daemon`, `launch-agent`, `chat`, `message`, `lock`) and git-flow (`pr`, `release`, `remove`) — cut, fold, or keep? **Resolved: fold the useful bits.** `lock`/`remove` are folded by removal — their *commands* are deleted; the behavior stays in `AgentState`/`Workspace` modules for the future canonical `worktree` command. `daemon`, `chat`, `message`, `pr`, `release` are **cut**. `launch-agent` is **retained only as a dependency** of the kept `new`/`open` (not user-facing), to be re-homed when the task-nav fold (AC-004) lands.
 AFFECTS AC-002
+
+> **Increment status.** This batch executed the **cut** (commands 59 → 17, AC-002/AC-003 for the off-mission
+> + dead/broken + cut-cluster set, AC-001's catalog pinned to the kept set). **Pending:** the task-nav fold
+> (AC-004 — `new`/`open`/`list`/`show`/`pick`/`focus` → `task`, which re-homes `launch-agent`) and the 7
+> unbuilt canonical commands (Q-002, separate specs). So AC-001 ("*exactly* the 14") is not yet fully
+> satisfied — 10 non-canonical remain (the 6 task-nav, `launch-agent`, `doctor`, `help`, `dashboard`).
 
 QUESTION Q-002 [non-blocking]:
 Are the 7 missing canonical commands (`lint`/`check`/`lower`/`worktree`/`trace`/`promote`/`drift`) built as part of this collapse, or as separate feature specs once the garden is cleared? (This spec assumes separate specs.)

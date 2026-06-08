@@ -4,63 +4,32 @@
 // from src/index.ts (see execute_command), not consumed by other modules. The
 // only thing the entry point needs from this module is the catalog of command
 // names + descriptions used for fuzzy-match suggestions and registry seeding.
+//
+// Surface note (ADR-0001 / spec 005): the command garden has been collapsed toward the canonical surface
+// (swarm-cli IF-001). Listed below are the commands that exist today: the 7 built canonical commands
+// (init, format, decompose, task, review, merge, status) plus the task-navigation set (new/open/list/show/
+// pick/focus) pending its fold into `task` (spec 005 AC-004), `dashboard` (the no-args TUI), `help`, and
+// `doctor`. `launch-agent` is intentionally uncataloged — it is a dependency of `new`/`open`, not a
+// user-facing command. The 7 unbuilt canonical commands (lint/check/lower/worktree/trace/promote/drift)
+// are not yet listed because they are not yet built.
 export const COMMAND_CATALOG = [
+    // Canonical (built)
+    { name: 'init', description: 'Setup Swarm in the current repository' },
+    { name: 'format', description: 'Run Prettier on a single file' },
+    { name: 'decompose', description: 'Decompose a task graph into a DAG' },
+    { name: 'task', description: 'Append human feedback to a task file' },
+    { name: 'review', description: 'Spawn an adversarial peer-review agent' },
+    { name: 'merge', description: 'Merge a branch with conflict detection' },
+    { name: 'status', description: 'Runtime status: state, telemetry, dirtiness' },
+    // Task navigation — pending fold into `task` (spec 005 AC-004)
     { name: 'new', description: 'Create a new isolated sandbox task' },
     { name: 'open', description: 'Reopen an existing sandbox' },
     { name: 'list', description: 'List active sandboxes' },
     { name: 'show', description: 'Show detailed metadata for a sandbox' },
-    { name: 'status', description: 'Runtime status: state, telemetry, dirtiness' },
-    { name: 'remove', description: 'Forcefully remove a sandbox' },
-    { name: 'prune', description: 'Clean up merged or orphaned sandboxes' },
-    { name: 'validate', description: 'Run configured linters and typechecks' },
-    { name: 'test', description: 'Run the test runner' },
-    { name: 'test-radius', description: 'Run only the specs impacted by a file' },
-    { name: 'init', description: 'Setup Swarm in the current repository' },
-    { name: 'lock', description: 'Advisory file locking for parallel agents' },
-    { name: 'merge', description: 'Merge a branch with conflict detection' },
-    { name: 'capabilities', description: 'List registered capabilities' },
-    { name: 'help', description: 'Show command reference' },
-    { name: 'dashboard', description: 'Launch interactive TUI dashboard' },
-    { name: 'decompose', description: 'Decompose a task graph into a DAG' },
-    { name: 'logs', description: 'Query the telemetry database' },
-    { name: 'arch', description: 'Lint cross-module boundary invariants' },
-    { name: 'audit-sec', description: 'Scan for dangerous patterns and secrets' },
-    { name: 'ast-rename', description: 'Structural rename of a symbol' },
-    { name: 'chaos', description: 'Toggle latency/failure injection' },
-    { name: 'chat', description: 'Append-only IPC log between agents' },
-    { name: 'complexity', description: 'Cyclomatic complexity heuristic' },
-    { name: 'compress', description: 'Skeletonize a TS file' },
-    { name: 'context', description: 'Generate semantic export map for RAG' },
-    { name: 'daemon', description: 'Background watcher running test-radius on save' },
-    { name: 'dead-code', description: 'Find exported symbols never imported' },
-    { name: 'deps', description: 'Find outdated packages and queue upgrade tasks' },
-    { name: 'docs', description: 'Extract JSDoc blocks' },
-    { name: 'doctor', description: 'Deep environment diagnostics' },
-    { name: 'epic', description: 'Decompose a markdown checklist into child tasks' },
-    { name: 'find', description: 'Semantic-ish symbol search' },
-    { name: 'focus', description: 'Open a sandbox in your editor' },
-    { name: 'format', description: 'Run Prettier on a single file' },
-    { name: 'fuzz', description: 'Generate fuzz tests for a function' },
-    { name: 'graph', description: 'Map import/export dependency graph' },
-    { name: 'heal', description: 'Self-healing hotfix when typecheck fails' },
-    { name: 'health', description: 'Quick pre-flight environment check' },
-    { name: 'knowledge', description: 'Search past tasks, audits, specs, PRs' },
-    { name: 'memory', description: 'Cross-agent markdown memory bank' },
-    { name: 'message', description: 'Queue a structured message into a mailbox' },
-    { name: 'migrate', description: 'Translator + Verifier agent pair' },
-    { name: 'mock', description: 'Generate a TS mock factory for an interface' },
-    { name: 'path', description: 'Print absolute path of a sandbox' },
     { name: 'pick', description: 'Fuzzy-finder over sandboxes' },
-    { name: 'pr', description: 'Auto-commit and optionally open a PR' },
-    { name: 'profile', description: 'Profile a Node process and assign optimizer' },
-    { name: 'refactor', description: 'Break a refactor into chunks' },
-    { name: 'references', description: 'Fast git-grep symbol usages' },
-    { name: 'release', description: 'Bump semver and draft release notes' },
-    { name: 'repro', description: 'Verify TDD: tests modified before source' },
-    { name: 'review', description: 'Spawn an adversarial peer-review agent' },
-    { name: 'screenshot', description: 'Capture a Playwright screenshot' },
-    { name: 'task', description: 'Append human feedback to a task file' },
-    { name: 'telemetry', description: 'Aggregated session metrics dashboard' },
-    { name: 'triage', description: 'Convert a raw bug report into a spec' },
-    { name: 'visual', description: 'Screenshot-based visual regression' },
+    { name: 'focus', description: 'Open a sandbox in your editor' },
+    // Shell / adoption
+    { name: 'dashboard', description: 'Launch interactive TUI dashboard' },
+    { name: 'help', description: 'Show command reference' },
+    { name: 'doctor', description: 'Deep environment diagnostics' },
 ] as const;
