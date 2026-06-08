@@ -156,9 +156,9 @@ For the canonical agent rules — sandbox boundaries, prohibited commands, file-
 
 ## 📚 Further reading
 
-- [`AGENTS.md`](./AGENTS.md) — canonical architectural rules and TypeScript soundness contract
-- [`docs/agents/01-process.md`](./docs/agents/01-process.md) — documentation-first workflow
-- [`docs/agents/03-workflow.md`](./docs/agents/03-workflow.md) — step-by-step session execution
-- [`docs/agents/02-file-types.md`](./docs/agents/02-file-types.md) — audit / spec / research / skill / task definitions
+- [`AGENTS.md`](./AGENTS.md) — the Swarm bootloader: startup, project facts, architecture discipline, command bindings
+- [`.claude/skills/`](./.claude/skills/) — the Swarm step guides (author → lint → improve → lower → decompose → implement → verify → review → promote) + personas this repo runs
+- [`.agents/reference/`](./.agents/reference/) — the operative closed-set reference cards (SOL grammar, proofs/verdicts/adequacy, the IR)
+- [`specs/`](./specs/) — the toolchain specs (`001-swarm-cli`, `002-swarm-core-parser`, …)
 - [`docs/06-testing.md`](./docs/06-testing.md) — Vitest layout and conventions
 - [`docs/07-conventions.md`](./docs/07-conventions.md) — coding patterns and lint-aligned style

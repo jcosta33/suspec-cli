@@ -2,7 +2,7 @@
 
 This documentation defines the architectural rules, coding conventions, testing guidelines, and the documentation-first workflow used by the Swarm CLI.
 
-> **Note**: These files are meant for human reading and understanding the project's structure. For the authoritative, machine-enforced rules that AI agents follow, see `.agents/skills/*/SKILL.md`.
+> **Note**: These files are meant for human reading and understanding the project's structure. For the authoritative rules that AI agents follow, see `AGENTS.md` (the Swarm bootloader) and the self-contained skills in `.claude/skills/*/SKILL.md`.
 
 ## Engineering Guidelines
 
@@ -10,10 +10,13 @@ This documentation defines the architectural rules, coding conventions, testing 
 - ➡️ **[Testing](./06-testing.md)** — Vitest layout, mocks, and test file organization.
 - ➡️ **[Conventions](./07-conventions.md)** — Explicit control flow, naming, and language anti-patterns.
 
-## Documentation workflow
+## The Swarm workflow
 
-The Swarm CLI is built around a documentation-first constraint. Before writing significant code, agents read, produce, or update documents that capture what they know, what they found, what they decided, and what they are about to do.
+The Swarm CLI runs on the Swarm spec discipline: messy inputs become SOL obligation specs, work is bounded
+to assigned obligations, and a merge gate clears it on reviewable evidence. The agent-facing rules are not in
+this `docs/` tree — they live in the live Swarm surface:
 
-- ➡️ **Read about the [agent process](./agents/01-process.md)**
-- ➡️ **Read about the [agent workflow](./agents/03-workflow.md)**
-- ➡️ **Read about [file types](./agents/02-file-types.md)** and [standards](./agents/04-standards.md)
+- ➡️ **[`AGENTS.md`](../AGENTS.md)** — the always-loaded bootloader (startup, project facts, command bindings).
+- ➡️ **[`.claude/skills/`](../.claude/skills/)** — the step guides (author → lint → improve → lower → decompose → implement → verify → review → promote) + persona stances, each carrying its procedure inline.
+- ➡️ **[`.agents/reference/`](../.agents/reference/)** — the closed-set reference cards (SOL grammar, proofs/verdicts/adequacy, the IR).
+- ➡️ **[`specs/`](../specs/)** — the toolchain specs themselves.

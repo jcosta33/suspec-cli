@@ -23,7 +23,6 @@ export default tseslint.config(
             'dist/',
             'build/',
             'coverage/',
-            'package/',
             'scaffold/',
             '**/*.md',
         ],

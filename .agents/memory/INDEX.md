@@ -31,7 +31,8 @@ weight against the loss budget and the bootloader density cap (see the `promote`
 - [Refresh storm on a shared 401](../sources/findings/refresh-storm-on-shared-401.md) — Load when: touching auth token rotation, refresh endpoints, or concurrent-request handling
 -->
 
-_(empty — the consumer adds the first durable finding here.)_
+- [Observability stack is Pino + SQLite (OTel deferred)](findings/observability-stack.md) — Load when: designing/extending swarm-core or cli telemetry, logging, or the session store, choosing whether to add OpenTelemetry, or diagnosing a `better-sqlite3` install failure.
+- [rerere fits the batch-worktree merge model; CRDTs do not](findings/merge-coordination.md) — Load when: designing swarm-core merge / worktree-lease / ledger behaviour, the `merge`/`review` commands, or any conflict-resolution automation.
 
 ## Topic files
 
