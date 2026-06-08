@@ -79,7 +79,9 @@ export async function run_dashboard(): Promise<number> {
             ],
         });
 
-        if (isCancel(action) || action === 'exit') {
+        // Exit on a falsy/unexpected select result too — otherwise an empty or
+        // unrecognized action falls through to the `else` and the loop spins forever.
+        if (!action || isCancel(action) || action === 'exit') {
             outro('Goodbye');
             return 0;
         }
