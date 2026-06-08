@@ -73,10 +73,6 @@ export async function run_dashboard(): Promise<number> {
                 { value: 'list', label: 'List sandboxes' },
                 { value: 'show', label: 'Show details' },
                 { value: 'status', label: 'Status of a sandbox' },
-                { value: 'pr', label: 'Open PR for a sandbox' },
-                { value: 'remove', label: 'Remove sandbox' },
-                { value: 'validate', label: 'Validate codebase' },
-                { value: 'test', label: 'Run tests' },
                 { value: 'doctor', label: 'Diagnostics (doctor)' },
                 { value: 'help', label: 'Help' },
                 { value: 'exit', label: 'Exit' },
@@ -168,28 +164,6 @@ export async function run_dashboard(): Promise<number> {
             }
             spawn_command('show', [slug], repoRoot);
             await prompt_return();
-        } else if (action === 'remove') {
-            const slugs = get_agent_slugs(repoRoot);
-            if (slugs.length === 0) {
-                log.warn('No sandboxes to remove.');
-                await prompt_return();
-                continue;
-            }
-            const slug = await select({
-                message: 'Which sandbox?',
-                options: slugs.map((s) => ({ value: s, label: s })),
-            });
-            if (!slug || isCancel(slug)) {
-                continue;
-            }
-            const shouldForce = await confirm({
-                message: `Force remove ${slug}? This is destructive.`,
-            });
-            if (!shouldForce || isCancel(shouldForce)) {
-                continue;
-            }
-            spawn_command('remove', [slug, '--force'], repoRoot);
-            await prompt_return();
         } else if (action === 'status') {
             const slugs = get_agent_slugs(repoRoot);
             if (slugs.length === 0) {
@@ -205,28 +179,6 @@ export async function run_dashboard(): Promise<number> {
                 continue;
             }
             spawn_command('status', [slug], repoRoot);
-            await prompt_return();
-        } else if (action === 'pr') {
-            const slugs = get_agent_slugs(repoRoot);
-            if (slugs.length === 0) {
-                log.warn('No sandboxes.');
-                await prompt_return();
-                continue;
-            }
-            const slug = await select({
-                message: 'Which sandbox?',
-                options: slugs.map((s) => ({ value: s, label: s })),
-            });
-            if (!slug || isCancel(slug)) {
-                continue;
-            }
-            spawn_command('pr', [slug], repoRoot);
-            await prompt_return();
-        } else if (action === 'validate') {
-            spawn_command('validate', [], repoRoot);
-            await prompt_return();
-        } else if (action === 'test') {
-            spawn_command('test', [], repoRoot);
             await prompt_return();
         } else if (action === 'doctor') {
             spawn_command('doctor', [], repoRoot);

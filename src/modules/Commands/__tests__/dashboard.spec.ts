@@ -149,36 +149,6 @@ describe('run_dashboard', () => {
         expect(clack.log.warn).toHaveBeenCalledWith('No sandboxes to open.');
     });
 
-    it('spawns remove with force flag', async () => {
-        (get_repo_root as ReturnType<typeof vi.fn>).mockReturnValue('/repo');
-        (worktree_list as ReturnType<typeof vi.fn>).mockReturnValue([
-            { path: '/repo--bar', head: 'def', branch: 'agent/bar', bare: false },
-        ]);
-        (read_state as ReturnType<typeof vi.fn>).mockReturnValue({});
-        (clack.select as ReturnType<typeof vi.fn>)
-            .mockResolvedValueOnce('remove')
-            .mockResolvedValueOnce('bar')
-            .mockResolvedValueOnce('exit');
-        (clack.confirm as ReturnType<typeof vi.fn>)
-            .mockResolvedValueOnce(true) // force remove
-            .mockResolvedValueOnce(true); // return to dashboard
-        (clack.isCancel as unknown as ReturnType<typeof vi.fn>).mockReturnValue(false);
-        (spawnSync as ReturnType<typeof vi.fn>).mockReturnValue({ status: 0 });
-
-        await run_dashboard();
-
-        expect(spawnSync).toHaveBeenCalledWith(
-            process.execPath,
-            expect.arrayContaining([
-                '--experimental-strip-types',
-                expect.stringContaining('remove.ts'),
-                'bar',
-                '--force',
-            ]),
-            { stdio: 'inherit', cwd: '/repo' }
-        );
-    });
-
     it('formats sandbox list with statuses', async () => {
         (get_repo_root as ReturnType<typeof vi.fn>).mockReturnValue('/repo');
         (worktree_list as ReturnType<typeof vi.fn>).mockReturnValue([
@@ -204,30 +174,6 @@ describe('run_dashboard', () => {
                 expect.stringContaining('list.ts'),
             ]),
             { stdio: 'inherit', cwd: '/repo' }
-        );
-    });
-
-    it('skips remove when user cancels force confirm', async () => {
-        (get_repo_root as ReturnType<typeof vi.fn>).mockReturnValue('/repo');
-        (worktree_list as ReturnType<typeof vi.fn>).mockReturnValue([
-            { path: '/repo--bar', head: 'def', branch: 'agent/bar', bare: false },
-        ]);
-        (read_state as ReturnType<typeof vi.fn>).mockReturnValue({});
-        (clack.select as ReturnType<typeof vi.fn>)
-            .mockResolvedValueOnce('remove')
-            .mockResolvedValueOnce('bar')
-            .mockResolvedValueOnce('exit');
-        (clack.confirm as ReturnType<typeof vi.fn>)
-            .mockResolvedValueOnce(false) // cancel force remove
-            .mockResolvedValueOnce(true); // return to dashboard
-        (clack.isCancel as unknown as ReturnType<typeof vi.fn>).mockReturnValue(false);
-
-        await run_dashboard();
-
-        expect(spawnSync).not.toHaveBeenCalledWith(
-            process.execPath,
-            expect.arrayContaining([expect.stringContaining('remove.ts')]),
-            expect.anything()
         );
     });
 
@@ -297,79 +243,6 @@ describe('run_dashboard', () => {
                 '--experimental-strip-types',
                 expect.stringContaining('status.ts'),
                 'foo',
-            ]),
-            { stdio: 'inherit', cwd: '/repo' }
-        );
-    });
-
-    it('spawns pr command', async () => {
-        (get_repo_root as ReturnType<typeof vi.fn>).mockReturnValue('/repo');
-        (worktree_list as ReturnType<typeof vi.fn>).mockReturnValue([
-            { path: '/repo--foo', head: 'abc', branch: 'agent/foo', bare: false },
-        ]);
-        (read_state as ReturnType<typeof vi.fn>).mockReturnValue({});
-        (clack.select as ReturnType<typeof vi.fn>)
-            .mockResolvedValueOnce('pr')
-            .mockResolvedValueOnce('foo')
-            .mockResolvedValueOnce('exit');
-        (clack.confirm as ReturnType<typeof vi.fn>).mockResolvedValue(true);
-        (clack.isCancel as unknown as ReturnType<typeof vi.fn>).mockReturnValue(false);
-        (spawnSync as ReturnType<typeof vi.fn>).mockReturnValue({ status: 0 });
-
-        await run_dashboard();
-
-        expect(spawnSync).toHaveBeenCalledWith(
-            process.execPath,
-            expect.arrayContaining([
-                '--experimental-strip-types',
-                expect.stringContaining('pr.ts'),
-                'foo',
-            ]),
-            { stdio: 'inherit', cwd: '/repo' }
-        );
-    });
-
-    it('spawns validate command', async () => {
-        (get_repo_root as ReturnType<typeof vi.fn>).mockReturnValue('/repo');
-        (worktree_list as ReturnType<typeof vi.fn>).mockReturnValue([]);
-        (read_state as ReturnType<typeof vi.fn>).mockReturnValue({});
-        (clack.select as ReturnType<typeof vi.fn>)
-            .mockResolvedValueOnce('validate')
-            .mockResolvedValueOnce('exit');
-        (clack.confirm as ReturnType<typeof vi.fn>).mockResolvedValue(true);
-        (clack.isCancel as unknown as ReturnType<typeof vi.fn>).mockReturnValue(false);
-        (spawnSync as ReturnType<typeof vi.fn>).mockReturnValue({ status: 0 });
-
-        await run_dashboard();
-
-        expect(spawnSync).toHaveBeenCalledWith(
-            process.execPath,
-            expect.arrayContaining([
-                '--experimental-strip-types',
-                expect.stringContaining('validate.ts'),
-            ]),
-            { stdio: 'inherit', cwd: '/repo' }
-        );
-    });
-
-    it('spawns test command', async () => {
-        (get_repo_root as ReturnType<typeof vi.fn>).mockReturnValue('/repo');
-        (worktree_list as ReturnType<typeof vi.fn>).mockReturnValue([]);
-        (read_state as ReturnType<typeof vi.fn>).mockReturnValue({});
-        (clack.select as ReturnType<typeof vi.fn>)
-            .mockResolvedValueOnce('test')
-            .mockResolvedValueOnce('exit');
-        (clack.confirm as ReturnType<typeof vi.fn>).mockResolvedValue(true);
-        (clack.isCancel as unknown as ReturnType<typeof vi.fn>).mockReturnValue(false);
-        (spawnSync as ReturnType<typeof vi.fn>).mockReturnValue({ status: 0 });
-
-        await run_dashboard();
-
-        expect(spawnSync).toHaveBeenCalledWith(
-            process.execPath,
-            expect.arrayContaining([
-                '--experimental-strip-types',
-                expect.stringContaining('test.ts'),
             ]),
             { stdio: 'inherit', cwd: '/repo' }
         );

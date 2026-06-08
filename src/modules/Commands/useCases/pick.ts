@@ -44,7 +44,7 @@ export function run(): number {
         return 1;
     }
 
-    const validActions = ['new', 'open', 'focus', 'remove', 'show'];
+    const validActions = ['new', 'open', 'focus', 'show'];
     if (!validActions.includes(action)) {
         console.error(red(`Unknown action: ${action}. Valid: ${validActions.join(', ')}`));
         return 1;
