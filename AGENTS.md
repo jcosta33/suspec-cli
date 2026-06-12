@@ -1,41 +1,23 @@
 # AGENTS.md — swarm-cli
 
 <!-- Always-loaded bootloader (aim ~100 lines). Procedures load on demand from
-     `.agents/skills/`. This repo is CO-LOCATED: it authors its own toolchain
-     specs (specs/<feature>/spec.md) AND implements them — workspace and code
-     in one tree. -->
+     `.agents/skills/`. This is a CODE repo: the Swarm workspace governing it
+     is the sibling swarm-hq repo. -->
 
-## Swarm startup
+## Swarm
 
-1. Read the task packet you were given first. Follow its scope.
-2. Read the linked spec (and change plan, if any) before touching code.
-3. Do not implement behavior outside the task's scope — if a requirement can't be
-   met as written, stop and say why instead of improvising.
-4. Run every item under the task's `## Verify` and paste the real output. A claim
-   without output counts as unverified.
-5. Before finishing, re-read your own diff as a skeptic, fill the task's
-   `## Run summary` section (changed files, per-command results citing the
-   Verify pastes, out-of-scope edits, blocked questions), and flip the task's
-   board row in `status.md` to review-ready.
-
-## Workspace
-
-- The loop: Pull → Spec → Task → Run → Review → Close (+ Inventory / Change Plan for
-  structural work).
-- Specs: `specs/<feature>/spec.md` (SOL form via `format: sol`) · tasks: `tasks/` ·
-  reviews: `reviews/` · findings: `findings/` · intake: `intake/` ·
-  inventories: `inventory/` · change plans: `change-plans/` ·
-  decisions: `decisions/` · board: `status.md`
-- Templates for the core artifacts: `templates/` (ADR shape: `scaffold/advanced/adr.md`)
-- Agent guides: `.agents/skills/` — Claude Code reads them via the `.claude/skills`
-  symlink; Swarm's three core guides and this repo's own engineering skills
-  (`architecture-violations`, `event-bus-and-results`, `state-and-write-paths`,
-  `testing-file-layout`) live side by side
+- Swarm workspace: `../swarm-hq` — read the task packet you are given. Specs,
+  tasks, reviews, findings, decisions, and the board live there, not here.
+- Implement against the packet: read its linked spec first; stay inside its
+  scope (if a requirement can't be met as written, stop and say why instead of
+  improvising); run every item under its `## Verify` and paste the real output
+  (a claim without output counts as unverified); fill its `## Run summary`;
+  re-read your own diff as a skeptic before handoff. Guide:
+  `.agents/skills/implement-task/`.
 - `scaffold/` is this CLI's `swarm init` payload — a full copy of the current
   starter kit; its `advanced/` doubles as the local reference cards (SOL
-  notation, checks). The checks contract this CLI implements lives in the swarm
-  repo: `checks/checks.yaml` (v0.4.0).
-- Recall: `.agents/memory/INDEX.md` (load-when map) → `findings/`
+  notation, checks). The checks contract this CLI implements lives in the
+  swarm repo: `checks/checks.yaml` (v0.4.0).
 
 ## Project facts
 
@@ -53,6 +35,10 @@
 - **Working discipline:** show-don't-tell (paste real command output as proof); trace
   blast radius with `pnpm typecheck`; after 3 failed fix attempts, stop and
   re-strategize.
+- Repo-specific engineering guides live beside `implement-task` in
+  `.agents/skills/` (`architecture-violations`, `event-bus-and-results`,
+  `state-and-write-paths`, `testing-file-layout`); Claude Code reads them via
+  the `.claude/skills` symlink. Domain terms: `.agents/memory/glossary.md`.
 - Full conventions: `.agents/repo-conventions.md` · human coding conventions:
   `docs/07-conventions.md` · architecture: `docs/05-architecture.md` · testing:
   `docs/06-testing.md`. Project config: `.agents/swarm.config.yaml`.
@@ -68,9 +54,7 @@
 | cmdFormat    | `pnpm format`        | format hygiene                 |
 
 An empty or missing slot means **ask** — never invent a command. A Verify item
-whose command cannot be resolved reads Unverified, not Pass. More slots
-(registry: `checks/checks.yaml` in the swarm repo): cmdInstall, cmdBuild,
-cmdBenchmark, cmdSecurity — add a row when needed.
+whose command cannot be resolved reads Unverified, not Pass.
 
 ## Agent role
 

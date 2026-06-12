@@ -19,4 +19,4 @@ this `docs/` tree — they live in the live Swarm surface:
 - ➡️ **[`AGENTS.md`](../AGENTS.md)** — the always-loaded bootloader (startup, project facts, command bindings).
 - ➡️ **[`.claude/skills/`](../.claude/skills/)** — the step guides (author → lint → improve → lower → decompose → implement → verify → review → promote) + persona stances, each carrying its procedure inline.
 - ➡️ **[`scaffold/advanced/`](../scaffold/advanced/)** — the kit's reference cards (SOL notation, checks)
-- ➡️ **[`specs/`](../specs/)** — the toolchain specs themselves.
+- ➡️ **Toolchain specs** — in the Swarm workspace (the sibling `swarm-hq` repo, `specs/`).

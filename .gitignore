@@ -30,10 +30,12 @@ node_modules
 
 # Coverage
 coverage
-# --- Swarm workspace (co-located) ---
-# The workspace commits its artifacts: specs/, tasks/, reviews/, findings/,
-# intake/, inventory/, change-plans/, decisions/, templates/, status.md.
-# Gitignored: agent scratch and per-task worktrees.
+# --- Swarm (code-repo footprint) ---
+# The Swarm workspace governing this repo is the sibling swarm-hq repo; only
+# code-repo scratch is ignored here (the kit's .gitignore.additions).
+.agents/tmp/
+tmp/
+.swarm/
 # legacy pre-migration execution frames (local scratch)
 .agents/tasks/
 .worktrees/
