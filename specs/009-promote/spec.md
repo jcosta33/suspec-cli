@@ -61,7 +61,7 @@ VERIFY BY contract:cmdTest:src/modules/Commands/__tests__/promote.spec.ts#promot
 
 REQ AC-001:
 WHEN `swarm promote` runs against a discovery input
-THE command MUST write one `finding.md` derived from `.agents/templates/finding.md` into `findings/`
+THE command MUST write one `finding.md` derived from `templates/finding.md` into `findings/`
 VERIFY BY test:cmdTest:src/modules/Commands/__tests__/promote.spec.ts#writes_finding_file
 DEPENDS ON IF-001
 WRITES findings/**
