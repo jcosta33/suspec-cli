@@ -34,5 +34,6 @@ coverage
 # The workspace commits its artifacts: specs/, tasks/, reviews/, findings/,
 # intake/, inventory/, change-plans/, decisions/, templates/, status.md.
 # Gitignored: agent scratch and per-task worktrees.
-.agents/tasks/        # legacy pre-migration execution frames (local scratch)
+# legacy pre-migration execution frames (local scratch)
+.agents/tasks/
 .worktrees/
