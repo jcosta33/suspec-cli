@@ -28,6 +28,9 @@ Implement or preserve:
 
 ## Affected areas
 
+<!-- Multi-repo workspace: an entry may carry a context prefix matching a
+     Commands sub-heading (`web: src/checkout/…`); one context per task. -->
+
 - `{{path}}`
 
 ## Verify

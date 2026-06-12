@@ -1,4 +1,4 @@
-# Advanced templates and guides
+# Advanced templates and reference cards
 
 Everything in this directory is optional. The core kit (`templates/` + the
 `.agents/skills/` guides) covers the everyday loop — copy pieces from here only
@@ -19,15 +19,21 @@ when the work calls for them.
 Each template lives beside the spec it supports in `specs/<feature>/`, except
 the ADR, which lives in `decisions/`.
 
-## Guides and reference cards
+## Reference cards (this directory)
 
-This tier also carries focused agent guides — `write-audit`, `write-research`,
-`persona-surveyor`, `write-bug-report`, `write-prd`, `write-rfc`,
-`write-change-plan`, `write-inventory`, `spec-check`, `save-findings`,
-`split-work`, and `adversarial-review` (a deep, hostile re-review of an agent
-branch — beyond the review packet: re-run validation yourself, six adversarial
-questions, caller search) — and two reference cards: `sol-reference.md`
-(structured requirements) and `checks-reference.md` (common mistakes to check
-for).
+`sol-reference.md` (structured requirements) and `checks-reference.md` (common
+mistakes to check for) — read in place; nothing to install.
+
+## Optional agent guides (the swarm-skills catalog)
+
+Focused guides for the work these templates support — `write-audit`,
+`write-research`, `persona-surveyor`, `write-bug-report`, `write-prd`,
+`write-rfc`, `write-change-plan`, `write-inventory`, `spec-check`,
+`save-findings`, `split-work`, `adversarial-review` — plus long-form
+implementation guides per change shape (feature, fix, refactor, rewrite,
+migration, performance, testing, documentation, flaky tests) live in the
+[swarm-skills catalog](https://github.com/jcosta33/swarm-skills). Install into
+`.agents/skills/` with `npx skills add jcosta33/swarm-skills --list`, or copy
+the folders.
 
 Copy what you need; ignore the rest. Full instructions: `docs/ADOPTING.md` in the Swarm repo.
