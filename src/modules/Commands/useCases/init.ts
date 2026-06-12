@@ -146,8 +146,8 @@ export async function cmd_init(repoRoot: string, _argv: string[]): Promise<numbe
     );
     if (existsSync(scaffoldDir)) {
         s.start('Copying scaffolded templates and skills...');
-        cpSync(scaffoldDir, agentsDir, { recursive: true, force: false });
-        s.stop('Scaffolded skills and templates.');
+        cpSync(scaffoldDir, repoRoot, { recursive: true, force: false, verbatimSymlinks: true });
+        s.stop('Installed the Swarm workspace (existing files preserved).');
     }
 
     s.stop('Directory structure created.');
