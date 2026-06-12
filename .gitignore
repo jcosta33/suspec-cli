@@ -30,16 +30,9 @@ node_modules
 
 # Coverage
 coverage
-# --- Swarm workspace (added by adoption) ---
-# Swarm — commit only real sources of truth + code; gitignore execution scratch.
-
-# Swarm task frames are throwaway execution state (ADR-0050) — gitignored.
-.agents/tasks/
-
-# Per-worker worktrees used during parallel decomposition.
+# --- Swarm workspace (co-located) ---
+# The workspace commits its artifacts: specs/, tasks/, reviews/, findings/,
+# intake/, inventory/, change-plans/, decisions/, templates/, status.md.
+# Gitignored: agent scratch and per-task worktrees.
+.agents/tasks/        # legacy pre-migration execution frames (local scratch)
 .worktrees/
-
-# NOTE: .agents/specs/ and .agents/memory/ are the durable record (sources + learned
-# recall) and stay committed. Pre-existing planning docs already tracked under
-# .agents/tasks/ remain tracked (gitignore does not untrack); migrate any durable ones
-# to specs/findings if you want them kept.

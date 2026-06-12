@@ -157,8 +157,8 @@ For the canonical agent rules — sandbox boundaries, prohibited commands, file-
 ## 📚 Further reading
 
 - [`AGENTS.md`](./AGENTS.md) — the Swarm bootloader: startup, project facts, architecture discipline, command bindings
-- [`.claude/skills/`](./.claude/skills/) — the Swarm step guides (author → lint → improve → lower → decompose → implement → verify → review → promote) + personas this repo runs
-- [`.agents/reference/`](./.agents/reference/) — the operative closed-set reference cards (SOL grammar, proofs/verdicts/adequacy, the IR)
-- [`specs/`](./specs/) — the toolchain specs (`001-swarm-cli`, `002-swarm-core-parser`, …)
+- [`.agents/skills/`](./.agents/skills/) — the Swarm agent guides (write-spec · implement-task · review-output) and this repo's own engineering skills; `.claude/skills` is a symlink to it
+- [`scaffold/`](./scaffold/) — the starter kit `swarm init` installs (a complete Swarm workspace); `scaffold/advanced/` carries the SOL + checks reference cards
+- [`specs/`](./specs/) — the toolchain specs (`specs/<feature>/spec.md`)
 - [`docs/06-testing.md`](./docs/06-testing.md) — Vitest layout and conventions
 - [`docs/07-conventions.md`](./docs/07-conventions.md) — coding patterns and lint-aligned style

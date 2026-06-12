@@ -10,7 +10,7 @@ title: Worktree state & inter-agent coordination — options for swarm-core's le
 # Research: worktree state & inter-agent coordination
 
 > **Stance: inquiry.** Surveys mechanisms; commits to no obligation. Seeds a future
-> `specs/003-swarm-core-worktree/spec.swarm.md` (not yet authored). **Migrated** and reframed from two
+> `specs/003-swarm-core-worktree/spec.md` (not yet authored). **Migrated** and reframed from two
 > pre-pivot docs — `.agents/specs/agent-communication-protocol.md` + `.agents/research/agent-to-agent-communication.md`
 > (full originals recoverable in git history). The legacy framing assumed the single-package `src/modules`
 > terminal-launch architecture + `proper-lockfile`; under the pivot, **swarm-core** owns the

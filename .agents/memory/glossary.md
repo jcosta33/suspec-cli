@@ -5,7 +5,7 @@ This is the **Tier-2 one-word-one-meaning term store** (see the two-tier memory 
 enforces **one word, one meaning**. Each entry binds exactly one term to exactly one canonical
 definition. A term whose meaning is contested MUST be *split* into distinct terms, never
 overloaded. This glossary is the project-level fallback for term resolution; an in-file `TERM`
-definition in a `spec.swarm.md` takes precedence over the glossary for that spec.
+definition in a `spec.md` takes precedence over the glossary for that spec.
 
 **This file ships as a seed.** It starts with a few kernel terms; a consumer extends it whenever a
 term's meaning was ambiguous or drifted (the terminology-clarification promotion target). Keep

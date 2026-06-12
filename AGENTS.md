@@ -1,55 +1,78 @@
 # AGENTS.md — swarm-cli
 
-<!-- Swarm bootloader (always-loaded, facts-only, MUST stay <= 200 lines / 25 KB).
-     Step procedures load on demand from the self-contained skills in `.claude/skills/`;
-     the SOL/APS manual is not installed (read it in the swarm repo).
-     This repo is CO-LOCATED (Swarm spec-repo discipline, ADR-0050/0051/0052): it authors its own
-     toolchain specs (per-feature folders under specs/<feature>/) AND implements them, so it carries the
-     full authoring kit + the implement-and-verify skill. A pure code repo would carry far less. -->
+<!-- Always-loaded bootloader (aim ~100 lines). Procedures load on demand from
+     `.agents/skills/`. This repo is CO-LOCATED: it authors its own toolchain
+     specs (specs/<feature>/spec.md) AND implements them — workspace and code
+     in one tree. -->
 
 ## Swarm startup
-1. Read the current task file first.
-2. Specs live in per-feature folders: `specs/<feature>/spec.swarm.md` (this repo's toolchain specs — e.g. `specs/001-swarm-cli/`, `specs/002-sol-parser/`), with any feature-scoped supporting docs beside the spec; ADRs go in `decisions/` (numbered). `.agents/` holds Swarm tooling — skills (in `.claude/skills/`, where Claude Code scans), `reference/` (rule cards), `templates/`, `memory/` (recall + findings); `.agents/tasks/` holds task frames (gitignored execution scratch, since this repo also implements). No `.swarm/` mount, no version file.
-3. Treat `.swarm.md` blocks as authoritative over prose summaries.
-4. Use assigned obligation IDs as scope.
-5. Decide isolation before editing (see the `implement` pass): a code task with a source spec/audit runs in a `worktree+branch` named for the spec, off the base — never on it; a bare ad-hoc edit stays `in-place`.
-6. Load only the pass / profile / context files the task names.
-7. Map every completion claim to evidence.
-8. Promote durable discoveries before closing.
 
-## Universal rules
-- Do not implement behavior outside assigned obligations.
-- Do not treat chat as higher authority than an approved spec or ADR.
-- Do not close a task with unhandled promotion items.
-- Do not claim completion without evidence.
-- Adversarially self-review your own work before claiming completion (refute-by-default; ADR-0056) — fixes + a recorded critique, never a self-issued verdict; it does not replace independent review.
+1. Read the task packet you were given first. Follow its scope.
+2. Read the linked spec (and change plan, if any) before touching code.
+3. Do not implement behavior outside the task's scope — if a requirement can't be
+   met as written, stop and say why instead of improvising.
+4. Run every item under the task's `## Verify` and paste the real output. A claim
+   without output counts as unverified.
+5. Before finishing, re-read your own diff as a skeptic, fill the task's
+   `## Run summary` section (changed files, per-command results citing the
+   Verify pastes, out-of-scope edits, blocked questions), and flip the task's
+   board row in `status.md` to review-ready.
+
+## Workspace
+
+- The loop: Pull → Spec → Task → Run → Review → Close (+ Inventory / Change Plan for
+  structural work).
+- Specs: `specs/<feature>/spec.md` (SOL form via `format: sol`) · tasks: `tasks/` ·
+  reviews: `reviews/` · findings: `findings/` · intake: `intake/` ·
+  inventories: `inventory/` · change plans: `change-plans/` ·
+  decisions: `decisions/` · board: `status.md`
+- Templates for the core artifacts: `templates/` (ADR shape: `scaffold/advanced/adr.md`)
+- Agent guides: `.agents/skills/` — Claude Code reads them via the `.claude/skills`
+  symlink; Swarm's three core guides and this repo's own engineering skills
+  (`architecture-violations`, `event-bus-and-results`, `state-and-write-paths`,
+  `testing-file-layout`) live side by side
+- `scaffold/` is this CLI's `swarm init` payload — a full copy of the current
+  starter kit; its `advanced/` doubles as the local reference cards (SOL
+  notation, checks). The checks contract this CLI implements lives in the swarm
+  repo: `checks/checks.yaml` (v0.4.0).
+- Recall: `.agents/memory/INDEX.md` (load-when map) → `findings/`
 
 ## Project facts
-- **What this repo is:** a TypeScript CLI — a Swarm-native toolchain shipped as **one tool** (`swarm`), one package, all code in `/src` (ADR-0001: no monorepo, no published partials). DDD modules under `src/modules/` (enforced by dependency-cruiser); the SOL-language semantics (parser/IR, lint, verify) live in **core modules** like `src/modules/Sol/` that — per `core-isolation` — cannot depend on `Commands`/`Terminal`. The operator commands (`init`/`lint`/`check`/…) are `src/modules/Commands` use-cases on one dispatch path (the TUI is the no-args dispatch).
-- **Stack:** TypeScript (strict soundness); Node ≥ 22.6 (run via `--experimental-strip-types`); package manager **pnpm**; tests in **Vitest** (`__tests__/` siblings). No UI, no Rust — ignore any earlier React/TanStack/Tauri-audio guidance; it was copied from another project and does not apply.
-- **Architecture discipline:** DDD module boundaries — cross-module imports only via a module's root `index.ts`; internals (`models/`/`repositories/`/`services/`) private; one function per use-case/repository file; `src/infra/**` MUST NOT import `src/modules/**` (`infra-isolation`).
-- **The verification gate:** `pnpm deps:validate` (dependency-cruiser) MUST pass with **zero** architectural violations before a cross-module change is done.
-- **Safety (bypass-permissions mode):** never delete/rename/overwrite a file without an explicit instruction; no destructive git; no codemods / bulk find-replace / global `--fix`; stage only intentionally-changed files; when unsure, log a `QUESTION` rather than act.
-- **Working discipline:** show-don't-tell (paste real command output as proof); trace blast radius with `pnpm typecheck`; after 3 failed fix attempts, stop and re-strategize.
-- Full architecture + conventions + safety detail: **`.agents/repo-conventions.md`**. Human coding conventions: `docs/07-conventions.md`.
 
-## Pointers
-- Skills (a step guide for each of the 9 steps, per-kind implement & author guides, persona-* stances, fragments — Swarm's + this repo's own, side by side): `.claude/skills/`. Each carries its step *procedure* inline.
-- Operative reference cards (the shared closed-set rules — SOL grammar, proofs/verdicts/adequacy, the IR/edges): `.agents/reference/` (`sol.md`, `proofs.md`, `ir.md`). Load the card for the step you're running.
-- Specs: `specs/<feature>/spec.swarm.md` (+ feature-scoped supporting docs beside it). Decisions: `decisions/` (numbered ADRs). Execution scratch: `.agents/tasks/` (frames; gitignored). Recall: `.agents/memory/` (`INDEX.md` is the load-*when* map).
-- Project conventions: `.agents/repo-conventions.md` + `## Project facts` above. Project config: `.agents/swarm.config.yaml`.
-- Full SOL / APS / passes manuals (not installed — read in the `swarm` repo for the *why*): `<swarm-repo>/docs/`
-
-## Compatibility
-Swarm's skills and this repo's own skills are **real directories in `.claude/skills/`** (the dir Claude Code scans), side by side — no separate home, no symlink bridge. Their names (`pass-*`/`persona-*`/`write-*` for Swarm; `architecture-violations`, `event-bus-and-results`, `state-and-write-paths`, `testing-file-layout`, `documentation-gatekeeper` for this repo) don't collide. An upgrade re-copies Swarm's named skills; the repo's own are untouched. The shared closed-set rules live in `.agents/reference/`; the full SOL/APS/passes manuals (the *why*) are not installed — read them in the `swarm` repo.
+- TypeScript + pnpm + vitest + eslint + dependency-cruiser; entry `bin/swarm.js`,
+  source under `src/{modules,infra,utils}`.
+- **Architecture discipline:** DDD module boundaries — cross-module imports only via a
+  module's root `index.ts`; internals (`models/`/`repositories/`/`services/`) private;
+  one function per use-case/repository file; `src/infra/**` MUST NOT import
+  `src/modules/**` (`infra-isolation`).
+- **The verification gate:** `pnpm deps:validate` (dependency-cruiser) MUST pass with
+  **zero** architectural violations before a cross-module change is done.
+- **Safety:** never delete/rename/overwrite a file without an explicit instruction; no
+  destructive git; no codemods / bulk find-replace / global `--fix`; stage only
+  intentionally-changed files; when unsure, log a `QUESTION` rather than act.
+- **Working discipline:** show-don't-tell (paste real command output as proof); trace
+  blast radius with `pnpm typecheck`; after 3 failed fix attempts, stop and
+  re-strategize.
+- Full conventions: `.agents/repo-conventions.md` · human coding conventions:
+  `docs/07-conventions.md` · architecture: `docs/05-architecture.md` · testing:
+  `docs/06-testing.md`. Project config: `.agents/swarm.config.yaml`.
 
 ## Commands
-<!-- Each `cmd*` slot is the adapter a `VERIFY BY <type>:<adapter>:<artifact>` clause resolves through
-     (the `verify` pass; full reference in the Swarm repo). SOFT control: names what a future launcher WOULD run. -->
-| Slot         | Command                          | Resolves proof types          |
-| ------------ | -------------------------------- | ----------------------------- |
-| cmdTest      | `pnpm test:run`                  | test                          |
-| cmdTypecheck | `pnpm typecheck`                 | static                        |
-| cmdLint      | `pnpm lint`                      | static                        |
-| cmdValidate  | `pnpm deps:validate`             | static (dependency-boundary)  |
-| cmdFormat    | `pnpm format`                    | (format hygiene)              |
+
+| Slot         | Command              | Purpose                        |
+| ------------ | -------------------- | ------------------------------ |
+| cmdTest      | `pnpm test:run`      | run the test suite             |
+| cmdLint      | `pnpm lint`          | static checks                  |
+| cmdTypecheck | `pnpm typecheck`     | types                          |
+| cmdValidate  | `pnpm deps:validate` | dependency-boundary validation |
+| cmdFormat    | `pnpm format`        | format hygiene                 |
+
+An empty or missing slot means **ask** — never invent a command. A Verify item
+whose command cannot be resolved reads Unverified, not Pass. More slots
+(registry: `checks/checks.yaml` in the swarm repo): cmdInstall, cmdBuild,
+cmdBenchmark, cmdSecurity — add a row when needed.
+
+## Agent role
+
+You are an implementation or review worker. Swarm organizes the work; you perform
+the assigned task — and you never review your own implementation.
