@@ -4,6 +4,7 @@ import { ok, err } from '../../../infra/errors/result.ts';
 import { createAppError } from '../../../infra/errors/createAppError.ts';
 import {
     project,
+    emit_error,
     exit_code_for,
     no_workspace_error,
     usage_error,
@@ -105,6 +106,26 @@ describe('project', () => {
         // Exercises the default err-writer branch.
         const code = project({ result: err(createAppError('Boom', 'boom', {})), json: false, render });
         expect(code).toBe(2);
+    });
+});
+
+describe('emit_error', () => {
+    it('writes the message to stderr and returns 2 (non-json)', () => {
+        const c = capture();
+        const code = emit_error(createAppError('Boom', 'broke', {}), false, c.writers);
+        expect(code).toBe(2);
+        expect(c.err).toEqual(['broke\n']);
+        expect(c.out).toEqual([]);
+    });
+
+    it('also writes a machine error object to stdout under --json', () => {
+        const c = capture();
+        emit_error(createAppError('Boom', 'broke', {}), true, c.writers);
+        expect(JSON.parse(c.out[0])).toEqual({ error: 'Boom', message: 'broke' });
+    });
+
+    it('uses the real stderr writer by default (smoke)', () => {
+        expect(emit_error(createAppError('Boom', 'broke', {}), false)).toBe(2);
     });
 });
 

@@ -46,6 +46,47 @@ export function parse_args(argv: string[]): { flags: Map<string, string | boolea
     return { flags, positional };
 }
 
+export type FlagSpec = Readonly<{ booleans: readonly string[]; strings: readonly string[] }>;
+
+/**
+ * Boolean-aware argument parser. Unlike parse_args, a declared boolean flag never swallows the next
+ * token as its value (so `swarm check --json file.md` keeps file.md positional). Flag keys are
+ * returned without their leading dashes (`--force` → `force`, `-i` → `i`).
+ */
+export function parse_flags(argv: string[], spec: FlagSpec): { positional: string[]; flags: Map<string, string | boolean> } {
+    const booleans = new Set(spec.booleans);
+    const strings = new Set(spec.strings);
+    const flags = new Map<string, string | boolean>();
+    const positional: string[] = [];
+    const key = (arg: string) => arg.replace(/^-+/, '');
+
+    for (let i = 0; i < argv.length; i++) {
+        const arg = argv[i];
+        const eq = arg.indexOf('=');
+        if (arg.startsWith('--') && eq > -1) {
+            flags.set(arg.slice(2, eq), arg.slice(eq + 1));
+            continue;
+        }
+        if (booleans.has(arg)) {
+            flags.set(key(arg), true);
+            continue;
+        }
+        if (strings.has(arg)) {
+            const value = argv[i + 1];
+            if (value !== undefined) {
+                flags.set(key(arg), value);
+                i++;
+            }
+            continue;
+        }
+        if (arg.startsWith('-')) {
+            continue; // an unknown flag — ignore rather than mistake it for a positional
+        }
+        positional.push(arg);
+    }
+    return { positional, flags };
+}
+
 /**
  * Recursively find markdown files in a directory.
  * @param {string} dir

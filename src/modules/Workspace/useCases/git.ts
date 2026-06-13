@@ -83,6 +83,18 @@ export function resolve_repo_root(cwd: string = process.cwd()): Result<string, N
 }
 
 /**
+ * The repo's current branch (the default base for a new worktree), or null if detached/unborn.
+ */
+export function current_branch(repoRoot: string): string | null {
+    const result = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' });
+    if (result.status !== 0) {
+        return null;
+    }
+    const branch = (result.stdout || '').trim();
+    return branch.length > 0 && branch !== 'HEAD' ? branch : null;
+}
+
+/**
  * Get the repo directory name (used for worktree path patterns).
  */
 export function get_repo_name(repoRoot: string): string {

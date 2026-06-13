@@ -4,7 +4,7 @@
 // no agent/model path; the boundary test in __tests__/boundary.spec.ts enforces it (AC-014).
 
 // The contract util (AC-001/002)
-export { project, exit_code_for, no_workspace_error, usage_error } from './unixOutcome.ts';
+export { project, emit_error, exit_code_for, no_workspace_error, usage_error } from './unixOutcome.ts';
 
 // check engine (AC-005/006/007/008)
 export { check_spec } from './checkSpec.ts';

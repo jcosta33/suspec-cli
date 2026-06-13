@@ -52,6 +52,17 @@ export type ProjectInput<TValue extends { readonly level: OutcomeLevel }> = Read
     notes?: readonly string[];
 }>;
 
+// Emit an AppError uniformly — message to stderr, a machine error object to stdout under --json,
+// exit 2. Used by project's error arm and by commands for non-engine errors (bad usage, no git
+// repo) that are not an engine Result.
+export function emit_error(error: AppError, json: boolean, writers: OutputWriters = default_writers): ExitCode {
+    writers.err(`${error.message}\n`);
+    if (json) {
+        writers.out(`${JSON.stringify({ error: error._tag, message: error.message })}\n`);
+    }
+    return 2;
+}
+
 export function project<TValue extends { readonly level: OutcomeLevel }>(
     input: ProjectInput<TValue>,
     writers: OutputWriters = default_writers
@@ -61,12 +72,7 @@ export function project<TValue extends { readonly level: OutcomeLevel }>(
     }
 
     if (isErr(input.result)) {
-        const { error } = input.result;
-        writers.err(`${error.message}\n`);
-        if (input.json) {
-            writers.out(`${JSON.stringify({ error: error._tag, message: error.message })}\n`);
-        }
-        return 2;
+        return emit_error(input.result.error, input.json, writers);
     }
 
     const { value } = input.result;

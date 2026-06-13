@@ -13,6 +13,8 @@ export {
 
 export {
     parse_args,
+    parse_flags,
+    type FlagSpec,
     find_markdown_files,
     fzf_select,
     prompt_input,

@@ -1,0 +1,90 @@
+#!/usr/bin/env node
+
+// `swarm worktree <create|list|remove|prune> …` — the launch engine's no-agent command surface
+// (AC-009/010). Operates on a git repo (not a Swarm workspace): it resolves the repo root and works
+// in any git repo, erroring cleanly outside one (AC-002). `swarm worktree` with no subcommand, or
+// `-i`, opens the interactive flow.
+
+import { ok, isErr } from '../../../infra/errors/result.ts';
+import {
+    project,
+    emit_error,
+    usage_error,
+    create_worktree,
+    list_swarm_worktrees,
+    remove_worktree,
+    prune_worktrees,
+} from '../../Core/useCases/index.ts';
+import { resolve_repo_root, current_branch } from '../../Workspace/useCases/index.ts';
+import { parse_flags } from '../../Terminal/useCases/index.ts';
+import { format_worktrees } from '../../Tui/services/render.ts';
+
+export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
+    const { positional, flags } = parse_flags(argv, {
+        booleans: ['--force', '--json', '-i', '--interactive'],
+        strings: ['--base', '--task'],
+    });
+    const json = flags.get('json') === true;
+    const interactive = flags.get('i') === true || flags.get('interactive') === true;
+    const force = flags.get('force') === true;
+    const baseFlag = flags.get('base');
+    const taskFlag = flags.get('task');
+    const base = typeof baseFlag === 'string' ? baseFlag : undefined;
+    const taskSlug = typeof taskFlag === 'string' ? taskFlag : undefined;
+    const subcommand = positional[0];
+
+    /* v8 ignore start -- interactive dispatch is the thin shell; the flow logic is tested via the mock Prompter */
+    if ((interactive || subcommand === undefined) && process.stdout.isTTY === true && !json) {
+        const [flowModule, prompterModule] = await Promise.all([
+            import('../../Tui/useCases/worktreeFlow.ts'),
+            import('../../Tui/useCases/prompter.ts'),
+        ]);
+        return flowModule.run_worktree_flow(prompterModule.create_clack_prompter(), { cwd });
+    }
+    /* v8 ignore stop */
+
+    const rootResult = resolve_repo_root(cwd);
+    if (isErr(rootResult)) {
+        return emit_error(rootResult.error, json);
+    }
+    const repoRoot = rootResult.value;
+
+    if (subcommand === 'create') {
+        const slug = positional[1];
+        if (slug === undefined) {
+            return emit_error(usage_error('usage: swarm worktree create <slug> [--task <t>] [--base <branch>]'), json);
+        }
+        const baseBranch = base ?? current_branch(repoRoot) ?? 'main';
+        return project({
+            result: create_worktree({ repoRoot, specSlug: slug, taskSlug, baseBranch }),
+            json,
+            render: (report) => `${report.reused ? 'reusing' : 'created'} ${report.branch}\n  ${report.worktreePath}`,
+        });
+    }
+    if (subcommand === 'list') {
+        return project({ result: ok(list_swarm_worktrees(repoRoot)), json, render: (report) => format_worktrees(report.worktrees) });
+    }
+    if (subcommand === 'remove') {
+        const slug = positional[1];
+        if (slug === undefined) {
+            return emit_error(usage_error('usage: swarm worktree remove <slug> [--task <t>] [--force]'), json);
+        }
+        return project({
+            result: remove_worktree({ repoRoot, specSlug: slug, taskSlug, force }),
+            json,
+            render: (report) => `removed ${report.branch}`,
+        });
+    }
+    if (subcommand === 'prune') {
+        return project({ result: prune_worktrees(repoRoot), json, render: () => 'pruned stale worktrees' });
+    }
+    return emit_error(usage_error(`unknown worktree subcommand: ${subcommand} — use create | list | remove | prune`), json);
+}
+
+/* v8 ignore start -- the script entry runs when spawned by the dispatcher, not as a unit */
+if (import.meta.url === `file://${process.argv[1]}`) {
+    void run(process.argv.slice(2)).then((code) => {
+        process.exitCode = code;
+    });
+}
+/* v8 ignore stop */
