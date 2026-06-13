@@ -1,216 +1,111 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
-vi.mock('@clack/prompts', () => ({
-    intro: vi.fn(),
-    outro: vi.fn(),
-    log: { warn: vi.fn(), message: vi.fn(), success: vi.fn(), error: vi.fn() },
-    spinner: vi.fn(() => ({ start: vi.fn(), stop: vi.fn() })),
-    confirm: vi.fn(),
-    isCancel: vi.fn(),
-    cancel: vi.fn(),
-    text: vi.fn(),
-    select: vi.fn(),
-    password: vi.fn(),
-    group: vi.fn(async (prompts: Record<string, () => Promise<unknown>>) => {
-        const results: Record<string, unknown> = {};
-        for (const [key, fn] of Object.entries(prompts)) {
-            results[key] = await fn();
-        }
-        return results;
-    }),
-}));
+import { run } from '../useCases/init.ts';
 
-vi.mock('fs', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('fs')>();
-    return {
-        ...actual,
-        existsSync: vi.fn(),
-        mkdirSync: vi.fn(),
-        cpSync: vi.fn(),
-        readFileSync: vi.fn(),
-        writeFileSync: vi.fn(),
-    };
+let kit: string;
+let target: string;
+
+beforeAll(() => {
+    kit = mkdtempSync(join(tmpdir(), 'swarm-initkit-'));
+    writeFileSync(join(kit, 'AGENTS.md'), 'KIT WORKSPACE AGENTS\n');
+    writeFileSync(join(kit, '.gitignore.additions'), 'node_modules/\n.swarm-cache/');
+    writeFileSync(join(kit, 'status.md'), '# Board\n');
+    writeFileSync(join(kit, 'README.md'), 'KIT README\n');
+    mkdirSync(join(kit, 'specs', 'demo'), { recursive: true });
+    writeFileSync(join(kit, 'specs', 'demo', 'spec.md'), 'demo\n');
+});
+afterAll(() => {
+    rmSync(kit, { recursive: true, force: true });
+});
+beforeEach(() => {
+    target = mkdtempSync(join(tmpdir(), 'swarm-inittarget-'));
+});
+afterEach(() => {
+    rmSync(target, { recursive: true, force: true });
 });
 
-vi.mock('child_process', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('child_process')>();
-    return {
-        ...actual,
-        spawnSync: vi.fn(),
-    };
-});
+async function capture(fn: () => Promise<number>): Promise<{ out: string; code: number }> {
+    const out: string[] = [];
+    const o = vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+        out.push(String(chunk));
+        return true;
+    });
+    const e = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+        const code = await fn();
+        return { out: out.join(''), code };
+    } finally {
+        o.mockRestore();
+        e.mockRestore();
+    }
+}
 
-import * as clack from '@clack/prompts';
-import { existsSync, mkdirSync, cpSync, writeFileSync, readFileSync } from 'fs';
-import { spawnSync } from 'child_process';
-import { cmd_init } from '../useCases/init.ts';
-
-describe('cmd_init', () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
-        vi.spyOn(process, 'exit').mockImplementation((() => {}) as any);
-        (clack.password as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
-        (clack.select as ReturnType<typeof vi.fn>)
-            .mockResolvedValueOnce('claude')
-            .mockResolvedValueOnce('cursor');
-        (clack.text as ReturnType<typeof vi.fn>)
-            .mockResolvedValueOnce('main')
-            .mockResolvedValueOnce('npm test')
-            .mockResolvedValueOnce('tsc --noEmit');
+describe('init command (direct surface, AC-012/016, D-003)', () => {
+    it('an empty target → workspace mode: copies the tree, exit 0', async () => {
+        const { code } = await capture(() => run(['--from', kit], target));
+        expect(code).toBe(0);
+        expect(readFileSync(join(target, 'AGENTS.md'), 'utf8')).toBe('KIT WORKSPACE AGENTS\n');
+        expect(existsSync(join(target, 'specs/demo/spec.md'))).toBe(true);
+        expect(readFileSync(join(target, '.gitignore'), 'utf8')).toContain('node_modules/');
     });
 
-    afterEach(() => {
-        vi.restoreAllMocks();
+    it('a non-empty repo → footprint mode: merges .gitignore + AGENTS pointer, no tree dump', async () => {
+        writeFileSync(join(target, 'package.json'), '{}');
+        const { code } = await capture(() => run(['--from', kit], target));
+        expect(code).toBe(0);
+        expect(existsSync(join(target, 'status.md'))).toBe(false);
+        expect(existsSync(join(target, 'specs'))).toBe(false);
+        expect(readFileSync(join(target, 'AGENTS.md'), 'utf8')).toContain('swarm-starter-kit');
     });
 
-    it('aborts when user declines re-initialization', async () => {
-        (existsSync as ReturnType<typeof vi.fn>).mockReturnValue(true);
-        (clack.confirm as ReturnType<typeof vi.fn>).mockResolvedValue(false);
-        (clack.isCancel as unknown as ReturnType<typeof vi.fn>).mockReturnValue(false);
-
-        const result = await cmd_init('/repo', []);
-
-        expect(result).toBe(0);
-        expect(clack.cancel).toHaveBeenCalledWith('Setup aborted.');
-        expect(mkdirSync).not.toHaveBeenCalled();
+    it('--workspace into a repo with a conflict → skips it (warning, exit 1)', async () => {
+        writeFileSync(join(target, 'README.md'), 'USER README\n');
+        const { code } = await capture(() => run(['--from', kit, '--workspace'], target));
+        expect(code).toBe(1);
+        expect(readFileSync(join(target, 'README.md'), 'utf8')).toBe('USER README\n');
     });
 
-    it('creates directories and config on fresh init', async () => {
-        (existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
-        (spawnSync as ReturnType<typeof vi.fn>).mockReturnValue({
-            status: 0,
-            stdout: 'true',
-        });
-
-        const result = await cmd_init('/repo', []);
-
-        expect(result).toBe(0);
-        expect(mkdirSync).toHaveBeenCalledWith(
-            expect.stringContaining('.agents'),
-            { recursive: true }
-        );
-        expect(writeFileSync).toHaveBeenCalledWith(
-            expect.stringContaining('swarm.config.json'),
-            expect.stringContaining('npm test'),
-            'utf8'
-        );
+    it('--on-conflict backup → backs the user file up, exit 0', async () => {
+        writeFileSync(join(target, 'README.md'), 'USER README\n');
+        const { code } = await capture(() => run(['--from', kit, '--workspace', '--on-conflict', 'backup'], target));
+        expect(code).toBe(0);
+        expect(readFileSync(join(target, 'README.md.swarm-bak'), 'utf8')).toBe('USER README\n');
+        expect(readFileSync(join(target, 'README.md'), 'utf8')).toBe('KIT README\n');
     });
 
-    it('enables git rerere when not already enabled', async () => {
-        (existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
-        (spawnSync as ReturnType<typeof vi.fn>)
-            .mockReturnValueOnce({ status: 0, stdout: 'main' }) // branch --show-current
-            .mockReturnValueOnce({ status: 0, stdout: '' }) // rerere check
-            .mockReturnValueOnce({ status: 0, stdout: '' }); // rerere enable
-
-        await cmd_init('/repo', []);
-
-        const calls = (spawnSync as ReturnType<typeof vi.fn>).mock.calls;
-        expect(calls[1]).toEqual([
-            'git',
-            ['config', 'rerere.enabled'],
-            { cwd: '/repo', encoding: 'utf8' },
-        ]);
-        expect(calls[2]).toEqual([
-            'git',
-            ['config', 'rerere.enabled', 'true'],
-            { cwd: '/repo', encoding: 'utf8' },
-        ]);
+    it('--force overwrites a conflict, exit 0', async () => {
+        writeFileSync(join(target, 'README.md'), 'USER README\n');
+        const { code } = await capture(() => run(['--from', kit, '--workspace', '--force'], target));
+        expect(code).toBe(0);
+        expect(readFileSync(join(target, 'README.md'), 'utf8')).toBe('KIT README\n');
     });
 
-    it('writes correct config structure', async () => {
-        (existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
-        (spawnSync as ReturnType<typeof vi.fn>).mockReturnValue({
-            status: 0,
-            stdout: 'true',
-        });
-
-        await cmd_init('/repo', []);
-
-        const [configPath, configContent] = (
-            writeFileSync as ReturnType<typeof vi.fn>
-        ).mock.calls[0] as [string, string, string];
-
-        expect(configPath).toContain('swarm.config.json');
-        const parsed = JSON.parse(configContent) as {
-            commands: Record<string, string>;
-            agentRules: string[];
-            defaultAgent: string;
-            defaultEditor: string;
-        };
-        expect(parsed.commands.install).toBe('npm install');
-        expect(parsed.commands.test).toBe('npm test');
-        expect(parsed.commands.typecheck).toBe('tsc --noEmit');
-        expect(parsed.defaultAgent).toBe('claude');
-        expect(parsed.defaultEditor).toBe('cursor');
+    it('--on-conflict overwrite replaces a conflict, exit 0', async () => {
+        writeFileSync(join(target, 'README.md'), 'USER README\n');
+        const { code } = await capture(() => run(['--from', kit, '--workspace', '--on-conflict', 'overwrite'], target));
+        expect(code).toBe(0);
+        expect(readFileSync(join(target, 'README.md'), 'utf8')).toBe('KIT README\n');
     });
 
-    it('saves API keys to .env if provided', async () => {
-        (existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
-        (spawnSync as ReturnType<typeof vi.fn>).mockReturnValue({ status: 0, stdout: 'true' });
-        (clack.password as ReturnType<typeof vi.fn>)
-            .mockResolvedValueOnce('sk-ant-123')
-            .mockResolvedValueOnce('sk-proj-456');
-
-        await cmd_init('/repo', []);
-
-        const calls = (writeFileSync as ReturnType<typeof vi.fn>).mock.calls;
-        const envCall = calls.find(call => call[0].endsWith('.env'));
-        expect(envCall).toBeTruthy();
-        expect(envCall[1]).toContain('ANTHROPIC_API_KEY=sk-ant-123');
-        expect(envCall[1]).toContain('OPENAI_API_KEY=sk-proj-456');
+    it('--footprint forces footprint mode even in an empty dir', async () => {
+        const { code } = await capture(() => run(['--from', kit, '--footprint'], target));
+        expect(code).toBe(0);
+        expect(existsSync(join(target, 'specs'))).toBe(false);
+        expect(existsSync(join(target, 'AGENTS.md'))).toBe(true);
     });
 
-    it('re-initializes when user confirms overwrite', async () => {
-        (existsSync as ReturnType<typeof vi.fn>).mockReturnValue(true);
-        (readFileSync as ReturnType<typeof vi.fn>).mockReturnValue('');
-        (clack.confirm as ReturnType<typeof vi.fn>).mockResolvedValue(true);
-        (clack.isCancel as unknown as ReturnType<typeof vi.fn>).mockReturnValue(false);
-        (spawnSync as ReturnType<typeof vi.fn>).mockReturnValue({ status: 0, stdout: 'true' });
-
-        const result = await cmd_init('/repo', []);
-        expect(result).toBe(0);
-        expect(writeFileSync).toHaveBeenCalled();
+    it('accepts a positional target directory', async () => {
+        const { code } = await capture(() => run(['--from', kit, 'sub'], target));
+        expect(code).toBe(0);
+        expect(existsSync(join(target, 'sub', 'AGENTS.md'))).toBe(true);
     });
 
-    it('reads existing API keys from .env', async () => {
-        (existsSync as ReturnType<typeof vi.fn>)
-            .mockReturnValueOnce(false) // agentsDir
-            .mockReturnValueOnce(true)  // envPath
-            .mockReturnValueOnce(false) // agentsDir again
-            .mockReturnValueOnce(false) // tasksDir etc.
-            .mockReturnValueOnce(false);
-        (readFileSync as ReturnType<typeof vi.fn>).mockReturnValue('ANTHROPIC_API_KEY=existing\nOPENAI_API_KEY=existing');
-        (spawnSync as ReturnType<typeof vi.fn>).mockReturnValue({ status: 0, stdout: 'true' });
-
-        await cmd_init('/repo', []);
-        expect(readFileSync).toHaveBeenCalledWith(expect.stringContaining('.env'), 'utf8');
-    });
-
-    it('skips scaffold when scaffold dir does not exist', async () => {
-        (existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
-        (spawnSync as ReturnType<typeof vi.fn>).mockReturnValue({ status: 0, stdout: 'true' });
-        await cmd_init('/repo', []);
-        expect(cpSync).not.toHaveBeenCalled();
-    });
-
-    it('handles git rerere already enabled', async () => {
-        (existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
-        (spawnSync as ReturnType<typeof vi.fn>)
-            .mockReturnValueOnce({ status: 0, stdout: 'main' })
-            .mockReturnValueOnce({ status: 0, stdout: 'true' });
-        await cmd_init('/repo', []);
-        const calls = (spawnSync as ReturnType<typeof vi.fn>).mock.calls;
-        expect(calls.length).toBe(2);
-    });
-
-    it('handles git rerere enable failure', async () => {
-        (existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
-        (spawnSync as ReturnType<typeof vi.fn>)
-            .mockReturnValueOnce({ status: 0, stdout: 'main' })
-            .mockReturnValueOnce({ status: 0, stdout: '' })
-            .mockReturnValueOnce({ status: 1, stderr: 'error' });
-        await cmd_init('/repo', []);
-        expect(spawnSync).toHaveBeenCalledTimes(3);
+    it('--json emits a parseable report', async () => {
+        const { code, out } = await capture(() => run(['--from', kit, '--json'], target));
+        expect(code).toBe(0);
+        expect(JSON.parse(out)).toMatchObject({ level: 'clean', mode: 'workspace' });
     });
 });
