@@ -14,16 +14,22 @@
   (a claim without output counts as unverified); fill its `## Run summary`;
   re-read your own diff as a skeptic before handoff. Guide:
   `.agents/skills/implement-task/`.
-- `scaffold/` is this CLI's `swarm init` payload — a full copy of the
-  swarm-starter-kit repo (resync = make `diff -rq scaffold ../swarm-starter-kit`
-  report only `.git`); its `advanced/` doubles as the local reference cards
-  (SOL notation, checks). The checks contract this CLI implements lives in the
-  swarm repo: `checks/checks.yaml` (v0.4.1).
+- swarm-cli is the **reconcile-only harness** (swarm ADR-0077): it prepares,
+  checks, and reconciles the Swarm loop and never runs the model loop. Surface:
+  `init · check · worktree · status · new` (+ `help`), each a direct command and
+  an interactive TUI flow (`-i`; `swarm` with no args opens the dashboard).
+  `swarm init` clones the swarm-starter-kit (no vendored copy lives here). The
+  checks contract this CLI implements (C001–C011) lives in the swarm repo,
+  `checks/checks.yaml` (v0.4.1), reimplemented in code at
+  `src/modules/Core/services/checksContract.ts` and drift-guarded against it.
 
 ## Project facts
 
-- TypeScript + pnpm + vitest + eslint + dependency-cruiser; entry `bin/swarm.js`,
-  source under `src/{modules,infra,utils}`.
+- TypeScript, pnpm, vitest, eslint, dependency-cruiser; entry `bin/swarm.js` →
+  `src/index.ts` (the in-process dispatcher). Modules: `Core` (the four engines and the
+  `unixOutcome` contract), `Sol` (the plain-form spec parser), `Workspace` (git worktrees),
+  `Terminal` (arg parsing), `Commands` (the thin wrappers), `Tui` (the interactive flows and
+  renderers). `src/infra` is the `Result`/`AppError` algebra.
 - **Architecture discipline:** DDD module boundaries — cross-module imports only via a
   module's root `index.ts`; internals (`models/`/`repositories/`/`services/`) private;
   one function per use-case/repository file; `src/infra/**` MUST NOT import
@@ -37,9 +43,9 @@
   blast radius with `pnpm typecheck`; after 3 failed fix attempts, stop and
   re-strategize.
 - Repo-specific engineering guides live beside `implement-task` in
-  `.agents/skills/` (`architecture-violations`, `event-bus-and-results`,
-  `state-and-write-paths`, `testing-file-layout`); Claude Code reads them via
-  the `.claude/skills` symlink. Domain terms: `.agents/memory/glossary.md`.
+  `.agents/skills/` (`architecture-violations`, `testing-file-layout`); Claude
+  Code reads them via the `.claude/skills` symlink. Domain terms:
+  `.agents/memory/glossary.md`.
 - Full conventions: `.agents/repo-conventions.md` · human coding conventions:
   `docs/07-conventions.md` · architecture: `docs/05-architecture.md` · testing:
   `docs/06-testing.md`. (The CLI reads/writes a consumer-side `swarm.config.json`

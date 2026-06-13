@@ -1,180 +1,103 @@
-# Swarm CLI
+# swarm-cli
 
-The reference CLI for the [Swarm framework](https://github.com/jcosta33/swarm) — the quality-of-life
-automation around Swarm's spec-and-review workflow. It implements the checks contract in
-[`swarm/checks/checks.yaml`](https://github.com/jcosta33/swarm/blob/main/checks/checks.yaml) and tracks
-the command surface in [`swarm/docs/reference/future-cli.md`](https://github.com/jcosta33/swarm/blob/main/docs/reference/future-cli.md);
-its own specs and reviews live in the family workspace, [swarm-hq](https://github.com/jcosta33/swarm-hq).
+The reference CLI for the [Swarm framework](https://github.com/jcosta33/swarm) — a **reconcile-only
+harness** for spec-driven agent work. It implements the checks contract in
+[`swarm/checks/checks.yaml`](https://github.com/jcosta33/swarm/blob/main/checks/checks.yaml); its own
+specs and reviews live in the family workspace, [swarm-hq](https://github.com/jcosta33/swarm-hq)
+(the design of record is `swarm/docs/adrs/0077`).
 
-Operationally it is an agentic toolkit for orchestrating AI coding agents in isolated git worktrees:
-it boots one **sandboxed worktree per task**, drives each session from a Markdown task file, and exposes
-context-compression, codebase-analysis, and orchestration utilities so agents can do useful work without
-trampling your main checkout.
+swarm-cli **prepares, checks, and reconciles** the work around the Swarm loop — it never runs the
+model loop itself. Every flow is available two ways: a **direct, scriptable command** and a
+**beautiful interactive TUI**.
 
-> **Note — command surface in flux.** The Command Reference below documents the *intended*
-> surface: **many of these commands are planned and not yet built — running one prints
-> `Unknown command`.** The implemented set is small (see `swarm help` for what actually
-> dispatches). The commands and the task-file layout also predate the 2026 framework
-> repositioning and do not yet match the [future-cli](https://github.com/jcosta33/swarm/blob/main/docs/reference/future-cli.md)
-> contract or the "code repos stay clean" model (workspace artifacts live in swarm-hq, not in the
-> code repo). Realigning the reference, `swarm help`, and the command surface is tracked as open
-> work; treat this README's command reference as transitional.
+## Requirements
 
----
-
-## 🚀 Quick Start
-
-### Requirements
-
-- **Node.js ≥ 22.6.0** (the launcher `bin/swarm.js` runs the TypeScript sources via `tsx` and guards the version explicitly — older Node refuses to start)
+- **Node.js ≥ 22.6** (the sources run via `--experimental-strip-types`; `bin/swarm.js` guards the version)
 - **git** ≥ 2.5 (for `git worktree`)
-- A package manager (`pnpm` recommended, `npm` works as a fallback)
+- `pnpm` recommended (`npm` works as a fallback)
 
-### Install
-
-```bash
-# from the repo root
-npm link
-# or
-npm install -g swarm-cli
-```
-
-### First run
+## Install
 
 ```bash
-swarm init        # scaffold .agents/, swarm.config.json, enable git rerere
-swarm doctor      # verify your environment is wired up
-swarm             # launch the interactive dashboard
+npm install -g swarm-cli   # or, from a checkout: npm link
 ```
 
-Running `swarm` with no arguments opens an interactive TUI. You can also drive every command directly:
+## Quick start
 
 ```bash
-swarm new my-feature "Implement the new billing module"
-swarm list
-swarm open my-feature
-swarm validate
-swarm pr my-feature
+swarm                       # open the interactive dashboard
+swarm init                  # scaffold a Swarm workspace from the starter kit
+swarm check                 # lint every spec in the workspace
+swarm status                # the workspace board — specs, tasks, reviews, gaps
+swarm new task --from SPEC-checkout --scope AC-001,AC-002
+swarm worktree create checkout
 ```
 
-> **Tip:** `swarm <agent-name>` (e.g. `swarm claude`, `swarm codex`) launches a supported agent CLI inside the current worktree with a colourful banner. If the agent is missing, Swarm offers to install it.
+Run any command with `-i` for its interactive form (`swarm check -i`). The interactive surface
+**never engages** when output is piped or `--json` is set, so scripts and CI stay non-interactive.
 
----
+## The two surfaces
 
-## 🧠 Core Concepts
+Each command is both a Unix part and an interactive flow:
 
-- **Sandboxing (Worktrees):** Agents never edit your primary checkout. Swarm provisions a dedicated `git worktree` (and branch `agent/<slug>`) per task. The main repo stays clean and uncommitted work stays safe.
-- **Task-Driven:** Every session is rooted in a Markdown task file at `.agents/tasks/<slug>.md` containing the objective, plan, decisions, blockers, and a self-review checklist.
-- **Empirical Verification:** Tasks are not "done" until the self-review section contains pasted console output (`pnpm typecheck`, `pnpm test:run`, `pnpm deps:validate`).
-- **State Management:** Active sandboxes live in `.agents/state.json` (PID, status, agent, timestamps). Telemetry is appended to a SQLite DB at `.agents/logs/telemetry.db`.
-- **Configuration:** `swarm.config.json` at the repo root holds default branch, agent, terminal backend, slug rules, and per-agent command/args. `swarm init` writes a sensible starter file.
+- **Direct** — `--json` machine output, exit codes (`0` clean · `1` warnings · `2` error),
+  stdout-for-data / stderr-for-messages, `--no-workspace` degradation. Compose it in scripts and CI.
+- **Interactive** — `swarm` with no command opens a dashboard that reaches every flow; any command
+  takes `-i`. Prompts, live progress, and coloured, per-finding feedback.
 
----
+## Commands
 
-## 🛠️ Command Reference
+| Command                                        | What it does                                                             |
+| ---------------------------------------------- | ------------------------------------------------------------------------ |
+| `swarm init [dir]`                             | Scaffold a workspace from the swarm-starter-kit, conflict-safe           |
+| `swarm check [file]`                           | Lint one spec (positional), or the whole-workspace verdict (no arg)      |
+| `swarm worktree <create\|list\|remove\|prune>` | Manage isolated task worktrees on `swarm/<spec-slug>` branches           |
+| `swarm status`                                 | A read-only derived board over specs ← tasks ← reviews                   |
+| `swarm new <task\|spec>`                       | Cut a task packet from a spec (scope never invented), or scaffold a spec |
+| `swarm help`                                   | This reference                                                           |
 
-### Setup & lifecycle
+### `swarm init`
 
-- `init` — Scaffold `.agents/`, write `swarm.config.json`, enable `git rerere`.
-- `new <slug> [title] [--launch] [--type <kind>]` — Create a sandbox worktree and seeded task file. `--launch` auto-spawns the configured agent.
-- `open <slug>` — Reopen an existing sandbox terminal.
-- `list` — List active sandboxes with status, PID, and backend.
-- `show <slug>` — Detailed metadata, dirtiness, and telemetry summary.
-- `status <slug>` — Rich runtime status: process state, working-tree dirtiness, recent telemetry.
-- `task <slug>` — Append human feedback / hints to the sandbox's task file.
-- `pick [action]` — Fuzzy-finder over sandboxes; default action is `open` (others: `new`, `focus`, `remove`, `show`).
-- `focus <slug>` — Open the sandbox worktree in your default editor.
-- `path <slug>` — Print the absolute filesystem path of a sandbox worktree.
-- `remove <slug> [--force]` — Forcefully remove a sandbox and its worktree.
-- `prune` — Clean up merged or orphaned sandboxes.
-- `merge <branch>` — Merge a branch into the current one with structured conflict reporting.
-- `pr <slug>` — Auto-commit and open a GitHub PR populated from the task file.
-- `health` — Quick pre-flight environment check.
-- `doctor` — Deeper diagnostics (Node version, git, pnpm/npm, rerere, `.agents/`, state, worktrees, telemetry DB).
+Clones the [swarm-starter-kit](https://github.com/jcosta33/swarm-starter-kit) and copies it into the
+target — **never overwriting your content by default**. An existing file is _skipped_ (kept), unless
+you pass `--force` or `--on-conflict overwrite|backup`. `.gitignore` and `AGENTS.md` _merge_ a Swarm
+block rather than skip. An empty directory gets the full workspace; an existing code repo gets the
+minimal footprint (`--workspace` / `--footprint` force the layout). `--from <path|url>` overrides the
+kit source. Re-running is idempotent.
 
-### Validation & test loops
+### `swarm check`
 
-- `validate` — Run the configured lint/typecheck commands with output truncated for LLM context limits.
-- `test [...vitest-args]` — Run Vitest with smart log truncation.
-- `test-radius <file>` — Compute the blast radius of a file and run only the affected specs.
-- `daemon` — Background watcher that re-runs `test-radius` on file save (debounced).
-- `repro` — Verify a TDD invariant: tests must be modified before source code in the current diff.
-- `format <file>` — Run Prettier on a single file with truncated output.
+Runs the core checks of the contract (C001–C009) over the plain two-tier spec form. `swarm check
+<file>` lints one spec; bare `swarm check` aggregates every `specs/*/spec.md` into one
+`clean`/`blocking` verdict (the CI merge gate) and flags workspace-validity issues (a leftover
+`{{placeholder}}`, a missing `templates/`). `--json` emits the diagnostics; no file is written.
 
-### Context, search & analysis
+### `swarm worktree`
 
-- `compress <file>` — Skeletonize a TypeScript file (drop function bodies, keep signatures + JSDoc) to save LLM tokens.
-- `graph <file>` — Map the import/export dependency graph of a module.
-- `references <symbol> [--path <dir>]` — Fast `git grep` for usages of a symbol.
-- `find <type> <target>` — Semantic-ish search for `class`, `interface`, `function`, `implements`, or `extends`.
-- `docs <file>` — Extract and format JSDoc blocks from a module.
-- `complexity <file>` — Naive cyclomatic complexity heuristic for maintainability gating.
-- `audit-sec <file>` — Scan a single file for dangerous patterns, hardcoded secrets, and common XSS vectors.
-- `dead-code <file>` — Find exported symbols never imported elsewhere in the project.
-- `context [dir]` — Generate a semantic map of exported symbols (for RAG / agent retrieval).
-- `arch` — Lint cross-module boundary invariants (delegates to `pnpm deps:validate`).
+`create <slug>` makes an isolated worktree on `swarm/<spec-slug>` off the base branch (idempotent);
+`list` shows the swarm worktrees; `remove <slug> [--force]` tears one down; `prune` clears stale
+entries. Works in any git repo — no Swarm workspace required.
 
-### Memory, knowledge & telemetry
+### `swarm status`
 
-- `memory <get|set|list>` — Markdown-backed cross-agent memory bank in `.agents/memory/`.
-- `knowledge <query>` — Lightweight search over past tasks, audits, specs, and PRs.
-- `logs [--agent <a>] [--slug <s>] [--follow] [--prune <days>] [--json]` — Query / tail / prune the telemetry SQLite DB.
-- `telemetry` — Aggregated dashboard of session counts, time-to-completion, and exit codes.
+Reads the workspace artifacts and prints a derived board: each spec's tasks, the tasks awaiting a
+review packet, and the needs-human list. Read-only — it writes nothing (the committed `status.md`
+stays hand-edited).
 
-### Multi-agent orchestration
+### `swarm new`
 
-- `epic <file>` — Decompose a markdown checklist epic into one child task per item.
-- `decompose <graph.json> [--dry-run] [--execute] [--max-tasks N]` — Run a typed task DAG: validate, topo-sort, optionally provision worktrees and launch agents in dependency waves.
-- `triage <file>` — Convert an unstructured bug report into a strict, verifiable spec.
-- `review <slug>` — Spawn an adversarial peer-review agent against another agent's branch.
-- `chat <slug> [--message ...] [--from <slug>]` — Append-only IPC log between two agents (read mode if no message).
-- `message <slug> <json>` — Queue a structured JSON message into another agent's mailbox.
-- `lock <claim|release|list>` — Advisory file locking for parallel-agent coordination.
-- `heal` — Self-healing hotfix: if `pnpm typecheck` fails, spawn an emergency-fix agent.
+`new task --from <SPEC-id> [--scope AC-001,AC-002]` cuts a task packet whose Scope is copied from the
+named requirement ids — a scope id that isn't a requirement of the spec is rejected, and an empty
+scope stays empty (never invented). `new spec <slug>` scaffolds a fresh draft spec.
 
-### Production-scale tooling
+## The boundary
 
-- `refactor <dir> <goal>` — Break a massive refactor into 5-file chunks distributed as child tasks.
-- `migrate <file> <lang>` — Spawn a Translator + Verifier agent pair to port code into a new language/framework.
-- `mock <file> <Name>` — Generate a TypeScript mock factory for a specific interface.
-- `fuzz <file> <func>` — Generate and execute unexpected test permutations against a function signature.
-- `chaos <start|stop>` — Toggle latency / network-failure injection via `.env.local` flags.
-- `visual <baseline|compare> [url]` — Screenshot-based visual regression loop (uses Playwright).
-- `screenshot [url]` — Capture a Playwright screenshot of the running app for LLM visual review.
-- `profile <cmd>` — Profile a Node process and assign a Performance Engineer agent to optimize hotspots.
-- `release` — Bump semver, generate changelog from git history, draft release notes.
-- `deps` — Find outdated packages, fetch release notes, generate upgrade tasks.
+swarm-cli is **reconcile-only**. It never runs a model/agent, owns no chat UI, and never issues a
+review verdict — it prepares inputs, checks artifacts, and reconciles state. Running an agent and
+deciding Pass/Fail are the human's (and a later milestone's) job.
 
-### Workspace utilities
+## Further reading
 
-- `ast-rename <file> <Old> <New>` — Structural rename of a symbol across a file.
-- `capabilities` — Print the registered command and adapter capabilities catalog.
-- `dashboard` — Re-open the interactive TUI (also the no-arg default).
-- `help` — Print the condensed command reference.
-
-### Supported agent runtimes
-
-`swarm <agent>` proxies into one of the supported agent CLIs and auto-prompts to install it if missing:
-
-`claude`, `codex`, `droid`, `gemini`, `kimi`, `opencode`, `aider`, `cline`, `swe-agent`.
-
----
-
-## 🔒 Safety & Permissions
-
-Swarm operates under a strict "Show, Don't Tell" philosophy: agents must paste empirical proof (test/lint/typecheck output) into the task file before declaring a task complete. The CLI itself defaults to non-destructive actions — `remove` requires `--force`, and `prune` only removes merged or orphaned worktrees.
-
-When an agent finishes a task, human review is performed against the task file's `## Self-review` section, then `swarm pr <slug>` produces a pull request whose body is generated from the same task file.
-
-For the canonical agent rules — sandbox boundaries, prohibited commands, file-system safety, and architectural invariants — see [`AGENTS.md`](./AGENTS.md) and the skills in [`.agents/skills/`](./.agents/skills/).
-
----
-
-## 📚 Further reading
-
-- [`AGENTS.md`](./AGENTS.md) — the Swarm bootloader: startup, project facts, architecture discipline, command bindings
-- [`.agents/skills/`](./.agents/skills/) — the Swarm `implement-task` guide and this repo's own engineering skills (architecture-violations · event-bus-and-results · state-and-write-paths · testing-file-layout); `.claude/skills` is a symlink to it
-- [`scaffold/`](./scaffold/) — the starter kit `swarm init` installs (a complete Swarm workspace); `scaffold/advanced/` carries the SOL + checks reference cards
-- Toolchain specs — in the Swarm workspace (the sibling `swarm-hq` repo, `specs/`)
-- [`docs/06-testing.md`](./docs/06-testing.md) — Vitest layout and conventions
-- [`docs/07-conventions.md`](./docs/07-conventions.md) — coding patterns and lint-aligned style
+- [`AGENTS.md`](./AGENTS.md) — the bootloader for agents working on this repo
+- [`.agents/repo-conventions.md`](./.agents/repo-conventions.md) — the module architecture + soundness rules
+- The Swarm framework: [swarm](https://github.com/jcosta33/swarm) · the kit: [swarm-starter-kit](https://github.com/jcosta33/swarm-starter-kit) · the workspace: [swarm-hq](https://github.com/jcosta33/swarm-hq)

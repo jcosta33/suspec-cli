@@ -18,5 +18,5 @@ agent-facing rules are not in this `docs/` tree — they live in the live Swarm 
 
 - ➡️ **[`AGENTS.md`](../AGENTS.md)** — the always-loaded bootloader (startup, project facts, command bindings).
 - ➡️ **[`.claude/skills/`](../.claude/skills/)** — the `implement-task` guide plus this repo's engineering skills, each carrying its procedure inline.
-- ➡️ **[`scaffold/advanced/`](../scaffold/advanced/)** — the kit's reference cards (SOL notation, checks)
+- ➡️ **The kit** — [swarm-starter-kit](https://github.com/jcosta33/swarm-starter-kit), which `swarm init` clones (its `advanced/` carries the SOL + checks reference cards).
 - ➡️ **Toolchain specs** — in the Swarm workspace (the sibling `swarm-hq` repo, `specs/`).

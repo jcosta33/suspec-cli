@@ -10,7 +10,7 @@ another project; none of that applies (this repo is a TypeScript CLI, no UI, no 
 - **Cross-module imports target a module's root `index.ts` only.** Deep imports into another module's
   `useCases/`, `events/`, `services/`, `models/`, `repositories/` are forbidden.
 - **Within a module, use relative paths** (`../services/…`, `./useCases/…`) — never import your own
-  module's root barrel. The barrel is the *external* surface, not an intra-module indirection.
+  module's root barrel. The barrel is the _external_ surface, not an intra-module indirection.
 - **`index.ts` re-exports only what another module may consume** — runtime values from `useCases/` and
   typed payloads from `events/`. Do not re-export use-case `type`s across modules; a consumer defines its
   own local type or uses `ReturnType<typeof fn>`.
@@ -21,25 +21,34 @@ another project; none of that applies (this repo is a TypeScript CLI, no UI, no 
   data, B defines its own local type with only the fields it uses. Duplication is intentional — it keeps
   a model change in A from cascading into B, and makes a contract change break at compile time.
 - **One function per `useCase`/`repository` file.** Repositories own I/O; use cases orchestrate them.
-- **`src/infra/**` MUST NOT import `src/modules/**`** (`infra-isolation`). Infra is leaf-level by
-  construction: the `Result<V,E>` algebra, the typed event bus, the logger, the DI container, the store.
+- **`src/infra` MUST NOT import `src/modules`** (`infra-isolation`). Infra is leaf-level by
+  construction — after the M1 realignment it is just the `Result<V, E>` / `AppError` algebra.
 - **The gate:** `pnpm deps:validate` (dependency-cruiser, `.dependency-cruiser.cjs`) MUST pass with
   **zero** architectural violations before a cross-module change is done. Run it after every ~10 files in
   a refactor — it is the `cmdValidate` proof adapter.
 
-> As the repo migrates to the `packages/{core,cli,tui,…}` monorepo, the *discipline* above carries
+> As the repo migrates to the `packages/{core,cli,tui,…}` monorepo, the _discipline_ above carries
 > forward to each package; only the concrete module names change.
+
+## The reconcile-only boundary (ADR-0077)
+
+swarm-cli prepares, checks, and reconciles the Swarm loop — it **never runs the model/agent loop**,
+owns no chat UI, and issues no review verdict. The logic lives in `src/modules/Core` (the four
+engines: check, launch/worktree, reconcile/status, prepare/init+new — plus `unixOutcome`, the
+`--json`/exit-code contract). Two surfaces wrap Core: the thin direct commands (`src/modules/Commands`,
+the Unix path) and the interactive flows (`src/modules/Tui`, over an injected `Prompter`). A boundary
+test (`Core/__tests__/boundary.spec.ts`) fails if any Core module imports an agent path. (The earlier
+agent-loop surface — adapters, agent-state, the event bus, the DI container, the SQLite store — was
+removed in the M1 realignment; deleting that authorized SOL-era code is the one exception to the
+"never delete without instruction" rule above.)
 
 ## Cross-cutting infra (`src/infra/*`)
 
-- **Errors:** at an I/O boundary where a caller would otherwise switch on `error.message`, return
-  `Result<TValue, AppError<'Tag', {…fields}>>` (`ok(...)` / `err(createAppError('Tag', msg, fields))`)
-  and discriminate at the CLI boundary — do not thread a `Result<>` through many layers. Keep `throw`
-  for genuinely unrecoverable failures.
-- **Event bus:** a typed `EventBus`; subscribers register once at boot, use cases `emit`. (Being
-  decoupled from the hardcoded `SwarmEvents` + process-singleton during the redesign.)
-- **DI container:** reserved for true singletons (logger, clock, event bus, ledger). Plain imports
-  elsewhere.
+- **Errors (the only infra):** at an I/O boundary where a caller would otherwise switch on
+  `error.message`, return `Result<TValue, AppError<'Tag', {…fields}>>` (`ok(...)` /
+  `err(createAppError('Tag', msg, fields))`) and discriminate at the CLI boundary — do not thread a
+  `Result<>` through many layers. Keep `throw` for genuinely unrecoverable failures. Output is the
+  contract util's job (`Core/unixOutcome`: data → stdout, messages → stderr, exit 0/1/2), not a logger.
 
 ## TypeScript conventions
 

@@ -9,11 +9,11 @@ description: Apply when creating, moving, or reviewing Vitest spec files (*.spec
 
 All Vitest specs live in **`__tests__/`** directories **inside** the folder that owns the code under test — never beside the source file.
 
-| Production file                    | Spec                                                                                                             |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `useCases/launch-agent.ts`         | `useCases/__tests__/launch-agent.spec.ts`                                                                        |
-| `repositories/config.ts`           | `repositories/__tests__/config.spec.ts`                                                                          |
-| `presentations/views/Dashboard.tsx`| `presentations/views/__tests__/Dashboard.spec.tsx` (if applicable)                                               |
+| Production file                     | Spec                                                               |
+| ----------------------------------- | ------------------------------------------------------------------ |
+| `useCases/check.ts`                 | `useCases/__tests__/check.spec.ts`                                 |
+| `repositories/config.ts`            | `repositories/__tests__/config.spec.ts`                            |
+| `presentations/views/Dashboard.tsx` | `presentations/views/__tests__/Dashboard.spec.tsx` (if applicable) |
 
 ## Reproduction First (Empirical Proof)
 
@@ -39,5 +39,5 @@ From `path/to/__tests__/foo.spec.ts`, import the subject with **`../foo.ts`** (o
 
 ## Anti-patterns
 
-- Placing `*.spec.ts` next to `launch-agent.ts` in `useCases/` (old co-location).
+- Placing `*.spec.ts` next to `check.ts` in `useCases/` (old co-location).
 - Adding `index.ts` barrel files inside `__tests__/`.
