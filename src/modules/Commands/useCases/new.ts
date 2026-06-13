@@ -13,6 +13,7 @@ import {
     scaffold_spec,
 } from '../../Core/useCases/index.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
+import { run_new_flow, create_clack_prompter } from '../../Tui/useCases/index.ts';
 
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
     const { positional, flags } = parse_flags(argv, {
@@ -25,11 +26,7 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
 
     /* v8 ignore start -- interactive dispatch is the thin shell; the flow logic is tested via the mock Prompter */
     if ((interactive || type === undefined) && process.stdout.isTTY === true && !json) {
-        const [flowModule, prompterModule] = await Promise.all([
-            import('../../Tui/useCases/newFlow.ts'),
-            import('../../Tui/useCases/prompter.ts'),
-        ]);
-        return flowModule.run_new_flow(prompterModule.create_clack_prompter(), { workspaceDir: cwd });
+        return run_new_flow(create_clack_prompter(), { workspaceDir: cwd });
     }
     /* v8 ignore stop */
 

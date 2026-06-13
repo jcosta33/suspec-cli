@@ -17,7 +17,7 @@ import {
 } from '../../Core/useCases/index.ts';
 import { resolve_repo_root, current_branch } from '../../Workspace/useCases/index.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
-import { format_worktrees } from '../../Tui/services/render.ts';
+import { format_worktrees, run_worktree_flow, create_clack_prompter } from '../../Tui/useCases/index.ts';
 
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
     const { positional, flags } = parse_flags(argv, {
@@ -35,11 +35,7 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
 
     /* v8 ignore start -- interactive dispatch is the thin shell; the flow logic is tested via the mock Prompter */
     if ((interactive || subcommand === undefined) && process.stdout.isTTY === true && !json) {
-        const [flowModule, prompterModule] = await Promise.all([
-            import('../../Tui/useCases/worktreeFlow.ts'),
-            import('../../Tui/useCases/prompter.ts'),
-        ]);
-        return flowModule.run_worktree_flow(prompterModule.create_clack_prompter(), { cwd });
+        return run_worktree_flow(create_clack_prompter(), { cwd });
     }
     /* v8 ignore stop */
 

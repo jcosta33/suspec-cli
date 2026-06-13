@@ -12,6 +12,7 @@ import { run as run_status } from './modules/Commands/useCases/status.ts';
 import { run as run_new } from './modules/Commands/useCases/new.ts';
 import { run as run_init } from './modules/Commands/useCases/init.ts';
 import { print_help } from './modules/Commands/useCases/help.ts';
+import { run_dashboard_flow, create_clack_prompter } from './modules/Tui/useCases/index.ts';
 
 type CommandRun = (argv: string[], cwd?: string) => Promise<number>;
 
@@ -31,11 +32,7 @@ export async function dispatch(argv: string[], cwd: string = process.cwd()): Pro
     if (argv.length === 0) {
         /* v8 ignore start -- the no-args dashboard is the interactive shell; the dashboard flow logic is tested via the mock Prompter */
         if (process.stdout.isTTY === true) {
-            const [flowModule, prompterModule] = await Promise.all([
-                import('./modules/Tui/useCases/dashboardFlow.ts'),
-                import('./modules/Tui/useCases/prompter.ts'),
-            ]);
-            return flowModule.run_dashboard_flow(prompterModule.create_clack_prompter(), { cwd });
+            return run_dashboard_flow(create_clack_prompter(), { cwd });
         }
         /* v8 ignore stop */
         print_help();

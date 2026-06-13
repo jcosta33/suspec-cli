@@ -6,7 +6,7 @@
 
 import { project, derive_board } from '../../Core/useCases/index.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
-import { format_board } from '../../Tui/services/render.ts';
+import { format_board, run_status_flow, create_clack_prompter } from '../../Tui/useCases/index.ts';
 
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
     const { flags } = parse_flags(argv, { booleans: ['--json', '-i', '--interactive'], strings: [] });
@@ -15,11 +15,7 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
 
     /* v8 ignore start -- interactive dispatch is the thin shell; the flow logic is tested via the mock Prompter */
     if (interactive && process.stdout.isTTY === true && !json) {
-        const [flowModule, prompterModule] = await Promise.all([
-            import('../../Tui/useCases/statusFlow.ts'),
-            import('../../Tui/useCases/prompter.ts'),
-        ]);
-        return flowModule.run_status_flow(prompterModule.create_clack_prompter(), { workspaceDir: cwd });
+        return run_status_flow(create_clack_prompter(), { workspaceDir: cwd });
     }
     /* v8 ignore stop */
 

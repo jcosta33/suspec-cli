@@ -68,9 +68,9 @@ export const CORE_CHECKS: ReadonlyArray<{ id: CheckId; name: string; severity: C
 
 // The five strength words (checks.yaml reconciliation note: 5; SOL form is the same words uppercase).
 // Ordered longest-first so `must not` / `should not` match before `must` / `should`.
-export const STRENGTH_WORDS = ['must not', 'must', 'should not', 'should', 'may'] as const;
+const STRENGTH_WORDS = ['must not', 'must', 'should not', 'should', 'may'] as const;
 
-const STRENGTH_WORD_PATTERN = /\b(?:must not|must|should not|should|may)\b/gi;
+const STRENGTH_WORD_PATTERN = new RegExp(`\\b(?:${STRENGTH_WORDS.join('|')})\\b`, 'gi');
 
 // The Verify line a requirement must carry (C003) — `Verify with:` (simple form) or `VERIFY BY`
 // (SOL form). Anchored to a line start so it is the requirement's own line, not prose.

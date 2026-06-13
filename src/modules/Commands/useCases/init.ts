@@ -15,7 +15,7 @@ import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { project, emit_error, init_workspace } from '../../Core/useCases/index.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
-import { format_init_report } from '../../Tui/services/render.ts';
+import { format_init_report, run_init_flow, create_clack_prompter } from '../../Tui/useCases/index.ts';
 
 const DEFAULT_KIT = 'https://github.com/jcosta33/swarm-starter-kit';
 
@@ -87,11 +87,7 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     try {
         /* v8 ignore start -- interactive dispatch is the thin shell; the flow logic is tested via the mock Prompter */
         if (interactive && process.stdout.isTTY === true && !json) {
-            const [flowModule, prompterModule] = await Promise.all([
-                import('../../Tui/useCases/initFlow.ts'),
-                import('../../Tui/useCases/prompter.ts'),
-            ]);
-            return flowModule.run_init_flow(prompterModule.create_clack_prompter(), { sourceDir, targetDir, mode });
+            return run_init_flow(create_clack_prompter(), { sourceDir, targetDir, mode });
         }
         /* v8 ignore stop */
         return project({ result: init_workspace({ sourceDir, targetDir, policy, mode }), json, render: format_init_report });

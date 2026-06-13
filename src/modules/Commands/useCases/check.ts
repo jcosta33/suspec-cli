@@ -11,7 +11,7 @@ import { resolve, dirname } from 'node:path';
 
 import { check_spec, check_workspace, project, usage_error } from '../../Core/useCases/index.ts';
 import { err } from '../../../infra/errors/result.ts';
-import { format_check_report, format_workspace_report } from '../../Tui/services/render.ts';
+import { format_check_report, format_workspace_report, run_check_flow, create_clack_prompter } from '../../Tui/useCases/index.ts';
 
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
     const json = argv.includes('--json');
@@ -20,11 +20,7 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
 
     /* v8 ignore start -- interactive dispatch is the thin shell; the flow logic is tested via the mock Prompter (checkFlow.spec) */
     if (interactive && process.stdout.isTTY === true && !json) {
-        const [flowModule, prompterModule] = await Promise.all([
-            import('../../Tui/useCases/checkFlow.ts'),
-            import('../../Tui/useCases/prompter.ts'),
-        ]);
-        return flowModule.run_check_flow(prompterModule.create_clack_prompter(), { workspaceDir: cwd });
+        return run_check_flow(create_clack_prompter(), { workspaceDir: cwd });
     }
     /* v8 ignore stop */
 
