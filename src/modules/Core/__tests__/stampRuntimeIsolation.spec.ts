@@ -54,7 +54,10 @@ describe('stamp_runtime_isolation', () => {
             });
             const stampPath = join(dir, '.swarm-runtime.json');
             expect(existsSync(stampPath)).toBe(true);
-            expect(JSON.parse(readFileSync(stampPath, 'utf8'))).toEqual({ portOffset: report.portOffset, port: report.port });
+            expect(JSON.parse(readFileSync(stampPath, 'utf8'))).toEqual({
+                portOffset: report.portOffset,
+                port: report.port,
+            });
         } finally {
             rmSync(dir, { recursive: true, force: true });
         }

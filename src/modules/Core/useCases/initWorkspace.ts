@@ -79,7 +79,9 @@ function write_file(dst: string, content: string): void {
 
 export function init_workspace(input: InitWorkspaceInput): Result<InitReport, AppError> {
     if (!existsSync(input.sourceDir)) {
-        return err(createAppError('InitSourceMissing', `kit source not found: ${input.sourceDir}`, { source: input.sourceDir }));
+        return err(
+            createAppError('InitSourceMissing', `kit source not found: ${input.sourceDir}`, { source: input.sourceDir })
+        );
     }
 
     const written: string[] = [];
@@ -135,7 +137,12 @@ function merge_gitignore(input: InitWorkspaceInput, merged: string[], written: s
 function merge_agents_pointer(input: InitWorkspaceInput, merged: string[], written: string[]): void {
     const target = join(input.targetDir, 'AGENTS.md');
     const existing = existsSync(target) ? readFileSync(target, 'utf8') : '';
-    const next = merge_marker_block({ existing, block: AGENTS_POINTER, startMarker: AGENTS_START, endMarker: AGENTS_END });
+    const next = merge_marker_block({
+        existing,
+        block: AGENTS_POINTER,
+        startMarker: AGENTS_START,
+        endMarker: AGENTS_END,
+    });
     if (next === existing) {
         return;
     }

@@ -18,18 +18,7 @@ export const CONTRACT_VERSION = '0.4.1';
 
 export type CheckSeverity = 'hard-error' | 'warning';
 
-export type CheckId =
-    | 'C001'
-    | 'C002'
-    | 'C003'
-    | 'C004'
-    | 'C005'
-    | 'C006'
-    | 'C007'
-    | 'C008'
-    | 'C009'
-    | 'C010'
-    | 'C011';
+export type CheckId = 'C001' | 'C002' | 'C003' | 'C004' | 'C005' | 'C006' | 'C007' | 'C008' | 'C009' | 'C010' | 'C011';
 
 // Severity per check, the single source inside swarm-cli; a total Record so the lookup needs no
 // fallback. The drift guard reconciles it against swarm/checks/checks.yaml.
@@ -154,7 +143,11 @@ export function check_unique_ids(spec: ParsedSpec): Diagnostic[] {
         const previous = seen.get(requirement.id);
         if (previous !== undefined) {
             diagnostics.push(
-                diagnostic('C001', `requirement id ${requirement.id} appears more than once (also line ${previous})`, requirement.line)
+                diagnostic(
+                    'C001',
+                    `requirement id ${requirement.id} appears more than once (also line ${previous})`,
+                    requirement.line
+                )
             );
             continue;
         }
@@ -168,7 +161,9 @@ export function check_verify_with(spec: ParsedSpec): Diagnostic[] {
     const diagnostics: Diagnostic[] = [];
     for (const requirement of spec.requirements) {
         if (!VERIFY_LINE_PATTERN.test(requirement.body)) {
-            diagnostics.push(diagnostic('C003', `requirement ${requirement.id} has no "Verify with:" line`, requirement.line));
+            diagnostics.push(
+                diagnostic('C003', `requirement ${requirement.id} has no "Verify with:" line`, requirement.line)
+            );
         }
     }
     return diagnostics;
@@ -181,7 +176,11 @@ export function check_one_strength_word(spec: ParsedSpec): Diagnostic[] {
         const count = count_strength_words(requirement.body);
         if (count !== 1) {
             diagnostics.push(
-                diagnostic('C004', `requirement ${requirement.id} states ${count} strength words (expected exactly one)`, requirement.line)
+                diagnostic(
+                    'C004',
+                    `requirement ${requirement.id} states ${count} strength words (expected exactly one)`,
+                    requirement.line
+                )
             );
         }
     }
@@ -238,7 +237,9 @@ export function check_broken_source_link(input: CheckBrokenLinksInput): Diagnost
             continue;
         }
         if (!input.exists(link.raw)) {
-            diagnostics.push(diagnostic('C009', `source/reference does not resolve: ${link.raw}`, link.line === 0 ? null : link.line));
+            diagnostics.push(
+                diagnostic('C009', `source/reference does not resolve: ${link.raw}`, link.line === 0 ? null : link.line)
+            );
         }
     }
     return diagnostics;

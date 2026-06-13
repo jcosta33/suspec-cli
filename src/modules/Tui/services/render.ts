@@ -6,7 +6,12 @@
 import color from 'picocolors';
 
 export type RenderLevel = 'clean' | 'warning' | 'blocking';
-export type RenderDiagnostic = Readonly<{ code: string; severity: 'hard-error' | 'warning'; message: string; line: number | null }>;
+export type RenderDiagnostic = Readonly<{
+    code: string;
+    severity: 'hard-error' | 'warning';
+    message: string;
+    line: number | null;
+}>;
 
 export function format_verdict(level: RenderLevel): string {
     if (level === 'clean') {
@@ -24,7 +29,11 @@ function format_diagnostic(diagnostic: RenderDiagnostic): string {
     return `  ${icon}  ${color.bold(diagnostic.code)}  ${diagnostic.message}${where}`;
 }
 
-export function format_check_report(report: { path: string; level: RenderLevel; diagnostics: readonly RenderDiagnostic[] }): string {
+export function format_check_report(report: {
+    path: string;
+    level: RenderLevel;
+    diagnostics: readonly RenderDiagnostic[];
+}): string {
     const errors = report.diagnostics.filter((d) => d.severity === 'hard-error').length;
     const warnings = report.diagnostics.length - errors;
     const head = `${color.bold(report.path)}  ${format_verdict(report.level)}  ${color.dim(`${String(errors)} errors, ${String(warnings)} warnings`)}`;
@@ -51,7 +60,11 @@ export function format_workspace_report(report: {
 }
 
 export function format_board(board: {
-    specs: readonly { id: string; status: string; tasks: readonly { id: string; status: string; hasReview: boolean; reviewStatus: string | null }[] }[];
+    specs: readonly {
+        id: string;
+        status: string;
+        tasks: readonly { id: string; status: string; hasReview: boolean; reviewStatus: string | null }[];
+    }[];
     tasksWithoutReview: readonly string[];
     needsHuman: readonly string[];
 }): string {
@@ -59,7 +72,9 @@ export function format_board(board: {
     for (const spec of board.specs) {
         lines.push(`${color.bold(spec.id)}  ${color.dim(spec.status)}`);
         for (const task of spec.tasks) {
-            const review = task.hasReview ? color.green(`review: ${task.reviewStatus ?? ''}`) : color.yellow('no review');
+            const review = task.hasReview
+                ? color.green(`review: ${task.reviewStatus ?? ''}`)
+                : color.yellow('no review');
             lines.push(`  • ${task.id}  ${color.dim(task.status)}  ${review}`);
         }
     }
@@ -77,7 +92,10 @@ export function format_worktrees(worktrees: readonly { branch: string; path: str
         return color.dim('(no swarm worktrees)');
     }
     return worktrees
-        .map((wt) => `  ${color.bold(wt.branch)}  ${color.dim(wt.path)}  ${wt.dirty ? color.yellow('dirty') : color.green('clean')}`)
+        .map(
+            (wt) =>
+                `  ${color.bold(wt.branch)}  ${color.dim(wt.path)}  ${wt.dirty ? color.yellow('dirty') : color.green('clean')}`
+        )
         .join('\n');
 }
 

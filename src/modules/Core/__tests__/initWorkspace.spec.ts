@@ -129,7 +129,9 @@ describe('init_workspace — kit without .gitignore.additions', () => {
         const bareKit = mkdtempSync(join(tmpdir(), 'swarm-barekit-'));
         try {
             writeFileSync(join(bareKit, 'AGENTS.md'), 'X\n');
-            const report = assertOk(init_workspace({ sourceDir: bareKit, targetDir: target, policy: 'skip', mode: 'footprint' }));
+            const report = assertOk(
+                init_workspace({ sourceDir: bareKit, targetDir: target, policy: 'skip', mode: 'footprint' })
+            );
             expect(readFileSync(join(target, '.gitignore'), 'utf8')).toContain('.swarm-cache/');
             expect(report.written).toContain('.gitignore');
         } finally {
@@ -140,7 +142,9 @@ describe('init_workspace — kit without .gitignore.additions', () => {
 
 describe('init_workspace — failure', () => {
     it('returns an Err when the kit source is missing', () => {
-        const failure = assertErr(init_workspace({ sourceDir: '/no/such/kit', targetDir: target, policy: 'skip', mode: 'workspace' }));
+        const failure = assertErr(
+            init_workspace({ sourceDir: '/no/such/kit', targetDir: target, policy: 'skip', mode: 'workspace' })
+        );
         expect(failure._tag).toBe('InitSourceMissing');
     });
 });

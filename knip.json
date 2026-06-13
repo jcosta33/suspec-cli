@@ -4,16 +4,8 @@
         "config": "vitest.config.ts",
         "entry": ["src/**/__tests__/*.spec.ts"]
     },
-    "entry": [
-        "bin/swarm.js",
-        "src/index.ts",
-        "src/modules/Commands/useCases/*.ts"
-    ],
-    "project": [
-        "src/**/*.ts",
-        "!src/**/*.spec.ts",
-        "!src/**/*.test.ts"
-    ],
+    "entry": ["bin/swarm.js", "src/index.ts", "src/modules/Commands/useCases/*.ts"],
+    "project": ["src/**/*.ts", "!src/**/*.spec.ts", "!src/**/*.test.ts"],
     "ignoreExportsUsedInFile": true,
     "ignoreBinaries": ["prettier", "playwright", "gh"]
 }

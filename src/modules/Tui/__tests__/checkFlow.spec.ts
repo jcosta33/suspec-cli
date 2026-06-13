@@ -81,7 +81,10 @@ describe('run_check_flow', () => {
 
     it('reports a warning verdict (exit 1) for a spec with only warnings', async () => {
         // drop Non-goals → C005 warning; add a resolvable relative source → exercises the C009 resolver
-        const content = CONFORMANT.replace(/## Non-goals\n\n- nope\.\n\n/, '').replace('  - ADR-0077', '  - ADR-0077\n  - ./neighbor.md');
+        const content = CONFORMANT.replace(/## Non-goals\n\n- nope\.\n\n/, '').replace(
+            '  - ADR-0077',
+            '  - ADR-0077\n  - ./neighbor.md'
+        );
         const path = writeSpec('warn', content);
         writeFileSync(join(ws, 'specs', 'warn', 'neighbor.md'), 'x\n');
         const p = create_mock_prompter({ select: ['file', path] });

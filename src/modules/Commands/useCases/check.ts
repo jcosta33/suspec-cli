@@ -11,7 +11,12 @@ import { resolve, dirname } from 'node:path';
 
 import { check_spec, check_workspace, project, usage_error } from '../../Core/useCases/index.ts';
 import { err } from '../../../infra/errors/result.ts';
-import { format_check_report, format_workspace_report, run_check_flow, create_clack_prompter } from '../../Tui/useCases/index.ts';
+import {
+    format_check_report,
+    format_workspace_report,
+    run_check_flow,
+    create_clack_prompter,
+} from '../../Tui/useCases/index.ts';
 
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
     const json = argv.includes('--json');
@@ -30,7 +35,11 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
             return project({ result: err(usage_error(`file not found: ${file}`)), json, render: format_check_report });
         }
         const exists = (ref: string) => existsSync(resolve(dirname(file), ref));
-        return project({ result: check_spec({ source: readFileSync(file, 'utf8'), path: file, exists }), json, render: format_check_report });
+        return project({
+            result: check_spec({ source: readFileSync(file, 'utf8'), path: file, exists }),
+            json,
+            render: format_check_report,
+        });
     }
 
     return project({ result: check_workspace({ workspaceDir: cwd }), json, render: format_workspace_report });

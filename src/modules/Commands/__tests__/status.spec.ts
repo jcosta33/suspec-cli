@@ -33,9 +33,15 @@ function seed(): void {
     mkdirSync(join(ws, 'specs', 'feat'), { recursive: true });
     writeFileSync(join(ws, 'specs', 'feat', 'spec.md'), '---\ntype: spec\nid: SPEC-feat\nstatus: ready\n---\n');
     mkdirSync(join(ws, 'tasks'), { recursive: true });
-    writeFileSync(join(ws, 'tasks', 't1.md'), '---\ntype: task\nid: TASK-1\nsource: SPEC-feat\nstatus: review-ready\n---\n');
+    writeFileSync(
+        join(ws, 'tasks', 't1.md'),
+        '---\ntype: task\nid: TASK-1\nsource: SPEC-feat\nstatus: review-ready\n---\n'
+    );
     mkdirSync(join(ws, 'reviews'), { recursive: true });
-    writeFileSync(join(ws, 'reviews', 'r1.md'), '---\ntype: review\nid: REV-1\ntask: TASK-1\nstatus: needs-human\n---\n');
+    writeFileSync(
+        join(ws, 'reviews', 'r1.md'),
+        '---\ntype: review\nid: REV-1\ntask: TASK-1\nstatus: needs-human\n---\n'
+    );
 }
 
 describe('status command (direct surface, AC-011)', () => {

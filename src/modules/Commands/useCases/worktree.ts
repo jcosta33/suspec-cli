@@ -58,7 +58,11 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         });
     }
     if (subcommand === 'list') {
-        return project({ result: ok(list_swarm_worktrees(repoRoot)), json, render: (report) => format_worktrees(report.worktrees) });
+        return project({
+            result: ok(list_swarm_worktrees(repoRoot)),
+            json,
+            render: (report) => format_worktrees(report.worktrees),
+        });
     }
     if (subcommand === 'remove') {
         const slug = positional[1];
@@ -74,7 +78,10 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     if (subcommand === 'prune') {
         return project({ result: prune_worktrees(repoRoot), json, render: () => 'pruned stale worktrees' });
     }
-    return emit_error(usage_error(`unknown worktree subcommand: ${subcommand} — use create | list | remove | prune`), json);
+    return emit_error(
+        usage_error(`unknown worktree subcommand: ${subcommand} — use create | list | remove | prune`),
+        json
+    );
 }
 
 /* v8 ignore start -- the script entry runs when spawned by the dispatcher, not as a unit */

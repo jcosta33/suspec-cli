@@ -30,7 +30,10 @@ async function check_one(prompter: Prompter, workspaceDir: string): Promise<numb
         prompter.outro('Nothing to check.');
         return 1;
     }
-    const file = await prompter.select({ message: 'Which spec?', options: specs.map((path) => ({ value: path, label: path })) });
+    const file = await prompter.select({
+        message: 'Which spec?',
+        options: specs.map((path) => ({ value: path, label: path })),
+    });
     if (is_cancelled(file)) {
         prompter.outro('Cancelled.');
         return 1;

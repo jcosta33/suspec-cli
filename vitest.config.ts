@@ -12,9 +12,16 @@ export default defineConfig({
         coverage: {
             provider: 'v8',
             reporter: ['text', 'html', 'json'],
-            include: ['src/modules/**/*'],
-            exclude: ['src/modules/**/index.ts', 'src/modules/**/*.spec.ts', 'src/modules/**/*.md', 'src/modules/**/*.json'],
+            // Cover the product source — the dispatcher + every module. Exclude the barrels
+            // (re-exports, no logic), the specs, and the test-support helpers.
+            include: ['src/**/*.ts'],
+            exclude: ['src/modules/**/index.ts', 'src/**/*.spec.ts', 'src/**/testing/**'],
             all: true,
+            // Near-100%, gated. The documented margin (a few percent of branches) is genuinely
+            // untestable defensive code: the no---from network clone, the detached-HEAD `?? 'main'`
+            // fallbacks, and a worktree-list parse branch. Interactive @clack shells + the spawn-
+            // launch error paths are v8-ignored at the source with justifications.
+            thresholds: { statements: 98, branches: 94, functions: 99, lines: 98 },
         },
     },
 });

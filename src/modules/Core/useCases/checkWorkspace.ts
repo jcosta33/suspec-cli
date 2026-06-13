@@ -62,7 +62,10 @@ function workspace_validity(workspaceDir: string): WorkspaceFinding[] {
         }
     }
     if (!existsSync(join(workspaceDir, 'templates'))) {
-        findings.push({ code: 'missing-template', message: 'no templates/ directory — the core templates are missing' });
+        findings.push({
+            code: 'missing-template',
+            message: 'no templates/ directory — the core templates are missing',
+        });
     }
     return findings;
 }
@@ -87,7 +90,10 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
         specs.push({ path: specPath, level: verdict_for(diagnostics), diagnostics });
 
         if (record.frontmatter.id !== null) {
-            frontmatterIdToPaths.set(record.frontmatter.id, [...(frontmatterIdToPaths.get(record.frontmatter.id) ?? []), specPath]);
+            frontmatterIdToPaths.set(record.frontmatter.id, [
+                ...(frontmatterIdToPaths.get(record.frontmatter.id) ?? []),
+                specPath,
+            ]);
         }
         for (const requirement of record.requirements) {
             requirementIdToPaths.set(requirement.id, [...(requirementIdToPaths.get(requirement.id) ?? []), specPath]);

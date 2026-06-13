@@ -2,12 +2,7 @@
 // a spinner. Pure orchestration over the injected Prompter + the Core engine + Workspace.git, so it
 // is testable with a mock Prompter against a real throwaway git repo.
 
-import {
-    create_worktree,
-    list_swarm_worktrees,
-    remove_worktree,
-    prune_worktrees,
-} from '../../Core/useCases/index.ts';
+import { create_worktree, list_swarm_worktrees, remove_worktree, prune_worktrees } from '../../Core/useCases/index.ts';
 import { resolve_repo_root, current_branch } from '../../Workspace/useCases/index.ts';
 import { isErr } from '../../../infra/errors/result.ts';
 import { type Prompter, is_cancelled } from './prompter.ts';
@@ -56,7 +51,11 @@ async function remove(prompter: Prompter, repoRoot: string): Promise<number> {
     }
     const branch = await prompter.select({
         message: 'Which worktree?',
-        options: report.worktrees.map((wt) => ({ value: wt.branch, label: wt.branch, hint: wt.dirty ? 'dirty' : 'clean' })),
+        options: report.worktrees.map((wt) => ({
+            value: wt.branch,
+            label: wt.branch,
+            hint: wt.dirty ? 'dirty' : 'clean',
+        })),
     });
     if (is_cancelled(branch)) {
         prompter.outro('Cancelled.');

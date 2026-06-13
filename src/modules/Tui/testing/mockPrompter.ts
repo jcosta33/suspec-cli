@@ -33,7 +33,16 @@ function take<TValue>(queue: TValue[] | undefined, kind: string): TValue {
 }
 
 export function create_mock_prompter(script: MockScript = {}): MockPrompter {
-    const calls: MockCalls = { intros: [], outros: [], notes: [], infos: [], successes: [], warns: [], errors: [], spinnerMessages: [] };
+    const calls: MockCalls = {
+        intros: [],
+        outros: [],
+        notes: [],
+        infos: [],
+        successes: [],
+        warns: [],
+        errors: [],
+        spinnerMessages: [],
+    };
     const selects = [...(script.select ?? [])];
     const multiselects = [...(script.multiselect ?? [])];
     const confirms = [...(script.confirm ?? [])];
@@ -49,9 +58,14 @@ export function create_mock_prompter(script: MockScript = {}): MockPrompter {
         warn: (message) => calls.warns.push(message),
         error: (message) => calls.errors.push(message),
         // Defer take() into the promise chain so an under-scripted prompt rejects (not a sync throw).
-        select: () => Promise.resolve().then(() => take<string | Cancelled>(selects as (string | Cancelled)[], 'select')),
-        multiselect: () => Promise.resolve().then(() => take<string[] | Cancelled>(multiselects as (string[] | Cancelled)[], 'multiselect')),
-        confirm: () => Promise.resolve().then(() => take<boolean | Cancelled>(confirms as (boolean | Cancelled)[], 'confirm')),
+        select: () =>
+            Promise.resolve().then(() => take<string | Cancelled>(selects as (string | Cancelled)[], 'select')),
+        multiselect: () =>
+            Promise.resolve().then(() =>
+                take<string[] | Cancelled>(multiselects as (string[] | Cancelled)[], 'multiselect')
+            ),
+        confirm: () =>
+            Promise.resolve().then(() => take<boolean | Cancelled>(confirms as (boolean | Cancelled)[], 'confirm')),
         text: () => Promise.resolve().then(() => take<string | Cancelled>(texts as (string | Cancelled)[], 'text')),
         spinner: () => ({
             start: (message) => calls.spinnerMessages.push(message),

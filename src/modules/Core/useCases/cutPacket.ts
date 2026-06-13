@@ -47,7 +47,10 @@ function find_spec(workspaceDir: string, specId: string): FoundSpec | null {
 }
 
 function render_packet(input: { taskId: string; specId: string; specRel: string; scope: readonly string[] }): string {
-    const scopeList = input.scope.length > 0 ? input.scope.map((id) => `- ${id}`).join('\n') : '<!-- add the requirement ids this task covers -->';
+    const scopeList =
+        input.scope.length > 0
+            ? input.scope.map((id) => `- ${id}`).join('\n')
+            : '<!-- add the requirement ids this task covers -->';
     const verifyList =
         input.scope.length > 0 ? input.scope.map((id) => `- [ ] {{command}} (${id})`).join('\n') : '- [ ] {{command}}';
     return `---
@@ -102,13 +105,19 @@ function default_task_id(specId: string): string {
 export function cut_packet(input: CutPacketInput): Result<CutPacketReport, AppError> {
     const spec = find_spec(input.workspaceDir, input.specId);
     if (spec === null) {
-        return err(createAppError('SpecNotFound', `no spec with id ${input.specId} in this workspace`, { specId: input.specId }));
+        return err(
+            createAppError('SpecNotFound', `no spec with id ${input.specId} in this workspace`, {
+                specId: input.specId,
+            })
+        );
     }
 
     const unknown = input.scope.filter((id) => !spec.requirementIds.includes(id));
     if (unknown.length > 0) {
         return err(
-            createAppError('UnknownScope', `scope ids are not requirements of ${input.specId}: ${unknown.join(', ')}`, { unknown })
+            createAppError('UnknownScope', `scope ids are not requirements of ${input.specId}: ${unknown.join(', ')}`, {
+                unknown,
+            })
         );
     }
 

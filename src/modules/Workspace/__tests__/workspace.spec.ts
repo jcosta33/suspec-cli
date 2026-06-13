@@ -4,12 +4,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { execFileSync } from 'child_process';
 
-import {
-    resolve_repo_root,
-    current_branch,
-    worktree_list,
-    is_worktree_dirty,
-} from '../useCases/index.ts';
+import { resolve_repo_root, current_branch, worktree_list, is_worktree_dirty } from '../useCases/index.ts';
 import { assertOk } from '../../../infra/errors/testing/assertOk.ts';
 import { assertErr } from '../../../infra/errors/testing/assertErr.ts';
 
@@ -55,5 +50,16 @@ describe('Workspace git', () => {
         writeFileSync(join(repo, 'scratch.txt'), 'x');
         expect(is_worktree_dirty(repo)).toBe(true);
         expect(is_worktree_dirty(join(repo, 'does-not-exist'))).toBe(false);
+    });
+
+    it('degrades gracefully outside a git repo', () => {
+        const notRepo = realpathSync(mkdtempSync(join(tmpdir(), 'swarm-norepo-')));
+        try {
+            expect(current_branch(notRepo)).toBeNull();
+            expect(worktree_list(notRepo)).toEqual([]);
+            expect(is_worktree_dirty(notRepo)).toBe(false);
+        } finally {
+            rmSync(notRepo, { recursive: true, force: true });
+        }
     });
 });

@@ -19,7 +19,9 @@ afterEach(() => {
 
 describe('scaffold_spec', () => {
     it('writes a draft spec skeleton at specs/<slug>/spec.md', () => {
-        const report = assertOk(scaffold_spec({ workspaceDir: ws, slug: 'checkout', title: 'Checkout flow', owner: 'Jane' }));
+        const report = assertOk(
+            scaffold_spec({ workspaceDir: ws, slug: 'checkout', title: 'Checkout flow', owner: 'Jane' })
+        );
         expect(report.specId).toBe('SPEC-checkout');
         const content = readFileSync(report.path, 'utf8');
         expect(content).toContain('id: SPEC-checkout');

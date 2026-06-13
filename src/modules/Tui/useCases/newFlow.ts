@@ -60,7 +60,10 @@ async function new_task(prompter: Prompter, workspaceDir: string): Promise<numbe
         prompter.outro('Create a spec first.');
         return 1;
     }
-    const specId = await prompter.select({ message: 'From which spec?', options: specs.map((s) => ({ value: s.id, label: s.id })) });
+    const specId = await prompter.select({
+        message: 'From which spec?',
+        options: specs.map((s) => ({ value: s.id, label: s.id })),
+    });
     if (is_cancelled(specId)) {
         prompter.outro('Cancelled.');
         return 1;

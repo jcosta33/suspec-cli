@@ -71,7 +71,9 @@ describe('run_worktree_flow', () => {
     });
 
     it('surfaces a remove failure (dirty worktree, no force) as exit 2', async () => {
-        const create = await run_worktree_flow(create_mock_prompter({ select: ['create'], text: ['dirtyspec'] }), { cwd: repo });
+        const create = await run_worktree_flow(create_mock_prompter({ select: ['create'], text: ['dirtyspec'] }), {
+            cwd: repo,
+        });
         expect(create).toBe(0);
         writeFileSync(join(repo, '.worktrees', 'dirtyspec', 'scratch.txt'), 'x');
         const p = create_mock_prompter({ select: ['remove', 'swarm/dirtyspec'], confirm: [false] });
@@ -81,11 +83,15 @@ describe('run_worktree_flow', () => {
 
     it('bails on cancel at each prompt', async () => {
         expect(await run_worktree_flow(create_mock_prompter({ select: [CANCEL] }), { cwd: repo })).toBe(1);
-        expect(await run_worktree_flow(create_mock_prompter({ select: ['create'], text: [CANCEL] }), { cwd: repo })).toBe(1);
+        expect(
+            await run_worktree_flow(create_mock_prompter({ select: ['create'], text: [CANCEL] }), { cwd: repo })
+        ).toBe(1);
         await run_worktree_flow(create_mock_prompter({ select: ['create'], text: ['x'] }), { cwd: repo });
         expect(await run_worktree_flow(create_mock_prompter({ select: ['remove', CANCEL] }), { cwd: repo })).toBe(1);
         expect(
-            await run_worktree_flow(create_mock_prompter({ select: ['remove', 'swarm/x'], confirm: [CANCEL] }), { cwd: repo })
+            await run_worktree_flow(create_mock_prompter({ select: ['remove', 'swarm/x'], confirm: [CANCEL] }), {
+                cwd: repo,
+            })
         ).toBe(1);
     });
 

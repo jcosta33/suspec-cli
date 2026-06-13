@@ -18,14 +18,7 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
     // ── Ignores ──────────────────────────────────────────────────────────────
     {
-        ignores: [
-            'node_modules/',
-            'dist/',
-            'build/',
-            'coverage/',
-            'scaffold/',
-            '**/*.md',
-        ],
+        ignores: ['node_modules/', 'dist/', 'build/', 'coverage/', 'scaffold/', '**/*.md'],
     },
 
     // ── Base configs ─────────────────────────────────────────────────────────
@@ -151,7 +144,7 @@ export default tseslint.config(
                     message: '`enum` is forbidden. Use an `as const` object instead (AGENTS.md L147).',
                 },
                 {
-                    selector: "TSAsExpression > TSAnyKeyword",
+                    selector: 'TSAsExpression > TSAnyKeyword',
                     message:
                         '`as any` is forbidden. Use `unknown` + narrowing, `satisfies`, or runtime validation at the I/O boundary.',
                 },

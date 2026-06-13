@@ -33,4 +33,3 @@ export function split_frontmatter(source: string): Result<FrontmatterSplit, Pars
         })
     );
 }
-

@@ -26,8 +26,16 @@ export type Prompter = Readonly<{
     error: (message: string) => void;
     // Values are strings (command names, requirement ids, slugs) — keeps clack's conditional Option
     // type resolvable and the surface simple. Callers map the chosen string back to meaning.
-    select: (input: { message: string; options: readonly Choice<string>[]; initialValue?: string }) => Promise<string | Cancelled>;
-    multiselect: (input: { message: string; options: readonly Choice<string>[]; required?: boolean }) => Promise<string[] | Cancelled>;
+    select: (input: {
+        message: string;
+        options: readonly Choice<string>[];
+        initialValue?: string;
+    }) => Promise<string | Cancelled>;
+    multiselect: (input: {
+        message: string;
+        options: readonly Choice<string>[];
+        required?: boolean;
+    }) => Promise<string[] | Cancelled>;
     confirm: (input: { message: string; initialValue?: boolean }) => Promise<boolean | Cancelled>;
     text: (input: { message: string; placeholder?: string; defaultValue?: string }) => Promise<string | Cancelled>;
     spinner: () => Spinner;
@@ -38,7 +46,9 @@ export function is_cancelled(value: unknown): value is Cancelled {
 }
 
 // The real adapter — a thin pass-through to @clack/prompts, mapping its cancel symbol to CANCEL.
-// This shell is intentionally untested (it only forwards); the flow logic is tested via the mock.
+// This shell is intentionally untested (it only forwards to a terminal library); the flow logic is
+// tested via the mock Prompter.
+/* v8 ignore start */
 export function create_clack_prompter(): Prompter {
     return {
         intro: (title) => {
@@ -63,13 +73,25 @@ export function create_clack_prompter(): Prompter {
             log.error(message);
         },
         select: async (input) => {
-            const options = input.options.map((option) => ({ value: option.value, label: option.label, hint: option.hint }));
+            const options = input.options.map((option) => ({
+                value: option.value,
+                label: option.label,
+                hint: option.hint,
+            }));
             const result = await select<string>({ message: input.message, options, initialValue: input.initialValue });
             return isCancel(result) ? CANCEL : result;
         },
         multiselect: async (input) => {
-            const options = input.options.map((option) => ({ value: option.value, label: option.label, hint: option.hint }));
-            const result = await multiselect<string>({ message: input.message, options, required: input.required ?? false });
+            const options = input.options.map((option) => ({
+                value: option.value,
+                label: option.label,
+                hint: option.hint,
+            }));
+            const result = await multiselect<string>({
+                message: input.message,
+                options,
+                required: input.required ?? false,
+            });
             return isCancel(result) ? CANCEL : result;
         },
         confirm: async (input) => {
@@ -77,7 +99,11 @@ export function create_clack_prompter(): Prompter {
             return isCancel(result) ? CANCEL : result;
         },
         text: async (input) => {
-            const result = await text({ message: input.message, placeholder: input.placeholder, defaultValue: input.defaultValue });
+            const result = await text({
+                message: input.message,
+                placeholder: input.placeholder,
+                defaultValue: input.defaultValue,
+            });
             return isCancel(result) ? CANCEL : result;
         },
         spinner: () => {
@@ -96,3 +122,4 @@ export function create_clack_prompter(): Prompter {
         },
     };
 }
+/* v8 ignore stop */

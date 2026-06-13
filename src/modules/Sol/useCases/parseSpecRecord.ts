@@ -43,7 +43,10 @@ export type ParseSpecRecordInput = Readonly<{
     path: string;
 }>;
 
-export type ParseSpecRecordResult = Result<SpecRecord, AppError<'ParseFailure', { reason: string; line: number | null }>>;
+export type ParseSpecRecordResult = Result<
+    SpecRecord,
+    AppError<'ParseFailure', { reason: string; line: number | null }>
+>;
 
 const REQUIREMENT_HEADING = /^###\s+([A-Z][A-Z0-9]*-\d+)\b/;
 const SECTION_HEADING = /^##\s+(.+?)\s*$/;

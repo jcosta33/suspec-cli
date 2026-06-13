@@ -52,7 +52,10 @@ describe('run_new_flow', () => {
 
     it('cuts a task with empty scope when the spec has no requirements', async () => {
         mkdirSync(join(ws, 'specs', 'bare'), { recursive: true });
-        writeFileSync(join(ws, 'specs', 'bare', 'spec.md'), '---\ntype: spec\nid: SPEC-bare\nstatus: draft\n---\n\n## Intent\n\nnone\n');
+        writeFileSync(
+            join(ws, 'specs', 'bare', 'spec.md'),
+            '---\ntype: spec\nid: SPEC-bare\nstatus: draft\n---\n\n## Intent\n\nnone\n'
+        );
         const p = create_mock_prompter({ select: ['task', 'SPEC-bare'] });
         expect(await run_new_flow(p, { workspaceDir: ws })).toBe(0);
         expect(p.calls.successes.some((s) => s.includes('0 scoped'))).toBe(true);
@@ -83,7 +86,9 @@ describe('run_new_flow', () => {
     });
 
     it('surfaces a packet conflict as exit 2', async () => {
-        await run_new_flow(create_mock_prompter({ select: ['task', 'SPEC-x'], multiselect: [['AC-001']] }), { workspaceDir: ws });
+        await run_new_flow(create_mock_prompter({ select: ['task', 'SPEC-x'], multiselect: [['AC-001']] }), {
+            workspaceDir: ws,
+        });
         const p = create_mock_prompter({ select: ['task', 'SPEC-x'], multiselect: [['AC-002']] });
         expect(await run_new_flow(p, { workspaceDir: ws })).toBe(2);
         expect(p.calls.errors.length).toBeGreaterThan(0);
@@ -91,11 +96,17 @@ describe('run_new_flow', () => {
 
     it('bails on cancel at each prompt', async () => {
         expect(await run_new_flow(create_mock_prompter({ select: [CANCEL] }), { workspaceDir: ws })).toBe(1);
-        expect(await run_new_flow(create_mock_prompter({ select: ['spec'], text: [CANCEL] }), { workspaceDir: ws })).toBe(1);
-        expect(await run_new_flow(create_mock_prompter({ select: ['spec'], text: ['s', CANCEL] }), { workspaceDir: ws })).toBe(1);
+        expect(
+            await run_new_flow(create_mock_prompter({ select: ['spec'], text: [CANCEL] }), { workspaceDir: ws })
+        ).toBe(1);
+        expect(
+            await run_new_flow(create_mock_prompter({ select: ['spec'], text: ['s', CANCEL] }), { workspaceDir: ws })
+        ).toBe(1);
         expect(await run_new_flow(create_mock_prompter({ select: ['task', CANCEL] }), { workspaceDir: ws })).toBe(1);
         expect(
-            await run_new_flow(create_mock_prompter({ select: ['task', 'SPEC-x'], multiselect: [CANCEL] }), { workspaceDir: ws })
+            await run_new_flow(create_mock_prompter({ select: ['task', 'SPEC-x'], multiselect: [CANCEL] }), {
+                workspaceDir: ws,
+            })
         ).toBe(1);
     });
 });

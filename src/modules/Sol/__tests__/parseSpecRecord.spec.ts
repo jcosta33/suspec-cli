@@ -98,4 +98,9 @@ describe('parse_spec_record', () => {
         const failure = assertErr(parse_spec_record({ source: '# no frontmatter\n', path: 'x.md' }));
         expect(failure._tag).toBe('ParseFailure');
     });
+
+    it('fails when the frontmatter fence is never closed', () => {
+        const failure = assertErr(parse_spec_record({ source: '---\nid: x\nno closing fence here\n', path: 'x.md' }));
+        expect(failure._tag).toBe('ParseFailure');
+    });
 });

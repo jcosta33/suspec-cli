@@ -85,7 +85,9 @@ describe('check_workspace', () => {
         // no templates/ dir
         const report = assertOk(check_workspace({ workspaceDir: ws }));
         expect(report.verdict).toBe('blocking');
-        expect(report.workspaceFindings.map((f) => f.code)).toEqual(expect.arrayContaining(['placeholder', 'missing-template']));
+        expect(report.workspaceFindings.map((f) => f.code)).toEqual(
+            expect.arrayContaining(['placeholder', 'missing-template'])
+        );
     });
 
     it('flags a duplicate frontmatter id and a reused requirement id across specs (C002)', () => {

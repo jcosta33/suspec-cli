@@ -65,9 +65,19 @@ describe('run_init_flow', () => {
     });
 
     it('bails on cancel at the confirm and the policy prompts', async () => {
-        expect(await run_init_flow(create_mock_prompter({ confirm: [CANCEL] }), { sourceDir: kit, targetDir: target, mode: 'workspace' })).toBe(1);
         expect(
-            await run_init_flow(create_mock_prompter({ confirm: [true], select: [CANCEL] }), { sourceDir: kit, targetDir: target, mode: 'footprint' })
+            await run_init_flow(create_mock_prompter({ confirm: [CANCEL] }), {
+                sourceDir: kit,
+                targetDir: target,
+                mode: 'workspace',
+            })
+        ).toBe(1);
+        expect(
+            await run_init_flow(create_mock_prompter({ confirm: [true], select: [CANCEL] }), {
+                sourceDir: kit,
+                targetDir: target,
+                mode: 'footprint',
+            })
         ).toBe(1);
     });
 

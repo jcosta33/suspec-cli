@@ -89,7 +89,12 @@ export function derive_board(input: DeriveBoardInput): Result<DerivedBoard, AppE
 
     const boardTaskFor = (task: Record<string, string>): BoardTask => {
         const id = task_id_of(task);
-        return { id, status: task.status ?? 'unknown', hasReview: reviewStatusByTask.has(id), reviewStatus: reviewStatusByTask.get(id) ?? null };
+        return {
+            id,
+            status: task.status ?? 'unknown',
+            hasReview: reviewStatusByTask.has(id),
+            reviewStatus: reviewStatusByTask.get(id) ?? null,
+        };
     };
 
     const boardSpecs: BoardSpec[] = specs.map((spec) => ({

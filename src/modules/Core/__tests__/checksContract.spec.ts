@@ -28,7 +28,14 @@ function spec(
 ): ParsedSpec {
     const { frontmatter, ...rest } = overrides;
     return {
-        frontmatter: { type: 'spec', id: 'SPEC-x', status: 'draft', format: null, sources: ['ADR-0077'], ...frontmatter },
+        frontmatter: {
+            type: 'spec',
+            id: 'SPEC-x',
+            status: 'draft',
+            format: null,
+            sources: ['ADR-0077'],
+            ...frontmatter,
+        },
         requirements: [],
         sectionTitles: ['Non-goals', 'Open questions'],
         nonGoalsBody: 'what this does not change',
@@ -88,7 +95,9 @@ describe('C001 unique-ids', () => {
 
 describe('C003 verify-with', () => {
     it('passes when each requirement carries a Verify line (both forms) and flags when missing', () => {
-        expect(check_verify_with(spec({ requirements: [req('AC-001', 'It must X.\nVerify with: a test')] }))).toEqual([]);
+        expect(check_verify_with(spec({ requirements: [req('AC-001', 'It must X.\nVerify with: a test')] }))).toEqual(
+            []
+        );
         expect(check_verify_with(spec({ requirements: [req('C-001', 'IT MUST X.\nVERIFY BY test')] }))).toEqual([]);
         const missing = check_verify_with(spec({ requirements: [req('AC-002', 'It must X with no check line.')] }));
         expect(codes(missing)).toEqual(['C003']);
@@ -97,10 +106,18 @@ describe('C003 verify-with', () => {
 
 describe('C004 one-strength-word', () => {
     it('passes exactly one strength word and flags zero or two', () => {
-        expect(check_one_strength_word(spec({ requirements: [req('AC-001', 'The tool must reject it.')] }))).toEqual([]);
-        expect(codes(check_one_strength_word(spec({ requirements: [req('AC-002', 'The tool must not reject it.')] })))).toEqual([]);
-        expect(codes(check_one_strength_word(spec({ requirements: [req('AC-003', 'The tool rejects it.')] })))).toEqual(['C004']);
-        expect(codes(check_one_strength_word(spec({ requirements: [req('AC-004', 'It must X and should Y.')] })))).toEqual(['C004']);
+        expect(check_one_strength_word(spec({ requirements: [req('AC-001', 'The tool must reject it.')] }))).toEqual(
+            []
+        );
+        expect(
+            codes(check_one_strength_word(spec({ requirements: [req('AC-002', 'The tool must not reject it.')] })))
+        ).toEqual([]);
+        expect(codes(check_one_strength_word(spec({ requirements: [req('AC-003', 'The tool rejects it.')] })))).toEqual(
+            ['C004']
+        );
+        expect(
+            codes(check_one_strength_word(spec({ requirements: [req('AC-004', 'It must X and should Y.')] })))
+        ).toEqual(['C004']);
     });
 });
 
@@ -121,9 +138,15 @@ describe('C006 open-questions-present', () => {
 
 describe('C007 no-tbd-at-ready', () => {
     it('ignores markers at draft, flags them at ready, passes a clean ready spec', () => {
-        expect(check_no_tbd_at_ready(spec({ frontmatter: { status: 'draft' }, bodyText: 'a TODO remains' }))).toEqual([]);
-        expect(codes(check_no_tbd_at_ready(spec({ frontmatter: { status: 'ready' }, bodyText: 'a TODO remains' })))).toEqual(['C007']);
-        expect(codes(check_no_tbd_at_ready(spec({ frontmatter: { status: 'ready' }, bodyText: 'has ??? still' })))).toEqual(['C007']);
+        expect(check_no_tbd_at_ready(spec({ frontmatter: { status: 'draft' }, bodyText: 'a TODO remains' }))).toEqual(
+            []
+        );
+        expect(
+            codes(check_no_tbd_at_ready(spec({ frontmatter: { status: 'ready' }, bodyText: 'a TODO remains' })))
+        ).toEqual(['C007']);
+        expect(
+            codes(check_no_tbd_at_ready(spec({ frontmatter: { status: 'ready' }, bodyText: 'has ??? still' })))
+        ).toEqual(['C007']);
         expect(check_no_tbd_at_ready(spec({ frontmatter: { status: 'ready' }, bodyText: 'all resolved' }))).toEqual([]);
     });
 });

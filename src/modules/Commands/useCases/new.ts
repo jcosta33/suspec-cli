@@ -5,13 +5,7 @@
 //   swarm new spec <slug> [--title <t>] [--owner <o>]          scaffold a fresh draft spec
 //   swarm new                                                  the interactive flow (TTY)
 
-import {
-    project,
-    emit_error,
-    usage_error,
-    cut_packet,
-    scaffold_spec,
-} from '../../Core/useCases/index.ts';
+import { project, emit_error, usage_error, cut_packet, scaffold_spec } from '../../Core/useCases/index.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import { run_new_flow, create_clack_prompter } from '../../Tui/useCases/index.ts';
 
@@ -36,7 +30,13 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
             return emit_error(usage_error('usage: swarm new task --from <SPEC-id> [--scope AC-001,AC-002]'), json);
         }
         const scopeFlag = flags.get('scope');
-        const scope = typeof scopeFlag === 'string' ? scopeFlag.split(',').map((id) => id.trim()).filter((id) => id.length > 0) : [];
+        const scope =
+            typeof scopeFlag === 'string'
+                ? scopeFlag
+                      .split(',')
+                      .map((id) => id.trim())
+                      .filter((id) => id.length > 0)
+                : [];
         return project({
             result: cut_packet({ workspaceDir: cwd, specId: fromFlag, scope }),
             json,

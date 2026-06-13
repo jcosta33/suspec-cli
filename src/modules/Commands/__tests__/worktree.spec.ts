@@ -72,7 +72,9 @@ describe('worktree command (direct surface, AC-009/010/002)', () => {
         const human = await capture(() => run(['list'], repo));
         expect(human.code).toBe(0);
         const machine = await capture(() => run(['list', '--json'], repo));
-        expect(JSON.parse(machine.out).worktrees.some((w: { branch: string }) => w.branch === 'swarm/checkout')).toBe(true);
+        expect(JSON.parse(machine.out).worktrees.some((w: { branch: string }) => w.branch === 'swarm/checkout')).toBe(
+            true
+        );
     });
 
     it('remove --force → exit 0; remove with no slug → exit 2', async () => {

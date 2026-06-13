@@ -63,18 +63,26 @@ describe('cut_packet', () => {
     });
 
     it('errors when the spec id is not found', () => {
-        expect(assertErr(cut_packet({ workspaceDir: ws, specId: 'SPEC-missing', scope: [] }))._tag).toBe('SpecNotFound');
+        expect(assertErr(cut_packet({ workspaceDir: ws, specId: 'SPEC-missing', scope: [] }))._tag).toBe(
+            'SpecNotFound'
+        );
         const bare = mkdtempSync(join(tmpdir(), 'swarm-cut-bare-'));
         try {
-            expect(assertErr(cut_packet({ workspaceDir: bare, specId: 'SPEC-x', scope: [] }))._tag).toBe('SpecNotFound');
+            expect(assertErr(cut_packet({ workspaceDir: bare, specId: 'SPEC-x', scope: [] }))._tag).toBe(
+                'SpecNotFound'
+            );
         } finally {
             rmSync(bare, { recursive: true, force: true });
         }
     });
 
     it('uses a custom task id and refuses to clobber an existing packet', () => {
-        const first = assertOk(cut_packet({ workspaceDir: ws, specId: 'SPEC-x', scope: ['AC-002'], taskId: 'TASK-custom' }));
+        const first = assertOk(
+            cut_packet({ workspaceDir: ws, specId: 'SPEC-x', scope: ['AC-002'], taskId: 'TASK-custom' })
+        );
         expect(first.taskId).toBe('TASK-custom');
-        expect(assertErr(cut_packet({ workspaceDir: ws, specId: 'SPEC-x', scope: ['AC-002'], taskId: 'TASK-custom' }))._tag).toBe('TaskExists');
+        expect(
+            assertErr(cut_packet({ workspaceDir: ws, specId: 'SPEC-x', scope: ['AC-002'], taskId: 'TASK-custom' }))._tag
+        ).toBe('TaskExists');
     });
 });

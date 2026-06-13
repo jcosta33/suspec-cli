@@ -60,9 +60,15 @@ Verify with: {{a runnable test or command}}
 export function scaffold_spec(input: ScaffoldSpecInput): Result<ScaffoldSpecReport, AppError> {
     const specPath = join(input.workspaceDir, 'specs', input.slug, 'spec.md');
     if (existsSync(specPath)) {
-        return err(createAppError('SpecExists', `a spec already exists: specs/${input.slug}/spec.md`, { slug: input.slug }));
+        return err(
+            createAppError('SpecExists', `a spec already exists: specs/${input.slug}/spec.md`, { slug: input.slug })
+        );
     }
-    const content = render_spec({ slug: input.slug, title: input.title ?? input.slug, owner: input.owner ?? '{{team-or-person}}' });
+    const content = render_spec({
+        slug: input.slug,
+        title: input.title ?? input.slug,
+        owner: input.owner ?? '{{team-or-person}}',
+    });
     mkdirSync(dirname(specPath), { recursive: true });
     writeFileSync(specPath, content);
     return ok({ level: 'clean', path: specPath, specId: `SPEC-${input.slug}` });

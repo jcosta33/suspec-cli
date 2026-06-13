@@ -4,7 +4,10 @@ import { read_frontmatter } from '../services/readFrontmatter.ts';
 
 describe('read_frontmatter', () => {
     it('reads scalar key: value pairs from the leading block', () => {
-        expect(read_frontmatter('---\nid: SPEC-1\nstatus: ready\n---\n# body\n')).toEqual({ id: 'SPEC-1', status: 'ready' });
+        expect(read_frontmatter('---\nid: SPEC-1\nstatus: ready\n---\n# body\n')).toEqual({
+            id: 'SPEC-1',
+            status: 'ready',
+        });
     });
 
     it('returns {} when there is no frontmatter fence', () => {

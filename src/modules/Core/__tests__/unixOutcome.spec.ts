@@ -67,10 +67,7 @@ describe('project', () => {
 
     it('on Err writes the message to stderr, nothing to stdout, and returns 2 (non-json)', () => {
         const c = capture();
-        const code = project(
-            { result: err(createAppError('Boom', 'it broke', {})), json: false, render },
-            c.writers
-        );
+        const code = project({ result: err(createAppError('Boom', 'it broke', {})), json: false, render }, c.writers);
         expect(code).toBe(2);
         expect(c.out).toEqual([]);
         expect(c.err).toEqual(['it broke\n']);
@@ -78,10 +75,7 @@ describe('project', () => {
 
     it('on Err under --json writes a machine error object to stdout and the message to stderr', () => {
         const c = capture();
-        const code = project(
-            { result: err(createAppError('Boom', 'it broke', {})), json: true, render },
-            c.writers
-        );
+        const code = project({ result: err(createAppError('Boom', 'it broke', {})), json: true, render }, c.writers);
         expect(code).toBe(2);
         expect(JSON.parse(c.out[0])).toEqual({ error: 'Boom', message: 'it broke' });
         expect(c.err).toEqual(['it broke\n']);

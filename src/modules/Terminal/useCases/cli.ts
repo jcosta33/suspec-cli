@@ -4,7 +4,10 @@ export type FlagSpec = Readonly<{ booleans: readonly string[]; strings: readonly
 // (so `swarm check --json file.md` keeps file.md positional); a declared string flag consumes the
 // next token; `--key=value` is split inline. Flag keys are returned without their leading dashes
 // (`--force` → `force`, `-i` → `i`). The sole CLI plumbing the M1 commands need.
-export function parse_flags(argv: string[], spec: FlagSpec): { positional: string[]; flags: Map<string, string | boolean> } {
+export function parse_flags(
+    argv: string[],
+    spec: FlagSpec
+): { positional: string[]; flags: Map<string, string | boolean> } {
     const booleans = new Set(spec.booleans);
     const strings = new Set(spec.strings);
     const flags = new Map<string, string | boolean>();

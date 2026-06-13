@@ -90,7 +90,11 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
             return run_init_flow(create_clack_prompter(), { sourceDir, targetDir, mode });
         }
         /* v8 ignore stop */
-        return project({ result: init_workspace({ sourceDir, targetDir, policy, mode }), json, render: format_init_report });
+        return project({
+            result: init_workspace({ sourceDir, targetDir, policy, mode }),
+            json,
+            render: format_init_report,
+        });
     } finally {
         cleanup();
     }

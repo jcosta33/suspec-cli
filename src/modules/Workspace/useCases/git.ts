@@ -17,7 +17,10 @@ export type WorktreeCreateError = AppError<
 >;
 export type WorktreeCreateResult = Result<{ path: string; branch: string }, WorktreeCreateError>;
 
-export type WorktreeRemoveError = AppError<'WorktreeRemoveFailed', { worktreePath: string; force: boolean; stderr: string }>;
+export type WorktreeRemoveError = AppError<
+    'WorktreeRemoveFailed',
+    { worktreePath: string; force: boolean; stderr: string }
+>;
 export type WorktreeRemoveResult = Result<{ path: string }, WorktreeRemoveError>;
 
 export type WorktreePruneError = AppError<'WorktreePruneFailed', { stderr: string }>;
@@ -29,6 +32,7 @@ export type NoGitRepoError = AppError<'NoGitRepo', { cwd: string }>;
 // the Result-returning wrappers below).
 function git(args: string[], opts: { cwd?: string } = {}): string {
     const result = spawnSync('git', args, { cwd: opts.cwd, encoding: 'utf8' });
+    /* v8 ignore next 3 -- spawn-launch failure (git binary missing); not reachable where git is installed */
     if (result.error) {
         throw new Error(`git error: ${result.error.message}`);
     }
@@ -47,6 +51,7 @@ function git_available(): boolean {
  * outside a git repo gets a clean error and exit 2, never a stack trace.
  */
 export function resolve_repo_root(cwd: string = process.cwd()): Result<string, NoGitRepoError> {
+    /* v8 ignore next 3 -- git-not-installed guard; not reachable in an environment that has git */
     if (!git_available()) {
         return err(createAppError('NoGitRepo', 'git is not installed or not in PATH', { cwd }));
     }
@@ -105,7 +110,10 @@ export function worktree_list(repoRoot: string): WorktreeInfo[] {
  * Whether a local branch exists.
  */
 export function branch_exists(branch: string, repoRoot: string): boolean {
-    return spawnSync('git', ['rev-parse', '--verify', `refs/heads/${branch}`], { cwd: repoRoot, encoding: 'utf8' }).status === 0;
+    return (
+        spawnSync('git', ['rev-parse', '--verify', `refs/heads/${branch}`], { cwd: repoRoot, encoding: 'utf8' })
+            .status === 0
+    );
 }
 
 /**
@@ -119,11 +127,17 @@ export function find_worktree_for_branch(branch: string, repoRoot: string): stri
 /**
  * Create a worktree. Attaches `branch` if it exists, else creates it from `baseBranch`.
  */
-export function worktree_create(worktreePath: string, branch: string, baseBranch: string, repoRoot: string): WorktreeCreateResult {
+export function worktree_create(
+    worktreePath: string,
+    branch: string,
+    baseBranch: string,
+    repoRoot: string
+): WorktreeCreateResult {
     const args = branch_exists(branch, repoRoot)
         ? ['worktree', 'add', worktreePath, branch]
         : ['worktree', 'add', '-b', branch, worktreePath, baseBranch];
     const result = spawnSync('git', args, { cwd: repoRoot, encoding: 'utf8' });
+    /* v8 ignore start -- spawn-launch failure (git binary missing); the status!==0 path below is the tested failure mode */
     if (result.error) {
         return err(
             createAppError(
@@ -134,15 +148,20 @@ export function worktree_create(worktreePath: string, branch: string, baseBranch
             )
         );
     }
+    /* v8 ignore stop */
     if (result.status !== 0) {
         const stderr = (result.stderr || '').trim() || `git worktree add exited with status ${String(result.status)}`;
         return err(
-            createAppError('WorktreeCreateFailed', `failed to create worktree "${worktreePath}" for "${branch}": ${stderr}`, {
-                worktreePath,
-                branch,
-                baseBranch,
-                stderr,
-            })
+            createAppError(
+                'WorktreeCreateFailed',
+                `failed to create worktree "${worktreePath}" for "${branch}": ${stderr}`,
+                {
+                    worktreePath,
+                    branch,
+                    baseBranch,
+                    stderr,
+                }
+            )
         );
     }
     return ok({ path: worktreePath, branch });
@@ -154,6 +173,7 @@ export function worktree_create(worktreePath: string, branch: string, baseBranch
 export function worktree_remove(worktreePath: string, force: boolean, repoRoot: string): WorktreeRemoveResult {
     const args = force ? ['worktree', 'remove', '--force', worktreePath] : ['worktree', 'remove', worktreePath];
     const result = spawnSync('git', args, { cwd: repoRoot, encoding: 'utf8' });
+    /* v8 ignore start -- spawn-launch failure (git binary missing); the status!==0 path below is the tested failure mode */
     if (result.error) {
         return err(
             createAppError(
@@ -164,9 +184,17 @@ export function worktree_remove(worktreePath: string, force: boolean, repoRoot: 
             )
         );
     }
+    /* v8 ignore stop */
     if (result.status !== 0) {
-        const stderr = (result.stderr || '').trim() || `git worktree remove exited with status ${String(result.status)}`;
-        return err(createAppError('WorktreeRemoveFailed', `failed to remove worktree "${worktreePath}": ${stderr}`, { worktreePath, force, stderr }));
+        const stderr =
+            (result.stderr || '').trim() || `git worktree remove exited with status ${String(result.status)}`;
+        return err(
+            createAppError('WorktreeRemoveFailed', `failed to remove worktree "${worktreePath}": ${stderr}`, {
+                worktreePath,
+                force,
+                stderr,
+            })
+        );
     }
     return ok({ path: worktreePath });
 }
