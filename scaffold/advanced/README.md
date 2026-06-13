@@ -27,10 +27,10 @@ mistakes to check for) — read in place; nothing to install.
 ## The matching agent guides (ship in `.agents/skills/`)
 
 The guides for the work these templates support — `write-audit`, `write-research`,
-`write-rfc`, `write-prd`, `write-bug-report`, `write-change-plan`, `write-inventory` —
-ship installed in the kit's `.agents/skills/`, beside the core loop guides and the
-workspace-process guides (`spec-check`, `split-work`, `save-findings`,
-`adversarial-review`). Nothing to install.
+`write-rfc`, `write-prd`, `write-bug-report`, `write-change-plan`, `write-inventory`,
+`spec-check`, `split-work`, `save-findings`, `adversarial-review` — ship installed in the
+kit's `.agents/skills/`, beside the core loop guides. They are the **workspace authoring
+guides** (the name the kit README and the swarm-skills catalog both use). Nothing to install.
 
 ## More guides (the swarm-skills catalog)
 
@@ -38,7 +38,7 @@ Conditioning stances (the personas) and long-form implementation guides per chan
 shape (feature, fix, refactor, rewrite, migration, performance, testing,
 documentation, flaky tests) live in the
 [swarm-skills catalog](https://github.com/jcosta33/swarm-skills). Install into
-`.agents/skills/` with `npx skills add jcosta33/swarm-skills --list`, or copy
-the folders.
+`.agents/skills/` with `npx skills add jcosta33/swarm-skills` (add `--list` to preview
+without installing), or copy the folders.
 
 Copy what you need; ignore the rest. Full instructions: `docs/ADOPTING.md` in the Swarm repo.

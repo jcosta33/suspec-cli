@@ -36,8 +36,31 @@ Implement or preserve:
 ## Verify
 
 - [x] `npm test -- contact-form.submit` (AC-001)
+
+  ```text
+  PASS  test/contact-form.submit.test.ts
+    ✓ persists a valid submission and returns 201 (34 ms)
+    ✓ stores the row in messages (11 ms)
+  Tests: 2 passed, 2 total
+  ```
+
 - [x] `npm test -- contact-form.validation` (AC-002)
+
+  ```text
+  PASS  test/contact-form.validation.test.ts
+    ✓ missing email → 422, nothing persisted (28 ms)
+    ✓ malformed email → 422 (9 ms)
+    ✓ persisted-rows count unchanged after a 422 (12 ms)
+  Tests: 3 passed, 3 total
+  ```
+
 - [x] `npm test -- contact-form.no-body-in-logs` (AC-003)
+
+  ```text
+  PASS  test/contact-form.no-body-in-logs.test.ts
+    ✓ message body never appears in application logs (41 ms)
+  Tests: 1 passed, 1 total
+  ```
 
 ## Agent instructions
 

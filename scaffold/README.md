@@ -5,7 +5,7 @@ as a new repo, or as a folder inside an existing project — fill in `AGENTS.md`
 
 ```sh
 # a dedicated workspace repo — for one project, or governing several code repos
-gh repo create my-workspace --template jcosta33/swarm-starter-kit   # or clone and re-init:
+gh repo create my-workspace --private --template jcosta33/swarm-starter-kit --clone   # or clone and re-init:
 git clone https://github.com/jcosta33/swarm-starter-kit my-workspace && rm -rf my-workspace/.git && git -C my-workspace init
 
 # or co-located inside your project
@@ -46,7 +46,7 @@ After copying:
 recommended first taste for brownfield codebases. Conditioning stances (the personas) and
 per-change-shape implementation guides install from the
 [swarm-skills catalog](https://github.com/jcosta33/swarm-skills):
-`npx skills add jcosta33/swarm-skills --list`.
+`npx skills add jcosta33/swarm-skills` (add `--list` to preview the catalog without installing).
 
 Full instructions: [`docs/ADOPTING.md`](https://github.com/jcosta33/swarm/blob/main/docs/ADOPTING.md)
 in the Swarm repo. Worked examples: [`docs/examples/`](https://github.com/jcosta33/swarm/tree/main/docs/examples).
