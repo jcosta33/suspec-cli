@@ -67,7 +67,7 @@ you or your agent fills the template.)
     `blocked` or `needs-human` otherwise; `draft` while you are still working.
     Never soften a Fail to avoid blocking, and never inflate a nit into a
     blocker.
-10. **Close the board row.** When the decision lands, flip the task's row on
+11. **Close the board row.** When the decision lands, flip the task's row on
     `status.md` — review-ready → closed (or blocked) — and put the packet
     link in the row. The sessions maintain the board; the human reads it.
 

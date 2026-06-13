@@ -20,6 +20,7 @@ type: status
 
 ## Human attention
 
-- {{blocking questions on draft specs}}
-- {{tasks with no review packet}}
-- {{findings pending acceptance}}
+<!-- The short list a human must act on — blocking questions on draft specs,
+     tasks with no review packet, findings pending acceptance. Add bullets as
+     they arise; empty until then. -->
+_(nothing yet)_

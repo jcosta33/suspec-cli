@@ -40,7 +40,9 @@ enforces them at edit time.
    No predictions ("should pass"), no paraphrase ("all green"), no pre-edit
    runs. If a command exists but cannot execute in your environment, produce
    a CI link or delegate the run; otherwise record the item as Blocked —
-   never paste predicted output. _Why: confident prose comes out whether or not the claim is true;
+   never paste predicted output. If a Verify command is missing or undefined
+   in `AGENTS.md`, ask which command to run — never guess; if it cannot be
+   resolved, the item is Unverified. _Why: confident prose comes out whether or not the claim is true;
    pasted output is what a reviewer can re-check._
 6. **Re-run after your last change.** Output pasted before a later edit is
    stale and no longer covers the claim.

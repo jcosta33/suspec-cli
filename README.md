@@ -11,11 +11,14 @@ it boots one **sandboxed worktree per task**, drives each session from a Markdow
 context-compression, codebase-analysis, and orchestration utilities so agents can do useful work without
 trampling your main checkout.
 
-> **Note — command surface in flux.** Some commands and the task-file layout below predate the
-> 2026 framework repositioning and do not yet match the [future-cli](https://github.com/jcosta33/swarm/blob/main/docs/reference/future-cli.md)
+> **Note — command surface in flux.** The Command Reference below documents the *intended*
+> surface: **many of these commands are planned and not yet built — running one prints
+> `Unknown command`.** The implemented set is small (see `swarm help` for what actually
+> dispatches). The commands and the task-file layout also predate the 2026 framework
+> repositioning and do not yet match the [future-cli](https://github.com/jcosta33/swarm/blob/main/docs/reference/future-cli.md)
 > contract or the "code repos stay clean" model (workspace artifacts live in swarm-hq, not in the
-> code repo). Realigning them is tracked as open work; treat this README's command reference as
-> transitional.
+> code repo). Realigning the reference, `swarm help`, and the command surface is tracked as open
+> work; treat this README's command reference as transitional.
 
 ---
 
@@ -23,7 +26,7 @@ trampling your main checkout.
 
 ### Requirements
 
-- **Node.js ≥ 22.6.0** (Swarm runs TypeScript directly via `--experimental-strip-types` — older Node versions will refuse to start)
+- **Node.js ≥ 22.6.0** (the launcher `bin/swarm.js` runs the TypeScript sources via `tsx` and guards the version explicitly — older Node refuses to start)
 - **git** ≥ 2.5 (for `git worktree`)
 - A package manager (`pnpm` recommended, `npm` works as a fallback)
 

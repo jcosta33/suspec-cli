@@ -1,5 +1,6 @@
 ---
 name: adversarial-review
+type: agent-guide
 description: Review another agent's work hostile-to-plausible-explanations. ALWAYS apply this skill when reviewing a branch, a follow-up revision after a previous review, an existing audit you are deepening, a bug you are root-causing, or a codebase area you are auditing — even if the work looks correct on the surface. Do not approve, merge, or sign off on a worker's pasted output alone — run the project's validation and tests yourself in your own worktree first. Skip this skill for original authoring work — apply it only when something already exists to be reviewed.
 ---
 
