@@ -1,5 +1,6 @@
 export {
     get_repo_root,
+    resolve_repo_root,
     get_repo_name,
     worktree_list,
     branch_exists,

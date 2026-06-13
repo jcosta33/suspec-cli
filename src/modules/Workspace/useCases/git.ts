@@ -64,6 +64,24 @@ export function get_repo_root(): string {
     }
 }
 
+export type NoGitRepoError = AppError<'NoGitRepo', { cwd: string }>;
+
+/**
+ * Resolve the git repo root without throwing — the Unix-contract seam (AC-002): a command run
+ * outside a git repo gets a clean error and exit 2, never a stack trace. Prefer this over
+ * get_repo_root in the M1 engines.
+ */
+export function resolve_repo_root(cwd: string = process.cwd()): Result<string, NoGitRepoError> {
+    if (!git_available()) {
+        return err(createAppError('NoGitRepo', 'git is not installed or not in PATH', { cwd }));
+    }
+    const result = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf8' });
+    if (result.status !== 0) {
+        return err(createAppError('NoGitRepo', 'not inside a git repository', { cwd }));
+    }
+    return ok((result.stdout || '').trim());
+}
+
 /**
  * Get the repo directory name (used for worktree path patterns).
  */
