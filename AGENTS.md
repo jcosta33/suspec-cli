@@ -18,7 +18,7 @@
   swarm-starter-kit repo (resync = make `diff -rq scaffold ../swarm-starter-kit`
   report only `.git`); its `advanced/` doubles as the local reference cards
   (SOL notation, checks). The checks contract this CLI implements lives in the
-  swarm repo: `checks/checks.yaml` (v0.4.0).
+  swarm repo: `checks/checks.yaml` (v0.4.1).
 
 ## Project facts
 
