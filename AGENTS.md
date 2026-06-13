@@ -42,7 +42,8 @@
   the `.claude/skills` symlink. Domain terms: `.agents/memory/glossary.md`.
 - Full conventions: `.agents/repo-conventions.md` · human coding conventions:
   `docs/07-conventions.md` · architecture: `docs/05-architecture.md` · testing:
-  `docs/06-testing.md`. Project config: `.agents/swarm.config.yaml`.
+  `docs/06-testing.md`. (The CLI reads/writes a consumer-side `swarm.config.json`
+  in the repo it operates on; this repo carries no project-config file of its own.)
 
 ## Commands
 

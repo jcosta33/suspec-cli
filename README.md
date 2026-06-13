@@ -1,8 +1,21 @@
 # Swarm CLI
 
-A self-improving, agentic CLI toolkit for orchestrating AI coding agents in isolated git worktrees.
+The reference CLI for the [Swarm framework](https://github.com/jcosta33/swarm) — the quality-of-life
+automation around Swarm's spec-and-review workflow. It implements the checks contract in
+[`swarm/checks/checks.yaml`](https://github.com/jcosta33/swarm/blob/main/checks/checks.yaml) and tracks
+the command surface in [`swarm/docs/reference/future-cli.md`](https://github.com/jcosta33/swarm/blob/main/docs/reference/future-cli.md);
+its own specs and reviews live in the family workspace, [swarm-hq](https://github.com/jcosta33/swarm-hq).
 
-Swarm boots one **sandboxed worktree per task**, drives each session from a Markdown task file, and exposes a battery of context-compression, codebase-analysis, and orchestration utilities so agents can do useful work without trampling your main checkout.
+Operationally it is an agentic toolkit for orchestrating AI coding agents in isolated git worktrees:
+it boots one **sandboxed worktree per task**, drives each session from a Markdown task file, and exposes
+context-compression, codebase-analysis, and orchestration utilities so agents can do useful work without
+trampling your main checkout.
+
+> **Note — command surface in flux.** Some commands and the task-file layout below predate the
+> 2026 framework repositioning and do not yet match the [future-cli](https://github.com/jcosta33/swarm/blob/main/docs/reference/future-cli.md)
+> contract or the "code repos stay clean" model (workspace artifacts live in swarm-hq, not in the
+> code repo). Realigning them is tracked as open work; treat this README's command reference as
+> transitional.
 
 ---
 
