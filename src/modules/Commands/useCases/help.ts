@@ -47,9 +47,3 @@ export function print_command_help(name: string): void {
     ];
     process.stdout.write(`${lines.join('\n')}\n`);
 }
-
-/* v8 ignore start -- the script entry runs when spawned directly, not as a unit */
-if (import.meta.url === `file://${process.argv[1]}`) {
-    print_help();
-}
-/* v8 ignore stop */

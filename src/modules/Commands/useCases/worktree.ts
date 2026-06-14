@@ -89,7 +89,9 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     }
     if (subcommand === undefined) {
         return emit_error(
-            usage_error('usage: swarm worktree <create|list|remove|prune> [slug] [--task <t>] [--base <branch>] [--force]'),
+            usage_error(
+                'usage: swarm worktree <create|list|remove|prune> [slug] [--task <t>] [--base <branch>] [--force]'
+            ),
             json
         );
     }
@@ -98,11 +100,3 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         json
     );
 }
-
-/* v8 ignore start -- the script entry runs when spawned by the dispatcher, not as a unit */
-if (import.meta.url === `file://${process.argv[1]}`) {
-    void run(process.argv.slice(2)).then((code) => {
-        process.exitCode = code;
-    });
-}
-/* v8 ignore stop */

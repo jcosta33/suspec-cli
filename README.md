@@ -12,15 +12,20 @@ model loop itself. Every flow is available two ways: a **direct, scriptable comm
 
 ## Requirements
 
-- **Node.js ≥ 22.6** (the sources run via `--experimental-strip-types`; `bin/swarm.js` guards the version)
+- **Node.js ≥ 18.18** to run an installed build; **≥ 22.6** to run from a source checkout (the dev
+  loop runs the TypeScript directly via `--experimental-strip-types`, no build step).
 - **git** ≥ 2.5 (for `git worktree`)
-- `pnpm` recommended (`npm` works as a fallback)
+- `pnpm` recommended for development (`npm` works for installing)
 
 ## Install
 
 ```bash
-npm install -g swarm-cli   # or, from a checkout: npm link
+npm install -g swarm-cli
 ```
+
+`bin/swarm.js` runs the bundled JavaScript (`dist/`, built on `prepack`), so an installed CLI needs
+no transpiler. From a checkout it runs the `src/` TypeScript directly via Node's native type
+stripping; `pnpm build` produces the `dist/` bundle.
 
 ## Quick start
 

@@ -37,7 +37,9 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         }
         if (statSync(file).isDirectory()) {
             return project({
-                result: err(usage_error(`not a spec file (it is a directory): ${file} — point at the spec.md inside it`)),
+                result: err(
+                    usage_error(`not a spec file (it is a directory): ${file} — point at the spec.md inside it`)
+                ),
                 json,
                 render: format_check_report,
             });
@@ -56,11 +58,3 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         render: format_workspace_report,
     });
 }
-
-/* v8 ignore start -- the script entry runs when spawned by the dispatcher, not as a unit */
-if (import.meta.url === `file://${process.argv[1]}`) {
-    void run(process.argv.slice(2)).then((code) => {
-        process.exitCode = code;
-    });
-}
-/* v8 ignore stop */

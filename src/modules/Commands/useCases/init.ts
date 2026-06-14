@@ -107,11 +107,3 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         cleanup();
     }
 }
-
-/* v8 ignore start -- the script entry runs when spawned by the dispatcher, not as a unit */
-if (import.meta.url === `file://${process.argv[1]}`) {
-    void run(process.argv.slice(2)).then((code) => {
-        process.exitCode = code;
-    });
-}
-/* v8 ignore stop */

@@ -68,3 +68,9 @@ whose command cannot be resolved reads Unverified, not Pass.
 
 You are an implementation or review worker. Swarm organizes the work; you perform
 the assigned task — and you never review your own implementation.
+
+<!-- swarm:start -->
+This repository is adopted into a Swarm workflow. The spec / task / review
+workspace and templates come from the Swarm starter kit
+(github.com/jcosta33/swarm-starter-kit). Run `swarm --help` for the commands.
+<!-- swarm:end -->
