@@ -18,7 +18,9 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
     // ── Ignores ──────────────────────────────────────────────────────────────
     {
-        ignores: ['node_modules/', 'dist/', 'build/', 'coverage/', 'scaffold/', '**/*.md'],
+        // `.worktrees/` holds task worktrees the launch engine creates — separate
+        // checkouts, never lint targets (same reasoning as node_modules).
+        ignores: ['node_modules/', 'dist/', 'build/', 'coverage/', 'scaffold/', '.worktrees/', '**/*.md'],
     },
 
     // ── Base configs ─────────────────────────────────────────────────────────
@@ -193,6 +195,16 @@ export default tseslint.config(
             '@typescript-eslint/no-unsafe-member-access': 'off',
             '@typescript-eslint/no-unsafe-call': 'off',
         },
+    },
+
+    // ── Plain-JS + config files (.dependency-cruiser.cjs, this config, the bin
+    //    shim) are not part of the TS program, so type-aware parsing would fail
+    //    ("file not found in project"). Turn off the typed parser + typed rules
+    //    for them. cmdLint only globs src/**/*.ts, but this keeps `eslint .`
+    //    clean across the whole repo.
+    {
+        files: ['**/*.{js,mjs,cjs}', '**/*.config.{ts,mts,cts}'],
+        ...tseslint.configs.disableTypeChecked,
     },
 
     // ── Prettier compatibility (must be last) ────────────────────────────────

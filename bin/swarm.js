@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const nodeVersion = process.versions.node;
-const [major, minor, patch] = nodeVersion.split('.').map(Number);
+const [major, minor] = nodeVersion.split('.').map(Number);
 const requiredMajor = 22;
 const requiredMinor = 6;
 if (major < requiredMajor || (major === requiredMajor && minor < requiredMinor)) {
