@@ -17,11 +17,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const scriptPath = join(__dirname, '../src/index.ts');
-const tsxPath = import.meta.resolve('tsx');
 
+// Run the TypeScript sources with Node's native type stripping (>= 22.6, guarded
+// above) — no transpiler dependency to ship. The experimental warning is silenced
+// so the CLI's own output stays clean.
 const res = spawnSync(
     process.execPath,
-    ['--import', tsxPath, scriptPath, ...process.argv.slice(2)],
+    ['--experimental-strip-types', '--disable-warning=ExperimentalWarning', scriptPath, ...process.argv.slice(2)],
     {
         stdio: 'inherit',
     }
