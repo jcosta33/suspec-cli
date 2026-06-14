@@ -34,6 +34,9 @@ export type WorkspaceCheckReport = Readonly<{
 
 export type CheckWorkspaceInput = Readonly<{
     workspaceDir: string;
+    // `--no-workspace`: lint the specs but skip workspace-validity (the AGENTS.md placeholder + the
+    // missing-templates checks), for running against a bare specs/ tree without a full kit workspace.
+    includeValidity?: boolean;
 }>;
 
 const PLACEHOLDER = /\{\{[^}]+\}\}/;
@@ -57,8 +60,17 @@ function workspace_validity(workspaceDir: string): WorkspaceFinding[] {
     const findings: WorkspaceFinding[] = [];
     for (const liveFile of ['AGENTS.md', 'status.md']) {
         const path = join(workspaceDir, liveFile);
-        if (existsSync(path) && PLACEHOLDER.test(readFileSync(path, 'utf8'))) {
-            findings.push({ code: 'placeholder', message: `${liveFile} contains an unfilled {{placeholder}}` });
+        if (!existsSync(path)) {
+            continue;
+        }
+        const lines = readFileSync(path, 'utf8').split('\n');
+        const hitLines = lines.map((line, index) => (PLACEHOLDER.test(line) ? index + 1 : 0)).filter((n) => n > 0);
+        if (hitLines.length > 0) {
+            const where = hitLines.length === 1 ? `line ${hitLines[0]}` : `lines ${hitLines.join(', ')}`;
+            findings.push({
+                code: 'placeholder',
+                message: `${liveFile} has unfilled {{placeholder}}s (${where}) — fill them in, then re-run \`swarm check\``,
+            });
         }
     }
     if (!existsSync(join(workspaceDir, 'templates'))) {
@@ -100,7 +112,8 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
         }
     }
 
-    const findings: WorkspaceFinding[] = [...workspace_validity(input.workspaceDir)];
+    const findings: WorkspaceFinding[] =
+        input.includeValidity === false ? [] : [...workspace_validity(input.workspaceDir)];
     for (const [id, paths] of frontmatterIdToPaths) {
         if (paths.length > 1) {
             findings.push({ code: 'C002', message: `frontmatter id ${id} is claimed by ${paths.length} specs` });

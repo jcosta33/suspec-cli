@@ -95,6 +95,26 @@ describe('worktree command (direct surface, AC-009/010/002)', () => {
         expect(err).toContain('unknown worktree subcommand');
     });
 
+    it('no subcommand (non-TTY) → prints usage, never the literal "undefined"', async () => {
+        const { code, err } = await capture(() => run([], repo));
+        expect(code).toBe(2);
+        expect(err).toContain('usage: swarm worktree');
+        expect(err).not.toContain('undefined');
+    });
+
+    it('create on a repo with no commits → exit 2 with a helpful message, not a raw git error', async () => {
+        const fresh = realpathSync(mkdtempSync(join(tmpdir(), 'swarm-nocommit-')));
+        execFileSync('git', ['init'], { cwd: fresh });
+        try {
+            const { code, err } = await capture(() => run(['create', 'checkout'], fresh));
+            expect(code).toBe(2);
+            expect(err).toContain('no commits');
+            expect(err).not.toContain('invalid reference');
+        } finally {
+            rmSync(fresh, { recursive: true, force: true });
+        }
+    });
+
     it('outside a git repo → exit 2', async () => {
         const notRepo = realpathSync(mkdtempSync(join(tmpdir(), 'swarm-norepo-')));
         try {

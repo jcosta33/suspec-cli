@@ -6,7 +6,7 @@
 //   swarm check -i            the interactive flow (AC-015), TTY + not --json only
 // Direct output + exit codes flow through the shared unixOutcome contract (AC-001).
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 
 import { check_spec, check_workspace, project, usage_error } from '../../Core/useCases/index.ts';
@@ -21,6 +21,7 @@ import {
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
     const json = argv.includes('--json');
     const interactive = argv.includes('-i') || argv.includes('--interactive');
+    const noWorkspace = argv.includes('--no-workspace');
     const positional = argv.filter((arg) => !arg.startsWith('-'));
 
     /* v8 ignore start -- interactive dispatch is the thin shell; the flow logic is tested via the mock Prompter (checkFlow.spec) */
@@ -34,6 +35,13 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         if (!existsSync(file)) {
             return project({ result: err(usage_error(`file not found: ${file}`)), json, render: format_check_report });
         }
+        if (statSync(file).isDirectory()) {
+            return project({
+                result: err(usage_error(`not a spec file (it is a directory): ${file} — point at the spec.md inside it`)),
+                json,
+                render: format_check_report,
+            });
+        }
         const exists = (ref: string) => existsSync(resolve(dirname(file), ref));
         return project({
             result: check_spec({ source: readFileSync(file, 'utf8'), path: file, exists }),
@@ -42,7 +50,11 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         });
     }
 
-    return project({ result: check_workspace({ workspaceDir: cwd }), json, render: format_workspace_report });
+    return project({
+        result: check_workspace({ workspaceDir: cwd, includeValidity: !noWorkspace }),
+        json,
+        render: format_workspace_report,
+    });
 }
 
 /* v8 ignore start -- the script entry runs when spawned by the dispatcher, not as a unit */

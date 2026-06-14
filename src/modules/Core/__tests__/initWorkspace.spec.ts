@@ -53,6 +53,16 @@ describe('init_workspace — workspace mode, greenfield', () => {
         expect(existsSync(join(target, '.git'))).toBe(false); // never copies the kit's .git
     });
 
+    it('a filesystem write failure returns InitWriteFailed, not an uncaught crash', () => {
+        // Point the target at a regular file: the first write (mkdir of the target) fails structurally
+        // (ENOTDIR/EEXIST) — root-proof, unlike a chmod. It must route through Result, not throw.
+        const asFile = join(target, 'not-a-dir');
+        writeFileSync(asFile, 'i am a file\n');
+        const failure = assertErr(run({ targetDir: asFile }));
+        expect(failure._tag).toBe('InitWriteFailed');
+        expect(failure.message).toContain('could not write');
+    });
+
     it('is idempotent — a second run writes/skips/merges nothing', () => {
         assertOk(run());
         const second = assertOk(run());

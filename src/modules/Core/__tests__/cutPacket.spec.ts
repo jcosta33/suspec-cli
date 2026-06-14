@@ -6,6 +6,7 @@ import { join } from 'path';
 import { assertOk } from '../../../infra/errors/testing/assertOk.ts';
 import { assertErr } from '../../../infra/errors/testing/assertErr.ts';
 import { cut_packet } from '../useCases/cutPacket.ts';
+import { derive_board } from '../useCases/deriveBoard.ts';
 
 let ws: string;
 
@@ -74,6 +75,15 @@ describe('cut_packet', () => {
         } finally {
             rmSync(bare, { recursive: true, force: true });
         }
+    });
+
+    it('round-trip: a cut task links to its spec on the derived board', () => {
+        // The seam the unit fixtures missed: cut_packet writes `source:` as a block list, which
+        // derive_board must parse to link the task under its spec.
+        const report = assertOk(cut_packet({ workspaceDir: ws, specId: 'SPEC-x', scope: ['AC-001'] }));
+        const board = assertOk(derive_board({ workspaceDir: ws }));
+        const specRow = board.specs.find((row) => row.id === 'SPEC-x');
+        expect(specRow?.tasks.map((task) => task.id)).toContain(report.taskId);
     });
 
     it('uses a custom task id and refuses to clobber an existing packet', () => {

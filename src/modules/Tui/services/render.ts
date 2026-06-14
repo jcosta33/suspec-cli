@@ -44,12 +44,16 @@ export function format_check_report(report: {
 }
 
 export function format_workspace_report(report: {
-    verdict: 'clean' | 'blocking';
+    level: RenderLevel;
     specs: readonly { path: string; level: RenderLevel }[];
     workspaceFindings: readonly { code: string; message: string }[];
 }): string {
-    const verdict = report.verdict === 'clean' ? color.green('✓ clean') : color.red('✗ blocking');
-    const lines = [`Workspace verdict: ${verdict}  ${color.dim(`${String(report.specs.length)} specs`)}`, ''];
+    // Render the 3-way severity (clean / warning / blocking), not the binary merge `verdict`, so a
+    // warnings-only workspace shows "⚠ warning" (exit 1) instead of a misleading "✓ clean".
+    const lines = [
+        `Workspace verdict: ${format_verdict(report.level)}  ${color.dim(`${String(report.specs.length)} specs`)}`,
+        '',
+    ];
     for (const spec of report.specs) {
         lines.push(`  ${format_verdict(spec.level)}  ${spec.path}`);
     }

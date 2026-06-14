@@ -82,6 +82,13 @@ describe('check command (direct surface, AC-001/005)', () => {
         expect(err).toContain('file not found');
     });
 
+    it('a directory arg → exit 2 with a clean message, not an EISDIR crash', async () => {
+        mkdirSync(join(dir, 'specs', 'feature'), { recursive: true });
+        const { code, err } = await capture(() => run([join(dir, 'specs', 'feature')]));
+        expect(code).toBe(2);
+        expect(err).toContain('it is a directory');
+    });
+
     it('--json emits machine output that parses', async () => {
         const file = writeSpec('ok', CONFORMANT);
         const { code, out } = await capture(() => run([file, '--json']));
@@ -93,6 +100,17 @@ describe('check command (direct surface, AC-001/005)', () => {
         const file = writeSpec('refs', CONFORMANT.replace('  - ADR-0077', '  - ADR-0077\n  - ./missing.md'));
         const { code } = await capture(() => run([file]));
         expect(code).toBe(2);
+    });
+
+    it('--no-workspace lints the specs but skips workspace-validity (placeholder/templates)', async () => {
+        mkdirSync(join(dir, 'specs', 'x'), { recursive: true });
+        writeFileSync(join(dir, 'specs', 'x', 'spec.md'), CONFORMANT);
+        writeFileSync(join(dir, 'AGENTS.md'), 'guide with a {{placeholder}}\n'); // no templates/ dir either
+        // bare check is blocked by the workspace-validity findings…
+        expect((await capture(() => run([], dir))).code).toBe(2);
+        // …but --no-workspace skips them and lints the (clean) spec
+        const relaxed = await capture(() => run(['--no-workspace'], dir));
+        expect(relaxed.code).toBe(0);
     });
 
     it('bare check renders the workspace verdict over the cwd', async () => {

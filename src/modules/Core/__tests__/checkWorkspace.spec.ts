@@ -88,6 +88,10 @@ describe('check_workspace', () => {
         expect(report.workspaceFindings.map((f) => f.code)).toEqual(
             expect.arrayContaining(['placeholder', 'missing-template'])
         );
+        // the placeholder finding is actionable: it names the line and the next step
+        const placeholder = report.workspaceFindings.find((finding) => finding.code === 'placeholder');
+        expect(placeholder?.message).toContain('line 1');
+        expect(placeholder?.message).toContain('fill them in');
     });
 
     it('flags a duplicate frontmatter id and a reused requirement id across specs (C002)', () => {

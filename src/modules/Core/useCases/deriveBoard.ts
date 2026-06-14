@@ -8,8 +8,24 @@ import { join } from 'path';
 
 import { ok, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
-import { read_frontmatter } from '../services/readFrontmatter.ts';
+import { read_frontmatter, type Frontmatter } from '../services/readFrontmatter.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
+
+// Frontmatter values are a scalar or a block list. Board fields except `source` are scalars; read the
+// first item if a list slipped in. `source` is genuinely a list (spec, optionally a change-plan).
+// Narrow with `typeof` (not `Array.isArray`, which widens to `any[]`).
+function scalar(value: string | readonly string[] | undefined): string | undefined {
+    if (value === undefined || typeof value === 'string') {
+        return value;
+    }
+    return value[0];
+}
+function as_list(value: string | readonly string[] | undefined): readonly string[] {
+    if (value === undefined) {
+        return [];
+    }
+    return typeof value === 'string' ? [value] : value;
+}
 
 export type BoardTask = Readonly<{
     id: string;
@@ -38,7 +54,7 @@ export type DeriveBoardInput = Readonly<{
 const REVIEW_READY = 'review-ready';
 const ATTENTION_STATUSES = new Set(['needs-human', 'blocked']);
 
-function read_md_frontmatters(dir: string): Record<string, string>[] {
+function read_md_frontmatters(dir: string): Frontmatter[] {
     if (!existsSync(dir)) {
         return [];
     }
@@ -59,7 +75,7 @@ function read_specs(workspaceDir: string): { id: string; status: string }[] {
             continue;
         }
         const fm = read_frontmatter(readFileSync(specPath, 'utf8'));
-        specs.push({ id: fm.id ?? entry, status: fm.status ?? 'unknown' });
+        specs.push({ id: scalar(fm.id) ?? entry, status: scalar(fm.status) ?? 'unknown' });
     }
     return specs;
 }
@@ -73,25 +89,27 @@ export function derive_board(input: DeriveBoardInput): Result<DerivedBoard, AppE
     const reviewStatusByTask = new Map<string, string>();
     const needsHuman: string[] = [];
     for (const review of reviews) {
-        if (review.task !== undefined) {
-            reviewStatusByTask.set(review.task, review.status ?? 'draft');
+        const reviewTask = scalar(review.task);
+        const reviewStatus = scalar(review.status);
+        if (reviewTask !== undefined) {
+            reviewStatusByTask.set(reviewTask, reviewStatus ?? 'draft');
         }
-        if (review.status !== undefined && ATTENTION_STATUSES.has(review.status) && review.task !== undefined) {
-            needsHuman.push(review.task);
+        if (reviewStatus !== undefined && ATTENTION_STATUSES.has(reviewStatus) && reviewTask !== undefined) {
+            needsHuman.push(reviewTask);
         }
     }
 
-    const task_id_of = (task: Record<string, string>) => task.id ?? '(unnamed task)';
+    const task_id_of = (task: Frontmatter) => scalar(task.id) ?? '(unnamed task)';
 
     const tasksWithoutReview = tasks
-        .filter((task) => task.status === REVIEW_READY && !reviewStatusByTask.has(task_id_of(task)))
+        .filter((task) => scalar(task.status) === REVIEW_READY && !reviewStatusByTask.has(task_id_of(task)))
         .map(task_id_of);
 
-    const boardTaskFor = (task: Record<string, string>): BoardTask => {
+    const boardTaskFor = (task: Frontmatter): BoardTask => {
         const id = task_id_of(task);
         return {
             id,
-            status: task.status ?? 'unknown',
+            status: scalar(task.status) ?? 'unknown',
             hasReview: reviewStatusByTask.has(id),
             reviewStatus: reviewStatusByTask.get(id) ?? null,
         };
@@ -100,7 +118,7 @@ export function derive_board(input: DeriveBoardInput): Result<DerivedBoard, AppE
     const boardSpecs: BoardSpec[] = specs.map((spec) => ({
         id: spec.id,
         status: spec.status,
-        tasks: tasks.filter((task) => task.source === spec.id).map(boardTaskFor),
+        tasks: tasks.filter((task) => as_list(task.source).includes(spec.id)).map(boardTaskFor),
     }));
 
     return ok({ level: 'clean', specs: boardSpecs, tasksWithoutReview, needsHuman });

@@ -90,22 +90,34 @@ export function init_workspace(input: InitWorkspaceInput): Result<InitReport, Ap
     const backedUp: string[] = [];
     const overwritten: string[] = [];
 
-    // `.gitignore` always merges the kit's required ignores (idempotent marker block) in both modes.
-    merge_gitignore(input, merged, written);
+    // Any filesystem write can fail (a read-only target, a permission boundary). Route those through
+    // the Result channel as a clean error rather than letting an EACCES/EISDIR stack trace escape (and
+    // break a `--json` consumer). A partial scaffold may be left behind — re-run is conflict-safe.
+    try {
+        // `.gitignore` always merges the kit's required ignores (idempotent marker block) in both modes.
+        merge_gitignore(input, merged, written);
 
-    if (input.mode === 'footprint') {
-        // Footprint: the kit's workspace tree is NOT dumped — only a pointer block merged into AGENTS.md.
-        merge_agents_pointer(input, merged, written);
-    } else {
-        // Workspace: copy the whole kit tree; AGENTS.md is a plain copied file (conflict-handled like
-        // any other), so a re-run is a no-op. `.gitignore` is handled by the merge above; its
-        // `.additions` source is consumed as the block, not copied.
-        for (const rel of walk_files(input.sourceDir, input.sourceDir)) {
-            if (rel === '.gitignore' || rel === '.gitignore.additions') {
-                continue;
+        if (input.mode === 'footprint') {
+            // Footprint: the kit's workspace tree is NOT dumped — only a pointer block merged into AGENTS.md.
+            merge_agents_pointer(input, merged, written);
+        } else {
+            // Workspace: copy the whole kit tree; AGENTS.md is a plain copied file (conflict-handled like
+            // any other), so a re-run is a no-op. `.gitignore` is handled by the merge above; its
+            // `.additions` source is consumed as the block, not copied.
+            for (const rel of walk_files(input.sourceDir, input.sourceDir)) {
+                if (rel === '.gitignore' || rel === '.gitignore.additions') {
+                    continue;
+                }
+                copy_plain(input, rel, { written, skipped, backedUp, overwritten });
             }
-            copy_plain(input, rel, { written, skipped, backedUp, overwritten });
         }
+    } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        return err(
+            createAppError('InitWriteFailed', `could not write the workspace into ${input.targetDir}: ${reason}`, {
+                target: input.targetDir,
+            })
+        );
     }
 
     return ok({

@@ -1,20 +1,50 @@
-// Read the scalar key: value pairs from a markdown file's leading `---` frontmatter block. Pure.
-// The reconcile engine needs a handful of packet fields (a task's `source`/`status`, a review's
-// `task`/`status`) — a light line-scanner, not a YAML parser (block lists and nesting are ignored).
+// Read the key/value pairs from a markdown file's leading `---` frontmatter block. Pure.
+// A scalar `key: value` yields a string; a YAML block list (a bare `key:` followed by `- item`
+// lines) yields a string[] — the reconcile engine needs a task's `source` list (a spec, optionally a
+// change-plan) as well as scalar fields (`status`, a review's `task`). A light line-scanner, not a
+// full YAML parser: nesting beyond one list level, and flow-style `[a, b]`, are kept as raw strings.
 
-export function read_frontmatter(source: string): Record<string, string> {
+export type Frontmatter = Record<string, string | string[]>;
+
+const KEY = /^(\w[\w-]*):\s*(.*)$/;
+const LIST_ITEM = /^\s*-\s+(.*)$/;
+
+export function read_frontmatter(source: string): Frontmatter {
     const lines = source.split('\n');
     if (lines[0] !== '---') {
         return {};
     }
-    const out: Record<string, string> = {};
-    for (let index = 1; index < lines.length; index += 1) {
-        if (lines[index] === '---') {
-            break;
+    const out: Frontmatter = {};
+    let index = 1;
+    while (index < lines.length && lines[index] !== '---') {
+        const keyMatch = KEY.exec(lines[index]);
+        if (keyMatch === null) {
+            index += 1;
+            continue;
         }
-        const match = /^(\w[\w-]*):\s*(.*)$/.exec(lines[index]);
-        if (match !== null && match[2].trim().length > 0) {
-            out[match[1]] = match[2].trim();
+        const key = keyMatch[1];
+        const value = keyMatch[2].trim();
+        if (value.length > 0) {
+            out[key] = value;
+            index += 1;
+            continue;
+        }
+        // A bare `key:` may head a block list — collect the contiguous `- item` lines that follow.
+        const items: string[] = [];
+        index += 1;
+        while (index < lines.length) {
+            const itemMatch = LIST_ITEM.exec(lines[index]);
+            if (itemMatch === null) {
+                break;
+            }
+            const item = itemMatch[1].trim();
+            if (item.length > 0) {
+                items.push(item);
+            }
+            index += 1;
+        }
+        if (items.length > 0) {
+            out[key] = items;
         }
     }
     return out;

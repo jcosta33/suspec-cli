@@ -16,6 +16,8 @@ beforeAll(() => {
     writeFileSync(join(kit, 'README.md'), 'KIT README\n');
     mkdirSync(join(kit, 'specs', 'demo'), { recursive: true });
     writeFileSync(join(kit, 'specs', 'demo', 'spec.md'), 'demo\n');
+    mkdirSync(join(kit, 'templates'), { recursive: true });
+    writeFileSync(join(kit, 'templates', 'spec.md'), 'template\n');
 });
 afterAll(() => {
     rmSync(kit, { recursive: true, force: true });
@@ -50,6 +52,16 @@ describe('init command (direct surface, AC-012/016, D-003)', () => {
         expect(readFileSync(join(target, 'AGENTS.md'), 'utf8')).toBe('KIT WORKSPACE AGENTS\n');
         expect(existsSync(join(target, 'specs/demo/spec.md'))).toBe(true);
         expect(readFileSync(join(target, '.gitignore'), 'utf8')).toContain('node_modules/');
+    });
+
+    it('re-running init on a workspace stays in workspace mode (no flip to footprint)', async () => {
+        expect(JSON.parse((await capture(() => run(['--from', kit, '--json'], target))).out)).toMatchObject({
+            mode: 'workspace',
+        });
+        const second = await capture(() => run(['--from', kit, '--json'], target));
+        expect(JSON.parse(second.out)).toMatchObject({ mode: 'workspace' });
+        // a workspace AGENTS.md stays the plain kit copy — no footprint pointer block merged in
+        expect(readFileSync(join(target, 'AGENTS.md'), 'utf8')).not.toContain('swarm:start');
     });
 
     it('a non-empty repo → footprint mode: merges .gitignore + AGENTS pointer, no tree dump', async () => {
@@ -107,5 +119,11 @@ describe('init command (direct surface, AC-012/016, D-003)', () => {
         const { code, out } = await capture(() => run(['--from', kit, '--json'], target));
         expect(code).toBe(0);
         expect(JSON.parse(out)).toMatchObject({ level: 'clean', mode: 'workspace' });
+    });
+
+    it('a target that is a file (not a directory) → exit 2, not an ENOTDIR crash', async () => {
+        writeFileSync(join(target, 'afile'), 'x');
+        const { code } = await capture(() => run(['--from', kit, 'afile'], target));
+        expect(code).toBe(2);
     });
 });

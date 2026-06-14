@@ -6,14 +6,14 @@
 // `--workspace`/`--footprint` force the layout, else it is auto-detected (empty dir → workspace,
 // existing repo → footprint). `-i` opens the interactive wizard.
 
-import { mkdtempSync, existsSync, readdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, existsSync, readdirSync, statSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 
 import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
-import { project, emit_error, init_workspace } from '../../Core/useCases/index.ts';
+import { project, emit_error, usage_error, init_workspace } from '../../Core/useCases/index.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import { format_init_report, run_init_flow, create_clack_prompter } from '../../Tui/useCases/index.ts';
 
@@ -62,6 +62,11 @@ function resolve_mode(flags: Map<string, string | boolean>, targetDir: string): 
     if (!existsSync(targetDir)) {
         return 'workspace';
     }
+    // An already-initialized Swarm workspace (it carries the kit's templates/ + specs/) keeps
+    // workspace mode on re-run, so a second `init` stays idempotent instead of flipping to footprint.
+    if (existsSync(join(targetDir, 'templates')) && existsSync(join(targetDir, 'specs'))) {
+        return 'workspace';
+    }
     return readdirSync(targetDir).filter((entry) => entry !== '.git').length === 0 ? 'workspace' : 'footprint';
 }
 
@@ -75,6 +80,9 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     const fromFlag = flags.get('from');
     const from = typeof fromFlag === 'string' ? fromFlag : undefined;
     const targetDir = positional[0] !== undefined ? resolve(cwd, positional[0]) : cwd;
+    if (existsSync(targetDir) && !statSync(targetDir).isDirectory()) {
+        return emit_error(usage_error(`target is not a directory: ${targetDir}`), json);
+    }
     const policy = parse_policy(flags);
     const mode = resolve_mode(flags, targetDir);
 

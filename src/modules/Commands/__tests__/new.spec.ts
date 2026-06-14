@@ -98,6 +98,13 @@ describe('new command (direct surface, AC-013)', () => {
         expect(err).toContain('unknown new type');
     });
 
+    it('no type (non-TTY) → prints usage, never the literal "undefined"', async () => {
+        const { code, err } = await capture(() => run([], ws));
+        expect(code).toBe(2);
+        expect(err).toContain('usage: swarm new');
+        expect(err).not.toContain('undefined');
+    });
+
     it('--json emits machine output', async () => {
         const { code, out } = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-001', '--json'], ws));
         expect(code).toBe(0);

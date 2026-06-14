@@ -38,6 +38,23 @@ describe('dispatch (AC-004/014)', () => {
         expect(help.out).toContain('Commands');
     });
 
+    it('--version / -v prints the version, exit 0', async () => {
+        const version = await capture(() => dispatch(['--version']));
+        expect(version.code).toBe(0);
+        expect(version.out).toMatch(/^swarm \d+\.\d+\.\d+/);
+        expect((await capture(() => dispatch(['-v']))).out).toContain('swarm ');
+    });
+
+    it('<command> --help prints that command’s usage and does not run the command', async () => {
+        const help = await capture(() => dispatch(['check', '--help']));
+        expect(help.code).toBe(0);
+        expect(help.out).toContain('swarm check');
+        expect(help.out).toContain('Usage');
+        const worktree = await capture(() => dispatch(['worktree', '-h']));
+        expect(worktree.code).toBe(0);
+        expect(worktree.out).toContain('create');
+    });
+
     it('no args, non-TTY → prints help, exit 0', async () => {
         const { code, out } = await capture(() => dispatch([]));
         expect(code).toBe(0);

@@ -15,7 +15,7 @@ import {
     remove_worktree,
     prune_worktrees,
 } from '../../Core/useCases/index.ts';
-import { resolve_repo_root, current_branch } from '../../Workspace/useCases/index.ts';
+import { resolve_repo_root, current_branch, repo_has_commits } from '../../Workspace/useCases/index.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import { format_worktrees, run_worktree_flow, create_clack_prompter } from '../../Tui/useCases/index.ts';
 
@@ -50,6 +50,12 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         if (slug === undefined) {
             return emit_error(usage_error('usage: swarm worktree create <slug> [--task <t>] [--base <branch>]'), json);
         }
+        if (!repo_has_commits(repoRoot)) {
+            return emit_error(
+                usage_error('this repository has no commits yet — make an initial commit before creating a worktree'),
+                json
+            );
+        }
         const baseBranch = base ?? current_branch(repoRoot) ?? 'main';
         return project({
             result: create_worktree({ repoRoot, specSlug: slug, taskSlug, baseBranch }),
@@ -80,6 +86,12 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     }
     if (subcommand === 'prune') {
         return project({ result: prune_worktrees(repoRoot), json, render: () => 'pruned stale worktrees' });
+    }
+    if (subcommand === undefined) {
+        return emit_error(
+            usage_error('usage: swarm worktree <create|list|remove|prune> [slug] [--task <t>] [--base <branch>] [--force]'),
+            json
+        );
     }
     return emit_error(
         usage_error(`unknown worktree subcommand: ${subcommand} — use create | list | remove | prune`),

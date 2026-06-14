@@ -63,6 +63,12 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         });
     }
 
+    if (type === undefined) {
+        return emit_error(
+            usage_error('usage: swarm new <task|spec> — `new task --from <SPEC-id> [--scope …]` or `new spec <slug>`'),
+            json
+        );
+    }
     return emit_error(usage_error(`unknown new type: ${type} — use task | spec`), json);
 }
 

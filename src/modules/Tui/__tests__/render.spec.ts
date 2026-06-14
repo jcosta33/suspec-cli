@@ -43,12 +43,20 @@ describe('format_check_report', () => {
 });
 
 describe('format_workspace_report', () => {
-    it('renders a clean and a blocking workspace with findings', () => {
+    it('renders the 3-way severity header from level (clean / warning / blocking)', () => {
         expect(
-            format_workspace_report({ verdict: 'clean', specs: [{ path: 'a', level: 'clean' }], workspaceFindings: [] })
+            format_workspace_report({ level: 'clean', specs: [{ path: 'a', level: 'clean' }], workspaceFindings: [] })
         ).toContain('clean');
+        // a warnings-only workspace shows "warning", never a misleading "clean" header (it exits 1)
+        const warning = format_workspace_report({
+            level: 'warning',
+            specs: [{ path: 'w', level: 'warning' }],
+            workspaceFindings: [],
+        });
+        expect(warning).toContain('warning');
+        expect(warning).not.toContain('clean');
         const blocking = format_workspace_report({
-            verdict: 'blocking',
+            level: 'blocking',
             specs: [{ path: 'b', level: 'blocking' }],
             workspaceFindings: [{ code: 'placeholder', message: 'unfilled' }],
         });

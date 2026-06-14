@@ -75,6 +75,15 @@ export function current_branch(repoRoot: string): string | null {
 }
 
 /**
+ * Whether the repo has at least one commit (a resolvable HEAD). A fresh `git init` has none, so a
+ * worktree cannot be created yet — the command turns this into a clear message rather than leaking a
+ * raw "fatal: invalid reference" from git.
+ */
+export function repo_has_commits(repoRoot: string): boolean {
+    return spawnSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).status === 0;
+}
+
+/**
  * Parse `git worktree list --porcelain` into an array of worktrees.
  */
 export function worktree_list(repoRoot: string): WorktreeInfo[] {

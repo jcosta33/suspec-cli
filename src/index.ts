@@ -6,13 +6,30 @@
 // prints to stderr and exits 2. The advertised set equals the dispatchable set by construction
 // (see the AC-004 parity test).
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
 import { run as run_check } from './modules/Commands/useCases/check.ts';
 import { run as run_worktree } from './modules/Commands/useCases/worktree.ts';
 import { run as run_status } from './modules/Commands/useCases/status.ts';
 import { run as run_new } from './modules/Commands/useCases/new.ts';
 import { run as run_init } from './modules/Commands/useCases/init.ts';
-import { print_help } from './modules/Commands/useCases/help.ts';
+import { print_help, print_command_help } from './modules/Commands/useCases/help.ts';
 import { run_dashboard_flow, create_clack_prompter } from './modules/Tui/useCases/index.ts';
+
+function is_record(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
+
+// Read the package version for `--version`. package.json sits one level above this module — true for
+// both the dev entry (src/index.ts) and the built entry (dist/index.js).
+function print_version(): void {
+    const pkgPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json');
+    const raw: unknown = JSON.parse(readFileSync(pkgPath, 'utf8'));
+    const version = is_record(raw) && typeof raw.version === 'string' ? raw.version : 'unknown';
+    process.stdout.write(`swarm ${version}\n`);
+}
 
 // A command returns an exit code — synchronously (`status`, which only renders) or asynchronously
 // (the commands whose `-i` flow awaits prompts). The dispatcher awaits uniformly, so both fit.
@@ -46,13 +63,23 @@ export async function dispatch(argv: string[], cwd: string = process.cwd()): Pro
         print_help();
         return 0;
     }
+    if (command === '--version' || command === '-v') {
+        print_version();
+        return 0;
+    }
 
     const run = COMMANDS[command];
     if (run === undefined) {
         process.stderr.write(`Unknown command: ${command}\nRun 'swarm --help' to see the commands.\n`);
         return 2;
     }
-    return run(argv.slice(1), cwd);
+
+    const rest = argv.slice(1);
+    if (rest.includes('--help') || rest.includes('-h')) {
+        print_command_help(command);
+        return 0;
+    }
+    return run(rest, cwd);
 }
 
 /* v8 ignore start -- the process entry; dispatch() is unit-tested directly */

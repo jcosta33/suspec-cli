@@ -20,11 +20,30 @@ export function print_help(): void {
         color.bold('Commands'),
         ...commands,
         '',
+        color.dim('  Run `swarm <command> --help` for a command’s usage and flags.'),
+        '',
         color.bold('Global flags'),
         `  --json                   machine-readable output (never prompts)`,
         `  --no-workspace           run without a Swarm workspace where possible`,
+        `  --version · -v           print the version`,
         '',
         color.dim('Exit codes: 0 clean · 1 warnings · 2 error.'),
+    ];
+    process.stdout.write(`${lines.join('\n')}\n`);
+}
+
+// `swarm <command> --help` — the usage block for one command, from the same catalog.
+export function print_command_help(name: string): void {
+    const entry = COMMAND_CATALOG.find((command) => command.name === name);
+    if (entry === undefined) {
+        print_help();
+        return;
+    }
+    const lines = [
+        `${color.bold(`swarm ${entry.name}`)} — ${entry.description}`,
+        '',
+        color.bold('Usage'),
+        ...entry.usage.map((line) => `  ${line}`),
     ];
     process.stdout.write(`${lines.join('\n')}\n`);
 }

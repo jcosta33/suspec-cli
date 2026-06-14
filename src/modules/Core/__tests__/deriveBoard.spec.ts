@@ -49,6 +49,14 @@ describe('derive_board', () => {
         expect(board.needsHuman).toEqual(['TASK-1']);
     });
 
+    it('links a task whose `source` is a block list (the canonical task format) to its spec', () => {
+        spec('feat', 'type: spec\nid: SPEC-feat\nstatus: ready');
+        // The kit task template + cut_packet write source as a YAML list (spec, optionally a change-plan).
+        packet('tasks', 't1.md', 'type: task\nid: TASK-1\nsource:\n  - SPEC-feat\n  - CHANGE-feat\nstatus: ready');
+        const board = assertOk(derive_board({ workspaceDir: ws }));
+        expect(board.specs[0].tasks.map((t) => t.id)).toEqual(['TASK-1']);
+    });
+
     it('fills in fallback labels when status fields are absent', () => {
         spec('s', 'type: spec\nid: SPEC-s'); // no status → 'unknown'
         packet('tasks', 't.md', 'type: task\nid: TASK-x\nsource: SPEC-s'); // no status → 'unknown'
