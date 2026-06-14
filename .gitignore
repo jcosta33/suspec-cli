@@ -39,15 +39,3 @@ tmp/
 # legacy pre-migration execution frames (local scratch)
 .agents/tasks/
 .worktrees/
-
-# >>> swarm >>>
-# Swarm — append to a CODE repo's .gitignore. The Swarm workspace commits its
-# specs, tasks, reviews, and findings; only code-repo scratch is ignored here.
-
-# Agent scratch and transient task hand-offs
-.agents/tmp/
-tmp/
-
-# Local state of the future Swarm CLI (machine state, never committed)
-.swarm/
-# <<< swarm <<<
