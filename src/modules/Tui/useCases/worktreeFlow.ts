@@ -30,13 +30,13 @@ async function create(prompter: Prompter, repoRoot: string): Promise<number> {
     spin.start('Creating worktree…');
     const result = create_worktree({ repoRoot, specSlug: slug, baseBranch: current_branch(repoRoot) ?? 'main' });
     spin.stop('Done.');
-    /* v8 ignore start -- in-flow create uses the valid current branch as base; it does not err here (the command path tests the bad-base error) */
     if (isErr(result)) {
+        // Reachable: the slug is free text, so an invalid one (e.g. a space) makes git reject the
+        // branch name. Surface it cleanly rather than crash.
         prompter.error(result.error.message);
         prompter.outro('✗ could not create');
         return 2;
     }
-    /* v8 ignore stop */
     prompter.success(`${result.value.reused ? 'Reusing' : 'Created'} ${result.value.branch}`);
     const path = result.value.worktreePath;
     prompter.outro(result.value.port === null ? path : `${path}  ·  runtime port ${result.value.port}`);

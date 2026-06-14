@@ -25,8 +25,9 @@ export type StampRuntimeIsolationReport = Readonly<{
 
 const STAMP_FILENAME = '.swarm-runtime.json';
 
-// A stable, deterministic offset from the slug — distinct slugs get distinct offsets (modulo the
-// range size), so two parallel worktrees do not share a port.
+// A stable, deterministic offset from the slug: hash(slug) mod range size. Distinct slugs usually map
+// to distinct offsets, but collisions are possible once the number of live worktrees approaches the
+// range size (the offset wraps). Size the range comfortably above the expected parallel-task count.
 function offset_for(slug: string, size: number): number {
     let hash = 0;
     for (const char of slug) {

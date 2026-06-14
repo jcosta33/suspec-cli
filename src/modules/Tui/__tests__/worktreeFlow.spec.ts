@@ -80,6 +80,12 @@ describe('run_worktree_flow', () => {
         expect(p.calls.warns.length).toBeGreaterThan(0);
     });
 
+    it('surfaces a create failure (invalid slug → bad branch name) as exit 2', async () => {
+        const p = create_mock_prompter({ select: ['create'], text: ['bad slug'] });
+        expect(await run_worktree_flow(p, { cwd: repo })).toBe(2);
+        expect(p.calls.errors.length).toBeGreaterThan(0);
+    });
+
     it('surfaces a remove failure (dirty worktree, no force) as exit 2', async () => {
         const create = await run_worktree_flow(create_mock_prompter({ select: ['create'], text: ['dirtyspec'] }), {
             cwd: repo,
