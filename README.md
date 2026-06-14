@@ -68,7 +68,9 @@ target — **never overwriting your content by default**. An existing file is _s
 you pass `--force` or `--on-conflict overwrite|backup`. `.gitignore` and `AGENTS.md` _merge_ a Swarm
 block rather than skip. An empty directory gets the full workspace; an existing code repo gets the
 minimal footprint (`--workspace` / `--footprint` force the layout). `--from <path|url>` overrides the
-kit source. Re-running is idempotent.
+kit source. Re-running is conflict-safe: unchanged kit files are no-ops (a clean re-run), and any
+file you have since edited is kept — reported as _skipped_ with a non-zero exit, so you can see what
+diverged.
 
 ### `swarm check`
 
