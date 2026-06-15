@@ -42,4 +42,10 @@ describe('scaffold_spec', () => {
         assertOk(scaffold_spec({ workspaceDir: ws, slug: 'dup' }));
         expect(assertErr(scaffold_spec({ workspaceDir: ws, slug: 'dup' }))._tag).toBe('SpecExists');
     });
+
+    it('rejects a path-escaping slug (no write outside the workspace)', () => {
+        for (const slug of ['../../tmp/escape', '..', 'a/b', '/abs']) {
+            expect(assertErr(scaffold_spec({ workspaceDir: ws, slug }))._tag).toBe('Usage');
+        }
+    });
 });

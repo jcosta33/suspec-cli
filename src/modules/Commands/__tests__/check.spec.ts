@@ -96,6 +96,13 @@ describe('check command (direct surface, AC-001/005)', () => {
         expect(JSON.parse(out)).toMatchObject({ level: 'clean', diagnostics: [] });
     });
 
+    it('--json=true (equals form) still produces JSON, not human output', async () => {
+        const file = writeSpec('ok', CONFORMANT);
+        const { code, out } = await capture(() => run([file, '--json=true']));
+        expect(code).toBe(0);
+        expect(JSON.parse(out)).toMatchObject({ level: 'clean' });
+    });
+
     it('resolves a workspace ref relative to the spec file (C009) → exit 2 when missing', async () => {
         const file = writeSpec('refs', CONFORMANT.replace('  - ADR-0077', '  - ADR-0077\n  - ./missing.md'));
         const { code } = await capture(() => run([file]));

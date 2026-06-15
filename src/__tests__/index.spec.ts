@@ -3,7 +3,9 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { dispatch, COMMAND_NAMES } from '../index.ts';
+import { pathToFileURL } from 'node:url';
+
+import { dispatch, COMMAND_NAMES, is_main_module } from '../index.ts';
 import { COMMAND_CATALOG } from '../modules/Commands/useCases/catalog.ts';
 
 async function capture(fn: () => Promise<number>): Promise<{ out: string; err: string; code: number }> {
@@ -25,6 +27,21 @@ async function capture(fn: () => Promise<number>): Promise<{ out: string; err: s
         e.mockRestore();
     }
 }
+
+describe('is_main_module (the process-entry guard)', () => {
+    it('matches an entry path even when it contains a space/special char', () => {
+        // The old hand-built `file://${entry}` form fails here: import.meta.url percent-encodes (space
+        // → %20) but the manual form does not, so a published install under a spaced path was a no-op.
+        const spaced = '/tmp/My Projects/x/dist/index.js';
+        expect(is_main_module(pathToFileURL(spaced).href, spaced)).toBe(true);
+        expect(pathToFileURL(spaced).href).not.toBe(`file://${spaced}`);
+    });
+
+    it('returns false for a different entry or an undefined entry', () => {
+        expect(is_main_module(pathToFileURL('/a/b.js').href, '/a/other.js')).toBe(false);
+        expect(is_main_module('file:///a/b.js', undefined)).toBe(false);
+    });
+});
 
 describe('dispatch (AC-004/014)', () => {
     it('advertised commands equal the dispatchable set (no command resolves to Unknown)', () => {

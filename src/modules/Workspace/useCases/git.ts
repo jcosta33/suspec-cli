@@ -42,20 +42,17 @@ function git(args: string[], opts: { cwd?: string } = {}): string {
     return (result.stdout || '').trim();
 }
 
-function git_available(): boolean {
-    return spawnSync('git', ['--version'], { encoding: 'utf8' }).status === 0;
-}
-
 /**
  * Resolve the git repo root without throwing — the Unix-contract seam (AC-002): a command run
- * outside a git repo gets a clean error and exit 2, never a stack trace.
+ * outside a git repo gets a clean error and exit 2, never a stack trace. One spawn: a missing git
+ * surfaces as `result.error`, a non-repo as a non-zero status.
  */
 export function resolve_repo_root(cwd: string = process.cwd()): Result<string, NoGitRepoError> {
+    const result = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf8' });
     /* v8 ignore next 3 -- git-not-installed guard; not reachable in an environment that has git */
-    if (!git_available()) {
+    if (result.error) {
         return err(createAppError('NoGitRepo', 'git is not installed or not in PATH', { cwd }));
     }
-    const result = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf8' });
     if (result.status !== 0) {
         return err(createAppError('NoGitRepo', 'not inside a git repository', { cwd }));
     }

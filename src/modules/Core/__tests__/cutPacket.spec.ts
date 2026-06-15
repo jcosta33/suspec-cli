@@ -58,6 +58,12 @@ describe('cut_packet', () => {
         expect(content).not.toMatch(/- AC-\d/);
     });
 
+    it('dedups a repeated scope id (no duplicated Scope/Verify entries)', () => {
+        const report = assertOk(cut_packet({ workspaceDir: ws, specId: 'SPEC-x', scope: ['AC-001', 'AC-001'] }));
+        expect(report.scope).toEqual(['AC-001']);
+        expect(read(report.taskId).match(/- AC-001\b/g)).toHaveLength(1);
+    });
+
     it('rejects a scope id that is not a requirement of the spec', () => {
         const failure = assertErr(cut_packet({ workspaceDir: ws, specId: 'SPEC-x', scope: ['AC-001', 'AC-099'] }));
         expect(failure._tag).toBe('UnknownScope');
@@ -94,5 +100,17 @@ describe('cut_packet', () => {
         expect(
             assertErr(cut_packet({ workspaceDir: ws, specId: 'SPEC-x', scope: ['AC-002'], taskId: 'TASK-custom' }))._tag
         ).toBe('TaskExists');
+    });
+
+    it('rejects a path-escaping task id — custom, or derived from a malicious spec id (no write outside tasks/)', () => {
+        expect(
+            assertErr(cut_packet({ workspaceDir: ws, specId: 'SPEC-x', scope: [], taskId: '../../tmp/escape' }))._tag
+        ).toBe('Usage');
+        // a spec whose on-disk frontmatter id derives an escaping default task id
+        mkdirSync(join(ws, 'specs', 'evil'), { recursive: true });
+        writeFileSync(join(ws, 'specs', 'evil', 'spec.md'), SPEC_X.replace('id: SPEC-x', 'id: SPEC-../../tmp/escape'));
+        expect(assertErr(cut_packet({ workspaceDir: ws, specId: 'SPEC-../../tmp/escape', scope: [] }))._tag).toBe(
+            'Usage'
+        );
     });
 });

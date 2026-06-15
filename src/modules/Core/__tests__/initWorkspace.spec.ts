@@ -63,6 +63,21 @@ describe('init_workspace — workspace mode, greenfield', () => {
         expect(failure.message).toContain('could not write');
     });
 
+    it('--force onto a destination symlink replaces the link, never writes through to its target', () => {
+        const external = `${target}-precious`; // outside the workspace
+        writeFileSync(external, 'PRECIOUS\n');
+        try {
+            symlinkSync(external, join(target, 'README.md')); // a kit file's destination is a symlink out
+            const report = assertOk(run({ policy: 'overwrite' }));
+            expect(readFileSync(external, 'utf8')).toBe('PRECIOUS\n'); // the external target is untouched
+            expect(lstatSync(join(target, 'README.md')).isSymbolicLink()).toBe(false); // link replaced
+            expect(readFileSync(join(target, 'README.md'), 'utf8')).toBe('KIT README\n');
+            expect(report.overwritten).toContain('README.md');
+        } finally {
+            rmSync(external, { force: true });
+        }
+    });
+
     it('is idempotent — a second run writes/skips/merges nothing', () => {
         assertOk(run());
         const second = assertOk(run());

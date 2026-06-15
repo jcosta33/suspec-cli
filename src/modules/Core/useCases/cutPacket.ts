@@ -10,7 +10,8 @@ import { join, dirname, relative } from 'path';
 import { ok, err, isOk, type Result } from '../../../infra/errors/result.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { parse_spec_record } from '../../Sol/useCases/index.ts';
-import type { OutcomeLevel } from './unixOutcome.ts';
+import { is_safe_segment } from '../services/safeSegment.ts';
+import { usage_error, type OutcomeLevel } from './unixOutcome.ts';
 
 export type CutPacketInput = Readonly<{
     workspaceDir: string;
@@ -112,7 +113,9 @@ export function cut_packet(input: CutPacketInput): Result<CutPacketReport, AppEr
         );
     }
 
-    const unknown = input.scope.filter((id) => !spec.requirementIds.includes(id));
+    // Dedup the requested scope so `--scope AC-001,AC-001` doesn't write a duplicated Scope/Verify list.
+    const scope = [...new Set(input.scope)];
+    const unknown = scope.filter((id) => !spec.requirementIds.includes(id));
     if (unknown.length > 0) {
         return err(
             createAppError('UnknownScope', `scope ids are not requirements of ${input.specId}: ${unknown.join(', ')}`, {
@@ -122,6 +125,12 @@ export function cut_packet(input: CutPacketInput): Result<CutPacketReport, AppEr
     }
 
     const taskId = input.taskId ?? default_task_id(input.specId);
+    // The task id becomes a filename (and derives from the spec's on-disk frontmatter id). Reject any
+    // path-escaping id before it is joined into a write path (a malicious/cloned workspace otherwise
+    // makes `new task` an arbitrary-location writer).
+    if (!is_safe_segment(taskId)) {
+        return err(usage_error(`invalid task id: "${taskId}" — letters, digits, '.', '_', '-' only (no '/' or '..')`));
+    }
     const taskPath = join(input.workspaceDir, 'tasks', `${taskId}.md`);
     if (existsSync(taskPath)) {
         return err(createAppError('TaskExists', `a task packet already exists: tasks/${taskId}.md`, { taskId }));
@@ -131,10 +140,10 @@ export function cut_packet(input: CutPacketInput): Result<CutPacketReport, AppEr
         taskId,
         specId: input.specId,
         specRel: relative(input.workspaceDir, spec.path),
-        scope: input.scope,
+        scope,
     });
     mkdirSync(dirname(taskPath), { recursive: true });
     writeFileSync(taskPath, content);
 
-    return ok({ level: 'clean', path: taskPath, taskId, scope: input.scope });
+    return ok({ level: 'clean', path: taskPath, taskId, scope });
 }

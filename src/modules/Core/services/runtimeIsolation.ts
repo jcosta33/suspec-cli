@@ -22,7 +22,12 @@ export function parse_runtime_isolation_config(raw: unknown): RuntimeIsolationCo
     }
     const start = isolation.portRangeStart;
     const size = isolation.portRangeSize;
-    if (typeof start !== 'number' || typeof size !== 'number' || size <= 0) {
+    if (typeof start !== 'number' || typeof size !== 'number') {
+        return null;
+    }
+    // Real ports only: integers, non-negative start, positive size, and the whole range inside the
+    // 0–65535 port space (a NaN/Infinity/float/negative/huge config otherwise yields invalid ports).
+    if (!Number.isInteger(start) || !Number.isInteger(size) || start < 0 || size <= 0 || start + size > 65536) {
         return null;
     }
     return { portRangeStart: start, portRangeSize: size };

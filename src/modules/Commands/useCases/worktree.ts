@@ -50,6 +50,13 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         if (slug === undefined) {
             return emit_error(usage_error('usage: swarm worktree create <slug> [--task <t>] [--base <branch>]'), json);
         }
+        // A flag-shaped --base/--task would be passed to git as an option (`git worktree add … -x`).
+        if (base?.startsWith('-') === true) {
+            return emit_error(usage_error(`invalid --base value: "${base}" — expected a branch or commit`), json);
+        }
+        if (taskSlug?.startsWith('-') === true) {
+            return emit_error(usage_error(`invalid --task value: "${taskSlug}" — expected a task slug`), json);
+        }
         if (!repo_has_commits(repoRoot)) {
             return emit_error(
                 usage_error('this repository has no commits yet — make an initial commit before creating a worktree'),

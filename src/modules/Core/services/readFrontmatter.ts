@@ -8,9 +8,13 @@ export type Frontmatter = Record<string, string | string[]>;
 
 const KEY = /^(\w[\w-]*):\s*(.*)$/;
 const LIST_ITEM = /^\s*-\s+(.*)$/;
+const BOM = 0xfeff;
 
 export function read_frontmatter(source: string): Frontmatter {
-    const lines = source.split('\n');
+    // Tolerate CRLF (Windows) line endings and a leading UTF-8 BOM, else `lines[0]` would be `'---\r'`
+    // (or BOM-prefixed) and the whole file would read as having no frontmatter.
+    const text = source.charCodeAt(0) === BOM ? source.slice(1) : source;
+    const lines = text.split(/\r?\n/);
     if (lines[0] !== '---') {
         return {};
     }

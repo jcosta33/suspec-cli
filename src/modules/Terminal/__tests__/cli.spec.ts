@@ -24,10 +24,19 @@ describe('parse_flags', () => {
         expect(flags.get('i')).toBe(true);
     });
 
-    it('a string flag with no following value is dropped; unknown flags are ignored', () => {
-        const { positional, flags } = parse_flags(['--from', '--unknown', 'pos'], SPEC);
-        // --from has no value (next is a flag) → not set; --unknown ignored; pos stays positional
-        expect(flags.has('from')).toBe(false);
-        expect(positional).toEqual(['pos']);
+    it('a string flag consumes the next token even when it looks like a flag (POSIX), no silent drop', () => {
+        const captured = parse_flags(['--from', '--unknown', 'pos'], SPEC);
+        expect(captured.flags.get('from')).toBe('--unknown'); // captured, not dropped (the command validates it)
+        expect(captured.positional).toEqual(['pos']);
+        // a string flag at the very end of argv has no value to consume
+        const dangling = parse_flags(['task', '--from'], SPEC);
+        expect(dangling.flags.has('from')).toBe(false);
+        expect(dangling.positional).toEqual(['task']);
+    });
+
+    it('coerces a declared boolean in --flag=value form; a string flag keeps its value', () => {
+        expect(parse_flags(['--json=true'], SPEC).flags.get('json')).toBe(true);
+        expect(parse_flags(['--json=false'], SPEC).flags.get('json')).toBe(false);
+        expect(parse_flags(['--from=SPEC-z'], SPEC).flags.get('from')).toBe('SPEC-z');
     });
 });

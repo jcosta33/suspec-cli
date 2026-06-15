@@ -135,6 +135,14 @@ function count_strength_words(text: string): number {
     return matches === null ? 0 : matches.length;
 }
 
+// A requirement's STATEMENT is the prose before its Verify line. C004 counts strength words there
+// only — a `Verify with:` line ("a test that proves it must reject …") and trailing commentary
+// naturally carry modals, so scanning the whole body both false-positives and false-negatives.
+function statement_text(body: string): string {
+    const verify = VERIFY_LINE_PATTERN.exec(body);
+    return verify === null ? body : body.slice(0, verify.index);
+}
+
 // --- C001 unique-ids -----------------------------------------------------------------------------
 export function check_unique_ids(spec: ParsedSpec): Diagnostic[] {
     const seen = new Map<string, number>();
@@ -173,7 +181,7 @@ export function check_verify_with(spec: ParsedSpec): Diagnostic[] {
 export function check_one_strength_word(spec: ParsedSpec): Diagnostic[] {
     const diagnostics: Diagnostic[] = [];
     for (const requirement of spec.requirements) {
-        const count = count_strength_words(requirement.body);
+        const count = count_strength_words(statement_text(requirement.body));
         if (count !== 1) {
             diagnostics.push(
                 diagnostic(

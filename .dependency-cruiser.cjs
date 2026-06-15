@@ -37,14 +37,16 @@ module.exports = {
         {
             name: 'surface-isolation',
             severity: 'error',
-            comment: 'The surfaces (Commands, Tui) are the top of the graph — Core and the leaves must not import them.',
+            comment:
+                'The surfaces (Commands, Tui) are the top of the graph — Core and the leaves must not import them.',
             from: { path: '^src/modules/(Core|Sol|Workspace|Terminal)/' },
             to: { path: '^src/modules/(Commands|Tui)/' },
         },
         {
             name: 'leaf-isolation',
             severity: 'error',
-            comment: 'Leaves (Sol, Workspace, Terminal) sit below Core — they must not import Core or a surface; only infra.',
+            comment:
+                'Leaves (Sol, Workspace, Terminal) sit below Core — they must not import Core or a surface; only infra.',
             from: { path: '^src/modules/(Sol|Workspace|Terminal)/' },
             to: { path: '^src/modules/(Core|Commands|Tui)/' },
         },
@@ -92,6 +94,14 @@ module.exports = {
                 'Files inside src/modules/<X>/ must not import from their own barrel (useCases/index.ts). Use relative paths directly to the defining file.',
             from: { path: '^src/modules/([^/]+)/.+' },
             to: { path: '^src/modules/$1/useCases/index\\.ts$' },
+        },
+        {
+            name: 'no-deep-import-from-entry',
+            severity: 'error',
+            comment:
+                'Top-level src files (the dispatcher, src/index.ts) reach a module only through its root useCases/index.ts barrel — never a deep import into another module. The module rules above anchor on ^src/modules/, so without this the entrypoint would sit outside the enforced perimeter.',
+            from: { path: '^src/[^/]+\\.ts$' },
+            to: { path: '^src/modules/[^/]+/(?!useCases/index\\.ts$).+' },
         },
 
         // ── Hygiene ─────────────────────────────────────────────────────────
@@ -148,8 +158,7 @@ module.exports = {
         reporterOptions: {
             text: { highlightFocused: true },
             archi: {
-                collapsePattern:
-                    '^(?:src|bin|test(s?)|spec(s?))/[^/]+|node_modules/(?:@[^/]+/[^/]+|[^/]+)',
+                collapsePattern: '^(?:src|bin|test(s?)|spec(s?))/[^/]+|node_modules/(?:@[^/]+/[^/]+|[^/]+)',
             },
         },
     },

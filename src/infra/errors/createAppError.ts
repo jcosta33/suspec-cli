@@ -16,7 +16,9 @@ export const createAppError = <TTag extends string, TData extends Record<string,
     data?: TData,
     cause?: unknown
 ): AppError<TTag, TData> => {
-    const error = Object.assign(new Error(message), { _tag: tag }, data ?? {}) as AppError<TTag, TData>;
+    // `data` is applied before the reserved keys so a stray `data.message`/`data._tag` can never
+    // shadow the real discriminant or message.
+    const error = Object.assign(new Error(message), data ?? {}, { _tag: tag, message }) as AppError<TTag, TData>;
     if (cause !== undefined) {
         Object.defineProperty(error, 'cause', { value: cause, writable: true, enumerable: false, configurable: true });
     }

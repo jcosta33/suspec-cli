@@ -103,4 +103,11 @@ describe('parse_spec_record', () => {
         const failure = assertErr(parse_spec_record({ source: '---\nid: x\nno closing fence here\n', path: 'x.md' }));
         expect(failure._tag).toBe('ParseFailure');
     });
+
+    it('parses a CRLF-line-ending spec identically to LF (not falsely "unparseable")', () => {
+        const lf = assertOk(parse_spec_record({ source: SPEC, path: 'spec.md' }));
+        const crlf = assertOk(parse_spec_record({ source: SPEC.replace(/\n/g, '\r\n'), path: 'spec.md' }));
+        expect(crlf.frontmatter).toEqual(lf.frontmatter);
+        expect(crlf.requirements.map((requirement) => requirement.id)).toEqual(lf.requirements.map((r) => r.id));
+    });
 });

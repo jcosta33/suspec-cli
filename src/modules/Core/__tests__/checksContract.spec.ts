@@ -119,6 +119,27 @@ describe('C004 one-strength-word', () => {
             codes(check_one_strength_word(spec({ requirements: [req('AC-004', 'It must X and should Y.')] })))
         ).toEqual(['C004']);
     });
+
+    it('counts strength words only in the statement, not the Verify line', () => {
+        // statement has one modal; the modal in the Verify line must not count → no C004
+        expect(
+            check_one_strength_word(
+                spec({
+                    requirements: [req('AC-1', 'The tool must reject it.\nVerify with: a test that should prove it.')],
+                })
+            )
+        ).toEqual([]);
+        // statement has zero modals (the only one is in the Verify line) → C004 fires
+        expect(
+            codes(
+                check_one_strength_word(
+                    spec({
+                        requirements: [req('AC-2', 'The tool rejects it.\nVerify with: assert it must not throw.')],
+                    })
+                )
+            )
+        ).toEqual(['C004']);
+    });
 });
 
 describe('C005 non-goals-present', () => {

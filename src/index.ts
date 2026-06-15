@@ -7,15 +7,18 @@
 // (see the AC-004 parity test).
 
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
-import { run as run_check } from './modules/Commands/useCases/check.ts';
-import { run as run_worktree } from './modules/Commands/useCases/worktree.ts';
-import { run as run_status } from './modules/Commands/useCases/status.ts';
-import { run as run_new } from './modules/Commands/useCases/new.ts';
-import { run as run_init } from './modules/Commands/useCases/init.ts';
-import { print_help, print_command_help } from './modules/Commands/useCases/help.ts';
+import {
+    run_check,
+    run_worktree,
+    run_status,
+    run_new,
+    run_init,
+    print_help,
+    print_command_help,
+} from './modules/Commands/useCases/index.ts';
 import { run_dashboard_flow, create_clack_prompter } from './modules/Tui/useCases/index.ts';
 
 function is_record(value: unknown): value is Record<string, unknown> {
@@ -46,6 +49,14 @@ const COMMANDS: Record<string, CommandRun> = {
 // The dispatchable command names (excluding `help`, handled inline) — the AC-004 parity test
 // cross-checks these against COMMAND_CATALOG.
 export const COMMAND_NAMES = Object.keys(COMMANDS);
+
+// Is this module the process entry? Compare URL-to-URL: `import.meta.url` percent-encodes the path
+// (a space becomes `%20`), so building `file://${argv[1]}` by hand never matches under an install
+// path with a space/non-ASCII char — silently turning the CLI into a no-op. pathToFileURL encodes
+// the same way, so the comparison holds.
+export function is_main_module(metaUrl: string, entry: string | undefined): boolean {
+    return entry !== undefined && metaUrl === pathToFileURL(entry).href;
+}
 
 export async function dispatch(argv: string[], cwd: string = process.cwd()): Promise<number> {
     if (argv.length === 0) {
@@ -82,10 +93,17 @@ export async function dispatch(argv: string[], cwd: string = process.cwd()): Pro
     return run(rest, cwd);
 }
 
-/* v8 ignore start -- the process entry; dispatch() is unit-tested directly */
-if (import.meta.url === `file://${process.argv[1]}`) {
-    void dispatch(process.argv.slice(2)).then((code) => {
-        process.exitCode = code;
-    });
+/* v8 ignore start -- the process entry; dispatch() + is_main_module are unit-tested directly */
+if (is_main_module(import.meta.url, process.argv[1])) {
+    void dispatch(process.argv.slice(2)).then(
+        (code) => {
+            process.exitCode = code;
+        },
+        (error: unknown) => {
+            // Defense in depth: any uncaught error becomes a clean message + exit 2, never a stack trace.
+            process.stderr.write(`swarm: ${error instanceof Error ? error.message : String(error)}\n`);
+            process.exitCode = 2;
+        }
+    );
 }
 /* v8 ignore stop */

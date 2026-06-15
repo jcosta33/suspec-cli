@@ -126,6 +126,17 @@ describe('the launch engine stamps runtime isolation (AC-010)', () => {
         assertOk(remove_worktree({ repoRoot, specSlug: 'iso-none', force: true }));
     });
 
+    it('does not throw when a reused worktree dir is missing but a config is set (stale admin entry → port null)', () => {
+        const cfg = () => ({ portRangeStart: 4000, portRangeSize: 100 });
+        const created = assertOk(create_worktree({ repoRoot, specSlug: 'iso-stale', baseBranch, readConfig: cfg }));
+        expect(created.port).not.toBeNull();
+        rmSync(created.worktreePath, { recursive: true, force: true }); // remove the dir, keep the admin entry
+        const reused = assertOk(create_worktree({ repoRoot, specSlug: 'iso-stale', baseBranch, readConfig: cfg }));
+        expect(reused.reused).toBe(true);
+        expect(reused.port).toBeNull(); // stamp skipped (dir gone), no ENOENT thrown
+        assertOk(prune_worktrees(repoRoot));
+    });
+
     it('reads runtimeIsolation from swarm.config.json on disk by default', () => {
         const isoRepo = realpathSync(mkdtempSync(join(tmpdir(), 'swarm-iso-')));
         const isoGit = (args: string[]) => execFileSync('git', args, { cwd: isoRepo, encoding: 'utf8' });
@@ -137,11 +148,15 @@ describe('the launch engine stamps runtime isolation (AC-010)', () => {
             const base = isoGit(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
 
             // No config file → no-op.
-            expect(assertOk(create_worktree({ repoRoot: isoRepo, specSlug: 'cfg-none', baseBranch: base })).port).toBeNull();
+            expect(
+                assertOk(create_worktree({ repoRoot: isoRepo, specSlug: 'cfg-none', baseBranch: base })).port
+            ).toBeNull();
 
             // Malformed JSON → no-op (never throws).
             writeFileSync(join(isoRepo, 'swarm.config.json'), '{ not valid json');
-            expect(assertOk(create_worktree({ repoRoot: isoRepo, specSlug: 'cfg-bad', baseBranch: base })).port).toBeNull();
+            expect(
+                assertOk(create_worktree({ repoRoot: isoRepo, specSlug: 'cfg-bad', baseBranch: base })).port
+            ).toBeNull();
 
             // Valid config → a port in range + the fixture written to the worktree.
             writeFileSync(

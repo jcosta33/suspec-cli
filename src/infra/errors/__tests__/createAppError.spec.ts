@@ -18,4 +18,10 @@ describe('AppError', () => {
         expect(error.id).toBe(42);
         expect(error).not.toHaveProperty('details');
     });
+
+    it('data cannot shadow the _tag or message discriminant', () => {
+        const error = createAppError('RealTag', 'real message', { _tag: 'FAKE', message: 'fake' });
+        expect(error._tag).toBe('RealTag');
+        expect(error.message).toBe('real message');
+    });
 });

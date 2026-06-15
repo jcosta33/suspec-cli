@@ -13,10 +13,7 @@ import { join } from 'path';
 import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
 import { find_worktree_for_branch, worktree_create } from '../../Workspace/useCases/index.ts';
-import {
-    parse_runtime_isolation_config,
-    type RuntimeIsolationConfig,
-} from '../services/runtimeIsolation.ts';
+import { parse_runtime_isolation_config, type RuntimeIsolationConfig } from '../services/runtimeIsolation.ts';
 import { derive_worktree_names } from '../services/worktreeNames.ts';
 import { stamp_runtime_isolation } from './stampRuntimeIsolation.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
@@ -74,13 +71,20 @@ export function create_worktree(input: CreateWorktreeInput): Result<CreateWorktr
         reused = false;
     }
 
+    // Stamp runtime isolation only when a config is set AND the worktree dir actually exists. A
+    // reused-but-stale worktree (admin entry survived, the dir was removed) must not throw ENOENT into
+    // an uncaught stack trace — return it without a port instead.
     const readConfig = input.readConfig ?? read_runtime_isolation_config;
-    const stamp = stamp_runtime_isolation({
-        worktreePath: resolvedPath,
-        slug: branch,
-        config: readConfig(input.repoRoot),
-        writeFile: input.writeStamp,
-    });
+    const config = readConfig(input.repoRoot);
+    let port: number | null = null;
+    if (config !== null && existsSync(resolvedPath)) {
+        port = stamp_runtime_isolation({
+            worktreePath: resolvedPath,
+            slug: branch,
+            config,
+            writeFile: input.writeStamp,
+        }).port;
+    }
 
-    return ok({ level: 'clean', branch, worktreePath: resolvedPath, reused, port: stamp.port });
+    return ok({ level: 'clean', branch, worktreePath: resolvedPath, reused, port });
 }

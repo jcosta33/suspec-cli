@@ -18,7 +18,11 @@ export function parse_flags(
         const arg = argv[i];
         const eq = arg.indexOf('=');
         if (arg.startsWith('--') && eq > -1) {
-            flags.set(arg.slice(2, eq), arg.slice(eq + 1));
+            const flagKey = arg.slice(2, eq);
+            const value = arg.slice(eq + 1);
+            // A declared boolean in `--flag=value` form coerces to a boolean — otherwise `--json=true`
+            // reads as the string "true" and `flags.get('json') === true` silently fails (JSON off).
+            flags.set(flagKey, booleans.has(`--${flagKey}`) ? value !== 'false' : value);
             continue;
         }
         if (booleans.has(arg)) {
@@ -26,8 +30,12 @@ export function parse_flags(
             continue;
         }
         if (strings.has(arg)) {
+            // POSIX: a declared string flag consumes the next token as its value, even if it looks like
+            // a flag (so `--base -x` captures `-x` rather than silently dropping the value AND the
+            // token). The consuming command validates the value — a flag-shaped ref is rejected with a
+            // clean error, never fed to git as an option.
             const value = argv[i + 1];
-            if (value !== undefined && !value.startsWith('-')) {
+            if (value !== undefined) {
                 flags.set(key(arg), value);
                 i++;
             }

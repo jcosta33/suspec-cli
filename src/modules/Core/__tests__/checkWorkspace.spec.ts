@@ -118,6 +118,18 @@ describe('check_workspace', () => {
         expect(report.verdict).toBe('clean');
     });
 
+    it('still flags a reused requirement id between non-draft specs (only drafts are exempt)', () => {
+        // a `done` spec and a `ready` spec, distinct frontmatter ids, both carrying AC-001 → C002 fires.
+        writeSpec('a', CONFORMANT.replace('id: SPEC-good', 'id: SPEC-a').replace('status: ready', 'status: done'));
+        writeSpec('b', CONFORMANT.replace('id: SPEC-good', 'id: SPEC-b'));
+        withTemplates();
+        const report = assertOk(check_workspace({ workspaceDir: ws }));
+        const c002 = report.workspaceFindings
+            .filter((finding) => finding.code === 'C002')
+            .map((finding) => finding.message);
+        expect(c002.some((message) => message.includes('AC-001'))).toBe(true);
+    });
+
     it('treats an unparseable spec as blocking', () => {
         writeSpec('broken', 'no frontmatter fence here\n');
         withTemplates();

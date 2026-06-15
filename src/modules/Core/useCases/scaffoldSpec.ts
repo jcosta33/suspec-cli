@@ -8,7 +8,8 @@ import { join, dirname } from 'path';
 
 import { ok, err, type Result } from '../../../infra/errors/result.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
-import type { OutcomeLevel } from './unixOutcome.ts';
+import { is_safe_segment } from '../services/safeSegment.ts';
+import { usage_error, type OutcomeLevel } from './unixOutcome.ts';
 
 export type ScaffoldSpecInput = Readonly<{
     workspaceDir: string;
@@ -58,6 +59,11 @@ Verify with: {{a runnable test or command}}
 }
 
 export function scaffold_spec(input: ScaffoldSpecInput): Result<ScaffoldSpecReport, AppError> {
+    if (!is_safe_segment(input.slug)) {
+        return err(
+            usage_error(`invalid spec slug: "${input.slug}" — letters, digits, '.', '_', '-' only (no '/' or '..')`)
+        );
+    }
     const specPath = join(input.workspaceDir, 'specs', input.slug, 'spec.md');
     if (existsSync(specPath)) {
         return err(

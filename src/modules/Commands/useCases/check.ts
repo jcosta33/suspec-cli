@@ -11,6 +11,7 @@ import { resolve, dirname } from 'node:path';
 
 import { check_spec, check_workspace, project, usage_error } from '../../Core/useCases/index.ts';
 import { err } from '../../../infra/errors/result.ts';
+import { parse_flags } from '../../Terminal/useCases/index.ts';
 import {
     format_check_report,
     format_workspace_report,
@@ -19,10 +20,13 @@ import {
 } from '../../Tui/useCases/index.ts';
 
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
-    const json = argv.includes('--json');
-    const interactive = argv.includes('-i') || argv.includes('--interactive');
-    const noWorkspace = argv.includes('--no-workspace');
-    const positional = argv.filter((arg) => !arg.startsWith('-'));
+    const { positional, flags } = parse_flags(argv, {
+        booleans: ['--json', '-i', '--interactive', '--no-workspace'],
+        strings: [],
+    });
+    const json = flags.get('json') === true;
+    const interactive = flags.get('i') === true || flags.get('interactive') === true;
+    const noWorkspace = flags.get('no-workspace') === true;
 
     /* v8 ignore start -- interactive dispatch is the thin shell; the flow logic is tested via the mock Prompter (checkFlow.spec) */
     if (interactive && process.stdout.isTTY === true && !json) {

@@ -17,6 +17,7 @@ import {
     lstatSync,
     symlinkSync,
     readlinkSync,
+    unlinkSync,
 } from 'fs';
 import { join, relative, dirname } from 'path';
 
@@ -164,6 +165,18 @@ function merge_agents_pointer(input: InitWorkspaceInput, merged: string[], writt
 
 type PlainBuckets = { written: string[]; skipped: string[]; backedUp: string[]; overwritten: string[] };
 
+// A non-clobbering backup name: `.swarm-bak`, then `.swarm-bak.1`, … so a second --backup run never
+// destroys the first backup.
+function free_backup_path(dst: string): string {
+    let candidate = `${dst}.swarm-bak`;
+    let suffix = 1;
+    while (existsSync(candidate)) {
+        candidate = `${dst}.swarm-bak.${suffix}`;
+        suffix += 1;
+    }
+    return candidate;
+}
+
 function copy_plain(input: InitWorkspaceInput, rel: string, buckets: PlainBuckets): void {
     const src = join(input.sourceDir, rel);
     const dst = join(input.targetDir, rel);
@@ -184,6 +197,23 @@ function copy_plain(input: InitWorkspaceInput, rel: string, buckets: PlainBucket
         return;
     }
 
+    // A destination symlink is a conflict on the LINK — never copy through it (that would follow the
+    // link and clobber its target, which may live outside the workspace). Operate on the link itself.
+    if (lstatSync(dst).isSymbolicLink()) {
+        if (input.policy === 'overwrite') {
+            unlinkSync(dst);
+            copyFileSync(src, dst);
+            buckets.overwritten.push(rel);
+        } else if (input.policy === 'backup') {
+            renameSync(dst, free_backup_path(dst));
+            copyFileSync(src, dst);
+            buckets.backedUp.push(rel);
+        } else {
+            buckets.skipped.push(rel);
+        }
+        return;
+    }
+
     if (readFileSync(src, 'utf8') === readFileSync(dst, 'utf8')) {
         return; // identical — idempotent no-op
     }
@@ -195,7 +225,7 @@ function copy_plain(input: InitWorkspaceInput, rel: string, buckets: PlainBucket
         return;
     }
     if (input.policy === 'backup') {
-        renameSync(dst, `${dst}.swarm-bak`);
+        renameSync(dst, free_backup_path(dst));
         copyFileSync(src, dst);
         buckets.backedUp.push(rel);
         return;

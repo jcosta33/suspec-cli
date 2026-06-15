@@ -15,7 +15,8 @@ describe('read_frontmatter', () => {
     });
 
     it('parses a YAML block list into a string array (the task `source` shape)', () => {
-        const source = '---\ntype: task\nid: TASK-1\nsource:\n  - SPEC-feat\n  - CHANGE-feat\nstatus: ready\n---\n# body\n';
+        const source =
+            '---\ntype: task\nid: TASK-1\nsource:\n  - SPEC-feat\n  - CHANGE-feat\nstatus: ready\n---\n# body\n';
         expect(read_frontmatter(source)).toEqual({
             type: 'task',
             id: 'TASK-1',
@@ -33,5 +34,11 @@ describe('read_frontmatter', () => {
     it('omits a bare key with no following list items, and stops at the closing fence', () => {
         const source = '---\nid: X\nempty:\nnot a key line\n---\nid: ignored-in-body\n';
         expect(read_frontmatter(source)).toEqual({ id: 'X' });
+    });
+
+    it('tolerates CRLF line endings and a leading UTF-8 BOM', () => {
+        const crlf = '---\r\nid: SPEC-x\r\nsource:\r\n  - SPEC-a\r\nstatus: ready\r\n---\r\n';
+        expect(read_frontmatter(crlf)).toEqual({ id: 'SPEC-x', source: ['SPEC-a'], status: 'ready' });
+        expect(read_frontmatter('﻿---\nid: SPEC-y\n---\n')).toEqual({ id: 'SPEC-y' });
     });
 });

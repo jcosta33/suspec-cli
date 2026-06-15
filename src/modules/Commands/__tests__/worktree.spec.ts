@@ -115,6 +115,13 @@ describe('worktree command (direct surface, AC-009/010/002)', () => {
         }
     });
 
+    it('rejects a flag-shaped --base before it reaches git (no option injection) → exit 2', async () => {
+        const { code, err } = await capture(() => run(['create', 'checkout', '--base', '-x'], repo));
+        expect(code).toBe(2);
+        expect(err).toContain('invalid --base');
+        expect(git(['worktree', 'list'])).not.toContain('swarm/checkout');
+    });
+
     it('outside a git repo → exit 2', async () => {
         const notRepo = realpathSync(mkdtempSync(join(tmpdir(), 'swarm-norepo-')));
         try {
