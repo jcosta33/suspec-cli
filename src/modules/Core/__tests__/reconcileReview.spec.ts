@@ -1,0 +1,246 @@
+import { describe, it, expect } from 'vitest';
+
+import { reconcile_review, type ReconcileReviewInput } from '../useCases/reconcileReview.ts';
+import { isOk } from '../../../infra/errors/result.ts';
+
+function specSource(status: string, ids: readonly string[]): string {
+    const reqs = ids.map((id) => `### ${id} — does it\nThe tool must do it.\nVerify with: a test.\n`).join('\n');
+    return `---
+type: spec
+id: SPEC-feat
+status: ${status}
+sources:
+  - ADR-0077
+---
+
+## Requirements
+
+${reqs}
+## Non-goals
+
+- none.
+
+## Open questions
+
+- none.
+`;
+}
+
+function taskSource(scope: readonly string[], areas: readonly string[], claimed: readonly string[]): string {
+    return `---
+type: task
+id: TASK-feat
+source:
+  - SPEC-feat
+scope: [${scope.join(', ')}]
+status: review-ready
+---
+
+# Task
+
+## Affected areas
+
+${areas.map((a) => `- \`${a}\``).join('\n')}
+
+## Run summary
+
+- Changed files: ${claimed.map((c) => `\`${c}\``).join(', ')}
+`;
+}
+
+function reviewSource(opts: {
+    status?: string;
+    rows?: { id: string; result: string; evidence: string }[];
+    sections?: string[];
+}): string {
+    const sections = opts.sections ?? [
+        'Summary',
+        'Changed files',
+        'Requirement coverage',
+        'Human attention',
+        'Suggested decision',
+    ];
+    const rowsTable = (opts.rows ?? [])
+        .map((r) => `| ${r.id} | ${r.result} | ${r.evidence} | no |`)
+        .join('\n');
+    const body = sections
+        .map((s) =>
+            s === 'Requirement coverage'
+                ? `## Requirement coverage\n\n| ID | Result | Evidence | Human attention |\n|---|---|---|---|\n${rowsTable}\n`
+                : `## ${s}\n\nx\n`
+        )
+        .join('\n');
+    return `---
+type: review
+id: REVIEW-feat
+task: TASK-feat
+status: ${opts.status ?? 'needs-human'}
+---
+
+# Review\n\n${body}`;
+}
+
+function input(over: Partial<ReconcileReviewInput>): ReconcileReviewInput {
+    return {
+        task: 'TASK-feat',
+        taskPacketSource: taskSource(['AC-001'], ['src'], ['src/a.ts']),
+        specSource: specSource('ready', ['AC-001']),
+        reviewPacketSource: null,
+        diffChangedFiles: ['src/a.ts'],
+        ...over,
+    };
+}
+
+function ok(over: Partial<ReconcileReviewInput>) {
+    const result = reconcile_review(input(over));
+    if (!isOk(result)) {
+        throw new Error(`expected ok, got err: ${result.error.message}`);
+    }
+    return result.value;
+}
+
+describe('reconcile_review — coverage (AC-019)', () => {
+    it('uncovered + orphan against a non-draft spec', () => {
+        const report = ok({
+            taskPacketSource: taskSource(['AC-001', 'AC-002', 'AC-003'], ['src'], ['src/a.ts']),
+            specSource: specSource('ready', ['AC-001', 'AC-002', 'AC-003']),
+            reviewPacketSource: reviewSource({
+                rows: [
+                    { id: 'AC-001', result: 'Pass', evidence: 'pasted' },
+                    { id: 'AC-009', result: 'Pass', evidence: 'pasted' },
+                ],
+            }),
+        });
+        expect(report.coverage.filter((c) => c.kind === 'uncovered').map((c) => c.id)).toEqual(['AC-002', 'AC-003']);
+        expect(report.coverage.filter((c) => c.kind === 'orphan').map((c) => c.id)).toEqual(['AC-009']);
+        expect(report.level).toBe('warning');
+    });
+
+    it('no review packet → every in-scope id reads uncovered', () => {
+        const report = ok({
+            taskPacketSource: taskSource(['AC-001', 'AC-002', 'AC-003'], ['src'], []),
+            specSource: specSource('ready', ['AC-001', 'AC-002', 'AC-003']),
+            reviewPacketSource: null,
+        });
+        expect(report.hasReviewPacket).toBe(false);
+        expect(report.coverage.map((c) => c.id)).toEqual(['AC-001', 'AC-002', 'AC-003']);
+        expect(report.coverage.every((c) => c.kind === 'uncovered')).toBe(true);
+    });
+
+    it('scope-vs-spec divergence is surfaced as its own fact', () => {
+        const report = ok({
+            taskPacketSource: taskSource(['AC-001', 'AC-009'], ['src'], ['src/a.ts']),
+            specSource: specSource('ready', ['AC-001']),
+            reviewPacketSource: reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p' }] }),
+        });
+        expect(report.scopeDivergence).toEqual(['AC-009']);
+    });
+
+    it('a draft source spec produces neither a coverage finding nor a divergence (the scope guard)', () => {
+        const report = ok({
+            taskPacketSource: taskSource(['AC-001', 'AC-002'], ['src'], []),
+            specSource: specSource('draft', ['AC-001']),
+            reviewPacketSource: null,
+            diffChangedFiles: [], // no self-report mismatch, so the level reflects only the coverage/divergence guard
+        });
+        expect(report.coverage).toEqual([]);
+        // AC-002 is a scope id the draft spec does not define — divergence is suppressed too, the same
+        // scope guard as coverage (ADR-0079); a non-draft spec surfaces it (the test above).
+        expect(report.scopeDivergence).toEqual([]);
+        expect(report.level).toBe('clean');
+    });
+
+    it('a packet covering exactly the in-scope ids is a clean reconcile', () => {
+        const report = ok({
+            taskPacketSource: taskSource(['AC-001'], ['src'], ['src/a.ts']),
+            specSource: specSource('ready', ['AC-001', 'AC-002']),
+            reviewPacketSource: reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p' }] }),
+        });
+        expect(report.coverage).toEqual([]);
+        expect(report.level).toBe('clean');
+    });
+});
+
+describe('reconcile_review — self-report ↔ diff (AC-018)', () => {
+    it('surfaces the three mismatch classes', () => {
+        const report = ok({
+            taskPacketSource: taskSource(['AC-001'], ['src'], ['a.ts']), // claims a.ts
+            diffChangedFiles: ['b.ts', 'src/x.ts', 'vendor/x.ts'], // a.ts not changed; b.ts not claimed
+            specSource: specSource('ready', ['AC-001']),
+            reviewPacketSource: reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p' }] }),
+        });
+        expect(report.selfReport.claimedNotInDiff).toEqual(['a.ts']);
+        expect(report.selfReport.inDiffNotClaimed).toEqual(['b.ts', 'src/x.ts', 'vendor/x.ts']);
+        expect(report.selfReport.outsideScope).toEqual(['b.ts', 'vendor/x.ts']);
+    });
+
+    it('agreement → none surfaced and a clean level', () => {
+        const report = ok({
+            taskPacketSource: taskSource(['AC-001'], ['src/a.ts'], ['src/a.ts']),
+            diffChangedFiles: ['src/a.ts'],
+            specSource: specSource('ready', ['AC-001']),
+            reviewPacketSource: reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p' }] }),
+        });
+        expect(report.selfReport.claimedNotInDiff).toEqual([]);
+        expect(report.selfReport.inDiffNotClaimed).toEqual([]);
+        expect(report.selfReport.outsideScope).toEqual([]);
+        expect(report.level).toBe('clean');
+    });
+});
+
+describe('reconcile_review — packet facts (AC-020 / AC-021)', () => {
+    it('flags a Pass row with empty evidence', () => {
+        const report = ok({
+            reviewPacketSource: reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: '' }] }),
+        });
+        expect(report.emptyEvidencePassRows).toEqual(['AC-001']);
+    });
+
+    it('surfaces a bad Result cell, a bad status, a contradicted pass, a missing section', () => {
+        expect(
+            ok({
+                reviewPacketSource: reviewSource({ rows: [{ id: 'AC-001', result: 'Maybe', evidence: 'p' }] }),
+            }).packetStructural.badResultCells
+        ).toEqual(['AC-001']);
+        expect(
+            ok({ reviewPacketSource: reviewSource({ status: 'merged', rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p' }] }) })
+                .packetStructural.badStatus
+        ).toBe('merged');
+        expect(
+            ok({ reviewPacketSource: reviewSource({ status: 'pass', rows: [{ id: 'AC-001', result: 'Fail', evidence: 'p' }] }) })
+                .packetStructural.statusPassContradicted
+        ).toBe(true);
+        expect(
+            ok({
+                reviewPacketSource: reviewSource({
+                    rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p' }],
+                    sections: ['Summary', 'Changed files', 'Requirement coverage', 'Suggested decision'],
+                }),
+            }).packetStructural.missingSections
+        ).toEqual(['Human attention']);
+    });
+});
+
+describe('reconcile_review — the boundary (AC-023)', () => {
+    it('the report carries no Result / status:pass / merge-decision field, on no surface', () => {
+        const report = ok({
+            reviewPacketSource: reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p' }] }),
+        });
+        const keys = Object.keys(report);
+        expect(keys).not.toContain('result');
+        expect(keys).not.toContain('verdict');
+        expect(keys).not.toContain('decision');
+        expect(keys).not.toContain('suggestedDecision');
+        // The serialized report (the --json surface) carries no Pass/Fail/Unverified/Blocked value and
+        // no merge wording as a *field value the engine decided* — only the literal coverage-row data.
+        const json = JSON.stringify(report);
+        expect(json).not.toMatch(/"(result|verdict|decision|suggestedDecision|mergeDecision)":/);
+    });
+});
+
+describe('reconcile_review — errors', () => {
+    it('an unparseable source spec returns an Err', () => {
+        const result = reconcile_review(input({ specSource: 'no frontmatter fence here' }));
+        expect(isOk(result)).toBe(false);
+    });
+});

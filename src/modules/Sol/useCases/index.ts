@@ -3,3 +3,4 @@
 // check engine keys on; the stricter `format: sol` block notation is a later milestone.
 
 export { parse_spec_record } from './parseSpecRecord.ts';
+export { parse_task_packet, type TaskPacket } from './parseTaskPacket.ts';

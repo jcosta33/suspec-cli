@@ -91,6 +91,77 @@ export function format_board(board: {
     return lines.length > 0 ? lines.join('\n') : color.dim('(no specs yet)');
 }
 
+// The `swarm review` reconcile report (M2). Surfaces FACTS and routes to Human attention — never a
+// Pass/Fail/Unverified/Blocked result, never a merge decision (ADR-0077 Decision 8 / AC-023). The
+// input is structural (the engine report's fields); colour comes from picocolors.
+export type RenderReviewReport = Readonly<{
+    level: RenderLevel;
+    task: string;
+    diffChangedFiles: readonly string[];
+    coverage: readonly { id: string; kind: 'uncovered' | 'orphan'; message: string }[];
+    scopeDivergence: readonly string[];
+    selfReport: Readonly<{
+        claimedNotInDiff: readonly string[];
+        inDiffNotClaimed: readonly string[];
+        outsideScope: readonly string[];
+    }>;
+    emptyEvidencePassRows: readonly string[];
+    packetStructural: Readonly<{
+        badResultCells: readonly string[];
+        badStatus: string | null;
+        statusPassContradicted: boolean;
+        missingSections: readonly string[];
+    }>;
+    hasReviewPacket: boolean;
+}>;
+
+export function format_review_report(report: RenderReviewReport): string {
+    const lines: string[] = [
+        `${color.bold(`review ${report.task}`)}  ${format_verdict(report.level)}  ${color.dim(`${String(report.diffChangedFiles.length)} changed files`)}`,
+    ];
+
+    const bullet = (message: string) => lines.push(`  ${color.yellow('⚠')}  ${message}`);
+
+    if (!report.hasReviewPacket) {
+        lines.push(`  ${color.dim('no review packet yet — every in-scope requirement reads uncovered')}`);
+    }
+    for (const finding of report.coverage) {
+        bullet(`${color.bold(`C012 ${finding.kind}`)}  ${finding.message}`);
+    }
+    for (const id of report.scopeDivergence) {
+        bullet(`${color.bold('scope≠spec')}  scope id ${id} is not defined in the source spec`);
+    }
+    for (const path of report.selfReport.claimedNotInDiff) {
+        bullet(`${color.bold('claimed-not-changed')}  Run summary claims ${path} but the diff does not show it`);
+    }
+    for (const path of report.selfReport.inDiffNotClaimed) {
+        bullet(`${color.bold('changed-not-claimed')}  ${path} changed but the Run summary never mentions it`);
+    }
+    for (const path of report.selfReport.outsideScope) {
+        bullet(`${color.bold('outside-scope')}  ${path} changed but is outside the declared Affected areas`);
+    }
+    for (const id of report.emptyEvidencePassRows) {
+        bullet(`${color.bold('empty-evidence')}  coverage row ${id} is Pass with empty Evidence — reads Unverified`);
+    }
+    for (const id of report.packetStructural.badResultCells) {
+        bullet(`${color.bold('bad-result')}  coverage row ${id} has a Result outside {Pass, Fail, Unverified, Blocked}`);
+    }
+    if (report.packetStructural.badStatus !== null) {
+        bullet(`${color.bold('bad-status')}  frontmatter status "${report.packetStructural.badStatus}" is not a recognized review status`);
+    }
+    if (report.packetStructural.statusPassContradicted) {
+        bullet(`${color.bold('status-contradicted')}  status: pass but a coverage row is not Pass`);
+    }
+    for (const section of report.packetStructural.missingSections) {
+        bullet(`${color.bold('missing-section')}  the review packet has no "${section}" section`);
+    }
+
+    if (lines.length === 1) {
+        lines.push(color.dim('  clean reconcile — no facts to route. A human still owns the review result.'));
+    }
+    return lines.join('\n');
+}
+
 export function format_worktrees(worktrees: readonly { branch: string; path: string; dirty: boolean }[]): string {
     if (worktrees.length === 0) {
         return color.dim('(no swarm worktrees)');

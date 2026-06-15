@@ -15,6 +15,7 @@ import {
     check_no_tbd_at_ready,
     check_sources_named,
     check_broken_source_link,
+    check_coverage,
     run_spec_checks,
     verdict_for,
     type ParsedSpec,
@@ -59,6 +60,82 @@ describe('severity_of', () => {
         expect(severity_of('C004')).toBe('warning');
         expect(severity_of('C009')).toBe('hard-error');
         expect(severity_of('C011')).toBe('warning');
+        expect(severity_of('C012')).toBe('warning');
+    });
+});
+
+describe('C012 coverage (ADR-0079)', () => {
+    it('flags an in-scope id with no coverage row as uncovered', () => {
+        const diagnostics = check_coverage({
+            sourceSpecStatus: 'ready',
+            inScopeIds: ['AC-001', 'AC-002', 'AC-003'],
+            specRequirementIds: ['AC-001', 'AC-002', 'AC-003'],
+            coverageRowIds: ['AC-001'],
+        });
+        expect(codes(diagnostics)).toEqual(['C012', 'C012']);
+        expect(diagnostics.map((d) => d.message)).toEqual([
+            'requirement AC-002 is in scope but has no coverage row (uncovered)',
+            'requirement AC-003 is in scope but has no coverage row (uncovered)',
+        ]);
+        expect(diagnostics.every((d) => d.severity === 'warning')).toBe(true);
+    });
+
+    it('flags a coverage row whose id is absent from the source spec as orphan', () => {
+        const diagnostics = check_coverage({
+            sourceSpecStatus: 'ready',
+            inScopeIds: ['AC-001'],
+            specRequirementIds: ['AC-001'],
+            coverageRowIds: ['AC-001', 'AC-009'],
+        });
+        expect(codes(diagnostics)).toEqual(['C012']);
+        expect(diagnostics[0].message).toBe(
+            'coverage row AC-009 names an id absent from the source spec (orphan)'
+        );
+    });
+
+    it('surfaces both faces together: uncovered + orphan', () => {
+        const diagnostics = check_coverage({
+            sourceSpecStatus: 'ready',
+            inScopeIds: ['AC-001', 'AC-002'],
+            specRequirementIds: ['AC-001', 'AC-002'],
+            coverageRowIds: ['AC-001', 'AC-009'],
+        });
+        expect(diagnostics.map((d) => d.message)).toEqual([
+            'requirement AC-002 is in scope but has no coverage row (uncovered)',
+            'coverage row AC-009 names an id absent from the source spec (orphan)',
+        ]);
+    });
+
+    it('is exempt on a draft source spec (the scope guard)', () => {
+        expect(
+            check_coverage({
+                sourceSpecStatus: 'draft',
+                inScopeIds: ['AC-001', 'AC-002'],
+                specRequirementIds: ['AC-001'],
+                coverageRowIds: [],
+            })
+        ).toEqual([]);
+    });
+
+    it('a packet covering exactly the in-scope ids yields no finding', () => {
+        expect(
+            check_coverage({
+                sourceSpecStatus: 'ready',
+                inScopeIds: ['AC-001', 'AC-002'],
+                specRequirementIds: ['AC-001', 'AC-002', 'AC-003'],
+                coverageRowIds: ['AC-001', 'AC-002'],
+            })
+        ).toEqual([]);
+    });
+
+    it('reports a repeated orphan id only once', () => {
+        const diagnostics = check_coverage({
+            sourceSpecStatus: 'ready',
+            inScopeIds: [],
+            specRequirementIds: ['AC-001'],
+            coverageRowIds: ['AC-009', 'AC-009'],
+        });
+        expect(codes(diagnostics)).toEqual(['C012']);
     });
 });
 

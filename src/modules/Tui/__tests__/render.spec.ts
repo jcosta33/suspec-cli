@@ -7,7 +7,24 @@ import {
     format_board,
     format_worktrees,
     format_init_report,
+    format_review_report,
+    type RenderReviewReport,
 } from '../services/render.ts';
+
+function reviewReport(over: Partial<RenderReviewReport> = {}): RenderReviewReport {
+    return {
+        level: 'clean',
+        task: 'TASK-feat',
+        diffChangedFiles: ['src/a.ts'],
+        coverage: [],
+        scopeDivergence: [],
+        selfReport: { claimedNotInDiff: [], inDiffNotClaimed: [], outsideScope: [] },
+        emptyEvidencePassRows: [],
+        packetStructural: { badResultCells: [], badStatus: null, statusPassContradicted: false, missingSections: [] },
+        hasReviewPacket: true,
+        ...over,
+    };
+}
 
 describe('format_verdict', () => {
     it('labels each level', () => {
@@ -103,6 +120,51 @@ describe('format_worktrees', () => {
         expect(out).toContain('swarm/x');
         expect(out).toContain('clean');
         expect(out).toContain('dirty');
+    });
+});
+
+describe('format_review_report (AC-023: facts + route, never a verdict)', () => {
+    it('a clean reconcile shows the head + a no-facts note and no verdict word', () => {
+        const out = format_review_report(reviewReport());
+        expect(out).toContain('review TASK-feat');
+        expect(out).toContain('1 changed files');
+        expect(out).toContain('clean reconcile');
+        expect(out).not.toMatch(/\bPass\b|\bFail\b|\bUnverified\b|\bBlocked\b/);
+        expect(out).not.toMatch(/merge|Suggested decision/i);
+    });
+
+    it('surfaces every fact class and routes them', () => {
+        const out = format_review_report(
+            reviewReport({
+                level: 'warning',
+                hasReviewPacket: false,
+                coverage: [
+                    { id: 'AC-002', kind: 'uncovered', message: 'requirement AC-002 ... (uncovered)' },
+                    { id: 'AC-009', kind: 'orphan', message: 'coverage row AC-009 ... (orphan)' },
+                ],
+                scopeDivergence: ['AC-009'],
+                selfReport: { claimedNotInDiff: ['a.ts'], inDiffNotClaimed: ['b.ts'], outsideScope: ['vendor/x.ts'] },
+                emptyEvidencePassRows: ['AC-001'],
+                packetStructural: {
+                    badResultCells: ['AC-003'],
+                    badStatus: 'merged',
+                    statusPassContradicted: true,
+                    missingSections: ['Human attention'],
+                },
+            })
+        );
+        expect(out).toContain('no review packet yet');
+        expect(out).toContain('C012 uncovered');
+        expect(out).toContain('C012 orphan');
+        expect(out).toContain('scope≠spec');
+        expect(out).toContain('claimed-not-changed');
+        expect(out).toContain('changed-not-claimed');
+        expect(out).toContain('outside-scope');
+        expect(out).toContain('empty-evidence');
+        expect(out).toContain('bad-result');
+        expect(out).toContain('bad-status');
+        expect(out).toContain('status-contradicted');
+        expect(out).toContain('missing-section');
     });
 });
 

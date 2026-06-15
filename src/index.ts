@@ -14,6 +14,7 @@ import {
     run_check,
     run_worktree,
     run_status,
+    run_review,
     run_new,
     run_init,
     print_help,
@@ -42,6 +43,7 @@ const COMMANDS: Record<string, CommandRun> = {
     check: run_check,
     worktree: run_worktree,
     status: run_status,
+    review: run_review,
     new: run_new,
     init: run_init,
 };

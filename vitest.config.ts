@@ -6,6 +6,11 @@ export default defineConfig({
         // when a test spawns many `git` subprocesses (the worktree / launch integration tests);
         // forks isolate cleanly so `vitest run --coverage` completes.
         pool: 'forks',
+        // The worktree / review integration tests spawn many real `git` subprocesses; under forked
+        // parallelism they contend and can exceed the 5s default, flaking the suite on busy hosts.
+        // A higher ceiling keeps `vitest run` deterministic without weakening any check (coverage
+        // thresholds and the test set are unchanged); a genuinely hung test still fails, just later.
+        testTimeout: 30000,
         globals: true,
         environment: 'node',
         exclude: ['**/node_modules/**', '**/dist/**', '.worktrees/**', 'scaffold/**'],

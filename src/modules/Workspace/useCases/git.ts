@@ -218,6 +218,78 @@ export function worktree_prune(repoRoot: string): WorktreePruneResult {
     }
 }
 
+export type ChangedFilesError = AppError<'ChangedFilesFailed', { worktreePath: string; base: string; stderr: string }>;
+
+// Parse `git status --porcelain` (v1) path fields. Each line is `XY <path>` (XY = two status
+// columns), and a rename/copy line is `R  old -> new` — keep the destination path. Untracked files
+// (`??`) are included: an uncommitted new file is part of the net change.
+function porcelain_paths(raw: string): string[] {
+    const paths: string[] = [];
+    for (const line of raw.split('\n')) {
+        if (line.length < 4) {
+            continue;
+        }
+        const rest = line.slice(3); // drop the two status columns + the single space
+        const arrow = rest.indexOf(' -> ');
+        paths.push(arrow === -1 ? rest : rest.slice(arrow + 4));
+    }
+    return paths;
+}
+
+/**
+ * The worktree's net change against its base branch — committed since divergence AND uncommitted —
+ * as a sorted, de-duplicated list of repo-relative paths (name-only). A bad base ref / branch (one
+ * git cannot resolve) returns an Err so the command exits 2, never a stack trace (AC-018).
+ *
+ * Two sources are unioned:
+ *   1. `git diff --name-only <base>...HEAD` — files changed in commits since the worktree branched
+ *      off `base` (three-dot diffs against the merge-base, so unrelated base movement is excluded).
+ *   2. `git status --porcelain` — the still-uncommitted change set (staged, unstaged, and untracked).
+ */
+export function worktree_changed_files(worktreePath: string, base: string): Result<string[], ChangedFilesError> {
+    const fail = (stderr: string): Result<string[], ChangedFilesError> =>
+        err(
+            createAppError('ChangedFilesFailed', `cannot diff worktree against "${base}": ${stderr}`, {
+                worktreePath,
+                base,
+                stderr,
+            })
+        );
+
+    const committed = spawnSync('git', ['diff', '--name-only', `${base}...HEAD`], {
+        cwd: worktreePath,
+        encoding: 'utf8',
+    });
+    /* v8 ignore next 3 -- spawn-launch failure (git binary missing); not reachable where git is installed */
+    if (committed.error) {
+        return fail(committed.error.message);
+    }
+    if (committed.status !== 0) {
+        return fail((committed.stderr || '').trim() || `git diff against ${base} failed`);
+    }
+
+    const status = spawnSync('git', ['status', '--porcelain'], { cwd: worktreePath, encoding: 'utf8' });
+    /* v8 ignore next 3 -- spawn-launch failure (git binary missing); not reachable where git is installed */
+    if (status.error) {
+        return fail(status.error.message);
+    }
+    /* v8 ignore next 3 -- `git status` only fails outside a repo, which the caller resolves first */
+    if (status.status !== 0) {
+        return fail((status.stderr || '').trim() || 'git status failed');
+    }
+
+    const all = new Set<string>();
+    for (const path of (committed.stdout || '').trim().split('\n')) {
+        if (path.length > 0) {
+            all.add(path);
+        }
+    }
+    for (const path of porcelain_paths(status.stdout || '')) {
+        all.add(path);
+    }
+    return ok([...all].sort());
+}
+
 /**
  * Whether a worktree has uncommitted changes.
  */

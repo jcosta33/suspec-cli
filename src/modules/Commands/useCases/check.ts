@@ -9,7 +9,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 
-import { check_spec, check_workspace, project, usage_error } from '../../Core/useCases/index.ts';
+import { check_spec, check_workspace, check_review_file, project, usage_error } from '../../Core/useCases/index.ts';
 import { err } from '../../../infra/errors/result.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import {
@@ -48,9 +48,19 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
                 render: format_check_report,
             });
         }
+        const source = readFileSync(file, 'utf8');
+        // A review packet (`type: review`) runs the C012 coverage reconcile (AC-028); a spec runs the
+        // core spec checks. The review path resolves the task + source spec from the cwd workspace.
+        if (/^type:\s*review\s*$/m.test(source.split(/\r\n|[\r\n]/).slice(0, 12).join('\n'))) {
+            return project({
+                result: check_review_file({ workspaceDir: cwd, reviewPath: file }),
+                json,
+                render: format_check_report,
+            });
+        }
         const exists = (ref: string) => existsSync(resolve(dirname(file), ref));
         return project({
-            result: check_spec({ source: readFileSync(file, 'utf8'), path: file, exists }),
+            result: check_spec({ source, path: file, exists }),
             json,
             render: format_check_report,
         });

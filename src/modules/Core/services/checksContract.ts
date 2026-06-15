@@ -14,11 +14,14 @@
 import type { OutcomeLevel } from '../useCases/unixOutcome.ts';
 
 // Pinned to swarm/checks/checks.yaml `version:`; the drift-guard test fails if the sibling diverges.
-export const CONTRACT_VERSION = '0.4.1';
+export const CONTRACT_VERSION = '0.5.0';
 
 export type CheckSeverity = 'hard-error' | 'warning';
 
-export type CheckId = 'C001' | 'C002' | 'C003' | 'C004' | 'C005' | 'C006' | 'C007' | 'C008' | 'C009' | 'C010' | 'C011';
+// prettier-ignore
+export type CheckId =
+    | 'C001' | 'C002' | 'C003' | 'C004' | 'C005' | 'C006'
+    | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C012';
 
 // Severity per check, the single source inside swarm-cli; a total Record so the lookup needs no
 // fallback. The drift guard reconciles it against swarm/checks/checks.yaml.
@@ -34,6 +37,7 @@ const SEVERITY_BY_ID: Record<CheckId, CheckSeverity> = {
     C009: 'hard-error',
     C010: 'hard-error',
     C011: 'warning',
+    C012: 'warning',
 };
 
 export function severity_of(id: CheckId): CheckSeverity {
@@ -53,6 +57,7 @@ export const CORE_CHECKS: readonly { id: CheckId; name: string; severity: CheckS
     { id: 'C009', name: 'broken-source-link', severity: severity_of('C009') },
     { id: 'C010', name: 'preserves-refs-resolve', severity: severity_of('C010') },
     { id: 'C011', name: 'waves-present', severity: severity_of('C011') },
+    { id: 'C012', name: 'coverage', severity: severity_of('C012') },
 ];
 
 // The five strength words (checks.yaml reconciliation note: 5; SOL form is the same words uppercase).
@@ -251,6 +256,68 @@ export function check_broken_source_link(input: CheckBrokenLinksInput): Diagnost
         }
     }
     return diagnostics;
+}
+
+// --- C012 coverage (ADR-0079) --------------------------------------------------------------------
+// The review-packet coverage reconcile: keyed on the task packet's declared `scope` as the in-scope
+// id set, against the source spec's requirement ids and the coverage rows present in the review
+// packet. Two faces, both `warning`:
+//   - uncovered — an in-scope id with no coverage row (the dominant "not reviewed yet" signal).
+//   - orphan    — a coverage row naming an id absent from the source spec (stale/mistyped id).
+// Scope-guarded to non-draft source specs: a `draft` spec's ids are work-in-progress, so the check
+// is exempt (mirrors C002's draft exemption). PURE — plain id sets in, diagnostics out; the engine
+// (reconcileReview) does the I/O and passes the extracted ids here.
+export type CoverageInput = Readonly<{
+    sourceSpecStatus: string | null;
+    inScopeIds: readonly string[];
+    specRequirementIds: readonly string[];
+    coverageRowIds: readonly string[];
+}>;
+
+// A structured C012 finding: an in-scope id with no coverage row (uncovered) or a coverage row
+// naming an id absent from the source spec (orphan). Structured so the review engine maps fields
+// rather than re-parsing the diagnostic message.
+export type CoverageFinding = Readonly<{ id: string; kind: 'uncovered' | 'orphan' }>;
+
+// The message a coverage finding renders to — single-sourced, so `check_coverage`'s Diagnostic and
+// the review engine's surfaced fact share the exact wording.
+export function coverage_message(finding: CoverageFinding): string {
+    return finding.kind === 'uncovered'
+        ? `requirement ${finding.id} is in scope but has no coverage row (uncovered)`
+        : `coverage row ${finding.id} names an id absent from the source spec (orphan)`;
+}
+
+// The structured C012 facts. PURE; the draft scope guard lives here so both faces (the `swarm check`
+// Diagnostic and the `swarm review` surfaced fact) inherit it.
+export function coverage_facts(input: CoverageInput): CoverageFinding[] {
+    // Draft scope guard: a draft source spec's ids are not finalized claims.
+    if (input.sourceSpecStatus === 'draft') {
+        return [];
+    }
+    const specIdSet = new Set(input.specRequirementIds);
+    const coveredSet = new Set(input.coverageRowIds);
+    const findings: CoverageFinding[] = [];
+
+    // uncovered: an in-scope id with no coverage row.
+    for (const id of input.inScopeIds) {
+        if (!coveredSet.has(id)) {
+            findings.push({ id, kind: 'uncovered' });
+        }
+    }
+    // orphan: a coverage row naming an id the source spec does not define. A coverage row id is only
+    // reported once (a duplicate row is a different concern), so dedupe via a seen set.
+    const seenOrphan = new Set<string>();
+    for (const id of input.coverageRowIds) {
+        if (!specIdSet.has(id) && !seenOrphan.has(id)) {
+            seenOrphan.add(id);
+            findings.push({ id, kind: 'orphan' });
+        }
+    }
+    return findings;
+}
+
+export function check_coverage(input: CoverageInput): Diagnostic[] {
+    return coverage_facts(input).map((finding) => diagnostic('C012', coverage_message(finding), null));
 }
 
 // --- The single-file runner + verdict ------------------------------------------------------------

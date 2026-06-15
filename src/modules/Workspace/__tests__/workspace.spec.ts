@@ -4,7 +4,13 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { execFileSync } from 'child_process';
 
-import { resolve_repo_root, current_branch, worktree_list, is_worktree_dirty } from '../useCases/index.ts';
+import {
+    resolve_repo_root,
+    current_branch,
+    worktree_list,
+    worktree_changed_files,
+    is_worktree_dirty,
+} from '../useCases/index.ts';
 import { assertOk } from '../../../infra/errors/testing/assertOk.ts';
 import { assertErr } from '../../../infra/errors/testing/assertErr.ts';
 
@@ -50,6 +56,31 @@ describe('Workspace git', () => {
         writeFileSync(join(repo, 'scratch.txt'), 'x');
         expect(is_worktree_dirty(repo)).toBe(true);
         expect(is_worktree_dirty(join(repo, 'does-not-exist'))).toBe(false);
+    });
+
+    it('worktree_changed_files reports committed + uncommitted net change against the base (AC-018)', () => {
+        // base = the branch this worktree was cut from; make a feature worktree with one committed
+        // change and one uncommitted (tracked + untracked) change on top of it.
+        const base = current_branch(repo) ?? 'main';
+        const wtPath = realpathSync(mkdtempSync(join(tmpdir(), 'swarm-wt-')));
+        rmSync(wtPath, { recursive: true, force: true }); // git worktree add wants a non-existent path
+        git(['worktree', 'add', '-b', 'swarm/feat/ac-018', wtPath, base]);
+        try {
+            const wtGit = (args: string[]) => execFileSync('git', args, { cwd: wtPath, encoding: 'utf8' });
+            writeFileSync(join(wtPath, 'committed.ts'), 'a');
+            wtGit(['add', 'committed.ts']);
+            wtGit(['commit', '-m', 'committed change']);
+            writeFileSync(join(wtPath, 'staged.ts'), 'b'); // uncommitted, untracked
+
+            const changed = assertOk(worktree_changed_files(wtPath, base));
+            expect(changed).toEqual(['committed.ts', 'staged.ts']);
+        } finally {
+            git(['worktree', 'remove', '--force', wtPath]);
+        }
+    });
+
+    it('worktree_changed_files Errs on a base ref git cannot resolve (AC-018)', () => {
+        expect(assertErr(worktree_changed_files(repo, 'no-such-branch'))._tag).toBe('ChangedFilesFailed');
     });
 
     it('degrades gracefully outside a git repo', () => {

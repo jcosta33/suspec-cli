@@ -8,5 +8,6 @@ export {
     worktree_create,
     worktree_remove,
     worktree_prune,
+    worktree_changed_files,
     is_worktree_dirty,
 } from './git.ts';

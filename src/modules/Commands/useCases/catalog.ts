@@ -42,6 +42,17 @@ export const COMMAND_CATALOG = [
         usage: ['swarm status', '  --json · -i                 machine output · interactive board'],
     },
     {
+        name: 'review',
+        description: 'Reconcile a finished run — diff vs self-report vs spec (no verdict)',
+        usage: [
+            'swarm review <task>',
+            '  <task>                      reconcile the run for a task id/slug',
+            '  --base <branch>             the worktree base to diff against (else the current branch)',
+            '  --json · -i                 machine output · interactive flow',
+            '  surfaces facts + routes; the human owns the Pass/Fail/Unverified/Blocked result',
+        ],
+    },
+    {
         name: 'new',
         description: 'Cut a task packet from a spec, or scaffold a new spec',
         usage: [
