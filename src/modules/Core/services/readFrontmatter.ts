@@ -14,7 +14,7 @@ export function read_frontmatter(source: string): Frontmatter {
     // Tolerate CRLF (Windows) line endings and a leading UTF-8 BOM, else `lines[0]` would be `'---\r'`
     // (or BOM-prefixed) and the whole file would read as having no frontmatter.
     const text = source.charCodeAt(0) === BOM ? source.slice(1) : source;
-    const lines = text.split(/\r?\n/);
+    const lines = text.split(/\r\n|[\r\n]/);
     if (lines[0] !== '---') {
         return {};
     }

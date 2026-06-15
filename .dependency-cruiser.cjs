@@ -99,8 +99,8 @@ module.exports = {
             name: 'no-deep-import-from-entry',
             severity: 'error',
             comment:
-                'Top-level src files (the dispatcher, src/index.ts) reach a module only through its root useCases/index.ts barrel — never a deep import into another module. The module rules above anchor on ^src/modules/, so without this the entrypoint would sit outside the enforced perimeter.',
-            from: { path: '^src/[^/]+\\.ts$' },
+                'Any src file outside src/modules/ and src/infra/ (the dispatcher src/index.ts, and any future src/<util>/) reaches a module only through its root useCases/index.ts barrel — never a deep import. The module rules anchor on ^src/modules/ and infra-isolation on ^src/infra/, so without this such files would sit outside the enforced perimeter.',
+            from: { path: '^src/(?!modules/|infra/).+\\.ts$' },
             to: { path: '^src/modules/[^/]+/(?!useCases/index\\.ts$).+' },
         },
 

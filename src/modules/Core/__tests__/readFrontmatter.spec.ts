@@ -39,6 +39,7 @@ describe('read_frontmatter', () => {
     it('tolerates CRLF line endings and a leading UTF-8 BOM', () => {
         const crlf = '---\r\nid: SPEC-x\r\nsource:\r\n  - SPEC-a\r\nstatus: ready\r\n---\r\n';
         expect(read_frontmatter(crlf)).toEqual({ id: 'SPEC-x', source: ['SPEC-a'], status: 'ready' });
+        expect(read_frontmatter('---\rid: SPEC-cr\r---\r')).toEqual({ id: 'SPEC-cr' }); // lone-CR (old Mac)
         expect(read_frontmatter('﻿---\nid: SPEC-y\n---\n')).toEqual({ id: 'SPEC-y' });
     });
 });
