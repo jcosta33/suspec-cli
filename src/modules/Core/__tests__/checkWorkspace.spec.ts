@@ -94,40 +94,27 @@ describe('check_workspace', () => {
         expect(placeholder?.message).toContain('fill them in');
     });
 
-    it('flags a duplicate frontmatter id and a reused requirement id across specs (C002)', () => {
+    it('flags a duplicate frontmatter id but not a reused requirement id (C002, spec-scoped)', () => {
         writeSpec('one', CONFORMANT);
-        writeSpec('two', CONFORMANT); // same SPEC-good id + same AC-001
+        writeSpec('two', CONFORMANT); // same SPEC-good frontmatter id + same AC-001
         withTemplates();
         const report = assertOk(check_workspace({ workspaceDir: ws }));
         const messages = report.workspaceFindings.filter((f) => f.code === 'C002').map((f) => f.message);
         expect(messages.some((m) => m.includes('frontmatter id'))).toBe(true);
-        expect(messages.some((m) => m.includes('requirement id'))).toBe(true);
-        expect(report.verdict).toBe('blocking');
+        // requirement ids are spec-scoped (ADR-0080) — a bare AC-001 in two specs is not a collision.
+        expect(messages.some((m) => m.includes('requirement id'))).toBe(false);
+        expect(report.verdict).toBe('blocking'); // the duplicate frontmatter id still blocks
     });
 
-    it('exempts draft specs from cross-spec requirement-id reuse (C002), mirroring C007', () => {
-        // Two fresh draft scaffolds both carry the stub AC-001 — distinct frontmatter ids, so only the
-        // requirement-id rule is in play. A draft's stub ids are not finalized claims → no collision.
-        const draft = (id: string) =>
-            CONFORMANT.replace('id: SPEC-good', `id: ${id}`).replace('status: ready', 'status: draft');
-        writeSpec('alpha', draft('SPEC-alpha'));
-        writeSpec('beta', draft('SPEC-beta'));
-        withTemplates();
-        const report = assertOk(check_workspace({ workspaceDir: ws }));
-        expect(report.workspaceFindings.filter((f) => f.code === 'C002')).toEqual([]);
-        expect(report.verdict).toBe('clean');
-    });
-
-    it('still flags a reused requirement id between non-draft specs (only drafts are exempt)', () => {
-        // a `done` spec and a `ready` spec, distinct frontmatter ids, both carrying AC-001 → C002 fires.
+    it('does not flag a requirement id reused across specs (spec-scoped, ADR-0080)', () => {
+        // Distinct frontmatter ids, both carrying AC-001, across non-draft specs — no C002. Requirement
+        // ids are unique within a file (C001); cross-spec references qualify as SPEC-x#AC-NNN.
         writeSpec('a', CONFORMANT.replace('id: SPEC-good', 'id: SPEC-a').replace('status: ready', 'status: done'));
         writeSpec('b', CONFORMANT.replace('id: SPEC-good', 'id: SPEC-b'));
         withTemplates();
         const report = assertOk(check_workspace({ workspaceDir: ws }));
-        const c002 = report.workspaceFindings
-            .filter((finding) => finding.code === 'C002')
-            .map((finding) => finding.message);
-        expect(c002.some((message) => message.includes('AC-001'))).toBe(true);
+        expect(report.workspaceFindings.filter((f) => f.code === 'C002')).toEqual([]);
+        expect(report.verdict).toBe('clean');
     });
 
     it('treats an unparseable spec as blocking', () => {

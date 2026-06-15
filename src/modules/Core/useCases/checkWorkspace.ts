@@ -87,7 +87,6 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
 
     const specs: WorkspaceSpecResult[] = [];
     const frontmatterIdToPaths = new Map<string, string[]>();
-    const requirementIdToPaths = new Map<string, string[]>();
 
     for (const specPath of specFiles) {
         const parsed = parse_spec_record({ source: readFileSync(specPath, 'utf8'), path: specPath });
@@ -101,23 +100,14 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
         const diagnostics = run_spec_checks({ spec: record, exists });
         specs.push({ path: specPath, level: verdict_for(diagnostics), diagnostics });
 
+        // C002 is frontmatter-`id:` uniqueness only. Requirement ids (AC-NNN) are SPEC-SCOPED
+        // (ADR-0080): unique within a file (enforced by C001), reused freely across specs; a cross-spec
+        // reference qualifies as SPEC-x#AC-NNN. So a bare AC-001 in two specs is not a collision.
         if (record.frontmatter.id !== null) {
             frontmatterIdToPaths.set(record.frontmatter.id, [
                 ...(frontmatterIdToPaths.get(record.frontmatter.id) ?? []),
                 specPath,
             ]);
-        }
-        // Cross-spec requirement-id uniqueness (C002) exempts ONLY drafts — a draft's stub ids (a fresh
-        // scaffold's AC-001) are not committed claims (ADR-0078). Every non-draft spec (ready, done, …)
-        // carries finalized ids that must be unique, so exempting all-but-`ready` would miss real
-        // collisions among finalized specs.
-        if (record.frontmatter.status !== 'draft') {
-            for (const requirement of record.requirements) {
-                requirementIdToPaths.set(requirement.id, [
-                    ...(requirementIdToPaths.get(requirement.id) ?? []),
-                    specPath,
-                ]);
-            }
         }
     }
 
@@ -126,12 +116,6 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
     for (const [id, paths] of frontmatterIdToPaths) {
         if (paths.length > 1) {
             findings.push({ code: 'C002', message: `frontmatter id ${id} is claimed by ${paths.length} specs` });
-        }
-    }
-    for (const [id, paths] of requirementIdToPaths) {
-        const distinct = new Set(paths);
-        if (distinct.size > 1) {
-            findings.push({ code: 'C002', message: `requirement id ${id} is reused across ${distinct.size} specs` });
         }
     }
 
