@@ -53,6 +53,45 @@ describe('init_workspace — workspace mode, greenfield', () => {
         expect(existsSync(join(target, '.git'))).toBe(false); // never copies the kit's .git
     });
 
+    it('stamps .agents/.swarm-version from the kit VERSION (ADR-0081)', () => {
+        const verKit = mkdtempSync(join(tmpdir(), 'swarm-verkit-'));
+        try {
+            writeFileSync(join(verKit, 'AGENTS.md'), 'A\n');
+            mkdirSync(join(verKit, '.agents', 'skills'), { recursive: true });
+            writeFileSync(join(verKit, '.agents', 'skills', 'x.md'), 'skill\n');
+            writeFileSync(join(verKit, 'VERSION'), '1.1.0\n');
+            const report = assertOk(
+                init_workspace({ sourceDir: verKit, targetDir: target, policy: 'skip', mode: 'workspace' })
+            );
+            expect(readFileSync(join(target, '.agents', '.swarm-version'), 'utf8').trim()).toBe('1.1.0');
+            expect(report.written).toContain('.agents/.swarm-version');
+        } finally {
+            rmSync(verKit, { recursive: true, force: true });
+        }
+    });
+
+    it('stamps nothing when the kit has no VERSION file (older kit)', () => {
+        const report = assertOk(run()); // the shared fixture kit carries no VERSION
+        expect(existsSync(join(target, '.agents', '.swarm-version'))).toBe(false);
+        expect(report.written).not.toContain('.agents/.swarm-version');
+    });
+
+    it('stamps nothing when the kit VERSION is empty', () => {
+        const verKit = mkdtempSync(join(tmpdir(), 'swarm-verkit-'));
+        try {
+            writeFileSync(join(verKit, 'AGENTS.md'), 'A\n');
+            mkdirSync(join(verKit, '.agents'), { recursive: true });
+            writeFileSync(join(verKit, 'VERSION'), '   \n'); // present but blank
+            const report = assertOk(
+                init_workspace({ sourceDir: verKit, targetDir: target, policy: 'skip', mode: 'workspace' })
+            );
+            expect(existsSync(join(target, '.agents', '.swarm-version'))).toBe(false);
+            expect(report.written).not.toContain('.agents/.swarm-version');
+        } finally {
+            rmSync(verKit, { recursive: true, force: true });
+        }
+    });
+
     it('a filesystem write failure returns InitWriteFailed, not an uncaught crash', () => {
         // Point the target at a regular file: the first write (mkdir of the target) fails structurally
         // (ENOTDIR/EEXIST) — root-proof, unlike a chmod. It must route through Result, not throw.

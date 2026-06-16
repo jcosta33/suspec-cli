@@ -78,6 +78,26 @@ function write_file(dst: string, content: string): void {
     writeFileSync(dst, content);
 }
 
+// Stamp the kit's provenance version into the new workspace (ADR-0081): record which kit version it
+// was copied from, so the watch-and-re-copy compare (ADOPTING) has an anchor. Best-effort — an older
+// kit without a VERSION file stamps nothing. The pin is tooling metadata the tool owns, so a re-init
+// re-stamps the current version unconditionally (not conflict-handled like user content). No
+// staleness comparison here: `swarm check` has no honest "latest" source yet (deferred, ADR-0081).
+function stamp_version(input: InitWorkspaceInput, written: string[]): void {
+    const versionSource = join(input.sourceDir, 'VERSION');
+    if (!existsSync(versionSource)) {
+        return;
+    }
+    const version = readFileSync(versionSource, 'utf8').trim();
+    if (version.length === 0) {
+        return;
+    }
+    const stampDir = join(input.targetDir, '.agents');
+    mkdirSync(stampDir, { recursive: true });
+    writeFileSync(join(stampDir, '.swarm-version'), `${version}\n`);
+    written.push('.agents/.swarm-version');
+}
+
 export function init_workspace(input: InitWorkspaceInput): Result<InitReport, AppError> {
     if (!existsSync(input.sourceDir)) {
         return err(
@@ -111,6 +131,7 @@ export function init_workspace(input: InitWorkspaceInput): Result<InitReport, Ap
                 }
                 copy_plain(input, rel, { written, skipped, backedUp, overwritten });
             }
+            stamp_version(input, written);
         }
     } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
