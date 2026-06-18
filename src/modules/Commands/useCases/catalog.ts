@@ -87,6 +87,17 @@ export const COMMAND_CATALOG = [
         ],
     },
     {
+        name: 'run',
+        description: 'Launch a prepared task on an agent in its worktree — records the launch (no verdict)',
+        usage: [
+            'swarm run <task> --agent <name>',
+            '  <task>                      the task to launch — its worktree must already exist (swarm worktree create)',
+            '  --agent <name>              the adapter from .swarm/config.yaml (else agents.default)',
+            '  --json                      machine output',
+            '  launches the agent + records the launch envelope under .swarm/work/; never the board, never a verdict',
+        ],
+    },
+    {
         name: 'help',
         description: 'Show this command reference',
         usage: ['swarm help', 'swarm --help · swarm --version'],

@@ -13,3 +13,4 @@ export {
 } from './git.ts';
 export { write_new_file, type FileExistsError } from './files.ts';
 export { fetch_gh_issue, type GhIssue, type GhFetchError } from './gh.ts';
+export { launch_adapter, write_run_record, type RunRecord, type LaunchError } from './launch.ts';

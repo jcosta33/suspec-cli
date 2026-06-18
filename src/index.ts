@@ -19,6 +19,7 @@ import {
     run_init,
     run_pull,
     run_promote,
+    run_run,
     print_help,
     print_command_help,
 } from './modules/Commands/useCases/index.ts';
@@ -50,6 +51,7 @@ const COMMANDS: Record<string, CommandRun> = {
     init: run_init,
     pull: run_pull,
     promote: run_promote,
+    run: run_run,
 };
 
 // The dispatchable command names (excluding `help`, handled inline) — the AC-004 parity test

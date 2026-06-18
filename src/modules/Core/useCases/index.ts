@@ -14,12 +14,13 @@ export { check_change_plan } from './checkChangePlan.ts';
 export { build_spec_ref_resolver } from './resolveSpecRef.ts';
 export { find_workspace_spec_files, find_sibling_spec_files } from './findSpecFiles.ts';
 
-// launch engine — worktrees, no agent (AC-009/010)
+// launch engine — worktrees, no agent (AC-009/010); run launch resolution (SPEC-swarm-cli-run)
 export { create_worktree } from './createWorktree.ts';
 export { list_swarm_worktrees } from './listSwarmWorktrees.ts';
 export { remove_worktree } from './removeWorktree.ts';
 export { prune_worktrees } from './pruneWorktrees.ts';
 export { stamp_runtime_isolation } from './stampRuntimeIsolation.ts';
+export { resolve_launch, type LaunchPlan, type ResolveLaunchInput } from './resolveLaunch.ts';
 
 // reconcile engine — status, no agent (AC-011); review, no agent (M2 AC-018/019/020/021/023)
 export { derive_board } from './deriveBoard.ts';
