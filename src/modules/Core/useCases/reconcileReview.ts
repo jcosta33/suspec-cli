@@ -13,7 +13,13 @@
 import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { parse_spec_record, parse_task_packet } from '../../Sol/useCases/index.ts';
-import { coverage_facts, coverage_message } from '../services/checksContract.ts';
+import {
+    coverage_facts,
+    coverage_message,
+    verify_binding_facts,
+    verify_binding_message,
+    type VerifyBindingFinding,
+} from '../services/checksContract.ts';
 import { parse_review_packet } from '../services/parseReviewPacket.ts';
 import {
     reconcile_self_report,
@@ -41,12 +47,20 @@ export type ReconcileReviewInput = Readonly<{
 // re-parsing — the contract owns both the id/kind and the wording).
 export type CoverageFinding = Readonly<{ id: string; kind: 'uncovered' | 'orphan'; message: string }>;
 
+// A C013 verify-evidence-binding consistency fact (ADR-0083), with its rendered message. Built from
+// the structured facts — the contract owns both the kind and the wording. A consistency fact, NOT a
+// verdict and NOT proof a command ran (the fenced body is self-reported and unparsed).
+export type VerifyBindingReport = Readonly<{ id: string; kind: VerifyBindingFinding['kind']; message: string }>;
+
 export type ReviewReport = Readonly<{
     level: OutcomeLevel;
     task: string;
     diffChangedFiles: readonly string[];
     // C012 coverage facts (empty when the source spec is draft — the scope guard).
     coverage: readonly CoverageFinding[];
+    // C013 verify-evidence-binding consistency facts (empty when the source spec is draft — the same
+    // scope guard). A fact + the advisory level only; never a Result/status:pass/merge (ADR-0083).
+    verifyBinding: readonly VerifyBindingReport[];
     // The scope↔spec divergence (scope ids the source spec does not define), AC-019 / D-R06.
     // Empty when the source spec is draft (the same scope guard as coverage).
     scopeDivergence: readonly string[];
@@ -73,6 +87,7 @@ const EMPTY_PACKET_FACTS: PacketStructuralFacts = {
 function level_for(report: Omit<ReviewReport, 'level'>): OutcomeLevel {
     const hasFinding =
         report.coverage.length > 0 ||
+        report.verifyBinding.length > 0 ||
         report.scopeDivergence.length > 0 ||
         report.selfReport.claimedNotInDiff.length > 0 ||
         report.selfReport.inDiffNotClaimed.length > 0 ||
@@ -108,6 +123,22 @@ export function reconcile_review(input: ReconcileReviewInput): Result<ReviewRepo
         coverageRowIds,
     }).map((finding) => ({ ...finding, message: coverage_message(finding) }));
 
+    // C013 (ADR-0083): the named verify command lifted from each spec requirement, keyed by id, vs
+    // the review packet's structured `verify` blocks against its Pass rows. A consistency fact, never
+    // a verdict; the fenced body is unparsed (the parser never captured it).
+    const namedCommandById = new Map<string, string | null>(
+        spec.requirements.map((requirement) => [requirement.id, requirement.verifyCommand])
+    );
+    const verifyBinding: VerifyBindingReport[] =
+        reviewPacket !== null
+            ? verify_binding_facts({
+                  sourceSpecStatus: spec.frontmatter.status,
+                  namedCommandById,
+                  coverageRows: reviewPacket.coverageRows,
+                  verifyBlocks: reviewPacket.verifyBlocks,
+              }).map((finding) => ({ ...finding, message: verify_binding_message(finding) }))
+            : [];
+
     const selfReport = reconcile_self_report({
         claimedChangedFiles: packet.claimedChangedFiles,
         diffChangedFiles: input.diffChangedFiles,
@@ -122,6 +153,7 @@ export function reconcile_review(input: ReconcileReviewInput): Result<ReviewRepo
         task: input.task,
         diffChangedFiles: [...input.diffChangedFiles],
         coverage,
+        verifyBinding,
         // Draft-guarded like coverage (ADR-0079): a draft spec's ids are work-in-progress, so a
         // scope-vs-spec id mismatch is not yet a finalized divergence to surface.
         scopeDivergence:

@@ -69,6 +69,24 @@ ${rows}
 `;
 }
 
+// A coverage table whose rows may each carry a fenced verify block (C013, ADR-0083). The spec's
+// named command (from SPEC) is `a test.`; `verify: true` records a matching block (cmd="a test."
+// result=pass) so the row reads C013-consistent — omit it (or pass a verifyLine) to drive a finding.
+function reviewWithVerify(rows: readonly { id: string; result: string; verify?: boolean; verifyLine?: string }[]): string {
+    const rowsTable = rows
+        .map((r) => {
+            const row = `| ${r.id} | ${r.result} | p | no |`;
+            if (r.verifyLine !== undefined) {
+                return `${row}\n\n\`\`\`${r.verifyLine}\nout\n\`\`\`\n`;
+            }
+            return r.verify === true
+                ? `${row}\n\n\`\`\`verify id=${r.id} cmd="a test." result=pass\nok (1 passed)\n\`\`\`\n`
+                : row;
+        })
+        .join('\n');
+    return review(rowsTable);
+}
+
 beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'swarm-check-review-'));
     mkdirSync(join(dir, 'specs', 'feat'), { recursive: true });
@@ -83,7 +101,8 @@ afterEach(() => {
 describe('check_review_file — C012 on a review packet (AC-028)', () => {
     it('reports C012 for a coverage gap (AC-002 uncovered)', () => {
         const path = join(dir, 'review.md');
-        writeFileSync(path, review('| AC-001 | Pass | pasted | no |'));
+        // AC-001 carries a consistent verify block so the only finding is the C012 coverage gap.
+        writeFileSync(path, reviewWithVerify([{ id: 'AC-001', result: 'Pass', verify: true }]));
         const report = assertOk(check_review_file({ workspaceDir: dir, reviewPath: path }));
         expect(report.diagnostics.map((d) => d.code)).toEqual(['C012']);
         expect(report.diagnostics[0].message).toContain('AC-002');
@@ -92,15 +111,32 @@ describe('check_review_file — C012 on a review packet (AC-028)', () => {
 
     it('reports C012 for an orphan row (AC-009 not in spec)', () => {
         const path = join(dir, 'review.md');
-        writeFileSync(path, review('| AC-001 | Pass | p | no |\n| AC-002 | Pass | p | no |\n| AC-009 | Pass | p | no |'));
+        // AC-001/AC-002 carry consistent verify blocks; AC-009 is the orphan — only C012 surfaces.
+        // (An orphan id has no spec requirement, so its consistent block reads cmd-mismatch; give it
+        // a clean block keyed to AC-009 against the spec's named command — but AC-009 is absent, so
+        // there is no named command to match; mark it Unverified so C013 does not key on it.)
+        writeFileSync(
+            path,
+            reviewWithVerify([
+                { id: 'AC-001', result: 'Pass', verify: true },
+                { id: 'AC-002', result: 'Pass', verify: true },
+                { id: 'AC-009', result: 'Unverified' },
+            ])
+        );
         const report = assertOk(check_review_file({ workspaceDir: dir, reviewPath: path }));
         expect(report.diagnostics.map((d) => d.code)).toEqual(['C012']);
         expect(report.diagnostics[0].message).toContain('(orphan)');
     });
 
-    it('a fully-covered review is clean', () => {
+    it('a fully-covered review with consistent verify blocks is clean', () => {
         const path = join(dir, 'review.md');
-        writeFileSync(path, review('| AC-001 | Pass | p | no |\n| AC-002 | Pass | p | no |'));
+        writeFileSync(
+            path,
+            reviewWithVerify([
+                { id: 'AC-001', result: 'Pass', verify: true },
+                { id: 'AC-002', result: 'Pass', verify: true },
+            ])
+        );
         const report = assertOk(check_review_file({ workspaceDir: dir, reviewPath: path }));
         expect(report.diagnostics).toEqual([]);
         expect(report.level).toBe('clean');
@@ -153,8 +189,94 @@ describe('check_review_file — C012 on a review packet (AC-028)', () => {
     it('skips a spec directory that has no spec.md', () => {
         mkdirSync(join(dir, 'specs', 'aaa-empty'), { recursive: true }); // sorts before feat/, holds no spec.md
         const path = join(dir, 'review.md');
-        writeFileSync(path, review('| AC-001 | Pass | pasted | no |'));
+        // AC-001 carries a consistent verify block so the only finding is the C012 gap (AC-002).
+        writeFileSync(path, reviewWithVerify([{ id: 'AC-001', result: 'Pass', verify: true }]));
         const report = assertOk(check_review_file({ workspaceDir: dir, reviewPath: path }));
         expect(report.diagnostics.map((d) => d.code)).toEqual(['C012']); // still resolves specs/feat and runs C012
+    });
+});
+
+// The W4a regression guard: `swarm check <review-file>` must surface the SAME C013 verify-evidence-
+// binding fact the `swarm review` reconcile does (AC-005 — BOTH commands). Before the fix, this path
+// ran only C012 and read the violating packet as clean (exit 0). Each violating packet here warns via
+// `swarm review`; a consistent/draft packet surfaces no C013 finding.
+describe('check_review_file — C013 verify-evidence-binding on a review packet (AC-005, ADR-0083)', () => {
+    it('reports C013 for a cmd mismatch (block cmd disagrees with the named command)', () => {
+        const path = join(dir, 'review.md');
+        writeFileSync(
+            path,
+            reviewWithVerify([
+                { id: 'AC-001', result: 'Pass', verifyLine: 'verify id=AC-001 cmd="a different command" result=pass' },
+                { id: 'AC-002', result: 'Pass', verify: true },
+            ])
+        );
+        const report = assertOk(check_review_file({ workspaceDir: dir, reviewPath: path }));
+        expect(report.diagnostics.map((d) => d.code)).toEqual(['C013']);
+        expect(report.diagnostics[0].message).toContain('does not match');
+        expect(report.level).toBe('warning');
+    });
+
+    it('reports C013 for a result=fail block under a Pass row', () => {
+        const path = join(dir, 'review.md');
+        writeFileSync(
+            path,
+            reviewWithVerify([
+                { id: 'AC-001', result: 'Pass', verifyLine: 'verify id=AC-001 cmd="a test." result=fail' },
+                { id: 'AC-002', result: 'Pass', verify: true },
+            ])
+        );
+        const report = assertOk(check_review_file({ workspaceDir: dir, reviewPath: path }));
+        expect(report.diagnostics.map((d) => d.code)).toEqual(['C013']);
+        expect(report.diagnostics[0].message).toContain('result=fail');
+        expect(report.level).toBe('warning');
+    });
+
+    it('reports C013 free-form-only for a Pass row with no verify block (non-draft spec)', () => {
+        const path = join(dir, 'review.md');
+        // Both rows are Pass with only a free-form Evidence cell → two C013 free-form-only facts.
+        writeFileSync(path, review('| AC-001 | Pass | p | no |\n| AC-002 | Pass | p | no |'));
+        const report = assertOk(check_review_file({ workspaceDir: dir, reviewPath: path }));
+        expect(report.diagnostics.map((d) => d.code)).toEqual(['C013', 'C013']);
+        expect(report.diagnostics.every((d) => d.message.includes('free-form'))).toBe(true);
+        expect(report.level).toBe('warning');
+    });
+
+    it('a consistent packet (matching block + result=pass on each Pass row) → no C013 finding', () => {
+        const path = join(dir, 'review.md');
+        writeFileSync(
+            path,
+            reviewWithVerify([
+                { id: 'AC-001', result: 'Pass', verify: true },
+                { id: 'AC-002', result: 'Pass', verify: true },
+            ])
+        );
+        const report = assertOk(check_review_file({ workspaceDir: dir, reviewPath: path }));
+        expect(report.diagnostics).toEqual([]);
+        expect(report.level).toBe('clean');
+    });
+
+    it('a draft source spec exempts C013 even with a mismatched block (the scope guard)', () => {
+        writeFileSync(join(dir, 'specs', 'feat', 'spec.md'), SPEC.replace('status: ready', 'status: draft'));
+        const path = join(dir, 'review.md');
+        writeFileSync(
+            path,
+            reviewWithVerify([
+                { id: 'AC-001', result: 'Pass', verifyLine: 'verify id=AC-001 cmd="wrong" result=fail' },
+                { id: 'AC-002', result: 'Pass', verify: true },
+            ])
+        );
+        const report = assertOk(check_review_file({ workspaceDir: dir, reviewPath: path }));
+        expect(report.diagnostics).toEqual([]);
+        expect(report.level).toBe('clean');
+    });
+
+    it('the C013 fact via `swarm check` is verdict-free (a diagnostic + a level, never a Result)', () => {
+        const path = join(dir, 'review.md');
+        writeFileSync(path, review('| AC-001 | Pass | p | no |\n| AC-002 | Pass | p | no |'));
+        const report = assertOk(check_review_file({ workspaceDir: dir, reviewPath: path }));
+        expect(report.diagnostics.length).toBeGreaterThan(0);
+        const json = JSON.stringify(report);
+        expect(json).not.toMatch(/"(verdict|decision|suggestedDecision|mergeDecision)":/);
+        expect(report.level).toBe('warning');
     });
 });

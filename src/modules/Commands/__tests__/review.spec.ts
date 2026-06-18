@@ -206,9 +206,16 @@ describe('review command — finished-run reconcile (AC-017/024)', () => {
         mkdirSync(join(repo, 'reviews'), { recursive: true });
         writeFileSync(join(repo, 'specs', 'feat', 'spec.md'), SPEC);
         writeFileSync(join(repo, 'tasks', 'TASK-feat.md'), task);
+        // Each Pass row carries a matching `verify` block (cmd = the spec's named command, result=pass)
+        // so the C013 binding reads consistent and the reconcile stays genuinely clean.
         writeFileSync(
             join(repo, 'reviews', 'feat.md'),
-            review('| AC-001 | Pass | p | no |\n| AC-002 | Pass | p | no |')
+            review(
+                '| AC-001 | Pass | p | no |\n' +
+                    '\n```verify id=AC-001 cmd="a test." result=pass\nok (1 passed)\n```\n\n' +
+                    '| AC-002 | Pass | p | no |\n' +
+                    '\n```verify id=AC-002 cmd="a test." result=pass\nok (1 passed)\n```'
+            )
         );
         git(['add', '.']);
         git(['commit', '-m', 'init']);

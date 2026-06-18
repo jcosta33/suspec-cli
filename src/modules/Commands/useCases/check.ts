@@ -60,8 +60,9 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         }
         const source = readFileSync(file, 'utf8');
         const head = source.split(/\r\n|[\r\n]/).slice(0, 12).join('\n');
-        // A review packet (`type: review`) runs the C012 coverage reconcile (AC-028); a spec runs the
-        // core spec checks. The review path resolves the task + source spec from the cwd workspace.
+        // A review packet (`type: review`) runs the C012 coverage + C013 verify-evidence-binding
+        // reconcile (AC-028 / AC-005); a spec runs the core spec checks. The review path resolves the
+        // task + source spec from the cwd workspace.
         if (/^type:\s*review\s*$/m.test(head)) {
             return project({
                 result: check_review_file({ workspaceDir: cwd, reviewPath: file }),

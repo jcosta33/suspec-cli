@@ -9,13 +9,24 @@
 // are real-looking; the engine only parses a packet a real run produced, and a row whose id is not a
 // requirement id is simply read as an orphan by C012 — no special-casing here.
 
-import type { CoverageRow, ReviewPacket } from './reconcileFacts.ts';
+import type { CoverageRow, ReviewPacket, VerifyBlock } from './reconcileFacts.ts';
 
 const FRONTMATTER_FENCE = '---';
 const STATUS_KEY = /^status:\s*(.*)$/;
 const SECTION_HEADING = /^##\s+(.+?)\s*$/;
 const COVERAGE_HEADING = /^##\s+Requirement coverage\s*$/i;
 const REQUIREMENT_ID = /^[A-Z][A-Z0-9]*-\d+$/;
+
+// A fenced verify block opens with ```` ```verify <info-string> ```` (ADR-0083): the language token
+// `verify` immediately after the opening fence, the rest the info-string. The body below is verbatim
+// and unparsed — captured nowhere — closed by the next ``` fence.
+const VERIFY_FENCE_OPEN = /^```verify\b\s*(.*)$/;
+const FENCE_MARKER = '```';
+// The three closed-value info-string tokens. `cmd` is double-quoted (a command carries spaces); `id`
+// and `result` are bare tokens.
+const INFO_ID = /\bid=([A-Z][A-Z0-9]*-\d+)\b/;
+const INFO_CMD = /\bcmd="([^"]*)"/;
+const INFO_RESULT = /\bresult=(\w+)\b/;
 
 // The cells of a GFM table row (`| a | b | c |`), trimmed, surrounding empties from the outer pipes
 // dropped. A non-table line yields null.
@@ -50,15 +61,44 @@ function read_frontmatter_status(lines: readonly string[]): string | null {
     return null;
 }
 
+// Parse a verify block's info-string (the text after ```` ```verify ````) into the closed-value
+// binding (AC-004). The fenced body is NEVER read — only this info-string. A block missing any of the
+// three closed-value fields (id / a quoted cmd / a `pass`|`fail` result) is `malformed`: surfaced,
+// not dropped, carrying whatever it could read so C013 can still route it to a row.
+function parse_verify_info(info: string): VerifyBlock {
+    const cmdMatch = INFO_CMD.exec(info);
+    const cmd = cmdMatch !== null ? cmdMatch[1].trim() : null;
+    // Match `id` / `result` against the info-string with the quoted `cmd="…"` removed, so a `result=`
+    // or `id=` token sitting *inside* the quoted command can never be misread as the binding's own.
+    const outsideCmd = info.replace(INFO_CMD, '');
+    const idMatch = INFO_ID.exec(outsideCmd);
+    const resultMatch = INFO_RESULT.exec(outsideCmd);
+    const id = idMatch !== null ? idMatch[1] : null;
+    const resultToken = resultMatch !== null ? resultMatch[1] : null;
+    const result = resultToken === 'pass' || resultToken === 'fail' ? resultToken : null;
+    const malformed = id === null || cmd === null || result === null;
+    return { id, cmd, result, malformed };
+}
+
 export function parse_review_packet(source: string): ReviewPacket {
     const lines = source.split(/\r\n|[\r\n]/);
     const status = read_frontmatter_status(lines);
 
     const sectionTitles: string[] = [];
     const coverageRows: CoverageRow[] = [];
+    const verifyBlocks: VerifyBlock[] = [];
     let inCoverage = false;
+    let inVerifyBody = false; // inside a verify block's verbatim body, between its fences
 
     for (const line of lines) {
+        // Inside a verify block's body: consume verbatim until the closing fence. The body is never
+        // parsed (ADR-0083) — its only effect here is to suppress section/table scanning.
+        if (inVerifyBody) {
+            if (line.startsWith(FENCE_MARKER)) {
+                inVerifyBody = false;
+            }
+            continue;
+        }
         if (COVERAGE_HEADING.test(line)) {
             sectionTitles.push('Requirement coverage');
             inCoverage = true;
@@ -71,6 +111,14 @@ export function parse_review_packet(source: string): ReviewPacket {
             continue;
         }
         if (!inCoverage) {
+            continue;
+        }
+        // A fenced verify block keyed to the coverage section (a sibling to a row): parse its
+        // info-string, then skip its verbatim body to the closing fence.
+        const verifyOpen = VERIFY_FENCE_OPEN.exec(line);
+        if (verifyOpen !== null) {
+            verifyBlocks.push(parse_verify_info(verifyOpen[1]));
+            inVerifyBody = true;
             continue;
         }
         const cells = table_cells(line);
@@ -87,5 +135,5 @@ export function parse_review_packet(source: string): ReviewPacket {
         }
     }
 
-    return { status, sectionTitles, coverageRows };
+    return { status, sectionTitles, coverageRows, verifyBlocks };
 }

@@ -115,9 +115,11 @@ describe('run_review_flow (AC-027)', () => {
             TASK.replace('- `src`', '- `src-a.ts`').replace('- Changed files: `src/a.ts`', '- Changed files: `src-a.ts`')
         );
         mkdirSync(join(repo, 'reviews'), { recursive: true });
+        // Each Pass row carries a matching `verify` block (cmd = the spec's named command, result=pass)
+        // so the C013 binding reads consistent and no fact is surfaced.
         writeFileSync(
             join(repo, 'reviews', 'feat.md'),
-            `---\ntype: review\nid: REVIEW-feat\ntask: TASK-feat\nstatus: needs-human\n---\n\n## Summary\nx\n\n## Changed files\nx\n\n## Requirement coverage\n\n| ID | Result | Evidence | Human attention |\n|---|---|---|---|\n| AC-001 | Pass | p | no |\n| AC-002 | Pass | p | no |\n\n## Human attention\nx\n\n## Suggested decision\nx\n`
+            `---\ntype: review\nid: REVIEW-feat\ntask: TASK-feat\nstatus: needs-human\n---\n\n## Summary\nx\n\n## Changed files\nx\n\n## Requirement coverage\n\n| ID | Result | Evidence | Human attention |\n|---|---|---|---|\n| AC-001 | Pass | p | no |\n\n\`\`\`verify id=AC-001 cmd="a test." result=pass\nok\n\`\`\`\n\n| AC-002 | Pass | p | no |\n\n\`\`\`verify id=AC-002 cmd="a test." result=pass\nok\n\`\`\`\n\n## Human attention\nx\n\n## Suggested decision\nx\n`
         );
         const p = create_mock_prompter({ select: ['TASK-feat'] });
         expect(await run_review_flow(p, { workspaceDir: repo })).toBe(0);

@@ -14,14 +14,14 @@
 import type { OutcomeLevel } from '../useCases/unixOutcome.ts';
 
 // Pinned to swarm/checks/checks.yaml `version:`; the drift-guard test fails if the sibling diverges.
-export const CONTRACT_VERSION = '0.5.0';
+export const CONTRACT_VERSION = '0.6.0';
 
 export type CheckSeverity = 'hard-error' | 'warning';
 
 // prettier-ignore
 export type CheckId =
     | 'C001' | 'C002' | 'C003' | 'C004' | 'C005' | 'C006'
-    | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C012';
+    | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C012' | 'C013';
 
 // Severity per check, the single source inside swarm-cli; a total Record so the lookup needs no
 // fallback. The drift guard reconciles it against swarm/checks/checks.yaml.
@@ -38,6 +38,7 @@ const SEVERITY_BY_ID: Record<CheckId, CheckSeverity> = {
     C010: 'hard-error',
     C011: 'warning',
     C012: 'warning',
+    C013: 'warning',
 };
 
 export function severity_of(id: CheckId): CheckSeverity {
@@ -58,6 +59,7 @@ export const CORE_CHECKS: readonly { id: CheckId; name: string; severity: CheckS
     { id: 'C010', name: 'preserves-refs-resolve', severity: severity_of('C010') },
     { id: 'C011', name: 'waves-present', severity: severity_of('C011') },
     { id: 'C012', name: 'coverage', severity: severity_of('C012') },
+    { id: 'C013', name: 'verify-evidence-binding', severity: severity_of('C013') },
 ];
 
 // The five strength words (checks.yaml reconciliation note: 5; SOL form is the same words uppercase).
@@ -318,6 +320,135 @@ export function coverage_facts(input: CoverageInput): CoverageFinding[] {
 
 export function check_coverage(input: CoverageInput): Diagnostic[] {
     return coverage_facts(input).map((finding) => diagnostic('C012', coverage_message(finding), null));
+}
+
+// --- C013 verify-evidence-binding (ADR-0083) -----------------------------------------------------
+// The structured-evidence reconcile against the named source spec. A coverage row may carry an
+// optional fenced `verify` block (a sibling to the row). Where present against a Pass row, this
+// surfaces a CONSISTENCY fact: does the block's recorded `cmd` match the requirement's named
+// `Verify with:` / `VERIFY BY` command (closed-value, exact after whitespace-collapse — never prose
+// matching) and read `result=pass`? It is NEVER a verdict (ADR-0077 D8) and NEVER proof the command
+// ran — the fenced body is self-reported and unparsed; this reads only the closed-value info-string.
+//
+// The five faces, all `warning` (the structured-form mismatch is hard-capable but ships conservative
+// per ADR-0083):
+//   - cmd-mismatch    — a block's `cmd` disagrees with the requirement's named command.
+//   - result-fail     — a `result=fail` block recorded under a Pass row.
+//   - malformed       — a block whose info-string did not parse to a complete binding.
+//   - duplicate       — more than one block keyed to the same requirement id.
+//   - free-form-only  — a Pass row with no verify block (only the free-form cell; the fuzzy band,
+//                       routed to human attention, never machine-rejected — SMELLS-precision).
+// A Pass row whose block's `cmd` matches and reads `result=pass` is consistent → no finding.
+// Scope-guarded to non-draft source specs (mirrors C012 / the ADR-0079 guard). PURE — plain records
+// in, structured findings out; the engine (reconcileReview) does the I/O and extraction.
+export type VerifyBlockFact = Readonly<{
+    id: string | null;
+    cmd: string | null;
+    result: 'pass' | 'fail' | null;
+    malformed: boolean;
+}>;
+
+export type VerifyBindingInput = Readonly<{
+    sourceSpecStatus: string | null;
+    // The requirement's named verify command per id (null when the requirement names none). The
+    // engine lifts this from the parsed spec record; the C013 reconcile keys on it.
+    namedCommandById: ReadonlyMap<string, string | null>;
+    // The coverage rows (id + raw Result cell) — C013 keys on Pass rows.
+    coverageRows: readonly { id: string; result: string }[];
+    // The structured-evidence blocks parsed from the coverage section.
+    verifyBlocks: readonly VerifyBlockFact[];
+}>;
+
+export type VerifyBindingFinding = Readonly<{
+    id: string;
+    kind: 'cmd-mismatch' | 'result-fail' | 'malformed' | 'duplicate' | 'free-form-only';
+}>;
+
+// Collapse runs of whitespace to a single space and trim — the closed-value command comparison
+// (ADR-0083: exact after whitespace-collapse), so `npm test  --x` matches `npm test --x`.
+function collapse_ws(value: string): string {
+    return value.trim().replace(/\s+/g, ' ');
+}
+
+export function verify_binding_message(finding: VerifyBindingFinding): string {
+    switch (finding.kind) {
+        case 'cmd-mismatch':
+            return `coverage row ${finding.id}'s verify block records a cmd that does not match the requirement's named Verify command`;
+        case 'result-fail':
+            return `coverage row ${finding.id} is Pass but its verify block records result=fail`;
+        case 'malformed':
+            return `coverage row ${finding.id} carries a malformed verify block (its info-string did not parse to id / cmd / result)`;
+        case 'duplicate':
+            return `requirement ${finding.id} carries more than one verify block`;
+        case 'free-form-only':
+            return `coverage row ${finding.id} is Pass with only a free-form Evidence cell (no verify block) — routed to human attention`;
+    }
+}
+
+export function verify_binding_facts(input: VerifyBindingInput): VerifyBindingFinding[] {
+    // Draft scope guard: a draft source spec's ids and named commands are work-in-progress.
+    if (input.sourceSpecStatus === 'draft') {
+        return [];
+    }
+    const findings: VerifyBindingFinding[] = [];
+
+    // Index the blocks by keyed id. A block whose info-string named no id (malformed, id === null) is
+    // surfaced on its own — it cannot be joined to a row.
+    const blocksById = new Map<string, VerifyBlockFact[]>();
+    for (const block of input.verifyBlocks) {
+        if (block.id === null) {
+            findings.push({ id: '(unkeyed)', kind: 'malformed' });
+            continue;
+        }
+        const bucket = blocksById.get(block.id);
+        if (bucket === undefined) {
+            blocksById.set(block.id, [block]);
+        } else {
+            bucket.push(block);
+        }
+    }
+    // A duplicate is surfaced once per id (more than one block keyed to the same id).
+    for (const [id, blocks] of blocksById) {
+        if (blocks.length > 1) {
+            findings.push({ id, kind: 'duplicate' });
+        }
+    }
+
+    for (const row of input.coverageRows) {
+        if (row.result !== 'Pass') {
+            continue; // C013 keys on Pass rows (the recorded-as-passed claim).
+        }
+        const blocks = blocksById.get(row.id) ?? [];
+        if (blocks.length === 0) {
+            // A Pass row with no verify block — the free-form-only warning (fuzzy band, ADR-0083).
+            findings.push({ id: row.id, kind: 'free-form-only' });
+            continue;
+        }
+        // The first keyed block backs the row (a duplicate is already surfaced above).
+        const block = blocks[0];
+        if (block.malformed) {
+            findings.push({ id: row.id, kind: 'malformed' });
+            continue;
+        }
+        if (block.result === 'fail') {
+            findings.push({ id: row.id, kind: 'result-fail' });
+            continue;
+        }
+        const named = input.namedCommandById.get(row.id) ?? null;
+        // A closed-value command comparison (never prose). A named command absent from the spec
+        // cannot be matched — the recorded cmd disagrees with "nothing named" → a mismatch fact.
+        if (named === null || block.cmd === null || collapse_ws(block.cmd) !== collapse_ws(named)) {
+            findings.push({ id: row.id, kind: 'cmd-mismatch' });
+        }
+        // else: cmd matches + result=pass → consistent, no finding.
+    }
+    return findings;
+}
+
+export function check_verify_binding(input: VerifyBindingInput): Diagnostic[] {
+    return verify_binding_facts(input).map((finding) =>
+        diagnostic('C013', verify_binding_message(finding), null)
+    );
 }
 
 // --- C010 preserves-refs-resolve (change-plan, hard error) ---------------------------------------

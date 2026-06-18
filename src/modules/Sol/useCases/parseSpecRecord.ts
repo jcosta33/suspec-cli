@@ -13,6 +13,11 @@ export type SpecRecordRequirement = Readonly<{
     id: string;
     line: number;
     body: string;
+    // The requirement's named verify command, lifted out of `body` (AC-003): the text after the
+    // plain `Verify with:` line or the SOL `VERIFY BY` artifact reference, both resolved to the same
+    // field a checker (C013) compares against a review packet's recorded `cmd`. Null when the
+    // requirement carries no such line (C003 territory).
+    verifyCommand: string | null;
 }>;
 
 export type SpecRecordLink = Readonly<{
@@ -52,6 +57,22 @@ const REQUIREMENT_HEADING = /^###\s+([A-Z][A-Z0-9]*-\d+)\b/;
 const SECTION_HEADING = /^##\s+(.+?)\s*$/;
 const MARKDOWN_LINK = /\]\(([^)\s#]+)/g;
 const WIKI_LINK = /\[\[([^\]]+)\]\]/g;
+
+// The requirement's named verify command (AC-003): the text after a plain `Verify with:` line or a
+// SOL `VERIFY BY` artifact reference, anchored to a line start (so it is the requirement's own line,
+// not prose), and tolerant of a leading blockquote/list marker — the same line shape C003 keys on.
+const VERIFY_COMMAND_PATTERN = /^[ \t>-]*(?:Verify with:|VERIFY BY)[ \t]*(.*\S)?\s*$/m;
+
+// Lift the named command out of a requirement body. The first matching line wins; an empty command
+// (a bare `Verify with:` with nothing after it) and the absence of any verify line both read null.
+function extract_verify_command(body: string): string | null {
+    const match = VERIFY_COMMAND_PATTERN.exec(body);
+    if (match === null) {
+        return null;
+    }
+    const command = match[1]?.trim() ?? '';
+    return command.length > 0 ? command : null;
+}
 
 // One comma-segment of a frontmatter `sources:` item can carry a path plus trailing prose
 // ("../x/spec.md (a note)"); keep only the leading whitespace-delimited token (the ref itself).
@@ -139,10 +160,12 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
 
     const flush_requirement = () => {
         if (current_requirement !== null) {
+            const body = current_requirement.bodyLines.join('\n');
             requirements.push({
                 id: current_requirement.id,
                 line: current_requirement.line,
-                body: current_requirement.bodyLines.join('\n'),
+                body,
+                verifyCommand: extract_verify_command(body),
             });
             current_requirement = null;
         }

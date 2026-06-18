@@ -88,6 +88,7 @@ describe('packet_structural_facts (AC-021)', () => {
         status: 'needs-human',
         sectionTitles: ['Summary', 'Changed files', 'Requirement coverage', 'Human attention', 'Suggested decision'],
         coverageRows: [],
+        verifyBlocks: [],
         ...over,
     });
 

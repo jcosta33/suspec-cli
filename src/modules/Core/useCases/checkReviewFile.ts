@@ -1,13 +1,15 @@
-// CheckEngine, review-packet scope (M2, AC-028 / ADR-0079): run C012 (coverage) on a review file.
-// `swarm check <review-file>` recognizes a `type: review` packet and reconciles its coverage table
-// against the source spec — keyed on the task packet's declared `scope` — at C012's `warning`
-// severity. Read-only; writes nothing. This is the `swarm check` face of the same C012 the review
-// engine surfaces (one check, two commands; ADR-0079).
+// CheckEngine, review-packet scope (M2, AC-028 / ADR-0079; C013 per ADR-0083): run C012 (coverage)
+// and C013 (verify-evidence-binding) on a review file. `swarm check <review-file>` recognizes a
+// `type: review` packet and reconciles its coverage table against the source spec — keyed on the task
+// packet's declared `scope` — at both checks' `warning` severity. Read-only; writes nothing. This is
+// the `swarm check` face of the same C012/C013 the review engine surfaces (one check, two commands;
+// ADR-0079/0083 — AC-005 requires BOTH `swarm review` and `swarm check` to surface the C013 fact).
 //
 // Resolution: the review's frontmatter `task:` → tasks/<task>.md (scope + source spec id) → the
-// specs/*/spec.md whose id matches (requirement ids + draft-guard status). When the task or spec is
-// not resolvable, C012 cannot run; the engine returns a clean report with a diagnostic-free level
-// (the spec/workspace checks already cover a missing artifact — this engine only adds C012).
+// specs/*/spec.md whose id matches (requirement ids + named verify commands + draft-guard status).
+// When the task or spec is not resolvable, neither C012 nor C013 can run; the engine returns a clean
+// report with a diagnostic-free level (the spec/workspace checks already cover a missing artifact —
+// this engine only adds C012/C013).
 
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
@@ -15,7 +17,7 @@ import { join } from 'path';
 import { ok, isOk, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
 import { parse_spec_record, parse_task_packet } from '../../Sol/useCases/index.ts';
-import { check_coverage, verdict_for, type Diagnostic } from '../services/checksContract.ts';
+import { check_coverage, check_verify_binding, verdict_for, type Diagnostic } from '../services/checksContract.ts';
 import { parse_review_packet } from '../services/parseReviewPacket.ts';
 import { read_frontmatter } from '../services/readFrontmatter.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
@@ -87,11 +89,25 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
     }
 
     const review = parse_review_packet(reviewSource);
-    const diagnostics = check_coverage({
+    const coverage = check_coverage({
         sourceSpecStatus: parsedSpec.value.frontmatter.status,
         inScopeIds: packet.scope,
         specRequirementIds: parsedSpec.value.requirements.map((requirement) => requirement.id),
         coverageRowIds: review.coverageRows.map((row) => row.id),
     });
-    return clean(diagnostics);
+    // C013 (ADR-0083): the same verify-evidence-binding fact the `swarm review` reconcile surfaces —
+    // mirrors reconcileReview's namedCommandById build (the named command lifted from each spec
+    // requirement, keyed by id) and the verify_binding call. The non-draft scope guard and the
+    // verdict-free shape live inside check_verify_binding / verify_binding_facts (a Diagnostic + a
+    // level, never a Result); this engine only passes the extracted records and never re-derives them.
+    const namedCommandById = new Map<string, string | null>(
+        parsedSpec.value.requirements.map((requirement) => [requirement.id, requirement.verifyCommand])
+    );
+    const verifyBinding = check_verify_binding({
+        sourceSpecStatus: parsedSpec.value.frontmatter.status,
+        namedCommandById,
+        coverageRows: review.coverageRows,
+        verifyBlocks: review.verifyBlocks,
+    });
+    return clean([...coverage, ...verifyBinding]);
 }

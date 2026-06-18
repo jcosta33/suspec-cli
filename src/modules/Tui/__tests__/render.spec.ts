@@ -17,6 +17,7 @@ function reviewReport(over: Partial<RenderReviewReport> = {}): RenderReviewRepor
         task: 'TASK-feat',
         diffChangedFiles: ['src/a.ts'],
         coverage: [],
+        verifyBinding: [],
         scopeDivergence: [],
         selfReport: { claimedNotInDiff: [], inDiffNotClaimed: [], outsideScope: [] },
         emptyEvidencePassRows: [],
@@ -142,6 +143,10 @@ describe('format_review_report (AC-023: facts + route, never a verdict)', () => 
                     { id: 'AC-002', kind: 'uncovered', message: 'requirement AC-002 ... (uncovered)' },
                     { id: 'AC-009', kind: 'orphan', message: 'coverage row AC-009 ... (orphan)' },
                 ],
+                verifyBinding: [
+                    { id: 'AC-001', kind: 'cmd-mismatch', message: 'AC-001 cmd does not match' },
+                    { id: 'AC-004', kind: 'free-form-only', message: 'AC-004 free-form only' },
+                ],
                 scopeDivergence: ['AC-009'],
                 selfReport: { claimedNotInDiff: ['a.ts'], inDiffNotClaimed: ['b.ts'], outsideScope: ['vendor/x.ts'] },
                 emptyEvidencePassRows: ['AC-001'],
@@ -156,6 +161,8 @@ describe('format_review_report (AC-023: facts + route, never a verdict)', () => 
         expect(out).toContain('no review packet yet');
         expect(out).toContain('C012 uncovered');
         expect(out).toContain('C012 orphan');
+        expect(out).toContain('C013 cmd-mismatch');
+        expect(out).toContain('C013 free-form-only');
         expect(out).toContain('scope≠spec');
         expect(out).toContain('claimed-not-changed');
         expect(out).toContain('changed-not-claimed');

@@ -16,6 +16,9 @@ import {
     check_sources_named,
     check_broken_source_link,
     check_coverage,
+    check_verify_binding,
+    verify_binding_facts,
+    type VerifyBindingInput,
     check_preserves_refs_resolve,
     check_waves_present,
     run_spec_checks,
@@ -65,6 +68,7 @@ describe('severity_of', () => {
         expect(severity_of('C010')).toBe('hard-error');
         expect(severity_of('C011')).toBe('warning');
         expect(severity_of('C012')).toBe('warning');
+        expect(severity_of('C013')).toBe('warning');
     });
 });
 
@@ -140,6 +144,130 @@ describe('C012 coverage (ADR-0079)', () => {
             coverageRowIds: ['AC-009', 'AC-009'],
         });
         expect(codes(diagnostics)).toEqual(['C012']);
+    });
+});
+
+describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
+    const base = (over: Partial<VerifyBindingInput> = {}): VerifyBindingInput => ({
+        sourceSpecStatus: 'ready',
+        namedCommandById: new Map([['AC-001', 'npm test -- auth-refresh.spec.ts']]),
+        coverageRows: [{ id: 'AC-001', result: 'Pass' }],
+        verifyBlocks: [],
+        ...over,
+    });
+
+    it('a matching block (cmd == named command, result=pass) yields no finding', () => {
+        expect(
+            verify_binding_facts(
+                base({
+                    verifyBlocks: [
+                        { id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'pass', malformed: false },
+                    ],
+                })
+            )
+        ).toEqual([]);
+    });
+
+    it('matches a cmd by closed-value, exact after whitespace-collapse (not prose)', () => {
+        expect(
+            verify_binding_facts(
+                base({
+                    // extra internal whitespace collapses to the same closed value → still consistent
+                    verifyBlocks: [
+                        { id: 'AC-001', cmd: 'npm  test   --  auth-refresh.spec.ts', result: 'pass', malformed: false },
+                    ],
+                })
+            )
+        ).toEqual([]);
+    });
+
+    it('a cmd that disagrees with the named command → a cmd-mismatch fact', () => {
+        const facts = verify_binding_facts(
+            base({
+                verifyBlocks: [{ id: 'AC-001', cmd: 'npm test -- other.spec.ts', result: 'pass', malformed: false }],
+            })
+        );
+        expect(facts).toEqual([{ id: 'AC-001', kind: 'cmd-mismatch' }]);
+        expect(check_verify_binding(base({
+            verifyBlocks: [{ id: 'AC-001', cmd: 'npm test -- other.spec.ts', result: 'pass', malformed: false }],
+        }))[0]).toMatchObject({ code: 'C013', severity: 'warning' });
+    });
+
+    it('a result=fail under a Pass row → a result-fail fact', () => {
+        expect(
+            verify_binding_facts(
+                base({
+                    verifyBlocks: [
+                        { id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'fail', malformed: false },
+                    ],
+                })
+            )
+        ).toEqual([{ id: 'AC-001', kind: 'result-fail' }]);
+    });
+
+    it('a malformed block under a Pass row → a malformed fact', () => {
+        expect(
+            verify_binding_facts(
+                base({ verifyBlocks: [{ id: 'AC-001', cmd: null, result: 'pass', malformed: true }] })
+            )
+        ).toEqual([{ id: 'AC-001', kind: 'malformed' }]);
+    });
+
+    it('an unkeyed (id-less) malformed block is surfaced on its own', () => {
+        expect(
+            verify_binding_facts(base({ verifyBlocks: [{ id: null, cmd: 'x', result: 'pass', malformed: true }] }))
+        ).toEqual([
+            { id: '(unkeyed)', kind: 'malformed' },
+            // the Pass row still has no block → free-form-only
+            { id: 'AC-001', kind: 'free-form-only' },
+        ]);
+    });
+
+    it('more than one block keyed to the same id → a duplicate fact', () => {
+        const facts = verify_binding_facts(
+            base({
+                verifyBlocks: [
+                    { id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'pass', malformed: false },
+                    { id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'pass', malformed: false },
+                ],
+            })
+        );
+        expect(facts.some((f) => f.kind === 'duplicate' && f.id === 'AC-001')).toBe(true);
+    });
+
+    it('a Pass row with no verify block (free-form cell only) → a free-form-only warning', () => {
+        expect(verify_binding_facts(base({ verifyBlocks: [] }))).toEqual([
+            { id: 'AC-001', kind: 'free-form-only' },
+        ]);
+    });
+
+    it('a non-Pass row is not subject to the free-form-only warning', () => {
+        expect(
+            verify_binding_facts(base({ coverageRows: [{ id: 'AC-001', result: 'Unverified' }], verifyBlocks: [] }))
+        ).toEqual([]);
+    });
+
+    it('a draft source spec is exempt (the scope guard) — no C013 at all', () => {
+        expect(
+            verify_binding_facts(
+                base({
+                    sourceSpecStatus: 'draft',
+                    coverageRows: [{ id: 'AC-001', result: 'Pass' }],
+                    verifyBlocks: [{ id: 'AC-001', cmd: 'wrong', result: 'fail', malformed: false }],
+                })
+            )
+        ).toEqual([]);
+    });
+
+    it('a Pass row whose requirement names no command cannot match a recorded cmd → cmd-mismatch', () => {
+        expect(
+            verify_binding_facts(
+                base({
+                    namedCommandById: new Map([['AC-001', null]]),
+                    verifyBlocks: [{ id: 'AC-001', cmd: 'a test', result: 'pass', malformed: false }],
+                })
+            )
+        ).toEqual([{ id: 'AC-001', kind: 'cmd-mismatch' }]);
     });
 });
 

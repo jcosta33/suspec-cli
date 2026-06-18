@@ -111,4 +111,123 @@ status: draft
 `;
         expect(parse_review_packet(empty).coverageRows).toEqual([{ id: 'AC-001', result: 'Pass', evidence: 'p' }]);
     });
+
+    it('parses a verify block into {id, cmd, result} and leaves the body unparsed (AC-004)', () => {
+        const packet = `---
+status: needs-human
+---
+## Requirement coverage
+
+| ID | Result | Evidence | Human attention |
+|---|---|---|---|
+| AC-001 | Pass | see verify block | no |
+
+\`\`\`verify id=AC-001 cmd="npm test -- auth-refresh.spec.ts" result=pass
+replays-after-refresh ✓  (1 passed, 0 failed)
+| this pipe row in the body must NOT be read as a coverage row
+result=fail and id=AC-999 in the body must NOT be parsed
+\`\`\`
+
+## Human attention
+x
+`;
+        const parsed = parse_review_packet(packet);
+        expect(parsed.verifyBlocks).toEqual([
+            { id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'pass', malformed: false },
+        ]);
+        // The fenced body is verbatim and unparsed: its pipe row is not a coverage row, and its
+        // `result=fail` / `id=AC-999` tokens never leak into a second block.
+        expect(parsed.coverageRows).toEqual([{ id: 'AC-001', result: 'Pass', evidence: 'see verify block' }]);
+    });
+
+    it('surfaces a malformed verify block rather than dropping it (AC-004)', () => {
+        const packet = `---
+status: needs-human
+---
+## Requirement coverage
+
+| ID | Result | Evidence | Human attention |
+|---|---|---|---|
+| AC-001 | Pass | x | no |
+
+\`\`\`verify id=AC-001 cmd="a test" result=maybe
+output
+\`\`\`
+
+\`\`\`verify cmd="no id here" result=pass
+output
+\`\`\`
+`;
+        const parsed = parse_review_packet(packet);
+        // result=maybe is outside the {pass,fail} enum → result null, malformed. The id-less block →
+        // id null, malformed. Both surfaced, neither dropped.
+        expect(parsed.verifyBlocks).toEqual([
+            { id: 'AC-001', cmd: 'a test', result: null, malformed: true },
+            { id: null, cmd: 'no id here', result: 'pass', malformed: true },
+        ]);
+    });
+
+    it('surfaces a duplicate verify block keyed to the same id (AC-004)', () => {
+        const packet = `---
+status: needs-human
+---
+## Requirement coverage
+
+| ID | Result | Evidence | Human attention |
+|---|---|---|---|
+| AC-001 | Pass | x | no |
+
+\`\`\`verify id=AC-001 cmd="a test" result=pass
+out
+\`\`\`
+
+\`\`\`verify id=AC-001 cmd="a test" result=pass
+out
+\`\`\`
+`;
+        const parsed = parse_review_packet(packet);
+        // Both blocks are kept (the duplicate is the surfaced fact, downstream in C013) — not dropped.
+        expect(parsed.verifyBlocks).toHaveLength(2);
+        expect(parsed.verifyBlocks.every((b) => b.id === 'AC-001')).toBe(true);
+    });
+
+    it('does not misread id/result tokens that sit inside the quoted cmd (AC-004)', () => {
+        const packet = `---
+status: needs-human
+---
+## Requirement coverage
+
+| ID | Result | Evidence | Human attention |
+|---|---|---|---|
+| AC-001 | Pass | x | no |
+
+\`\`\`verify id=AC-001 cmd="echo result=fail id=AC-999" result=pass
+out
+\`\`\`
+`;
+        // The `result=fail` and `id=AC-999` inside the quoted cmd must not override the binding's own
+        // `id=AC-001` / `result=pass`.
+        expect(parse_review_packet(packet).verifyBlocks).toEqual([
+            { id: 'AC-001', cmd: 'echo result=fail id=AC-999', result: 'pass', malformed: false },
+        ]);
+    });
+
+    it('ignores a verify fence outside the coverage section', () => {
+        const packet = `---
+status: needs-human
+---
+## Summary
+
+\`\`\`verify id=AC-001 cmd="a test" result=pass
+out
+\`\`\`
+
+## Requirement coverage
+
+| ID | Result | Evidence | Human attention |
+|---|---|---|---|
+| AC-001 | Pass | x | no |
+`;
+        expect(parse_review_packet(packet).verifyBlocks).toEqual([]);
+    });
 });

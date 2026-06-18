@@ -109,6 +109,11 @@ export type RenderReviewReport = Readonly<{
     task: string;
     diffChangedFiles: readonly string[];
     coverage: readonly { id: string; kind: 'uncovered' | 'orphan'; message: string }[];
+    verifyBinding: readonly {
+        id: string;
+        kind: 'cmd-mismatch' | 'result-fail' | 'malformed' | 'duplicate' | 'free-form-only';
+        message: string;
+    }[];
     scopeDivergence: readonly string[];
     selfReport: Readonly<{
         claimedNotInDiff: readonly string[];
@@ -137,6 +142,9 @@ export function format_review_report(report: RenderReviewReport): string {
     }
     for (const finding of report.coverage) {
         bullet(`${color.bold(`C012 ${finding.kind}`)}  ${finding.message}`);
+    }
+    for (const finding of report.verifyBinding) {
+        bullet(`${color.bold(`C013 ${finding.kind}`)}  ${finding.message}`);
     }
     for (const id of report.scopeDivergence) {
         bullet(`${color.bold('scope≠spec')}  scope id ${id} is not defined in the source spec`);

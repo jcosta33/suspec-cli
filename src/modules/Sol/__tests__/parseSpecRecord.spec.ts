@@ -104,6 +104,44 @@ describe('parse_spec_record', () => {
         expect(failure._tag).toBe('ParseFailure');
     });
 
+    it('lifts the named Verify command into a discrete field — plain and SOL both resolve to it (AC-003)', () => {
+        const source = `---
+type: spec
+id: SPEC-x
+status: ready
+---
+
+## Requirements
+
+### AC-001 — plain form
+The tool must do X.
+Verify with: npm test -- auth-refresh.spec.ts
+
+### AC-002 — SOL form
+The tool must do Y.
+VERIFY BY test:cmdTest:signup-empty-email
+
+### AC-003 — no verify line
+The tool must do Z, with no check.
+
+### AC-004 — empty verify line
+The tool must do W.
+Verify with:
+
+## Non-goals
+
+- none
+`;
+        const record = assertOk(parse_spec_record({ source, path: 'spec.md' }));
+        const byId = new Map(record.requirements.map((r) => [r.id, r.verifyCommand]));
+        // The plain `Verify with:` and the SOL `VERIFY BY` both resolve into the same discrete field.
+        expect(byId.get('AC-001')).toBe('npm test -- auth-refresh.spec.ts');
+        expect(byId.get('AC-002')).toBe('test:cmdTest:signup-empty-email');
+        // A requirement with no verify line, and a bare `Verify with:` with nothing after it, read null.
+        expect(byId.get('AC-003')).toBeNull();
+        expect(byId.get('AC-004')).toBeNull();
+    });
+
     it('parses a CRLF-line-ending spec identically to LF (not falsely "unparseable")', () => {
         const lf = assertOk(parse_spec_record({ source: SPEC, path: 'spec.md' }));
         const crlf = assertOk(parse_spec_record({ source: SPEC.replace(/\n/g, '\r\n'), path: 'spec.md' }));

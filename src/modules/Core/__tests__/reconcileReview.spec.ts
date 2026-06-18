@@ -50,7 +50,9 @@ ${areas.map((a) => `- \`${a}\``).join('\n')}
 
 function reviewSource(opts: {
     status?: string;
-    rows?: { id: string; result: string; evidence: string }[];
+    // `verify` carries a matching block (cmd = the spec's named command `a test.`, result=pass) so the
+    // row reads C013-consistent; omit it and a Pass row surfaces a C013 free-form-only warning.
+    rows?: { id: string; result: string; evidence: string; verify?: boolean }[];
     sections?: string[];
 }): string {
     const sections = opts.sections ?? [
@@ -61,7 +63,12 @@ function reviewSource(opts: {
         'Suggested decision',
     ];
     const rowsTable = (opts.rows ?? [])
-        .map((r) => `| ${r.id} | ${r.result} | ${r.evidence} | no |`)
+        .map((r) => {
+            const row = `| ${r.id} | ${r.result} | ${r.evidence} | no |`;
+            return r.verify === true
+                ? `${row}\n\n\`\`\`verify id=${r.id} cmd="a test." result=pass\nok (1 passed)\n\`\`\`\n`
+                : row;
+        })
         .join('\n');
     const body = sections
         .map((s) =>
@@ -154,9 +161,10 @@ describe('reconcile_review — coverage (AC-019)', () => {
         const report = ok({
             taskPacketSource: taskSource(['AC-001'], ['src'], ['src/a.ts']),
             specSource: specSource('ready', ['AC-001', 'AC-002']),
-            reviewPacketSource: reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p' }] }),
+            reviewPacketSource: reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p', verify: true }] }),
         });
         expect(report.coverage).toEqual([]);
+        expect(report.verifyBinding).toEqual([]);
         expect(report.level).toBe('clean');
     });
 });
@@ -179,7 +187,7 @@ describe('reconcile_review — self-report ↔ diff (AC-018)', () => {
             taskPacketSource: taskSource(['AC-001'], ['src/a.ts'], ['src/a.ts']),
             diffChangedFiles: ['src/a.ts'],
             specSource: specSource('ready', ['AC-001']),
-            reviewPacketSource: reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p' }] }),
+            reviewPacketSource: reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p', verify: true }] }),
         });
         expect(report.selfReport.claimedNotInDiff).toEqual([]);
         expect(report.selfReport.inDiffNotClaimed).toEqual([]);
@@ -218,6 +226,84 @@ describe('reconcile_review — packet facts (AC-020 / AC-021)', () => {
                 }),
             }).packetStructural.missingSections
         ).toEqual(['Human attention']);
+    });
+});
+
+describe('reconcile_review — C013 verify-evidence-binding (ADR-0083, AC-005/006)', () => {
+    // The spec's named command (from specSource) is `a test.`; a row with `verify: true` records it.
+    it('a matching verify block → no C013 finding (consistent)', () => {
+        const report = ok({
+            taskPacketSource: taskSource(['AC-001'], ['src'], ['src/a.ts']),
+            specSource: specSource('ready', ['AC-001']),
+            reviewPacketSource: reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p', verify: true }] }),
+        });
+        expect(report.verifyBinding).toEqual([]);
+    });
+
+    it('a cmd mismatch → one C013 cmd-mismatch fact (with its rendered message)', () => {
+        const review = reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p' }] }).replace(
+            '| AC-001 | Pass | p | no |\n',
+            '| AC-001 | Pass | p | no |\n\n```verify id=AC-001 cmd="a different command" result=pass\nok\n```\n'
+        );
+        const report = ok({
+            taskPacketSource: taskSource(['AC-001'], ['src'], ['src/a.ts']),
+            specSource: specSource('ready', ['AC-001']),
+            reviewPacketSource: review,
+        });
+        expect(report.verifyBinding.map((f) => f.kind)).toEqual(['cmd-mismatch']);
+        expect(report.verifyBinding[0].message).toContain('does not match');
+        expect(report.level).toBe('warning');
+    });
+
+    it('a result=fail under a Pass row → one C013 result-fail fact', () => {
+        const review = reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p' }] }).replace(
+            '| AC-001 | Pass | p | no |\n',
+            '| AC-001 | Pass | p | no |\n\n```verify id=AC-001 cmd="a test." result=fail\nfailed\n```\n'
+        );
+        const report = ok({
+            taskPacketSource: taskSource(['AC-001'], ['src'], ['src/a.ts']),
+            specSource: specSource('ready', ['AC-001']),
+            reviewPacketSource: review,
+        });
+        expect(report.verifyBinding.map((f) => f.kind)).toEqual(['result-fail']);
+    });
+
+    it('a free-form-only Pass row → a C013 free-form-only warning routed to attention', () => {
+        const report = ok({
+            taskPacketSource: taskSource(['AC-001'], ['src'], ['src/a.ts']),
+            specSource: specSource('ready', ['AC-001']),
+            reviewPacketSource: reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p' }] }),
+        });
+        expect(report.verifyBinding.map((f) => f.kind)).toEqual(['free-form-only']);
+        expect(report.level).toBe('warning');
+    });
+
+    it('a draft source spec is exempt — no C013 fact even with a mismatched block', () => {
+        const review = reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p' }] }).replace(
+            '| AC-001 | Pass | p | no |\n',
+            '| AC-001 | Pass | p | no |\n\n```verify id=AC-001 cmd="wrong" result=fail\nx\n```\n'
+        );
+        const report = ok({
+            taskPacketSource: taskSource(['AC-001'], ['src'], []),
+            specSource: specSource('draft', ['AC-001']),
+            reviewPacketSource: review,
+            diffChangedFiles: [],
+        });
+        expect(report.verifyBinding).toEqual([]);
+    });
+
+    it('the C013 fact is verdict-free: it adds no Result/status:pass/merge field and writes nothing', () => {
+        const report = ok({
+            taskPacketSource: taskSource(['AC-001'], ['src'], ['src/a.ts']),
+            specSource: specSource('ready', ['AC-001']),
+            reviewPacketSource: reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p' }] }),
+        });
+        // A C013 fact is present (free-form-only) yet the serialized report carries no verdict field.
+        expect(report.verifyBinding.length).toBeGreaterThan(0);
+        const json = JSON.stringify(report);
+        expect(json).not.toMatch(/"(result|verdict|decision|suggestedDecision|mergeDecision|status)":/);
+        // The fact folds into the advisory level only.
+        expect(report.level).toBe('warning');
     });
 });
 
