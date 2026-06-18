@@ -98,6 +98,18 @@ export const COMMAND_CATALOG = [
         ],
     },
     {
+        name: 'show',
+        description: 'Project a parsed artifact as JSON — task, spec, review, or the checks contract (read-only)',
+        usage: [
+            'swarm show <task|spec|review|checks> [ref]',
+            '  task <stem>                 the parsed task packet (scope, affected areas, claimed changes)',
+            '  spec <id|path>              the parsed spec (frontmatter, requirements + verify commands)',
+            '  review <stem>               the parsed review packet (status, coverage rows, verify blocks)',
+            '  checks                      the checks contract (version + the core checks)',
+            '  --json                      machine output; reads only, renders no verdict',
+        ],
+    },
+    {
         name: 'help',
         description: 'Show this command reference',
         usage: ['swarm help', 'swarm --help · swarm --version'],

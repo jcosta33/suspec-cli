@@ -22,6 +22,9 @@ export { prune_worktrees } from './pruneWorktrees.ts';
 export { stamp_runtime_isolation } from './stampRuntimeIsolation.ts';
 export { resolve_launch, type LaunchPlan, type ResolveLaunchInput } from './resolveLaunch.ts';
 
+// read-only artifact projection — the `swarm show` loader surface (the MCP adapts it; ADR-0085)
+export { show_artifact, type ShowResult, type ShowKind } from './showArtifact.ts';
+
 // reconcile engine — status, no agent (AC-011); review, no agent (M2 AC-018/019/020/021/023)
 export { derive_board } from './deriveBoard.ts';
 export {
