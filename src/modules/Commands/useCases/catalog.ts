@@ -48,6 +48,8 @@ export const COMMAND_CATALOG = [
             'swarm review <task>',
             '  <task>                      reconcile the run for a task id/slug',
             '  --base <branch>             the worktree base to diff against (else the current branch)',
+            '  --write                     write a draft reviews/<slug>.md (status: draft, every row Unverified; no-clobber)',
+            '  --force                     overwrite an existing draft (with --write)',
             '  --json · -i                 machine output · interactive flow',
             '  surfaces facts + routes; the human owns the Pass/Fail/Unverified/Blocked result',
         ],

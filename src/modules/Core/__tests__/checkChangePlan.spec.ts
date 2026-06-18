@@ -115,14 +115,26 @@ describe('check_change_plan — C010/C011 (AC-001/002/003)', () => {
 });
 
 // AC-004: the frozen transformation fixture is the oracle — C010 pass, C011 pass (EXPECTED.md).
-// Reached the same way the contract drift-guard reaches the sibling swarm repo (../swarm from cwd);
-// skipped when the sibling is absent so swarm-cli stays hermetic.
+// Reached the same way the contract drift-guard reaches the sibling swarm repo (../swarm from cwd).
+// CONDITIONAL on the sibling `../swarm` checkout: in a hermetic swarm-cli-only checkout the fixture
+// isn't on disk, so this oracle CANNOT run and no-ops (SKIPPED below, never silently green). CI MUST
+// check out the sibling `../swarm` for it to bite — we deliberately do NOT vendor a fixture copy here
+// (it would become a second source of truth that could drift from the canon it pins). The skip is
+// named + warned so an absent sibling is a visible signal in the run, not a silent pass.
 describe('check_change_plan reproduces the transformation fixture (AC-004)', () => {
     const fixtureDir = resolve(process.cwd(), '../swarm/checks/fixtures/transformation');
     const planPath = resolve(fixtureDir, 'change-plan.md');
     const present = existsSync(planPath);
+    if (!present) {
+        console.warn(
+            `[no-op] transformation-fixture oracle SKIPPED: sibling fixture ${planPath} absent — CI must check out ../swarm for AC-004 to bite`
+        );
+    }
+    const fixtureName = present
+        ? 'the fixture change-plan reports zero C010 and zero C011 (matches EXPECTED.md)'
+        : 'the fixture change-plan reports zero C010 and zero C011 (matches EXPECTED.md) (SKIPPED: sibling ../swarm absent)';
 
-    (present ? it : it.skip)('the fixture change-plan reports zero C010 and zero C011 (matches EXPECTED.md)', () => {
+    (present ? it : it.skip)(fixtureName, () => {
         const resolver = build_spec_ref_resolver(find_sibling_spec_files(planPath));
         const report = assertOk(
             check_change_plan({ source: readFileSync(planPath, 'utf8'), path: planPath, spec_ref_resolves: resolver })

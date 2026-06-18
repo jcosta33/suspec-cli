@@ -525,10 +525,24 @@ describe('run_spec_checks + verdict_for', () => {
 });
 
 describe('drift guard against the sibling swarm/checks/checks.yaml', () => {
+    // PG-005's drift-guard teeth are conditional on the sibling `../swarm` checkout being present: in a
+    // hermetic swarm-cli-only checkout the contract source isn't on disk, so the guard CANNOT run and
+    // no-ops (SKIPPED below, never silently green). CI MUST check out the sibling `../swarm` for the
+    // guard to bite — we deliberately do NOT vendor a checks.yaml copy here (a second source of truth
+    // would itself drift from the canon it is meant to pin). The skip is named + warned so an absent
+    // sibling is a visible signal in the run, not a silent pass.
     const contractPath = resolve(process.cwd(), '../swarm/checks/checks.yaml');
     const present = existsSync(contractPath);
+    if (!present) {
+        console.warn(
+            `[no-op] drift guard SKIPPED: sibling contract ${contractPath} absent — CI must check out ../swarm for PG-005 to bite`
+        );
+    }
+    const guardName = present
+        ? 'pins the same version and core-check table'
+        : 'pins the same version and core-check table (SKIPPED: sibling ../swarm absent)';
 
-    (present ? it : it.skip)('pins the same version and core-check table', () => {
+    (present ? it : it.skip)(guardName, () => {
         const text = readFileSync(contractPath, 'utf8');
         const version = text.match(/^version:\s*([0-9.]+)/m);
         expect(version?.[1]).toBe(CONTRACT_VERSION);
