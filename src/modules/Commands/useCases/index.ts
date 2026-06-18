@@ -8,4 +8,6 @@ export { run as run_status } from './status.ts';
 export { run as run_review } from './review.ts';
 export { run as run_new } from './new.ts';
 export { run as run_init } from './init.ts';
+export { run as run_pull } from './pull.ts';
+export { run as run_promote } from './promote.ts';
 export { print_help, print_command_help } from './help.ts';

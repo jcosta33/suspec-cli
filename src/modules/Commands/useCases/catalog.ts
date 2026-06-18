@@ -63,6 +63,28 @@ export const COMMAND_CATALOG = [
         ],
     },
     {
+        name: 'pull',
+        description: 'Snapshot a ticket into intake/ — verbatim, never a spec',
+        usage: [
+            'swarm pull <ref>',
+            '  <ref>                       a gh issue (number/owner-repo#N/URL — fetched via gh), or any tracker ref',
+            '  --force                     overwrite an existing intake/<slug>.md (else no-clobber)',
+            '  --json                      machine output',
+            '  writes one intake snapshot (paste placeholder when no fetch); never a spec, never the board',
+        ],
+    },
+    {
+        name: 'promote',
+        description: 'Scaffold a candidate finding from a finished task (no learning asserted)',
+        usage: [
+            'swarm promote <task>',
+            '  <task>                      the task/review id the finding is promoted from (pre-fills `from:`)',
+            '  --force                     overwrite an existing findings/<slug>.md (else no-clobber)',
+            '  --json                      machine output',
+            '  scaffolds one finding (you fill what-we-learned); never the board, never a verdict',
+        ],
+    },
+    {
         name: 'help',
         description: 'Show this command reference',
         usage: ['swarm help', 'swarm --help · swarm --version'],
