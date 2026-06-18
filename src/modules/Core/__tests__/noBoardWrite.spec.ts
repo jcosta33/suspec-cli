@@ -25,7 +25,9 @@ import { scaffold_finding } from '../useCases/scaffoldFinding.ts';
 // assembled at runtime from variables. It DOES catch `status.md` whether written as a quoted literal
 // (`'status.md'`) or as a bare segment passed to `join(...)` (`join(dir, 'status.md')`) or named as a
 // word token near a write call — the realistic ways a board write would be spelled. The byte-unchanged
-// dynamic checks below are the runtime backstop for paths a static scan cannot see.
+// dynamic checks below are the runtime backstop for paths a static scan cannot see: `pull`/`promote`
+// here, and the one other shipped writer — `review --write` — against a pre-existing board in
+// Commands/__tests__/review.spec.ts ('`--write` leaves a pre-existing status.md byte-unchanged').
 
 // The four layers that hold use-cases (one function per file). The scan must cover every layer a write
 // could be wired into, not Core alone.

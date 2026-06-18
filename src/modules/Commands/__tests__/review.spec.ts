@@ -276,6 +276,27 @@ describe('review command — the boundary (AC-023/025/026)', () => {
         expect(snapshot(wt)).toBe(wtBefore);
     });
 
+    it('`--write` leaves a pre-existing status.md (the board) byte-unchanged — the reconcile-only boundary (AC-003/025, ADR-0084 D3)', async () => {
+        // The draft writer is the one shipped command that writes a file, so it is the most likely place
+        // a future board mutation would creep in ("after drafting, flip the board row"). The static
+        // no-board-write scan (Core/noBoardWrite.spec.ts) cannot see a path built from variables; this is
+        // the runtime backstop for `review --write` specifically (pull/promote get the same there). A
+        // pre-existing board is present so a write that EDITS the board — not just creates status.md —
+        // is caught too; the line-376 AC-004 test alone cannot, its fixture has no board.
+        buildRun(); // a finished run, no pre-existing review packet
+        const board = '# Board\n\n| spec | task | review |\n| --- | --- | --- |\n| SPEC-feat | TASK-feat | — |\n';
+        const boardPath = join(repo, 'status.md');
+        writeFileSync(boardPath, board);
+        const mtimeBefore = statSync(boardPath).mtimeMs;
+
+        const { code } = await capture(() => run(['TASK-feat', '--write'], repo));
+        expect(code).toBe(0);
+        expect(existsSync(join(repo, 'reviews', 'feat.md'))).toBe(true); // the draft landed
+        // ...and the board is byte-identical AND untouched (mtime preserved → it was never written).
+        expect(readFileSync(boardPath, 'utf8')).toBe(board);
+        expect(statSync(boardPath).mtimeMs).toBe(mtimeBefore);
+    });
+
     it('the output surfaces carry no Result / status:pass / merge-decision field (AC-023)', async () => {
         buildRun({ reviewRows: '| AC-001 | Pass | pasted | no |' });
         const { out } = await capture(() => run(['TASK-feat', '--json'], repo));
