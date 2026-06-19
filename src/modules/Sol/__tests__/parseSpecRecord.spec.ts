@@ -70,6 +70,37 @@ describe('parse_spec_record', () => {
         expect(record.links.every((l) => l.line > 0)).toBe(true);
     });
 
+    it('marks inline [[KEY]] citations distinctly from markdown links (C015)', () => {
+        const record = assertOk(parse_spec_record({ source: SPEC, path: 'spec.md' }));
+        // The `[[WIKI-REF]]` in AC-002's body is a citation; the `](docs/y.md)` markdown link is not.
+        expect(record.citations).toContain('WIKI-REF');
+        expect(record.citations).not.toContain('docs/y.md');
+    });
+
+    it('citations take the key before any | and dedupe, skipping an empty key', () => {
+        const source = `---
+type: spec
+id: SPEC-cite
+status: ready
+sources:
+  - ../swarm/docs/research/sources.md
+---
+
+## Requirements
+
+### AC-001 — cites
+Per [[GOOGLESA]] and [[MAST|the MAST taxonomy]], it must hold; see [[GOOGLESA]] again and [[]].
+Verify with: a test.
+
+## Non-goals
+
+- none
+`;
+        const record = assertOk(parse_spec_record({ source, path: 'spec.md' }));
+        // `[[MAST|text]]` keys on MAST (the part before |); `[[GOOGLESA]]` is deduped; `[[]]` is skipped.
+        expect(record.citations).toEqual(['GOOGLESA', 'MAST']);
+    });
+
     it('parses inline-array sources', () => {
         const source = `---\ntype: spec\nid: X\nsources: [a.md, b.md]\n---\n\n## Non-goals\n`;
         const record = assertOk(parse_spec_record({ source, path: 'x.md' }));

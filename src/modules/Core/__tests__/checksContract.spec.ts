@@ -15,6 +15,7 @@ import {
     check_no_tbd_at_ready,
     check_sources_named,
     check_broken_source_link,
+    check_citation_resolves,
     check_coverage,
     coverage_facts,
     check_verify_binding,
@@ -51,6 +52,7 @@ function spec(
         openQuestionsPresent: true,
         bodyText: '',
         links: [],
+        citations: [],
         ...rest,
     };
 }
@@ -72,6 +74,41 @@ describe('severity_of', () => {
         expect(severity_of('C012')).toBe('warning');
         expect(severity_of('C013')).toBe('warning');
         expect(severity_of('C014')).toBe('warning');
+        expect(severity_of('C015')).toBe('warning');
+    });
+});
+
+describe('C015 citation-resolves (ADR-0087)', () => {
+    it('flags a dangling citation — a key the resolver rejects → one C015 warning', () => {
+        const diagnostics = check_citation_resolves(
+            spec({ citations: ['FAROS2025'] }),
+            (key) => key !== 'FAROS2025'
+        );
+        expect(codes(diagnostics)).toEqual(['C015']);
+        expect(diagnostics[0].severity).toBe('warning');
+        expect(diagnostics[0].message).toBe('citation [[FAROS2025]] resolves to no `<a id>` anchor in sources.md');
+    });
+
+    it('a resolving citation → no finding', () => {
+        expect(check_citation_resolves(spec({ citations: ['SMELLS'] }), (key) => key === 'SMELLS')).toEqual([]);
+    });
+
+    it('surfaces only the dangling keys when some resolve and some do not', () => {
+        const resolves = new Set(['GOOGLESA', 'MAST']);
+        const diagnostics = check_citation_resolves(
+            spec({ citations: ['GOOGLESA', 'MAST', 'FAROS2025'] }),
+            (key) => resolves.has(key)
+        );
+        expect(codes(diagnostics)).toEqual(['C015']);
+        expect(diagnostics[0].message).toContain('FAROS2025');
+    });
+
+    it('no citations → no finding', () => {
+        expect(check_citation_resolves(spec({ citations: [] }), () => false)).toEqual([]);
+    });
+
+    it('the admit-every-key resolver (the skip-when-nothing-to-check default) never fires', () => {
+        expect(check_citation_resolves(spec({ citations: ['ANYTHING', 'ELSE'] }), () => true)).toEqual([]);
     });
 });
 

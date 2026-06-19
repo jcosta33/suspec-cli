@@ -17,6 +17,11 @@ export type CheckSpecInput = Readonly<{
     // Resolves a workspace ref to whether it exists (C009). Injected so the engine stays pure and
     // testable; the command supplies a filesystem-backed predicate.
     exists: (workspaceRef: string) => boolean;
+    // Resolves a `[[KEY]]` citation to whether sources.md carries a matching `<a id="KEY">` anchor
+    // (C015). Optional and injected like `exists`; the command builds it from the spec's named
+    // sources.md, or omits it (defaulting to admit-every-key) when no sources.md is resolvable —
+    // the ADR-0087 skip-when-nothing-to-check rule, so a spec is never false-flagged.
+    anchor_resolves?: (key: string) => boolean;
 }>;
 
 export type SpecCheckReport = Readonly<{
@@ -30,6 +35,10 @@ export function check_spec(input: CheckSpecInput): Result<SpecCheckReport, AppEr
     if (isErr(parsed)) {
         return err(parsed.error);
     }
-    const diagnostics = run_spec_checks({ spec: parsed.value, exists: input.exists });
+    const diagnostics = run_spec_checks({
+        spec: parsed.value,
+        exists: input.exists,
+        anchor_resolves: input.anchor_resolves,
+    });
     return ok({ level: verdict_for(diagnostics), path: input.path, diagnostics });
 }

@@ -15,14 +15,14 @@ import type { OutcomeLevel } from '../useCases/unixOutcome.ts';
 import { strip_inline_code } from '../../../infra/markdownScan.ts';
 
 // Pinned to swarm/checks/checks.yaml `version:`; the drift-guard test fails if the sibling diverges.
-export const CONTRACT_VERSION = '0.7.0';
+export const CONTRACT_VERSION = '0.8.0';
 
 export type CheckSeverity = 'hard-error' | 'warning';
 
 // prettier-ignore
 export type CheckId =
     | 'C001' | 'C002' | 'C003' | 'C004' | 'C005' | 'C006'
-    | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C012' | 'C013' | 'C014';
+    | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C012' | 'C013' | 'C014' | 'C015';
 
 // Severity per check, the single source inside swarm-cli; a total Record so the lookup needs no
 // fallback. The drift guard reconciles it against swarm/checks/checks.yaml.
@@ -41,6 +41,7 @@ const SEVERITY_BY_ID: Record<CheckId, CheckSeverity> = {
     C012: 'warning',
     C013: 'warning',
     C014: 'warning',
+    C015: 'warning',
 };
 
 export function severity_of(id: CheckId): CheckSeverity {
@@ -63,6 +64,7 @@ export const CORE_CHECKS: readonly { id: CheckId; name: string; severity: CheckS
     { id: 'C012', name: 'coverage', severity: severity_of('C012') },
     { id: 'C013', name: 'verify-evidence-binding', severity: severity_of('C013') },
     { id: 'C014', name: 'do-not-change-touched', severity: severity_of('C014') },
+    { id: 'C015', name: 'citation-resolves', severity: severity_of('C015') },
 ];
 
 // The five strength words (checks.yaml reconciliation note: 5; SOL form is the same words uppercase).
@@ -107,6 +109,8 @@ export type ParsedSpec = Readonly<{
     openQuestionsPresent: boolean;
     bodyText: string;
     links: readonly SpecLink[];
+    // The deduped inline `[[KEY]]` citation keys the parser marked distinctly from `links` (C015).
+    citations: readonly string[];
 }>;
 
 export type Diagnostic = Readonly<{
@@ -264,6 +268,33 @@ export function check_broken_source_link(input: CheckBrokenLinksInput): Diagnost
         if (!input.exists(link.raw)) {
             diagnostics.push(
                 diagnostic('C009', `source/reference does not resolve: ${link.raw}`, link.line === 0 ? null : link.line)
+            );
+        }
+    }
+    return diagnostics;
+}
+
+// --- C015 citation-resolves (ADR-0087) -----------------------------------------------------------
+// A spec's inline `[[KEY]]` citation that resolves to no `<a id="KEY">` anchor in the workspace's
+// sources.md is surfaced as a C015 warning — a dangling citation (the discipline CLAUDE.md's
+// "citations are contextual" rule names). PURE over the parsed record: the engine injects
+// `anchor_resolves: (key) => boolean`, built by reading the sources.md the spec's frontmatter
+// `sources:` names and extracting its `<a id="…">` anchors (mirrors C009's injected `exists`).
+//
+// Skip-when-nothing-to-check (ADR-0087 Decision 3): if no sources.md is resolvable, the command
+// passes `anchor_resolves = () => true`, so the check admits every key and never false-flags. C015
+// fires only when a sources.md is resolvable AND a `[[KEY]]` has no matching anchor. v0 is the
+// dangling-anchor case only; the tier checks (a MUST-level claim citing a Caveated/Rejected entry)
+// are deferred to a separate v1 decision (ADR-0087 Decision 4).
+export function check_citation_resolves(
+    spec: ParsedSpec,
+    anchor_resolves: (key: string) => boolean
+): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    for (const key of spec.citations) {
+        if (!anchor_resolves(key)) {
+            diagnostics.push(
+                diagnostic('C015', `citation [[${key}]] resolves to no \`<a id>\` anchor in sources.md`, null)
             );
         }
     }
@@ -572,9 +603,14 @@ export function check_waves_present(input: WavesPresentInput): Diagnostic[] {
 export type RunSpecChecksInput = Readonly<{
     spec: ParsedSpec;
     exists: (workspaceRef: string) => boolean;
+    // Resolves a `[[KEY]]` citation to whether sources.md carries a matching `<a id="KEY">` anchor
+    // (C015). Injected like `exists` so the engine stays pure; defaults to admit-every-key, so a
+    // caller with no sources.md (the skip-when-nothing-to-check rule, ADR-0087) never false-flags.
+    anchor_resolves?: (key: string) => boolean;
 }>;
 
 export function run_spec_checks(input: RunSpecChecksInput): Diagnostic[] {
+    const anchor_resolves = input.anchor_resolves ?? (() => true);
     return [
         ...check_unique_ids(input.spec),
         ...check_verify_with(input.spec),
@@ -584,6 +620,7 @@ export function run_spec_checks(input: RunSpecChecksInput): Diagnostic[] {
         ...check_no_tbd_at_ready(input.spec),
         ...check_sources_named(input.spec),
         ...check_broken_source_link({ spec: input.spec, exists: input.exists }),
+        ...check_citation_resolves(input.spec, anchor_resolves),
     ];
 }
 

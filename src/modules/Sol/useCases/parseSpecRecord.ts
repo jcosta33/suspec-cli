@@ -43,6 +43,10 @@ export type SpecRecord = Readonly<{
     openQuestionsPresent: boolean;
     bodyText: string;
     links: readonly SpecRecordLink[];
+    // The deduped inline `[[KEY]]` citation keys (the text before any `|`), marked distinctly from
+    // the markdown `](path)` links that also land in `links`. C015 keys on these — a `[[KEY]]` whose
+    // key resolves to no `<a id="KEY">` anchor in the workspace's sources.md is a dangling citation.
+    citations: readonly string[];
 }>;
 
 export type ParseSpecRecordInput = Readonly<{
@@ -140,6 +144,31 @@ function extract_links(body_lines: readonly string[], body_start_line: number): 
     return links;
 }
 
+// The citation KEY of a `[[KEY]]` / `[[KEY|text]]` match: the text before any `|`, trimmed (the
+// anchor a `<a id="KEY">` in sources.md must carry). The `|text` tail is display text, not the key.
+function citation_key(inner: string): string {
+    return inner.split('|')[0].trim();
+}
+
+// The deduped inline `[[KEY]]` citation keys, marked distinctly from the markdown `](path)` links
+// that share the `links` collection. Order-preserving (first occurrence wins) so a diagnostic citing
+// a key is stable. A `[[ ]]` with an empty key is skipped — it names no anchor.
+function extract_citations(body_lines: readonly string[]): string[] {
+    const keys: string[] = [];
+    const seen = new Set<string>();
+    for (const line of body_lines) {
+        for (const match of line.matchAll(WIKI_LINK)) {
+            const key = citation_key(match[1]);
+            if (key.length === 0 || seen.has(key)) {
+                continue;
+            }
+            seen.add(key);
+            keys.push(key);
+        }
+    }
+    return keys;
+}
+
 export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordResult {
     const split = split_frontmatter(input.source);
     if (isErr(split)) {
@@ -229,5 +258,6 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
         openQuestionsPresent,
         bodyText: visible_text(scanned),
         links: extract_links(body_lines, body_start_line),
+        citations: extract_citations(body_lines),
     });
 }

@@ -14,6 +14,7 @@ import { parse_spec_record } from '../../Sol/useCases/index.ts';
 import { run_spec_checks, verdict_for, type Diagnostic } from '../services/checksContract.ts';
 import { check_change_plan } from './checkChangePlan.ts';
 import { build_spec_ref_resolver } from './resolveSpecRef.ts';
+import { build_anchor_resolver } from './buildAnchorResolver.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
 export type WorkspaceFinding = Readonly<{
@@ -111,7 +112,8 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
     const frontmatterIdToPaths = new Map<string, string[]>();
 
     for (const specPath of specFiles) {
-        const parsed = parse_spec_record({ source: readFileSync(specPath, 'utf8'), path: specPath });
+        const specSource = readFileSync(specPath, 'utf8');
+        const parsed = parse_spec_record({ source: specSource, path: specPath });
         if (!isOk(parsed)) {
             // A spec that does not parse is itself blocking for the repo verdict.
             specs.push({ path: specPath, level: 'blocking', diagnostics: [] });
@@ -119,7 +121,9 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
         }
         const record = parsed.value;
         const exists = (ref: string) => existsSync(resolve(dirname(specPath), ref));
-        const diagnostics = run_spec_checks({ spec: record, exists });
+        // The C015 resolver, built from this spec's named sources.md (admit-all when none resolvable).
+        const anchor_resolves = build_anchor_resolver(specSource, specPath);
+        const diagnostics = run_spec_checks({ spec: record, exists, anchor_resolves });
         specs.push({ path: specPath, level: verdict_for(diagnostics), diagnostics });
 
         // C002 is frontmatter-`id:` uniqueness only. Requirement ids (AC-NNN) are SPEC-SCOPED

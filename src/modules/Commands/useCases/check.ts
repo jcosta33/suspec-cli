@@ -15,6 +15,7 @@ import {
     check_review_file,
     check_change_plan,
     build_spec_ref_resolver,
+    build_anchor_resolver,
     find_workspace_spec_files,
     find_sibling_spec_files,
     project,
@@ -82,8 +83,11 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
             });
         }
         const exists = (ref: string) => existsSync(resolve(dirname(file), ref));
+        // The C015 resolver: built from the spec's named sources.md (read here, so the engine stays
+        // pure); admits every key when no sources.md is resolvable — the ADR-0087 no-false-flag rule.
+        const anchor_resolves = build_anchor_resolver(source, file);
         return project({
-            result: check_spec({ source, path: file, exists }),
+            result: check_spec({ source, path: file, exists, anchor_resolves }),
             json,
             render: format_check_report,
         });
