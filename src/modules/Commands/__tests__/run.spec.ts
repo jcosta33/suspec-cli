@@ -223,6 +223,9 @@ describe('swarm run — launch (AC-001/002/004)', () => {
             could_edit: true,
             exit: 0,
         });
+        // changed_files (ADR-0088 producer 1): the worktree diff after exit — the stub's two untracked
+        // writes (cwd.txt + arg.txt), captured via the review differ against the repo's current branch.
+        expect(record.changed_files).toEqual(['arg.txt', 'cwd.txt']);
         for (const key of ['result', 'verdict', 'status', 'decision']) {
             expect(Object.keys(record)).not.toContain(key);
             expect(Object.keys(record.provenance)).not.toContain(key);

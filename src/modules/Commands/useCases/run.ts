@@ -19,6 +19,8 @@ import { isErr } from '../../../infra/errors/result.ts';
 import { project, emit_error, usage_error, resolve_launch } from '../../Core/useCases/index.ts';
 import {
     resolve_repo_root,
+    current_branch,
+    worktree_changed_files,
     launch_adapter,
     write_run_record,
     type RunRecord,
@@ -63,6 +65,13 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
     }
     const { exit } = launched.value;
 
+    // changed_files (ADR-0088 / D1): the worktree diff after the agent exits, reusing the review differ
+    // (committed-since-base ∪ uncommitted) against the repo's current branch. Defensive — a run record
+    // is never a gate, so a detached HEAD or a diff failure simply omits the field, never failing the run.
+    const base = current_branch(repoRoot);
+    const changed = base !== null ? worktree_changed_files(worktreePath, base) : null;
+    const changed_files = changed !== null && !isErr(changed) ? changed.value : undefined;
+
     // AC-004: record the launch envelope under `.swarm/work/` (the code repo's gitignored scratch).
     const record: RunRecord = {
         task_id: task,
@@ -71,6 +80,7 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
         branch,
         source,
         exit,
+        changed_files,
         // The delegation-provenance block (ADR-0088 producer 1): a record of what was launched, never a
         // verdict. The launcher knows the worker, the task it was delegated, the worktree isolation, and
         // the exit; it does not restrict the agent's tools, so an interactive run could edit the worktree.

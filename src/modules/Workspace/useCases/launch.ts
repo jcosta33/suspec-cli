@@ -27,9 +27,10 @@ export type RunProvenance = Readonly<{
 }>;
 
 // The launch run record (AC-004 / ADR-0088): the facts `swarm review` reads as the recorded start
-// point, plus the delegation-provenance block (ADR-0088 producer 1). The agent's full event stream
-// (changed_files[]/commands[]) stays a deferred milestone (D1); `provenance` is additive and optional,
-// so a record written before it stays valid.
+// point, plus the delegation-provenance block and the changed-files snapshot (ADR-0088 producer 1).
+// `changed_files` is the worktree diff after the agent exits (committed-since-base ∪ uncommitted);
+// `commands[]` (the agent's own commands) stays a deferred milestone (D1). Both new fields are additive
+// and optional, so a record written before them stays valid.
 export type RunRecord = Readonly<{
     task_id: string;
     adapter: string;
@@ -37,6 +38,7 @@ export type RunRecord = Readonly<{
     branch: string | null;
     source: string | null;
     exit: number;
+    changed_files?: readonly string[];
     provenance?: RunProvenance;
 }>;
 
