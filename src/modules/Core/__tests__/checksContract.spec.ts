@@ -69,6 +69,7 @@ describe('severity_of', () => {
         expect(severity_of('C011')).toBe('warning');
         expect(severity_of('C012')).toBe('warning');
         expect(severity_of('C013')).toBe('warning');
+        expect(severity_of('C014')).toBe('warning');
     });
 });
 

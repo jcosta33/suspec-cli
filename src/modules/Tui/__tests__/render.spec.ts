@@ -20,6 +20,7 @@ function reviewReport(over: Partial<RenderReviewReport> = {}): RenderReviewRepor
         verifyBinding: [],
         scopeDivergence: [],
         selfReport: { claimedNotInDiff: [], inDiffNotClaimed: [], outsideScope: [] },
+        doNotChangeTouched: [],
         emptyEvidencePassRows: [],
         packetStructural: { badResultCells: [], badStatus: null, statusPassContradicted: false, missingSections: [] },
         hasReviewPacket: true,
@@ -149,6 +150,7 @@ describe('format_review_report (AC-023: facts + route, never a verdict)', () => 
                 ],
                 scopeDivergence: ['AC-009'],
                 selfReport: { claimedNotInDiff: ['a.ts'], inDiffNotClaimed: ['b.ts'], outsideScope: ['vendor/x.ts'] },
+                doNotChangeTouched: ['src/auth/token-family.ts'],
                 emptyEvidencePassRows: ['AC-001'],
                 packetStructural: {
                     badResultCells: ['AC-003'],
@@ -167,6 +169,7 @@ describe('format_review_report (AC-023: facts + route, never a verdict)', () => 
         expect(out).toContain('claimed-not-changed');
         expect(out).toContain('changed-not-claimed');
         expect(out).toContain('outside-scope');
+        expect(out).toContain('do-not-change');
         expect(out).toContain('empty-evidence');
         expect(out).toContain('bad-result');
         expect(out).toContain('bad-status');

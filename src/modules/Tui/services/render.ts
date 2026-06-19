@@ -120,6 +120,7 @@ export type RenderReviewReport = Readonly<{
         inDiffNotClaimed: readonly string[];
         outsideScope: readonly string[];
     }>;
+    doNotChangeTouched: readonly string[];
     emptyEvidencePassRows: readonly string[];
     packetStructural: Readonly<{
         badResultCells: readonly string[];
@@ -157,6 +158,9 @@ export function format_review_report(report: RenderReviewReport): string {
     }
     for (const path of report.selfReport.outsideScope) {
         bullet(`${color.bold('outside-scope')}  ${path} changed but is outside the declared Affected areas`);
+    }
+    for (const path of report.doNotChangeTouched) {
+        bullet(`${color.bold('do-not-change')}  ${path} changed but the task lists it under Do not change`);
     }
     for (const id of report.emptyEvidencePassRows) {
         bullet(`${color.bold('empty-evidence')}  coverage row ${id} is Pass with empty Evidence — reads Unverified`);

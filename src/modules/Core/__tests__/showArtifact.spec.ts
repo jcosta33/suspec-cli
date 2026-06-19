@@ -39,6 +39,10 @@ status: ready
 
 # Task
 
+## Do not change
+
+- \`src/feat/frozen.ts\`
+
 ## Affected areas
 
 - \`src/feat\`
@@ -90,7 +94,7 @@ describe('show_artifact', () => {
         }
     });
 
-    it('task — parses scope, affected areas, and frontmatter id/source/status', () => {
+    it('task — parses scope, affected areas, do-not-change, and frontmatter id/source/status', () => {
         const r = show_artifact({ workspaceDir: ws, kind: 'task', ref: 'feat' });
         expect(isErr(r)).toBe(false);
         if (!isErr(r)) {
@@ -100,6 +104,7 @@ describe('show_artifact', () => {
             expect(value.status).toBe('ready');
             expect(value.scope).toEqual(['AC-001', 'AC-002']);
             expect(value.affectedAreas).toEqual(['src/feat']);
+            expect(value.doNotChange).toEqual(['src/feat/frozen.ts']);
         }
     });
 

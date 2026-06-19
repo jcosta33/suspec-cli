@@ -88,6 +88,20 @@ export function reconcile_self_report(input: SelfReportInput): SelfReportMismatc
     };
 }
 
+// --- The do-not-change-touched fact (C014, ADR-0086) ---------------------------------------------
+// A changed file matching a task's `## Do not change` entry is surfaced — distinct from `outsideScope`,
+// since a protected path may lie INSIDE the declared Affected areas. Matched PER-ENTRY: an empty
+// Do-not-change list must surface nothing, whereas `is_under_any_area([])` returns true ("everything in
+// scope") — the inverse of what is wanted here. So `.some` over the entries yields false on an empty list.
+export function do_not_change_touched(
+    diffChangedFiles: readonly string[],
+    doNotChange: readonly string[]
+): string[] {
+    return [...new Set(diffChangedFiles)]
+        .filter((path) => doNotChange.some((entry) => is_under_any_area(path, [entry])))
+        .sort();
+}
+
 // --- The scope ↔ spec divergence (AC-019, D-R06) -------------------------------------------------
 // When the task's declared `scope` names an id the source spec does not define, surface it (the
 // divergence is a fact, not silently resolved). Returns the scope ids absent from the spec.

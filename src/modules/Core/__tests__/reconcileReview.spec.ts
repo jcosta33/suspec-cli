@@ -196,6 +196,74 @@ describe('reconcile_review — self-report ↔ diff (AC-018)', () => {
     });
 });
 
+describe('reconcile_review — do-not-change-touched (C014, ADR-0086)', () => {
+    const protectedFile = 'src/auth/token-family.ts';
+    // taskSource has no `## Do not change` section; build one that declares a protected file INSIDE the
+    // declared Affected area `src/auth`, so the C014 fact is isolated from outsideScope.
+    const taskProtecting = (claimed: readonly string[]): string => `---
+type: task
+id: TASK-feat
+source:
+  - SPEC-feat
+scope: [AC-001]
+status: review-ready
+---
+
+# Task
+
+## Do not change
+
+- \`${protectedFile}\` — rotation logic is frozen.
+
+## Affected areas
+
+- \`src/auth\`
+
+## Run summary
+
+- Changed files: ${claimed.map((c) => `\`${c}\``).join(', ')}
+`;
+    const cleanRow = reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p', verify: true }] });
+
+    it('a changed file touching a Do-not-change entry is surfaced and trips the warning level ALONE', () => {
+        const report = ok({
+            taskPacketSource: taskProtecting([protectedFile]),
+            specSource: specSource('ready', ['AC-001']),
+            reviewPacketSource: cleanRow,
+            diffChangedFiles: [protectedFile],
+        });
+        expect(report.doNotChangeTouched).toEqual([protectedFile]);
+        // the protected file is INSIDE the declared Affected area `src/auth`, so outsideScope misses it —
+        // C014 is the fact that catches it, with no other mismatch in play.
+        expect(report.selfReport.outsideScope).toEqual([]);
+        expect(report.selfReport.claimedNotInDiff).toEqual([]);
+        expect(report.selfReport.inDiffNotClaimed).toEqual([]);
+        expect(report.coverage).toEqual([]);
+        expect(report.level).toBe('warning');
+    });
+
+    it('no collision → doNotChangeTouched empty and a clean reconcile', () => {
+        const report = ok({
+            taskPacketSource: taskProtecting(['src/auth/refresh.ts']),
+            specSource: specSource('ready', ['AC-001']),
+            reviewPacketSource: cleanRow,
+            diffChangedFiles: ['src/auth/refresh.ts'],
+        });
+        expect(report.doNotChangeTouched).toEqual([]);
+        expect(report.level).toBe('clean');
+    });
+
+    it('not draft-guarded: a draft source spec still surfaces a do-not-change touch', () => {
+        const report = ok({
+            taskPacketSource: taskProtecting([protectedFile]),
+            specSource: specSource('draft', ['AC-001']),
+            reviewPacketSource: null,
+            diffChangedFiles: [protectedFile],
+        });
+        expect(report.doNotChangeTouched).toEqual([protectedFile]);
+    });
+});
+
 describe('reconcile_review — packet facts (AC-020 / AC-021)', () => {
     it('flags a Pass row with empty evidence', () => {
         const report = ok({

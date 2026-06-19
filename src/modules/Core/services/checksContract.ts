@@ -14,14 +14,14 @@
 import type { OutcomeLevel } from '../useCases/unixOutcome.ts';
 
 // Pinned to swarm/checks/checks.yaml `version:`; the drift-guard test fails if the sibling diverges.
-export const CONTRACT_VERSION = '0.6.0';
+export const CONTRACT_VERSION = '0.7.0';
 
 export type CheckSeverity = 'hard-error' | 'warning';
 
 // prettier-ignore
 export type CheckId =
     | 'C001' | 'C002' | 'C003' | 'C004' | 'C005' | 'C006'
-    | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C012' | 'C013';
+    | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C012' | 'C013' | 'C014';
 
 // Severity per check, the single source inside swarm-cli; a total Record so the lookup needs no
 // fallback. The drift guard reconciles it against swarm/checks/checks.yaml.
@@ -39,6 +39,7 @@ const SEVERITY_BY_ID: Record<CheckId, CheckSeverity> = {
     C011: 'warning',
     C012: 'warning',
     C013: 'warning',
+    C014: 'warning',
 };
 
 export function severity_of(id: CheckId): CheckSeverity {
@@ -60,6 +61,7 @@ export const CORE_CHECKS: readonly { id: CheckId; name: string; severity: CheckS
     { id: 'C011', name: 'waves-present', severity: severity_of('C011') },
     { id: 'C012', name: 'coverage', severity: severity_of('C012') },
     { id: 'C013', name: 'verify-evidence-binding', severity: severity_of('C013') },
+    { id: 'C014', name: 'do-not-change-touched', severity: severity_of('C014') },
 ];
 
 // The five strength words (checks.yaml reconciliation note: 5; SOL form is the same words uppercase).

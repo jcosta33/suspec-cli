@@ -23,6 +23,7 @@ import {
 import { parse_review_packet } from '../services/parseReviewPacket.ts';
 import {
     reconcile_self_report,
+    do_not_change_touched,
     scope_divergence,
     empty_evidence_pass_rows,
     packet_structural_facts,
@@ -66,6 +67,9 @@ export type ReviewReport = Readonly<{
     scopeDivergence: readonly string[];
     // The three self-report↔diff mismatch classes, AC-018.
     selfReport: SelfReportMismatch;
+    // Changed files matching a task's `## Do not change` entry (C014, ADR-0086) — distinct from
+    // selfReport.outsideScope, since a protected path may lie inside the declared Affected areas.
+    doNotChangeTouched: readonly string[];
     // Coverage rows that are Pass with empty Evidence (read Unverified), AC-020.
     emptyEvidencePassRows: readonly string[];
     // The packet-structural facts, AC-021.
@@ -92,6 +96,7 @@ function level_for(report: Omit<ReviewReport, 'level'>): OutcomeLevel {
         report.selfReport.claimedNotInDiff.length > 0 ||
         report.selfReport.inDiffNotClaimed.length > 0 ||
         report.selfReport.outsideScope.length > 0 ||
+        report.doNotChangeTouched.length > 0 ||
         report.emptyEvidencePassRows.length > 0 ||
         report.packetStructural.badResultCells.length > 0 ||
         report.packetStructural.badStatus !== null ||
@@ -145,6 +150,10 @@ export function reconcile_review(input: ReconcileReviewInput): Result<ReviewRepo
         affectedAreas: packet.affectedAreas,
     });
 
+    // C014 (ADR-0086): changed files touching a `## Do not change` entry. Not draft-guarded — it
+    // reconciles task-packet intent against the diff, independent of the spec's draft status.
+    const doNotChangeTouched = do_not_change_touched(input.diffChangedFiles, packet.doNotChange);
+
     const packetStructural =
         reviewPacket !== null ? packet_structural_facts(reviewPacket) : EMPTY_PACKET_FACTS;
     const emptyEvidencePassRows = reviewPacket !== null ? empty_evidence_pass_rows(reviewPacket.coverageRows) : [];
@@ -159,6 +168,7 @@ export function reconcile_review(input: ReconcileReviewInput): Result<ReviewRepo
         scopeDivergence:
             spec.frontmatter.status === 'draft' ? [] : scope_divergence(packet.scope, specRequirementIds),
         selfReport,
+        doNotChangeTouched,
         emptyEvidencePassRows,
         packetStructural,
         hasReviewPacket: reviewPacket !== null,

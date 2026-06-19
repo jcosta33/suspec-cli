@@ -22,6 +22,10 @@ export type TaskPacket = Readonly<{
     // reconcile uses these as ground truth for "outside scope". A context prefix (`web: src/…`) is
     // stripped to the path part — matchers compare the path (checks.yaml trigger-coverage note).
     affectedAreas: readonly string[];
+    // The declared protected paths (the `## Do not change` section). A changed file matching one is
+    // surfaced as a do-not-change-touched fact (C014, ADR-0086) — distinct from outsideScope, since a
+    // protected path may lie inside Affected areas. Same path/prefix + placeholder-skip semantics.
+    doNotChange: readonly string[];
     // The files the Run summary claims changed (self-report; reconciled against the real diff).
     claimedChangedFiles: readonly string[];
 }>;
@@ -30,6 +34,7 @@ const REQUIREMENT_ID = /\b[A-Z][A-Z0-9]*-\d+\b/g;
 const SCOPE_KEY = /^scope:\s*(.*)$/;
 const RUN_SUMMARY_HEADING = /^##\s+Run summary\s*$/i;
 const AFFECTED_AREAS_HEADING = /^##\s+Affected areas\s*$/i;
+const DO_NOT_CHANGE_HEADING = /^##\s+Do not change\s*$/i;
 const ANY_H2 = /^##\s+/;
 const CHANGED_FILES_LINE = /changed files\s*:\s*(.*)$/i;
 const BACKTICK_TOKEN = /`([^`]+)`/g;
@@ -87,10 +92,11 @@ function section_lines(source: string, heading: RegExp): string[] {
     return out;
 }
 
-// The declared Affected-areas path prefixes. Each list item carries a backtick-quoted path, possibly
-// behind a workspace context prefix (`web: src/…`) — strip the prefix, keep the path. A line still
-// carrying a `{{placeholder}}` is template guidance, skipped.
-function affected_areas(lines: readonly string[]): string[] {
+// The backtick-quoted path prefixes declared in a section's list items — used for both `## Affected
+// areas` and `## Do not change`. Each item carries a backtick-quoted path, possibly behind a workspace
+// context prefix (`web: src/…`) — strip the prefix, keep the path. A line still carrying a
+// `{{placeholder}}` is template guidance, skipped.
+function path_entries(lines: readonly string[]): string[] {
     const areas: string[] = [];
     for (const line of lines) {
         if (line.includes('{{')) {
@@ -138,7 +144,8 @@ function claimed_changed_files(lines: readonly string[]): string[] {
 export function parse_task_packet(source: string): TaskPacket {
     return {
         scope: read_scope(source),
-        affectedAreas: affected_areas(section_lines(source, AFFECTED_AREAS_HEADING)),
+        affectedAreas: path_entries(section_lines(source, AFFECTED_AREAS_HEADING)),
+        doNotChange: path_entries(section_lines(source, DO_NOT_CHANGE_HEADING)),
         claimedChangedFiles: claimed_changed_files(section_lines(source, RUN_SUMMARY_HEADING)),
     };
 }

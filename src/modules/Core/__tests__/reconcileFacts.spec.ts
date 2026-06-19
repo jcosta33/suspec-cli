@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import {
     reconcile_self_report,
+    do_not_change_touched,
     scope_divergence,
     empty_evidence_pass_rows,
     packet_structural_facts,
@@ -58,6 +59,35 @@ describe('reconcile_self_report — the three mismatch classes (AC-018)', () => 
             affectedAreas: ['src/', 'docs/y.md'], // trailing-slash dir + exact-path file
         });
         expect(result.outsideScope).toEqual(['other/z.ts']);
+    });
+});
+
+describe('do_not_change_touched (C014, ADR-0086)', () => {
+    it('surfaces a changed file that matches a Do-not-change entry', () => {
+        expect(do_not_change_touched(['src/auth/refresh.ts', 'src/auth/token.ts'], ['src/auth/token.ts'])).toEqual([
+            'src/auth/token.ts',
+        ]);
+    });
+
+    it('an empty Do-not-change list surfaces nothing (the inverse of affected-areas semantics)', () => {
+        // The trap: is_under_any_area([]) returns true ("everything in scope"); matched per-entry, an
+        // empty protected list must surface NOTHING, not everything.
+        expect(do_not_change_touched(['anywhere/x.ts', 'src/y.ts'], [])).toEqual([]);
+    });
+
+    it('matches by path-segment boundary (a directory entry), not a bare string prefix', () => {
+        expect(do_not_change_touched(['src/auth/x.ts', 'src/authfoo/y.ts'], ['src/auth'])).toEqual(['src/auth/x.ts']);
+    });
+
+    it('surfaces a protected file even when it is inside Affected areas — the fact outsideScope misses', () => {
+        const protectedTouched = do_not_change_touched(['src/auth/token.ts'], ['src/auth/token.ts']);
+        const outside = reconcile_self_report({
+            claimedChangedFiles: [],
+            diffChangedFiles: ['src/auth/token.ts'],
+            affectedAreas: ['src/auth'], // the protected file is INSIDE the declared area
+        }).outsideScope;
+        expect(protectedTouched).toEqual(['src/auth/token.ts']);
+        expect(outside).toEqual([]); // proves C014 and outsideScope are distinct facts
     });
 });
 

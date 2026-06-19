@@ -120,6 +120,9 @@ function human_attention(report: ReviewReport): string[] {
     for (const path of report.selfReport.outsideScope) {
         lines.push(`outside-scope: ${path} changed but is outside the declared Affected areas.`);
     }
+    for (const path of report.doNotChangeTouched) {
+        lines.push(`do-not-change: ${path} changed but the task lists it under Do not change.`);
+    }
     for (const id of report.emptyEvidencePassRows) {
         lines.push(`empty-evidence: coverage row ${id} is Pass with empty Evidence — reads Unverified.`);
     }

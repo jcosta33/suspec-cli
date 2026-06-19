@@ -95,6 +95,35 @@ scope: [AC-001]
     });
 });
 
+describe('parse_task_packet — Do not change (C014, ADR-0086)', () => {
+    it('reads backtick paths under the Do not change section (shared matcher: strips a context prefix)', () => {
+        const p = parse_task_packet(`---
+scope: [AC-001]
+---
+## Do not change
+
+- \`src/auth/token-family.ts\` — rotation logic is frozen.
+- \`web: src/checkout/total.ts\`
+`);
+        expect(p.doNotChange).toEqual(['src/auth/token-family.ts', 'src/checkout/total.ts']);
+    });
+
+    it('skips the cutPacket placeholder default — a freshly-cut task protects nothing yet', () => {
+        const tmpl = parse_task_packet(`---
+scope: [AC-001]
+---
+## Do not change
+
+- {{areas explicitly out of bounds}}
+`);
+        expect(tmpl.doNotChange).toEqual([]);
+    });
+
+    it('a packet with no Do not change section protects nothing', () => {
+        expect(parse_task_packet(PACKET).doNotChange).toEqual([]);
+    });
+});
+
 describe('parse_task_packet — Run summary changed files (AC-018)', () => {
     it('reads the backticked Changed files tokens', () => {
         expect(parse_task_packet(PACKET).claimedChangedFiles).toEqual([

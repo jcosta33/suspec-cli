@@ -50,6 +50,7 @@ export function show_artifact(input: ShowArtifactInput): Result<ShowResult, AppE
                 status: frontmatter_value(source, 'status'),
                 scope: packet.scope,
                 affectedAreas: packet.affectedAreas,
+                doNotChange: packet.doNotChange,
                 claimedChangedFiles: packet.claimedChangedFiles,
             },
         });
