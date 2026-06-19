@@ -58,7 +58,12 @@ Each command is both a Unix part and an interactive flow:
 | `swarm check [file]`                           | Lint one spec (positional), or the whole-workspace verdict (no arg)      |
 | `swarm worktree <create\|list\|remove\|prune>` | Manage isolated task worktrees on `swarm/<spec-slug>` branches           |
 | `swarm status`                                 | A read-only derived board over specs ← tasks ← reviews                   |
+| `swarm review <task>`                          | Reconcile a finished run — diff vs self-report vs spec; the human owns the verdict |
 | `swarm new <task\|spec>`                       | Cut a task packet from a spec (scope never invented), or scaffold a spec |
+| `swarm pull <ref>`                             | Snapshot a ticket into `intake/` — verbatim, never a spec or the board   |
+| `swarm promote <task>`                         | Scaffold a candidate finding from a finished task (no learning asserted) |
+| `swarm run <task> --agent <name>`              | Launch a prepared task on an external agent in its worktree; records the launch (no verdict) |
+| `swarm show <task\|spec\|review\|checks>`      | Project a parsed artifact as JSON — read-only                           |
 | `swarm help`                                   | This reference                                                           |
 
 ### `swarm init`
@@ -74,7 +79,7 @@ diverged.
 
 ### `swarm check`
 
-Runs the core checks of the contract (C001–C009) over the plain two-tier spec form. `swarm check
+Runs the core checks of the contract (C001–C014) over the plain two-tier spec form. `swarm check
 <file>` lints one spec; bare `swarm check` aggregates every `specs/*/spec.md` into one
 `clean`/`blocking` verdict (the CI merge gate) and flags workspace-validity issues (a leftover
 `{{placeholder}}`, a missing `templates/`). `--json` emits the diagnostics; no file is written.
