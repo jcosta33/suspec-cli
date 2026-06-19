@@ -366,10 +366,20 @@ export type VerifyBindingFinding = Readonly<{
     kind: 'cmd-mismatch' | 'result-fail' | 'malformed' | 'duplicate' | 'free-form-only';
 }>;
 
-// Collapse runs of whitespace to a single space and trim — the closed-value command comparison
-// (ADR-0083: exact after whitespace-collapse), so `npm test  --x` matches `npm test --x`.
-function collapse_ws(value: string): string {
-    return value.trim().replace(/\s+/g, ' ');
+// Normalize a Verify command for the closed-value comparison (ADR-0083: exact after normalization).
+// Collapse whitespace, then strip a trailing `(parenthetical)` note and surrounding backticks — the
+// canon's own `Verify with:` format wraps the command in backticks and may carry a trailing note
+// (docs/04, the examples), while the review block records it bare; both sides MUST normalize identically
+// or a conformant block false-fires a cmd-mismatch (swarm-hq #16). Trailing-paren is stripped before the
+// backticks so the documented ``cmd`` (note) form reduces cleanly to the bare command.
+export function normalize_cmd(value: string): string {
+    return value
+        .trim()
+        .replace(/\s+/g, ' ')
+        .replace(/\s*\([^()]*\)\s*$/, '')
+        .replace(/^`+/, '')
+        .replace(/`+$/, '')
+        .trim();
 }
 
 export function verify_binding_message(finding: VerifyBindingFinding): string {
@@ -439,7 +449,7 @@ export function verify_binding_facts(input: VerifyBindingInput): VerifyBindingFi
         const named = input.namedCommandById.get(row.id) ?? null;
         // A closed-value command comparison (never prose). A named command absent from the spec
         // cannot be matched — the recorded cmd disagrees with "nothing named" → a mismatch fact.
-        if (named === null || block.cmd === null || collapse_ws(block.cmd) !== collapse_ws(named)) {
+        if (named === null || block.cmd === null || normalize_cmd(block.cmd) !== normalize_cmd(named)) {
             findings.push({ id: row.id, kind: 'cmd-mismatch' });
         }
         // else: cmd matches + result=pass → consistent, no finding.

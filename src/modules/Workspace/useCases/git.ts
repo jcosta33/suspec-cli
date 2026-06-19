@@ -223,6 +223,22 @@ export type ChangedFilesError = AppError<'ChangedFilesFailed', { worktreePath: s
 // Parse `git status --porcelain` (v1) path fields. Each line is `XY <path>` (XY = two status
 // columns), and a rename/copy line is `R  old -> new` — keep the destination path. Untracked files
 // (`??`) are included: an uncommitted new file is part of the net change.
+// Decode a git C-quoted path. `git status --porcelain` wraps a path containing a space (or other
+// unusual byte) in double quotes with C-style escapes (`"src/my file.ts"`, `\t`, `\"`, `\\`, octal
+// `\NNN` for control bytes — non-ASCII is shown literally because both git calls pass
+// `core.quotePath=false`). `git diff --name-only` reports the same path unquoted, so without decoding the
+// two sources never reconcile and a spaced/non-ASCII path is dropped or double-counted (swarm-hq #22). A
+// path that is not double-quoted is returned unchanged.
+function c_unquote(path: string): string {
+    if (!(path.startsWith('"') && path.endsWith('"') && path.length >= 2)) {
+        return path;
+    }
+    return path.slice(1, -1).replace(/\\([\\"tnr]|[0-7]{1,3})/g, (_match, esc: string) => {
+        const named: Record<string, string> = { '\\': '\\', '"': '"', t: '\t', n: '\n', r: '\r' };
+        return esc in named ? named[esc] : String.fromCharCode(parseInt(esc, 8));
+    });
+}
+
 function porcelain_paths(raw: string): string[] {
     const paths: string[] = [];
     for (const line of raw.split('\n')) {
@@ -231,7 +247,7 @@ function porcelain_paths(raw: string): string[] {
         }
         const rest = line.slice(3); // drop the two status columns + the single space
         const arrow = rest.indexOf(' -> ');
-        paths.push(arrow === -1 ? rest : rest.slice(arrow + 4));
+        paths.push(c_unquote(arrow === -1 ? rest : rest.slice(arrow + 4)));
     }
     return paths;
 }
@@ -256,7 +272,7 @@ export function worktree_changed_files(worktreePath: string, base: string): Resu
             })
         );
 
-    const committed = spawnSync('git', ['diff', '--name-only', `${base}...HEAD`], {
+    const committed = spawnSync('git', ['-c', 'core.quotePath=false', 'diff', '--name-only', `${base}...HEAD`], {
         cwd: worktreePath,
         encoding: 'utf8',
     });
@@ -268,7 +284,10 @@ export function worktree_changed_files(worktreePath: string, base: string): Resu
         return fail((committed.stderr || '').trim() || `git diff against ${base} failed`);
     }
 
-    const status = spawnSync('git', ['status', '--porcelain'], { cwd: worktreePath, encoding: 'utf8' });
+    const status = spawnSync('git', ['-c', 'core.quotePath=false', 'status', '--porcelain'], {
+        cwd: worktreePath,
+        encoding: 'utf8',
+    });
     /* v8 ignore next 3 -- spawn-launch failure (git binary missing); not reachable where git is installed */
     if (status.error) {
         return fail(status.error.message);
@@ -281,7 +300,7 @@ export function worktree_changed_files(worktreePath: string, base: string): Resu
     const all = new Set<string>();
     for (const path of (committed.stdout || '').trim().split('\n')) {
         if (path.length > 0) {
-            all.add(path);
+            all.add(c_unquote(path));
         }
     }
     for (const path of porcelain_paths(status.stdout || '')) {

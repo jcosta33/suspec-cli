@@ -14,6 +14,7 @@ import {
     list_swarm_worktrees,
     remove_worktree,
     prune_worktrees,
+    is_safe_segment,
 } from '../../Core/useCases/index.ts';
 import { resolve_repo_root, current_branch, repo_has_commits } from '../../Workspace/useCases/index.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
@@ -50,12 +51,18 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         if (slug === undefined) {
             return emit_error(usage_error('usage: swarm worktree create <slug> [--task <t>] [--base <branch>]'), json);
         }
-        // A flag-shaped --base/--task would be passed to git as an option (`git worktree add … -x`).
+        // The slug becomes a `.worktrees/<slug>` directory name — it must be a single safe segment so it
+        // cannot escape (`../…`) or nest (`a/b/c`), the same guard scaffold/cut use (swarm-hq #22).
+        if (!is_safe_segment(slug)) {
+            return emit_error(usage_error(`invalid slug: "${slug}" — expected a single path-safe segment (no "/", "..", or leading "-")`), json);
+        }
+        if (taskSlug !== undefined && !is_safe_segment(taskSlug)) {
+            return emit_error(usage_error(`invalid --task value: "${taskSlug}" — expected a single path-safe segment`), json);
+        }
+        // A flag-shaped --base would be passed to git as an option (`git worktree add … -x`); a base is a
+        // git ref (may contain `/`), so it gets the leading-dash guard, not is_safe_segment.
         if (base?.startsWith('-') === true) {
             return emit_error(usage_error(`invalid --base value: "${base}" — expected a branch or commit`), json);
-        }
-        if (taskSlug?.startsWith('-') === true) {
-            return emit_error(usage_error(`invalid --task value: "${taskSlug}" — expected a task slug`), json);
         }
         if (!repo_has_commits(repoRoot)) {
             return emit_error(
@@ -84,6 +91,9 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         const slug = positional[1];
         if (slug === undefined) {
             return emit_error(usage_error('usage: swarm worktree remove <slug> [--task <t>] [--force]'), json);
+        }
+        if (!is_safe_segment(slug)) {
+            return emit_error(usage_error(`invalid slug: "${slug}" — expected a single path-safe segment`), json);
         }
         return project({
             result: remove_worktree({ repoRoot, specSlug: slug, taskSlug, force }),

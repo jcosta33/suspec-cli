@@ -18,6 +18,7 @@ import {
     check_coverage,
     check_verify_binding,
     verify_binding_facts,
+    normalize_cmd,
     type VerifyBindingInput,
     check_preserves_refs_resolve,
     check_waves_present,
@@ -148,6 +149,19 @@ describe('C012 coverage (ADR-0079)', () => {
     });
 });
 
+describe('normalize_cmd (ADR-0083 / swarm-hq #16)', () => {
+    const bare = 'npm test -- auth-refresh.spec.ts';
+    it('reduces the canon Verify-with forms (backtick-wrapped, trailing note, extra whitespace) to the same bare command', () => {
+        expect(normalize_cmd(`\`${bare}\``)).toBe(bare);
+        expect(normalize_cmd(`\`${bare}\` (the refresh path)`)).toBe(bare);
+        expect(normalize_cmd('npm test  --  auth-refresh.spec.ts')).toBe(bare);
+        expect(normalize_cmd(bare)).toBe(bare);
+    });
+    it('keeps genuinely different commands distinct', () => {
+        expect(normalize_cmd('`npm test -- a`')).not.toBe(normalize_cmd('`npm test -- b`'));
+    });
+});
+
 describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
     const base = (over: Partial<VerifyBindingInput> = {}): VerifyBindingInput => ({
         sourceSpecStatus: 'ready',
@@ -177,6 +191,28 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
                     verifyBlocks: [
                         { id: 'AC-001', cmd: 'npm  test   --  auth-refresh.spec.ts', result: 'pass', malformed: false },
                     ],
+                })
+            )
+        ).toEqual([]);
+    });
+
+    it('a backtick-wrapped named command (the canon Verify-with format) matches a bare block — no false cmd-mismatch (swarm-hq #16)', () => {
+        expect(
+            verify_binding_facts(
+                base({
+                    namedCommandById: new Map([['AC-001', '`npm test -- auth-refresh.spec.ts`']]),
+                    verifyBlocks: [{ id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'pass', malformed: false }],
+                })
+            )
+        ).toEqual([]);
+    });
+
+    it('a named command with a trailing (parenthetical) note matches a bare block — no false cmd-mismatch (swarm-hq #16)', () => {
+        expect(
+            verify_binding_facts(
+                base({
+                    namedCommandById: new Map([['AC-001', '`npm test -- auth-refresh.spec.ts` (the refresh path)']]),
+                    verifyBlocks: [{ id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'pass', malformed: false }],
                 })
             )
         ).toEqual([]);

@@ -38,8 +38,12 @@ const DO_NOT_CHANGE_HEADING = /^##\s+Do not change\s*$/i;
 const ANY_H2 = /^##\s+/;
 const CHANGED_FILES_LINE = /changed files\s*:\s*(.*)$/i;
 const BACKTICK_TOKEN = /`([^`]+)`/g;
-// A bare path-like token: a path separator, or a dotted file name (so prose words are skipped).
-const PATH_LIKE = /^[\w./@-]+\/[\w./@-]+$|^[\w@-]+\.[A-Za-z0-9]+$/;
+// A bare path-like token: a slash-separated path, or a dotted file name (so prose words are skipped).
+// Written non-backtracking — each `/`-separated segment excludes `/`, so a long non-matching token
+// cannot trigger the quadratic backtracking the previous form had (an O(n²) ReDoS — swarm-hq #15).
+const PATH_LIKE = /^[\w.@-]+(?:\/[\w.@-]+)+$|^[\w@-]+\.[A-Za-z0-9]+$/;
+// A top-level frontmatter key (`key:` at column 0) — bounds a wrapped `scope:` flow list.
+const TOP_LEVEL_KEY = /^[A-Za-z0-9_-]+:/;
 
 // Split the flow-style `scope:` value into ids. `scope: [AC-001, AC-002]` and a bare scalar
 // `scope: AC-001` both reduce to the requirement-id tokens found in the value.
@@ -55,8 +59,10 @@ function split_scope(rawValue: string): string[] {
     return ids;
 }
 
-// The declared scope ids from the frontmatter `scope:` line, or [] when the packet has no fence /
-// no scope key.
+// The declared scope ids from the frontmatter `scope:` value. A flow list can wrap across lines
+// (`scope: [AC-001,` … `]`) or sit entirely on the lines after `scope:` (the bracket-on-next-line and
+// block-list shapes); accumulate continuation lines until the list closes (`]`) or the next top-level
+// key, so a wrapped scope is not silently under-read (swarm-hq #15). [] when there is no fence / no key.
 function read_scope(source: string): string[] {
     const split = split_frontmatter(source);
     if (isErr(split)) {
@@ -65,9 +71,25 @@ function read_scope(source: string): string[] {
     const { lines, frontmatter_end_line } = split.value;
     for (let index = 1; index < frontmatter_end_line - 1; index += 1) {
         const match = SCOPE_KEY.exec(lines[index]);
-        if (match !== null) {
-            return split_scope(match[1]);
+        if (match === null) {
+            continue;
         }
+        let value = match[1];
+        // If the value has not closed a flow list, gather following lines until `]` or the next
+        // top-level key (exclusive). A complete bare scalar (`scope: AC-007`) stops at the next key
+        // and is unaffected; an empty value picks up a bracket/block list on the lines below.
+        if (!value.includes(']')) {
+            for (let next = index + 1; next < frontmatter_end_line - 1; next += 1) {
+                if (TOP_LEVEL_KEY.test(lines[next])) {
+                    break;
+                }
+                value += ` ${lines[next]}`;
+                if (lines[next].includes(']')) {
+                    break;
+                }
+            }
+        }
+        return split_scope(value);
     }
     return [];
 }

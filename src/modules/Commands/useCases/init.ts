@@ -21,10 +21,19 @@ const DEFAULT_KIT = 'https://github.com/jcosta33/swarm-starter-kit';
 
 type KitSource = Readonly<{ sourceDir: string; cleanup: () => void }>;
 
+// A kit source must not be flag-shaped or a transport-scheme URL: git's `ext::`/`fd::`/`ssh+ext::`
+// transports can execute arbitrary commands, and a leading `-` is parsed as a clone option (swarm-hq #22).
+// Mirrors the is_safe_base guard for the same family; DEFAULT_KIT (https) and normal URLs pass.
+function is_safe_clone_source(url: string): boolean {
+    return !url.startsWith('-') && !/^(?:ext|fd|ssh\+ext)::/i.test(url);
+}
+
 /* v8 ignore start -- network clone shell; tests resolve the kit via a local --from */
 function clone_kit(url: string): Result<KitSource, AppError> {
     const temp = mkdtempSync(join(tmpdir(), 'swarm-kit-'));
-    const result = spawnSync('git', ['clone', '--depth', '1', url, temp], { encoding: 'utf8' });
+    const result = spawnSync('git', ['-c', 'protocol.ext.allow=never', 'clone', '--depth', '1', url, temp], {
+        encoding: 'utf8',
+    });
     if (result.status !== 0) {
         rmSync(temp, { recursive: true, force: true });
         return err(createAppError('CloneFailed', `could not clone the kit from ${url}`, { url }));
@@ -37,8 +46,14 @@ function resolve_kit_source(from: string | undefined): Result<KitSource, AppErro
     if (from !== undefined && existsSync(from)) {
         return ok({ sourceDir: from, cleanup: () => undefined });
     }
+    const url = from ?? DEFAULT_KIT;
+    if (!is_safe_clone_source(url)) {
+        return err(
+            createAppError('CloneFailed', `refusing an unsafe kit source "${url}" — a transport-scheme or flag-shaped URL`, { url })
+        );
+    }
     /* v8 ignore next -- the clone path is the network shell; tests resolve the kit via a local --from */
-    return clone_kit(from ?? DEFAULT_KIT);
+    return clone_kit(url);
 }
 
 function parse_policy(flags: Map<string, string | boolean>): 'skip' | 'overwrite' | 'backup' {

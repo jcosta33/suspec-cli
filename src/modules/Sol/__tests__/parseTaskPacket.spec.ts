@@ -51,6 +51,33 @@ describe('parse_task_packet — scope (AC-017)', () => {
     it('a packet with no frontmatter fence yields an empty scope', () => {
         expect(parse_task_packet('# Task\n\nno frontmatter\n').scope).toEqual([]);
     });
+
+    it('reads a wrapped flow-style scope list across continuation lines (swarm-hq #15)', () => {
+        const wrapped = `---\ntype: task\nid: TASK-feat\nscope: [AC-001,\n  AC-002,\n  AC-003]\nstatus: review-ready\n---\n# Task\n`;
+        expect(parse_task_packet(wrapped).scope).toEqual(['AC-001', 'AC-002', 'AC-003']);
+    });
+
+    it('reads a bracket-on-next-line scope list (the flagship-demo shape that parsed empty before)', () => {
+        const nextLine = `---\ntype: task\nid: TASK-feat\nscope:\n  [AC-001, AC-002, PG-001]\nstatus: review-ready\n---\n# Task\n`;
+        expect(parse_task_packet(nextLine).scope).toEqual(['AC-001', 'AC-002', 'PG-001']);
+    });
+
+    it('reads a block-style scope list, and a bare scalar does not over-read the next key', () => {
+        const block = `---\ntype: task\nid: TASK-feat\nscope:\n  - AC-001\n  - AC-002\nstatus: review-ready\n---\n# Task\n`;
+        expect(parse_task_packet(block).scope).toEqual(['AC-001', 'AC-002']);
+        const scalar = `---\ntype: task\nscope: AC-007\nstatus: review-ready\n---\n# Task\n`;
+        expect(parse_task_packet(scalar).scope).toEqual(['AC-007']); // stops at the next top-level key
+    });
+});
+
+describe('parse_task_packet — ReDoS guard (swarm-hq #15)', () => {
+    it('parses a Changed-files line carrying a huge path-shaped token in well under a second', () => {
+        const huge = `${'a/'.repeat(80000)}:`; // a non-matching token that was O(n²) under the old PATH_LIKE
+        const packet = `---\ntype: task\nscope: [AC-001]\n---\n\n## Run summary\n\n- Changed files: ${huge}\n`;
+        const start = Date.now();
+        parse_task_packet(packet);
+        expect(Date.now() - start).toBeLessThan(500);
+    });
 });
 
 describe('parse_task_packet — Affected areas (AC-018)', () => {

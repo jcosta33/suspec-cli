@@ -17,6 +17,7 @@ import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { parse_spec_record, parse_task_packet } from '../../Sol/useCases/index.ts';
 import { parse_review_packet } from '../services/parseReviewPacket.ts';
+import { normalize_cmd } from '../services/checksContract.ts';
 import { read_frontmatter } from '../services/readFrontmatter.ts';
 import { reconcile_review, type ReconcileReviewInput, type ReviewReport } from './reconcileReview.ts';
 
@@ -38,12 +39,6 @@ export type DraftReviewPacket = Readonly<{
     markdown: string;
 }>;
 
-// Collapse runs of whitespace to a single space and trim — the same closed-value command comparison
-// C013 uses (ADR-0083: exact after whitespace-collapse), so the writer's consistent-block test
-// matches the reconcile's.
-function collapse_ws(value: string): string {
-    return value.trim().replace(/\s+/g, ' ');
-}
 
 // One Evidence cell per in-scope id, lifted from what the reconcile read — never invented (the
 // no-fabrication non-goal). The only evidence a draft pre-fills is a CONSISTENT C013 verify block
@@ -84,7 +79,7 @@ function evidence_by_id(input: DraftReviewPacketInput): Map<string, string> {
             block.result === 'pass' &&
             block.cmd !== null &&
             named !== null &&
-            collapse_ws(block.cmd) === collapse_ws(named)
+            normalize_cmd(block.cmd) === normalize_cmd(named)
         ) {
             // The consistent block's recorded command + its pass signal — the evidence the reviewer
             // re-runs. Backticked so the cell renders the command verbatim; still Unverified.
