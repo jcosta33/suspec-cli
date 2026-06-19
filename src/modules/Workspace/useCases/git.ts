@@ -239,15 +239,23 @@ function c_unquote(path: string): string {
     });
 }
 
+// Parse `git status --porcelain -z` path fields. With `-z` each entry is NUL-terminated and paths are
+// NEVER C-quoted; a rename/copy entry (`R`/`C` in either status column) is followed by a SECOND NUL
+// field carrying the OLD path. We keep the new path and skip the old — so a filename that literally
+// contains ` -> ` can no longer be mis-split the way the newline `R old -> new` form was (#25 C4).
 function porcelain_paths(raw: string): string[] {
     const paths: string[] = [];
-    for (const line of raw.split('\n')) {
-        if (line.length < 4) {
-            continue;
+    const fields = raw.split('\0');
+    for (let i = 0; i < fields.length; i += 1) {
+        const entry = fields[i];
+        if (entry.length < 4) {
+            continue; // an empty trailing field
         }
-        const rest = line.slice(3); // drop the two status columns + the single space
-        const arrow = rest.indexOf(' -> ');
-        paths.push(c_unquote(arrow === -1 ? rest : rest.slice(arrow + 4)));
+        const xy = entry.slice(0, 2);
+        paths.push(entry.slice(3)); // `XY ` (two status columns + a space) then the unquoted path
+        if (xy.includes('R') || xy.includes('C')) {
+            i += 1; // a rename/copy carries its OLD path in the next NUL field — consume + drop it
+        }
     }
     return paths;
 }
@@ -284,7 +292,7 @@ export function worktree_changed_files(worktreePath: string, base: string): Resu
         return fail((committed.stderr || '').trim() || `git diff against ${base} failed`);
     }
 
-    const status = spawnSync('git', ['-c', 'core.quotePath=false', 'status', '--porcelain'], {
+    const status = spawnSync('git', ['-c', 'core.quotePath=false', 'status', '--porcelain', '-z'], {
         cwd: worktreePath,
         encoding: 'utf8',
     });

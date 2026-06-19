@@ -79,6 +79,26 @@ describe('Workspace git', () => {
         }
     });
 
+    it('reports the destination of a rename whose OLD name contains " -> " (#25 C4)', () => {
+        const base = current_branch(repo) ?? 'main';
+        const wtPath = realpathSync(mkdtempSync(join(tmpdir(), 'swarm-wt-rn-')));
+        rmSync(wtPath, { recursive: true, force: true });
+        git(['worktree', 'add', '-b', 'swarm/feat/ac-rn', wtPath, base]);
+        try {
+            const wtGit = (args: string[]) => execFileSync('git', args, { cwd: wtPath, encoding: 'utf8' });
+            writeFileSync(join(wtPath, 'a -> b.ts'), 'x');
+            wtGit(['add', '.']);
+            wtGit(['commit', '-m', 'add a file whose name contains an arrow']);
+            wtGit(['mv', 'a -> b.ts', 'plain.ts']); // a staged rename; the OLD name itself contains ` -> `
+            const changed = assertOk(worktree_changed_files(wtPath, base));
+            // the rename destination is reported cleanly, not a mangled split of the arrow-bearing old name
+            expect(changed).toContain('plain.ts');
+            expect(changed.some((p) => p.includes('" -> '))).toBe(false);
+        } finally {
+            git(['worktree', 'remove', '--force', wtPath]);
+        }
+    });
+
     it('worktree_changed_files Errs on a base ref git cannot resolve (AC-018)', () => {
         expect(assertErr(worktree_changed_files(repo, 'no-such-branch'))._tag).toBe('ChangedFilesFailed');
     });
