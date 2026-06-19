@@ -79,7 +79,7 @@ diverged.
 
 ### `swarm check`
 
-Runs the core checks of the contract (C001–C014) over the plain two-tier spec form. `swarm check
+Runs the core checks of the contract (C001–C015) over the plain two-tier spec form. `swarm check
 <file>` lints one spec; bare `swarm check` aggregates every `specs/*/spec.md` into one
 `clean`/`blocking` verdict (the CI merge gate) and flags workspace-validity issues (a leftover
 `{{placeholder}}`, a missing `templates/`). `--json` emits the diagnostics; no file is written.
