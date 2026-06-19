@@ -4,6 +4,8 @@
 // change-plan) as well as scalar fields (`status`, a review's `task`). A light line-scanner, not a
 // full YAML parser: nesting beyond one list level, and flow-style `[a, b]`, are kept as raw strings.
 
+import { normalize_scalar } from '../../../infra/yamlScalar.ts';
+
 export type Frontmatter = Record<string, string | string[]>;
 
 const KEY = /^(\w[\w-]*):\s*(.*)$/;
@@ -27,7 +29,7 @@ export function read_frontmatter(source: string): Frontmatter {
             continue;
         }
         const key = keyMatch[1];
-        const value = keyMatch[2].trim();
+        const value = normalize_scalar(keyMatch[2]);
         if (value.length > 0) {
             out[key] = value;
             index += 1;

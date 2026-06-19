@@ -40,6 +40,14 @@ describe('parse_agent_config', () => {
         expect(config.adapters.get('codex')?.startup_instruction).toBe('stay inside its scope');
     });
 
+    it('strips an inline `# …` comment from a value, so a commented config still resolves (#33)', () => {
+        const config = parse_agent_config(
+            'agents:\n  default: claude   # the primary coding agent\n  claude:\n    command: claude   # binary on PATH\n'
+        );
+        expect(config.default).toBe('claude');
+        expect(config.adapters.get('claude')?.command).toBe('claude');
+    });
+
     it('returns an empty config when there is no `agents:` block', () => {
         const config = parse_agent_config('project:\n  id: x\n');
         expect(config.default).toBeNull();

@@ -10,6 +10,7 @@
 // requirement id is simply read as an orphan by C012 — no special-casing here.
 
 import type { CoverageRow, ReviewPacket, VerifyBlock } from './reconcileFacts.ts';
+import { normalize_scalar } from '../../../infra/yamlScalar.ts';
 
 const FRONTMATTER_FENCE = '---';
 const STATUS_KEY = /^status:\s*(.*)$/;
@@ -54,7 +55,7 @@ function read_frontmatter_status(lines: readonly string[]): string | null {
     for (let index = 1; index < lines.length && lines[index] !== FRONTMATTER_FENCE; index += 1) {
         const match = STATUS_KEY.exec(lines[index]);
         if (match !== null) {
-            const value = match[1].trim();
+            const value = normalize_scalar(match[1]);
             return value.length > 0 ? value : null;
         }
     }

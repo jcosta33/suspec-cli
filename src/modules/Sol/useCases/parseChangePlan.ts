@@ -13,6 +13,7 @@
 import { type Result, ok, err, isErr } from '../../../infra/errors/result.ts';
 import { type AppError } from '../../../infra/errors/createAppError.ts';
 import { split_frontmatter } from '../services/frontmatter.ts';
+import { normalize_scalar } from '../../../infra/yamlScalar.ts';
 
 // A preserved-behavior id: either a cross-spec reference (`SPEC-checkout#AC-002`) or a plan-local
 // guarantee id (`PG-001`). Sourced from the frontmatter `preserves:` list or the guarantees table.
@@ -109,7 +110,7 @@ function read_kind_and_preserves(
         }
         collecting_preserves = false;
         const key = key_match[1];
-        const rest = key_match[2].trim();
+        const rest = normalize_scalar(key_match[2]);
         if (key === 'kind') {
             kind = rest.length > 0 ? rest : null;
             continue;

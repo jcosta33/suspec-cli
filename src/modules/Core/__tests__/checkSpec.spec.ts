@@ -53,7 +53,38 @@ The tool must reject malformed input.
 - none
 `;
 
+const QUOTED_STATUS_WITH_TBD = `---
+type: spec
+id: SPEC-q
+title: Quoted
+status: "ready"
+owner: Jane
+sources:
+  - ADR-0077
+---
+
+## Requirements
+
+### AC-001 — the tool rejects bad input
+The tool must reject malformed input. TODO: finalize the error message.
+Verify with: a unit test over the parser.
+
+## Non-goals
+
+- nope.
+
+## Open questions
+
+- none
+`;
+
 describe('check_spec', () => {
+    it('dequotes a quoted `status: "ready"` so the C007 TBD guard is not suppressed (#38)', () => {
+        const report = assertOk(check_spec({ source: QUOTED_STATUS_WITH_TBD, path: 'spec.md', exists: () => true }));
+        expect(report.level).toBe('blocking');
+        expect(report.diagnostics.some((d) => d.code === 'C007')).toBe(true);
+    });
+
     it('returns a clean report for a conformant spec', () => {
         const report = assertOk(check_spec({ source: CONFORMANT, path: 'spec.md', exists: () => true }));
         expect(report.level).toBe('clean');

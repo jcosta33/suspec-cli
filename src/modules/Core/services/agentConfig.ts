@@ -10,6 +10,7 @@
 
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { err, ok, type Result } from '../../../infra/errors/result.ts';
+import { normalize_scalar } from '../../../infra/yamlScalar.ts';
 
 // An adapter as read from config — fields optional until resolve_adapter validates the required ones.
 export type RawAdapter = Readonly<{
@@ -40,13 +41,10 @@ function indent_of(line: string): number {
     return line.length - line.trimStart().length;
 }
 
-// Strip an optional surrounding single/double quote pair and trim. `"Read AGENTS.md"` → `Read AGENTS.md`.
+// Normalize a config value as YAML reads it — strip an inline `# …` comment and a surrounding quote
+// pair (the shared frontmatter/config normalizer). `default: agent  # the primary one` → `agent`.
 function scalar(raw: string): string {
-    const trimmed = raw.trim();
-    const quoted =
-        trimmed.length >= 2 &&
-        ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'")));
-    return quoted ? trimmed.slice(1, -1) : trimmed;
+    return normalize_scalar(raw);
 }
 
 // Parse the `agents:` block. Returns an empty config (default null, no adapters) when there is none —
