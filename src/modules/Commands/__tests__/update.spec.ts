@@ -5,6 +5,7 @@ import { join } from 'path';
 
 import { run } from '../useCases/update.ts';
 import { dispatch } from '../../../index.ts';
+import { ok } from '../../../infra/errors/result.ts';
 
 // A kit fixture at 2.0.0 with a CHANGELOG, and one with no VERSION — resolved via `--from` so no
 // network clone happens (SPEC-swarm-update AC-002).
@@ -132,6 +133,28 @@ describe('update command (SPEC-swarm-update, direct surface)', () => {
         const { code, err } = await capture(() => run(['--write', '--from', kit], workspace));
         expect(code).toBe(2);
         expect(err).toContain('deferred');
+    });
+
+    it('AC-001: an empty/whitespace pin → exit 2, never a silent up-to-date', async () => {
+        mkdirSync(join(workspace, '.agents'), { recursive: true });
+        writeFileSync(join(workspace, '.agents', '.swarm-version'), '   \n');
+        const { code, err } = await capture(() => run(['--check', '--from', kit], workspace));
+        expect(code).toBe(2);
+        expect(err).toContain('.swarm-version');
+    });
+
+    it('AC-008: --apply (the alias) is also refused as deferred, exit 2', async () => {
+        pin('1.0.0');
+        const { code, err } = await capture(() => run(['--apply', '--from', kit], workspace));
+        expect(code).toBe(2);
+        expect(err).toContain('deferred');
+    });
+
+    it('AC-007: the resolved kit source is cleaned up after the run', async () => {
+        pin('1.0.0');
+        const cleanup = vi.fn();
+        await capture(() => run(['--check'], workspace, () => ok({ sourceDir: kit, cleanup })));
+        expect(cleanup).toHaveBeenCalledTimes(1);
     });
 
     it('AC-009: swarm update --help prints its usage, exit 0', async () => {

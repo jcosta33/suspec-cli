@@ -82,7 +82,8 @@ diverged.
 
 Reads the workspace's `.agents/.swarm-version` pin (stamped by `swarm init`) and compares it to the
 latest kit's `VERSION`, resolved through the same source as `init` (the swarm-starter-kit by default,
-or `--from <path|url>`). Reports whether you're behind and the CHANGELOG delta — exit `0` up to date,
+or `--from <path|url>`). Reports whether you're behind and prints the kit's `CHANGELOG` (what you'd
+gain by updating) — exit `0` up to date,
 `1` behind, `2` error. `--json` emits the report; **reads only — it writes nothing**. The 3-way-merge
 apply is deferred ([ADR-0091](https://github.com/jcosta33/swarm/blob/main/docs/adrs/0091-swarm-update-check.md)),
 so `--write` is refused with a pointer to the manual re-copy. The network lives here, never in the

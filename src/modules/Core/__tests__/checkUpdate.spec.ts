@@ -92,4 +92,47 @@ describe('check_update (the drift engine, pure)', () => {
             expect(result.error._tag).toBe('KitVersionMissing');
         }
     });
+
+    it('an empty/whitespace pin → err (VersionPinMissing), never a silent up-to-date', () => {
+        mkdirSync(join(workspace, '.agents'), { recursive: true });
+        writeFileSync(join(workspace, '.agents', '.swarm-version'), '   \n');
+        kitVersion('2.0.0');
+        const result = check_update({ workspaceDir: workspace, kitSourceDir: kit });
+        expect(isErr(result)).toBe(true);
+        if (isErr(result)) {
+            expect(result.error._tag).toBe('VersionPinMissing');
+        }
+    });
+
+    it('an empty VERSION in the kit → err (KitVersionMissing)', () => {
+        pin('1.0.0');
+        writeFileSync(join(kit, 'VERSION'), '  \n');
+        const result = check_update({ workspaceDir: workspace, kitSourceDir: kit });
+        expect(isErr(result)).toBe(true);
+        if (isErr(result)) {
+            expect(result.error._tag).toBe('KitVersionMissing');
+        }
+    });
+
+    it('a prerelease pin behind the stable kit → behind (conservative drift, not silently clean)', () => {
+        pin('1.0.0-rc1');
+        kitVersion('1.0.0');
+        const result = check_update({ workspaceDir: workspace, kitSourceDir: kit });
+        expect(isOk(result)).toBe(true);
+        if (isOk(result)) {
+            expect(result.value.behind).toBe(true);
+            expect(result.value.level).toBe('warning');
+        }
+    });
+
+    it('behind with no CHANGELOG in the kit → behind, changelog null', () => {
+        pin('1.0.0');
+        kitVersion('2.0.0'); // no CHANGELOG.md written
+        const result = check_update({ workspaceDir: workspace, kitSourceDir: kit });
+        expect(isOk(result)).toBe(true);
+        if (isOk(result)) {
+            expect(result.value.behind).toBe(true);
+            expect(result.value.changelog).toBeNull();
+        }
+    });
 });

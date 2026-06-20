@@ -7,13 +7,25 @@
 // 2 error. It writes nothing. The 3-way-merge apply is deferred (ADR-0091): `--write` is refused, not
 // a silent no-op.
 
-import { isErr } from '../../../infra/errors/result.ts';
+import { isErr, type Result } from '../../../infra/errors/result.ts';
+import type { AppError } from '../../../infra/errors/createAppError.ts';
 import { project, emit_error, usage_error, check_update } from '../../Core/useCases/index.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import { format_update_report } from '../../Tui/useCases/index.ts';
-import { resolve_kit_source } from './init.ts';
+import { resolve_kit_source, type KitSource } from './init.ts';
 
-export function run(argv: string[], cwd: string = process.cwd()): number {
+// The kit resolver is injectable so a test can assert the cleanup contract (AC-007) without a network
+// clone; production uses the default — the same clone / `--from` resolution as `swarm init`.
+type KitResolver = (from: string | undefined) => Result<KitSource, AppError>;
+
+export function run(
+    argv: string[],
+    cwd: string = process.cwd(),
+    resolveKit: KitResolver = resolve_kit_source
+): number {
+    // `--check` is accepted and is the only non-deferred mode, so it is also the default: bare
+    // `swarm update` and `swarm update --check` both run the drift check. The deferred apply is
+    // `--write` (below). The flag is declared so the parser and the advertised usage agree.
     const { flags } = parse_flags(argv, {
         booleans: ['--check', '--json', '--write', '--apply'],
         strings: ['--from'],
@@ -33,7 +45,7 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
     const fromFlag = flags.get('from');
     const from = typeof fromFlag === 'string' ? fromFlag : undefined;
 
-    const sourceResult = resolve_kit_source(from);
+    const sourceResult = resolveKit(from);
     if (isErr(sourceResult)) {
         return emit_error(sourceResult.error, json);
     }

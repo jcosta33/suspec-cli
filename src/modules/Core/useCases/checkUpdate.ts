@@ -23,7 +23,8 @@ export type UpdateCheckReport = Readonly<{
     currentVersion: string;
     latestVersion: string;
     behind: boolean;
-    // The kit CHANGELOG content when behind (the delta the adopter would gain), else null.
+    // The kit's CHANGELOG content when behind (what the adopter would gain by updating), else null.
+    // The whole file, not a version-bounded slice.
     changelog: string | null;
 }>;
 
@@ -54,7 +55,10 @@ function is_behind(current: string, latest: string): boolean {
             return false;
         }
     }
-    return false;
+    // The numeric triples match but the strings differ (the exact-equal case returned above) — a
+    // prerelease/build suffix like `1.0.0-rc1` vs `1.0.0`. Full prerelease ordering is a spec
+    // non-goal, so honor the conservative-drift rule: a difference is surfaced, never silently clean.
+    return true;
 }
 
 function read_nonempty(path: string): string | null {
