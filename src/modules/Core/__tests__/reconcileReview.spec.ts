@@ -194,6 +194,20 @@ describe('reconcile_review — self-report ↔ diff (AC-018)', () => {
         expect(report.selfReport.outsideScope).toEqual([]);
         expect(report.level).toBe('clean');
     });
+
+    it('a prose Run summary notes "unparsed" once and does not flood the gate (#44)', () => {
+        const report = ok({
+            // The claimed tokens are bare symbols, not paths — a prose Run summary parses to no claims.
+            taskPacketSource: taskSource(['AC-001'], ['src'], ['taskLocator', 'deriveBoard']),
+            diffChangedFiles: ['src/x.ts', 'src/y.ts'], // real changes, all in scope
+            specSource: specSource('ready', ['AC-001']),
+            reviewPacketSource: reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p', verify: true }] }),
+        });
+        expect(report.selfReport.runSummaryUnparsed).toBe(true);
+        expect(report.selfReport.inDiffNotClaimed).toEqual([]); // not a 2-file flood
+        expect(report.selfReport.claimedNotInDiff).toEqual([]);
+        expect(report.level).toBe('clean'); // the prose summary no longer trips exit-1
+    });
 });
 
 describe('reconcile_review — do-not-change-touched (C014, ADR-0086)', () => {

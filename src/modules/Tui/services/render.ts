@@ -125,6 +125,7 @@ export type RenderReviewReport = Readonly<{
         claimedNotInDiff: readonly string[];
         inDiffNotClaimed: readonly string[];
         outsideScope: readonly string[];
+        runSummaryUnparsed: boolean;
     }>;
     doNotChangeTouched: readonly string[];
     emptyEvidencePassRows: readonly string[];
@@ -161,6 +162,11 @@ export function format_review_report(report: RenderReviewReport): string {
     }
     for (const path of report.selfReport.inDiffNotClaimed) {
         bullet(`${color.bold('changed-not-claimed')}  ${path} changed but the Run summary never mentions it`);
+    }
+    if (report.selfReport.runSummaryUnparsed) {
+        lines.push(
+            `  ${color.dim('run summary lists no machine-checkable file paths — selfReport reconcile skipped (list changed files as backticked paths to enable it)')}`
+        );
     }
     for (const path of report.selfReport.outsideScope) {
         bullet(`${color.bold('outside-scope')}  ${path} changed but is outside the declared Affected areas`);

@@ -112,6 +112,11 @@ function human_attention(report: ReviewReport): string[] {
     for (const path of report.selfReport.inDiffNotClaimed) {
         lines.push(`changed-not-claimed: ${path} changed but the Run summary never mentions it.`);
     }
+    if (report.selfReport.runSummaryUnparsed) {
+        lines.push(
+            'run-summary-unparsed: the Run summary lists no machine-checkable file paths — selfReport reconcile skipped (list changed files as backticked paths to enable it).'
+        );
+    }
     for (const path of report.selfReport.outsideScope) {
         lines.push(`outside-scope: ${path} changed but is outside the declared Affected areas.`);
     }

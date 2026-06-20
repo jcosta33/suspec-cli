@@ -31,6 +31,39 @@ describe('reconcile_self_report — the three mismatch classes (AC-018)', () => 
         expect(result.claimedNotInDiff).toEqual([]);
         expect(result.inDiffNotClaimed).toEqual([]);
         expect(result.outsideScope).toEqual([]);
+        expect(result.runSummaryUnparsed).toBe(false);
+    });
+
+    it('no machine-checkable claims + a non-empty diff → runSummaryUnparsed, the flood suppressed (#44)', () => {
+        const result = reconcile_self_report({
+            claimedChangedFiles: [], // a prose Run summary parsed to nothing
+            diffChangedFiles: ['src/x.ts', 'src/y.ts', 'vendor/z.ts'],
+            affectedAreas: ['src'],
+        });
+        expect(result.runSummaryUnparsed).toBe(true);
+        expect(result.inDiffNotClaimed).toEqual([]); // suppressed — not a 3-file flood
+        expect(result.claimedNotInDiff).toEqual([]);
+        expect(result.outsideScope).toEqual(['vendor/z.ts']); // outsideScope still computes
+    });
+
+    it('claims present → runSummaryUnparsed is false and inDiffNotClaimed still surfaces gaps (#44)', () => {
+        const result = reconcile_self_report({
+            claimedChangedFiles: ['src/x.ts'],
+            diffChangedFiles: ['src/x.ts', 'src/y.ts'],
+            affectedAreas: ['src'],
+        });
+        expect(result.runSummaryUnparsed).toBe(false);
+        expect(result.inDiffNotClaimed).toEqual(['src/y.ts']);
+    });
+
+    it('an empty diff (nothing changed) is never runSummaryUnparsed (#44)', () => {
+        const result = reconcile_self_report({
+            claimedChangedFiles: [],
+            diffChangedFiles: [],
+            affectedAreas: ['src'],
+        });
+        expect(result.runSummaryUnparsed).toBe(false);
+        expect(result.inDiffNotClaimed).toEqual([]);
     });
 
     it('with no declared Affected areas, nothing is outside scope', () => {

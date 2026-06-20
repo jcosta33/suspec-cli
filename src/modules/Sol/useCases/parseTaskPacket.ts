@@ -138,8 +138,15 @@ function path_entries(lines: readonly string[]): string[] {
 }
 
 // From the Run summary lines, the claimed changed-file paths. Read every `Changed files: …` line's
-// tokens: backtick-quoted first; if none, bare path-like tokens (so an un-backticked packet still
-// reconciles). A line still carrying a `{{placeholder}}` is template guidance, skipped.
+// tokens — backtick-quoted by convention, with a bare-token fallback when a line carries none — and
+// keep only the **path-like** ones (swarm-hq #44). Path-validating both branches is the precision
+// fix: a backticked non-path token (a commit sha `0791385`, a function name `reconcile_self_report`,
+// a command) is no longer mistaken for a claimed file, so it cannot raise a spurious
+// `claimedNotInDiff`; and a prose Run summary with no path-like tokens yields no claims (the gate
+// then notes "no machine-checkable paths" once, rather than flooding `inDiffNotClaimed`). The cost is
+// an extensionless real filename (`Makefile`) backticked alone reads as no-claim — acceptable, since
+// it surfaces a single note, never a false positive. A line still carrying `{{placeholder}}` is
+// template guidance, skipped.
 function claimed_changed_files(lines: readonly string[]): string[] {
     const paths: string[] = [];
     for (const line of lines) {
@@ -149,11 +156,11 @@ function claimed_changed_files(lines: readonly string[]): string[] {
         }
         const value = match[1];
         const backticked = [...value.matchAll(BACKTICK_TOKEN)].map((m) => m[1].trim());
-        if (backticked.length > 0) {
-            paths.push(...backticked);
-            continue;
-        }
-        for (const token of value.split(/[\s,]+/)) {
+        // Prefer the explicit backticked tokens; fall back to bare whitespace/comma-split tokens when a
+        // line backticked none. Either way, keep only path-like tokens (so prose words and non-path
+        // backticked tokens are both dropped).
+        const candidates = backticked.length > 0 ? backticked : value.split(/[\s,]+/);
+        for (const token of candidates) {
             const trimmed = token.trim();
             if (trimmed.length > 0 && PATH_LIKE.test(trimmed)) {
                 paths.push(trimmed);

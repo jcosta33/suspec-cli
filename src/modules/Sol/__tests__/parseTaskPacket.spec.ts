@@ -189,4 +189,26 @@ scope: [AC-001]
 `);
         expect(none.claimedChangedFiles).toEqual([]);
     });
+
+    it('drops backticked non-path tokens — a commit sha or a symbol is not a claimed file (#44)', () => {
+        const noisy = parse_task_packet(`---
+scope: [AC-001]
+---
+## Run summary
+
+- Changed files: refactored \`reconcile_self_report\` in \`0791385\`, plus \`src/real.ts\`
+`);
+        expect(noisy.claimedChangedFiles).toEqual(['src/real.ts']);
+    });
+
+    it('a prose Changed files line with no path-like tokens claims nothing (#44)', () => {
+        const prose = parse_task_packet(`---
+scope: [AC-001]
+---
+## Run summary
+
+- Changed files: taskLocator, deriveBoard, and the reconcile helpers
+`);
+        expect(prose.claimedChangedFiles).toEqual([]);
+    });
 });
