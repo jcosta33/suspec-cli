@@ -35,6 +35,31 @@ export function frontmatter_value(source: string, key: string): string | null {
     return null;
 }
 
+// Resolve a task from a CLI arg that may be the bare slug (`pastebin`) OR the full id (`TASK-pastebin`)
+// to the one canonical `tasks/TASK-<slug>.md` file `swarm new task` writes — so the whole loop
+// (new · show · review · status · the MCP) agrees on a single key: the task's frontmatter `id`. Tries
+// the literal `tasks/<arg>.md` first (the id form), then `tasks/TASK-<arg>.md` (the bare-slug form),
+// skipping the second when the arg already carries the prefix. Returns the path, the frontmatter `id`
+// (the canonical key reviews bind to and `swarm status` matches), and the source; null when neither
+// file exists.
+export function resolve_task(
+    workspaceDir: string,
+    arg: string
+): { path: string; id: string; source: string } | null {
+    // Bidirectional: whether the arg is the bare slug or the TASK- id, and whether the file on disk is
+    // `TASK-<slug>.md` (what `swarm new task` writes) or the legacy bare `<slug>.md`, resolve to it.
+    const slug = arg.replace(/^TASK-/i, '');
+    const stems = [...new Set([arg, `TASK-${slug}`, slug])];
+    for (const stem of stems) {
+        const path = join(workspaceDir, 'tasks', `${stem}.md`);
+        if (existsSync(path)) {
+            const source = readFileSync(path, 'utf8');
+            return { path, id: frontmatter_value(source, 'id') ?? stem, source };
+        }
+    }
+    return null;
+}
+
 // The source spec for a task: the specs/*/spec.md whose frontmatter id matches the packet's `source:`
 // spec id. Returns the path + enclosing slug (the worktree branch's spec segment, ADR-0046).
 export function find_source_spec(workspaceDir: string, specId: string): { path: string; slug: string } | null {

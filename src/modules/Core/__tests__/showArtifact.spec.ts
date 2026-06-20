@@ -127,6 +127,21 @@ describe('show_artifact', () => {
         }
     });
 
+    it('task + spec resolve by EITHER the bare slug or the prefixed id (canonical-key, #blind-field-test)', () => {
+        // The fixture file is the legacy bare tasks/feat.md; the TASK- id form must resolve it too.
+        const t = show_artifact({ workspaceDir: ws, kind: 'task', ref: 'TASK-feat' });
+        expect(isErr(t)).toBe(false);
+        if (!isErr(t)) {
+            expect((t.value.value as { id: string }).id).toBe('TASK-feat');
+        }
+        // The spec resolves by the bare slug, not only the SPEC- id (the MCP get_spec gap).
+        const s = show_artifact({ workspaceDir: ws, kind: 'spec', ref: 'feat' });
+        expect(isErr(s)).toBe(false);
+        if (!isErr(s)) {
+            expect((s.value.value as { frontmatter: { id: string } }).frontmatter.id).toBe('SPEC-feat');
+        }
+    });
+
     it('review — parses status, coverage rows, and verify blocks', () => {
         const r = show_artifact({ workspaceDir: ws, kind: 'review', ref: 'feat' });
         expect(isErr(r)).toBe(false);

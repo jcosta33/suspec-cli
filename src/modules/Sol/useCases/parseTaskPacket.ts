@@ -123,6 +123,16 @@ function section_lines(source: string, heading: RegExp): string[] {
 // areas` and `## Do not change`. Each item carries a backtick-quoted path, possibly behind a workspace
 // context prefix (`web: src/…`) — strip the prefix, keep the path. A line still carrying a
 // `{{placeholder}}` is template guidance, skipped.
+//
+// EVERY backtick token is captured (not only a leading one): a `## Do not change` / `## Affected areas`
+// entry is also the kit's prose-with-path form (`- The support email pipeline (\`src/email/\`)`). A
+// narrowing to leading-backtick-only was tried and REVERTED — a declared path and an incidentally-
+// mentioned one share the same syntax, so the narrowing dropped genuinely-protected paths (a C014 false
+// NEGATIVE — worse than the false positive it removed, because the protected-file touch then goes
+// unflagged). The residual false positive (a path named in a note) is surfaced as a human-attention
+// WARNING, never a block (reconcile-only); a non-path mention like a table name never matches a real
+// changed-file path, so it is harmless. The convention — keep the section to real protections — is a
+// template note, not a parser guess.
 function path_entries(lines: readonly string[]): string[] {
     const areas: string[] = [];
     for (const line of lines) {

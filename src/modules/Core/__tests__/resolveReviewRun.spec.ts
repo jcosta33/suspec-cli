@@ -5,6 +5,8 @@ import { join } from 'path';
 import { execFileSync } from 'child_process';
 
 import { resolve_review_run } from '../useCases/resolveReviewRun.ts';
+import { derive_board } from '../useCases/deriveBoard.ts';
+import { show_artifact } from '../useCases/showArtifact.ts';
 import { assertOk } from '../../../infra/errors/testing/assertOk.ts';
 import { assertErr } from '../../../infra/errors/testing/assertErr.ts';
 
@@ -186,5 +188,55 @@ describe('resolve_review_run (AC-017)', () => {
             resolve_review_run({ workspaceDir: repo, repoRoot: repo, task: 'TASK-feat', base: 'no-such-ref-xyz' })
         );
         expect(error).toBeDefined();
+    });
+
+    // The canonical-key regression (blind field test 2026-06-20): with ONE set of artifacts — the
+    // id-named task file `tasks/TASK-feat.md` and a review bound by the task id (`task: TASK-feat`, the
+    // kit-template form) — `show`, `review`, and `status` must all resolve the SAME task and review,
+    // whether the CLI arg is the bare slug or the TASK- id, with NO manual rename.
+    it('new -> show -> review -> status all resolve one task/review by either arg form, no rename', () => {
+        scaffold({ review: '---\ntype: review\nid: REVIEW-feat\ntask: TASK-feat\nstatus: draft\n---\n# r\n' });
+
+        for (const arg of ['feat', 'TASK-feat']) {
+            // show task resolves the id-named file from either arg form.
+            const shown = assertOk(show_artifact({ workspaceDir: repo, kind: 'task', ref: arg }));
+            expect((shown.value as { id: string }).id).toBe('TASK-feat');
+
+            // review finds the SAME packet via the canonical task id (not the raw arg) from either form.
+            const resolved = assertOk(resolve_review_run({ workspaceDir: repo, repoRoot: repo, task: arg }));
+            expect(resolved.task).toBe('TASK-feat');
+            expect(resolved.reviewPacketSource).toContain('REVIEW-feat');
+        }
+
+        // status (derive_board) binds the SAME review (task: TASK-feat) to the SAME task (id TASK-feat) —
+        // no opposite-value conflict in the `task:` field.
+        const board = assertOk(derive_board({ workspaceDir: repo }));
+        const task = board.specs.flatMap((spec) => spec.tasks).find((t) => t.id === 'TASK-feat');
+        expect(task?.hasReview).toBe(true);
+        expect(task?.reviewStatus).toBe('draft');
+    });
+
+    // #2 (split-repo review): the workspace (artifacts) and the code repo (worktree + diff) are SEPARATE
+    // git repos — the documented dedicated-workspace layout that round-1 hit "no worktree found" on. The
+    // command wires repoRoot via `--repo`; here we pass a distinct repoRoot directly.
+    it('reconciles when the workspace and the code repo are separate git repos (--repo / split layout)', () => {
+        scaffold({ withWorktree: false, review: '---\ntype: review\nid: REVIEW-feat\ntask: TASK-feat\nstatus: draft\n---\n# r\n' });
+        const codeRepo = realpathSync(mkdtempSync(join(tmpdir(), 'swarm-code-')));
+        git(['init'], codeRepo);
+        git(['config', 'user.email', 't@e.com'], codeRepo);
+        git(['config', 'user.name', 'T'], codeRepo);
+        writeFileSync(join(codeRepo, 'seed.ts'), 'x');
+        git(['add', '.'], codeRepo);
+        git(['commit', '-m', 'init'], codeRepo);
+        const base = git(['rev-parse', '--abbrev-ref', 'HEAD'], codeRepo).trim();
+        const wt = join(codeRepo, '.worktrees', 'feat-feat');
+        git(['worktree', 'add', '-b', 'swarm/feat/feat', wt, base], codeRepo);
+        writeFileSync(join(wt, 'changed.ts'), 'x');
+
+        // artifacts resolve from the workspace `repo`; the worktree + diff resolve from `codeRepo`.
+        const resolved = assertOk(resolve_review_run({ workspaceDir: repo, repoRoot: codeRepo, task: 'feat' }));
+        expect(resolved.diffChangedFiles).toContain('changed.ts');
+        expect(resolved.reviewPacketSource).toContain('REVIEW-feat');
+        rmSync(codeRepo, { recursive: true, force: true });
     });
 });

@@ -12,7 +12,7 @@ import { parse_task_packet, parse_spec_record } from '../../Sol/useCases/index.t
 import { is_safe_segment } from '../services/safeSegment.ts';
 import { parse_review_packet } from '../services/parseReviewPacket.ts';
 import { CORE_CHECKS, CONTRACT_VERSION } from '../services/checksContract.ts';
-import { frontmatter_value, find_source_spec } from './taskLocator.ts';
+import { frontmatter_value, find_source_spec, resolve_task } from './taskLocator.ts';
 import { usage_error } from './unixOutcome.ts';
 
 export type ShowKind = 'task' | 'spec' | 'review' | 'checks';
@@ -32,6 +32,29 @@ function is_confined(workspaceDir: string, ref: string): boolean {
     return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
 }
 
+// Resolve a spec ref to its file path, accepting either the full `SPEC-<slug>` frontmatter id, the bare
+// slug (`pastebin` → the `SPEC-pastebin` spec, or `specs/pastebin/spec.md`), or a confined workspace path.
+// Accepting the bare slug mirrors the task resolution and closes the MCP get_spec gap the blind field
+// test surfaced (`swarm show spec pastebin` previously failed while `SPEC-pastebin` worked).
+function resolve_spec_path(workspaceDir: string, ref: string): string | null {
+    const altId = /^SPEC-/i.test(ref) ? null : `SPEC-${ref}`;
+    const byId = find_source_spec(workspaceDir, ref) ?? (altId !== null ? find_source_spec(workspaceDir, altId) : null);
+    if (byId !== null) {
+        return byId.path;
+    }
+    const bySlug = join(workspaceDir, 'specs', ref, 'spec.md');
+    if (existsSync(bySlug)) {
+        return bySlug;
+    }
+    if (is_confined(workspaceDir, ref)) {
+        const byPath = join(workspaceDir, ref);
+        if (existsSync(byPath)) {
+            return byPath;
+        }
+    }
+    return null;
+}
+
 export function show_artifact(input: ShowArtifactInput): Result<ShowResult, AppError> {
     const { workspaceDir, kind, ref } = input;
 
@@ -47,11 +70,14 @@ export function show_artifact(input: ShowArtifactInput): Result<ShowResult, AppE
         if (!is_safe_segment(ref)) {
             return err(usage_error(`invalid task stem: ${ref}`));
         }
-        const path = join(workspaceDir, 'tasks', `${ref}.md`);
-        if (!existsSync(path)) {
-            return err(usage_error(`no tasks/${ref}.md in this workspace`));
+        // Resolve by either the bare slug or the TASK- id to the canonical `tasks/TASK-<slug>.md`
+        // (the file `swarm new task` writes), so `show task pastebin` and `show task TASK-pastebin`
+        // both find it — and the MCP loader resolves regardless of how it normalizes the id.
+        const resolved = resolve_task(workspaceDir, ref);
+        if (resolved === null) {
+            return err(usage_error(`no task matching "${ref}" (looked for tasks/${ref}.md and tasks/TASK-${ref}.md)`));
         }
-        const source = readFileSync(path, 'utf8');
+        const source = resolved.source;
         const packet = parse_task_packet(source);
         return ok({
             level: 'clean',
@@ -72,14 +98,11 @@ export function show_artifact(input: ShowArtifactInput): Result<ShowResult, AppE
         if (ref === undefined) {
             return err(usage_error('usage: swarm show spec <id|path>'));
         }
-        // Resolve by frontmatter id (the documented form), else treat the ref as a workspace-relative
-        // path — confined to the workspace so a `../` ref cannot read a file outside it.
-        const byId = find_source_spec(workspaceDir, ref);
-        if (byId === null && !is_confined(workspaceDir, ref)) {
-            return err(usage_error(`cannot resolve spec: ${ref}`));
-        }
-        const path = byId !== null ? byId.path : join(workspaceDir, ref);
-        if (!existsSync(path)) {
+        // Resolve by frontmatter id (`SPEC-x`), the bare slug, the dir-slug path, or a confined
+        // workspace-relative path — a `../` ref can never read outside the workspace (resolve_spec_path
+        // only returns paths inside it).
+        const path = resolve_spec_path(workspaceDir, ref);
+        if (path === null) {
             return err(usage_error(`cannot resolve spec: ${ref}`));
         }
         const parsed = parse_spec_record({ source: readFileSync(path, 'utf8'), path });

@@ -6,6 +6,7 @@
 // project the reconcile facts to text / `--json` under the advisory exit posture (AC-024). It writes
 // nothing (AC-025) and spawns no agent (AC-026); `--agent` is reserved for M3 and rejected here.
 //   swarm review <task>            reconcile the finished run for <task> (read-only, M2)
+//   swarm review <task> --repo <p> reconcile when the code lives in a SEPARATE repo from the workspace
 //   swarm review <task> --write    write a DRAFT reviews/<slug>.md from the reconcile (W4b)
 //   swarm review                   (TTY) enter the interactive flow (AC-027)
 //   swarm review --json            machine output, never prompts
@@ -15,7 +16,7 @@
 // reconcile and writes exactly that one file, no-clobber (AC-004 — an existing packet needs `--force`).
 
 import { isErr } from '../../../infra/errors/result.ts';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import {
     project,
     emit_error,
@@ -38,7 +39,7 @@ function review_slug(task: string): string {
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
     const { positional, flags } = parse_flags(argv, {
         booleans: ['--json', '-i', '--interactive', '--write', '--force'],
-        strings: ['--base'],
+        strings: ['--base', '--repo'],
     });
     const json = flags.get('json') === true;
     const interactive = flags.get('i') === true || flags.get('interactive') === true;
@@ -61,12 +62,25 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     /* v8 ignore stop */
 
     if (task === undefined) {
-        return emit_error(usage_error('usage: swarm review <task> [--base <branch>] [--json]'), json);
+        return emit_error(usage_error('usage: swarm review <task> [--base <branch>] [--repo <code-repo>] [--json]'), json);
     }
 
-    const rootResult = resolve_repo_root(cwd);
-    if (isErr(rootResult)) {
-        return emit_error(rootResult.error, json);
+    // The git repo whose worktree + diff this run lives in. Defaults to the workspace's own repo (the
+    // co-located layout). `--repo <path>` points at a SEPARATE code repo so review works when the Swarm
+    // workspace and the code are distinct git repos (the documented dedicated-workspace layout).
+    const repoFlag = flags.get('repo');
+    if (typeof repoFlag === 'string' && repoFlag.startsWith('-')) {
+        return emit_error(usage_error(`invalid --repo value: "${repoFlag}" — expected a path to the code repo`), json);
+    }
+    let repoRoot: string;
+    if (typeof repoFlag === 'string') {
+        repoRoot = resolve(cwd, repoFlag);
+    } else {
+        const rootResult = resolve_repo_root(cwd);
+        if (isErr(rootResult)) {
+            return emit_error(rootResult.error, json);
+        }
+        repoRoot = rootResult.value;
     }
 
     const baseFlag = flags.get('base');
@@ -75,7 +89,7 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     }
     const base = typeof baseFlag === 'string' ? baseFlag : undefined;
 
-    const resolved = resolve_review_run({ workspaceDir: cwd, repoRoot: rootResult.value, task, base });
+    const resolved = resolve_review_run({ workspaceDir: cwd, repoRoot, task, base });
     if (isErr(resolved)) {
         return emit_error(resolved.error, json);
     }

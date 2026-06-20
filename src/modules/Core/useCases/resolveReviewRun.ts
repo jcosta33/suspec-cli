@@ -10,7 +10,7 @@ import { join } from 'path';
 import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { current_branch, worktree_changed_files } from '../../Workspace/useCases/index.ts';
-import { frontmatter_value, find_source_spec, resolve_worktree } from './taskLocator.ts';
+import { frontmatter_value, find_source_spec, resolve_worktree, resolve_task } from './taskLocator.ts';
 import type { ReconcileReviewInput } from './reconcileReview.ts';
 import { usage_error } from './unixOutcome.ts';
 
@@ -40,15 +40,19 @@ function find_review_packet(workspaceDir: string, taskId: string): string | null
 }
 
 export function resolve_review_run(input: ResolveReviewRunInput): Result<ReconcileReviewInput, AppError> {
-    const taskPath = join(input.workspaceDir, 'tasks', `${input.task}.md`);
-    if (!existsSync(taskPath)) {
+    // Resolve the task by either the bare slug or the TASK- id to its canonical file + frontmatter `id`
+    // (so `swarm review pastebin` and `swarm review TASK-pastebin` both work without a rename).
+    const task = resolve_task(input.workspaceDir, input.task);
+    if (task === null) {
         return err(
-            createAppError('NoWorkspace', `cannot review ${input.task}: no tasks/${input.task}.md in this workspace`, {
-                capability: `reviewing ${input.task}`,
-            })
+            createAppError(
+                'NoWorkspace',
+                `cannot review ${input.task}: no matching tasks/${input.task}.md (or tasks/TASK-${input.task}.md) in this workspace`,
+                { capability: `reviewing ${input.task}` }
+            )
         );
     }
-    const taskPacketSource = readFileSync(taskPath, 'utf8');
+    const taskPacketSource = task.source;
 
     const specId = frontmatter_value(taskPacketSource, 'source');
     const spec = specId !== null ? find_source_spec(input.workspaceDir, specId) : null;
@@ -56,9 +60,15 @@ export function resolve_review_run(input: ResolveReviewRunInput): Result<Reconci
         return err(usage_error(`cannot resolve the source spec for ${input.task} (source: ${specId ?? 'none'})`));
     }
 
-    const worktree = resolve_worktree(input.repoRoot, spec.slug, input.task);
+    const worktree = resolve_worktree(input.repoRoot, spec.slug, task.id);
     if (worktree === null) {
-        return err(usage_error(`no worktree found for ${input.task} — launch the run before reviewing it`));
+        return err(
+            usage_error(
+                `no worktree found for ${task.id} — launch the run with \`swarm worktree create ${spec.slug}\` first. ` +
+                    `If the code lives in a separate repo from this workspace, point the review at it with ` +
+                    `\`swarm review ${input.task} --repo <path-to-code-repo>\`.`
+            )
+        );
     }
 
     // The diff base: an explicit `--base`, else the REPO ROOT's current branch (not a per-worktree
@@ -72,10 +82,13 @@ export function resolve_review_run(input: ResolveReviewRunInput): Result<Reconci
     }
 
     return ok({
-        task: input.task,
+        task: task.id,
         taskPacketSource,
         specSource: readFileSync(spec.path, 'utf8'),
-        reviewPacketSource: find_review_packet(input.workspaceDir, input.task),
+        // Match the review by the task's canonical frontmatter `id` (the SAME key `swarm status` matches),
+        // not the raw CLI arg — so `swarm review` and `swarm status` agree on one `task:` value rather than
+        // demanding opposite forms in the same field.
+        reviewPacketSource: find_review_packet(input.workspaceDir, task.id),
         diffChangedFiles: diff.value,
     });
 }

@@ -19,13 +19,19 @@ model loop itself. Every flow is available two ways: a **direct, scriptable comm
 
 ## Install
 
+swarm-cli is **not yet published to npm** — the bare name `swarm-cli` on npm is an unrelated project,
+so `npm install -g swarm-cli` installs the wrong tool. Install from source instead:
+
 ```bash
-npm install -g swarm-cli
+git clone https://github.com/jcosta33/swarm-cli
+cd swarm-cli && pnpm install && pnpm build   # or: npm install && npm run build
+npm link                                     # puts `swarm` on your PATH
 ```
 
 `bin/swarm.js` runs the bundled JavaScript (`dist/`, built on `prepack`), so an installed CLI needs
 no transpiler. From a checkout it runs the `src/` TypeScript directly via Node's native type
-stripping; `pnpm build` produces the `dist/` bundle.
+stripping (Node ≥ 22.6) — `node bin/swarm.js <command>` works without a build step; `pnpm build`
+produces the `dist/` bundle. (A published package under a non-colliding name will replace this.)
 
 ## Quick start
 
