@@ -67,6 +67,32 @@ describe('new command (direct surface, AC-013)', () => {
         expect(readFileSync(join(ws, 'tasks', 'TASK-x.md'), 'utf8')).toContain('scope: []');
     });
 
+    it('--id cuts a distinctly-named second task from one spec (split-work), normalizing to TASK-<slug>', async () => {
+        // The default id is TASK-<spec-slug> (TASK-x), which collides on the second cut. --id lets one
+        // spec fan out to several tasks; a bare slug is normalized to the canonical TASK- prefix so it
+        // keys the same as the default everywhere downstream (status, the worktree branch, resolve_task).
+        const first = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-001'], ws));
+        expect(first.code).toBe(0);
+        const second = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-002', '--id', 'x-part-two'], ws));
+        expect(second.code).toBe(0);
+        expect(existsSync(join(ws, 'tasks', 'TASK-x.md'))).toBe(true);
+        const part2 = readFileSync(join(ws, 'tasks', 'TASK-x-part-two.md'), 'utf8');
+        expect(part2).toContain('id: TASK-x-part-two');
+        expect(part2).toContain('- AC-002');
+
+        // A prefixed / mixed-case --id normalizes at the command surface to the canonical TASK-<lower>.
+        const third = await capture(() => run(['task', '--from', 'SPEC-x', '--id', 'TASK-X-Part-Three'], ws));
+        expect(third.code).toBe(0);
+        expect(readFileSync(join(ws, 'tasks', 'TASK-x-part-three.md'), 'utf8')).toContain('id: TASK-x-part-three');
+    });
+
+    it('an empty --id is a usage error, not a TASK-.md packet', async () => {
+        const { code, err } = await capture(() => run(['task', '--from', 'SPEC-x', '--id', ''], ws));
+        expect(code).toBe(2);
+        expect(err).toContain('--id');
+        expect(existsSync(join(ws, 'tasks', 'TASK-.md'))).toBe(false);
+    });
+
     it('task with no --from → usage error', async () => {
         const { code, err } = await capture(() => run(['task'], ws));
         expect(code).toBe(2);

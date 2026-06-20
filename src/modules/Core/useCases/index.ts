@@ -7,6 +7,9 @@
 export { project, emit_error, exit_code_for, no_workspace_error, usage_error } from './unixOutcome.ts';
 // Path-segment guard (shared with scaffold/cut) — for command-surface positional slug validation.
 export { is_safe_segment } from '../services/safeSegment.ts';
+// The canonical task-slug normalizer (the worktree branch tail) — shared so command surfaces derive the
+// same `reviews/<slug>.md` / branch tail the worktree producer + resolvers do, never a hand-rolled copy.
+export { task_slug } from '../services/worktreeNames.ts';
 
 // check engine (AC-005/006/007/008); review-file C012 (M2 AC-028); change-plan C010/C011 (W6)
 export { check_spec } from './checkSpec.ts';

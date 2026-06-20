@@ -59,6 +59,7 @@ export const COMMAND_CATALOG = [
             'swarm review <task>',
             '  <task>                      reconcile the run for a task id/slug',
             '  --base <branch>             the worktree base to diff against (else the current branch)',
+            '  --repo <path>               the code repo holding the worktree (split-repo layout; else the workspace repo)',
             '  --write                     write a draft reviews/<slug>.md (status: draft, every row Unverified; no-clobber)',
             '  --force                     overwrite an existing draft (with --write)',
             '  --json · -i                 machine output · interactive flow',
@@ -70,8 +71,9 @@ export const COMMAND_CATALOG = [
         description: 'Cut a task packet from a spec, or scaffold a new spec',
         usage: [
             'swarm new <task|spec>',
-            '  task --from <SPEC-id> [--scope AC-001,AC-002]   cut a task (scope never invented)',
+            '  task --from <SPEC-id> [--scope AC-001,AC-002] [--id <TASK-id>]   cut a task (scope never invented)',
             '  spec <slug>                                     scaffold a fresh draft spec',
+            '  --id <TASK-id>                                  name a 2nd+ task from one spec (else TASK-<spec-slug>)',
             '  --json · -i                                     machine output · interactive flow',
         ],
     },

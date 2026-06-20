@@ -12,7 +12,7 @@ import { run_new_flow, create_clack_prompter } from '../../Tui/useCases/index.ts
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
     const { positional, flags } = parse_flags(argv, {
         booleans: ['--json', '-i', '--interactive'],
-        strings: ['--from', '--scope', '--title', '--owner'],
+        strings: ['--from', '--scope', '--title', '--owner', '--id'],
     });
     const json = flags.get('json') === true;
     const interactive = flags.get('i') === true || flags.get('interactive') === true;
@@ -27,7 +27,10 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     if (type === 'task') {
         const fromFlag = flags.get('from');
         if (typeof fromFlag !== 'string') {
-            return emit_error(usage_error('usage: swarm new task --from <SPEC-id> [--scope AC-001,AC-002]'), json);
+            return emit_error(
+                usage_error('usage: swarm new task --from <SPEC-id> [--scope AC-001,AC-002] [--id <TASK-id>]'),
+                json
+            );
         }
         const scopeFlag = flags.get('scope');
         const scope =
@@ -37,8 +40,21 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
                       .map((id) => id.trim())
                       .filter((id) => id.length > 0)
                 : [];
+        // --id names a 2nd+ task from one spec (the default is TASK-<spec-slug>, which collides on the
+        // second cut). Normalize to the canonical `TASK-<lower-slug>` shape so it keys the same as the
+        // default everywhere downstream (status, the worktree branch tail, resolve_task); cut_packet
+        // still validates it as a path-safe segment and refuses to clobber an existing packet.
+        const idFlag = flags.get('id');
+        let taskId: string | undefined;
+        if (typeof idFlag === 'string') {
+            const slug = idFlag.replace(/^TASK-/i, '').toLowerCase().trim();
+            if (slug.length === 0) {
+                return emit_error(usage_error('--id needs a task slug, e.g. --id checkout-discount'), json);
+            }
+            taskId = `TASK-${slug}`;
+        }
         return project({
-            result: cut_packet({ workspaceDir: cwd, specId: fromFlag, scope }),
+            result: cut_packet({ workspaceDir: cwd, specId: fromFlag, scope, taskId }),
             json,
             render: (report) => `cut ${report.taskId} (${String(report.scope.length)} scoped)\n  ${report.path}`,
         });

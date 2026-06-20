@@ -9,7 +9,7 @@ import { join } from 'path';
 
 import { err, ok, isErr, type Result } from '../../../infra/errors/result.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
-import { frontmatter_value, find_source_spec, resolve_worktree } from './taskLocator.ts';
+import { frontmatter_value, find_source_spec, resolve_task, resolve_worktree } from './taskLocator.ts';
 import { parse_agent_config, resolve_adapter, type Adapter } from '../services/agentConfig.ts';
 import { usage_error } from './unixOutcome.ts';
 
@@ -29,16 +29,20 @@ export type ResolveLaunchInput = Readonly<{
 }>;
 
 export function resolve_launch(input: ResolveLaunchInput): Result<LaunchPlan, AppError> {
-    // AC-008: the task must resolve to a packet in this workspace.
-    const taskPath = join(input.workspaceDir, 'tasks', `${input.task}.md`);
-    if (!existsSync(taskPath)) {
+    // AC-008: the task must resolve to a packet in this workspace. Accept either the bare slug or the
+    // canonical `TASK-<slug>` id `swarm status` reports — resolve_task tries both forms and returns the
+    // frontmatter id, so `swarm run` finds the same packet new/show/review do (the canonical-key seam).
+    const resolved = resolve_task(input.workspaceDir, input.task);
+    if (resolved === null) {
         return err(
-            createAppError('NoWorkspace', `cannot run ${input.task}: no tasks/${input.task}.md in this workspace`, {
-                capability: `running ${input.task}`,
-            })
+            createAppError(
+                'NoWorkspace',
+                `cannot run ${input.task}: no matching tasks/${input.task}.md or tasks/TASK-${input.task}.md in this workspace`,
+                { capability: `running ${input.task}` }
+            )
         );
     }
-    const source = frontmatter_value(readFileSync(taskPath, 'utf8'), 'source');
+    const source = frontmatter_value(resolved.source, 'source');
 
     // AC-005: resolve the adapter from `.swarm/config.yaml` before touching git — an unknown agent, a
     // missing config, or an unreadable config is a usage error that launches nothing, and need not
@@ -67,15 +71,15 @@ export function resolve_launch(input: ResolveLaunchInput): Result<LaunchPlan, Ap
     // swarm worktree whose branch tail matches the task slug (taskLocator), so a prepared task still
     // launches; only the worktree is load-bearing here.
     const specSlug = source !== null ? (find_source_spec(input.workspaceDir, source)?.slug ?? '') : '';
-    const worktree = resolve_worktree(input.repoRoot, specSlug, input.task);
+    const worktree = resolve_worktree(input.repoRoot, specSlug, resolved.id);
     if (worktree === null) {
         return err(
-            usage_error(`no worktree for ${input.task} — run \`swarm worktree create\` before launching the run`)
+            usage_error(`no worktree for ${resolved.id} — run \`swarm worktree create\` before launching the run`)
         );
     }
 
     return ok({
-        task: input.task,
+        task: resolved.id,
         worktreePath: worktree.path,
         branch: worktree.branch,
         source,

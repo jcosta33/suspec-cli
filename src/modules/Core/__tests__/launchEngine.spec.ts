@@ -10,6 +10,7 @@ import { create_worktree } from '../useCases/createWorktree.ts';
 import { list_swarm_worktrees } from '../useCases/listSwarmWorktrees.ts';
 import { remove_worktree } from '../useCases/removeWorktree.ts';
 import { prune_worktrees } from '../useCases/pruneWorktrees.ts';
+import { resolve_worktree } from '../useCases/taskLocator.ts';
 
 // Integration: drives the launch engine against a real throwaway git repo — the fidelity AC-009's
 // Verify line asks for ("git worktree list shows it on the right branch; remove → gone").
@@ -64,6 +65,26 @@ describe('the launch engine over a real git repo', () => {
         const created = assertOk(create_worktree({ repoRoot, specSlug: 'payments', taskSlug: 'ac-009', baseBranch }));
         expect(created.branch).toBe('swarm/payments/ac-009');
         assertOk(remove_worktree({ repoRoot, specSlug: 'payments', taskSlug: 'ac-009', force: true }));
+    });
+
+    it('a worktree created from a TASK-prefixed --task is found by the consumer keyed on either form (field-test blocker)', () => {
+        // The adopter passes the full id `swarm status` reports (`TASK-Discount`); the producer must
+        // write the SAME normalized branch tail the consumer (review/run via resolve_worktree) computes
+        // from the task id, or the worktree is never found. Round-trip both the prefixed id + bare slug,
+        // and confirm remove (which derives the branch the same way) tears the normalized branch down.
+        const created = assertOk(
+            create_worktree({ repoRoot, specSlug: 'discounts', taskSlug: 'TASK-Discount', baseBranch })
+        );
+        expect(created.branch).toBe('swarm/discounts/discount');
+
+        const byId = resolve_worktree(repoRoot, 'discounts', 'TASK-Discount');
+        const bySlug = resolve_worktree(repoRoot, 'discounts', 'discount');
+        expect(byId?.branch).toBe('swarm/discounts/discount');
+        expect(byId?.path).toBe(created.worktreePath);
+        expect(bySlug?.path).toBe(created.worktreePath);
+
+        assertOk(remove_worktree({ repoRoot, specSlug: 'discounts', taskSlug: 'TASK-Discount', force: true }));
+        expect(list_swarm_worktrees(repoRoot).worktrees.map((w) => w.branch)).not.toContain('swarm/discounts/discount');
     });
 });
 

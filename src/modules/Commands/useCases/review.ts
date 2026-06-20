@@ -24,17 +24,11 @@ import {
     resolve_review_run,
     reconcile_review,
     draft_review_packet,
+    task_slug,
 } from '../../Core/useCases/index.ts';
 import { resolve_repo_root, write_new_file } from '../../Workspace/useCases/index.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import { format_review_report, run_review_flow, create_clack_prompter } from '../../Tui/useCases/index.ts';
-
-// The `reviews/<slug>.md` stem for a task id: the id minus a leading `TASK-`, lower-cased — the same
-// task-slug derivation the worktree branch tail uses (resolveReviewRun), so the draft lands beside
-// the run it reviews.
-function review_slug(task: string): string {
-    return task.replace(/^TASK-/i, '').toLowerCase();
-}
 
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
     const { positional, flags } = parse_flags(argv, {
@@ -97,7 +91,9 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     // `--write` (W4b): render a DRAFT packet from the same reconcile and write the one file. WITHOUT
     // `--write` the command falls through to M2's read-only stdout reconcile (unchanged).
     if (write) {
-        const slug = review_slug(task);
+        // The `reviews/<slug>.md` stem: the canonical task-slug (id minus `TASK-`, lower-cased) — the
+        // same normalizer the worktree branch tail + resolvers use, so the draft lands beside its run.
+        const slug = task_slug(task);
         const drafted = draft_review_packet({ ...resolved.value, slug });
         if (isErr(drafted)) {
             return emit_error(drafted.error, json);

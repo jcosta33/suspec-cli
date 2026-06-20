@@ -8,6 +8,7 @@ import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 
 import { worktree_list } from '../../Workspace/useCases/index.ts';
+import { task_slug } from '../services/worktreeNames.ts';
 
 // A located worktree: its path and the branch it has checked out (null only if detached/unborn).
 export type ResolvedWorktree = Readonly<{ path: string; branch: string | null }>;
@@ -81,7 +82,7 @@ export function find_source_spec(workspaceDir: string, specId: string): { path: 
 // worktree whose branch's final segment matches, so an unconventional layout still resolves. One
 // `worktree list` call returns both path and branch together. Null = none found.
 export function resolve_worktree(repoRoot: string, specSlug: string, taskId: string): ResolvedWorktree | null {
-    const taskSlug = taskId.replace(/^TASK-/i, '').toLowerCase();
+    const taskSlug = task_slug(taskId);
     const list = worktree_list(repoRoot);
     const direct = list.find((entry) => entry.branch === `swarm/${specSlug}/${taskSlug}`);
     if (direct !== undefined) {
