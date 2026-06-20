@@ -38,10 +38,15 @@ const DO_NOT_CHANGE_HEADING = /^##\s+Do not change\s*$/i;
 const ANY_H2 = /^##\s+/;
 const CHANGED_FILES_LINE = /changed files\s*:\s*(.*)$/i;
 const BACKTICK_TOKEN = /`([^`]+)`/g;
-// A bare path-like token: a slash-separated path, or a dotted file name (so prose words are skipped).
-// Written non-backtracking — each `/`-separated segment excludes `/`, so a long non-matching token
-// cannot trigger the quadratic backtracking the previous form had (an O(n²) ReDoS — swarm-hq #15).
-const PATH_LIKE = /^[\w.@-]+(?:\/[\w.@-]+)+$|^[\w@-]+\.[A-Za-z0-9]+$/;
+// A bare path-like token (so prose words are skipped). Three shapes: a slash-separated path; a dotted
+// filename with one or more dots and an optional leading dot (`a.ts`, `vite.config.ts`,
+// `tsconfig.base.json`, `.eslintrc.json`, `.env.example` — swarm-hq #44 widened this past the old
+// single-dot form that dropped multi-dot config files); and a leading-dot dotfile with no extension
+// (`.gitignore`, `.prettierrc`). A no-dot, no-slash, no-leading-dot token (`Makefile`, `LICENSE`) stays
+// ambiguous with a prose word and is the only residual not recognized. Written non-backtracking — every
+// `/`- or `.`-separated segment excludes its own separator, so a long non-matching token cannot trigger
+// the quadratic backtracking the previous slash form had (an O(n²) ReDoS — swarm-hq #15).
+const PATH_LIKE = /^[\w.@-]+(?:\/[\w.@-]+)+$|^\.?[\w@-]+(?:\.[\w@-]+)+$|^\.[\w@-]+$/;
 // A top-level frontmatter key (`key:` at column 0) — bounds a wrapped `scope:` flow list.
 const TOP_LEVEL_KEY = /^[A-Za-z0-9_-]+:/;
 
@@ -143,10 +148,11 @@ function path_entries(lines: readonly string[]): string[] {
 // fix: a backticked non-path token (a commit sha `0791385`, a function name `reconcile_self_report`,
 // a command) is no longer mistaken for a claimed file, so it cannot raise a spurious
 // `claimedNotInDiff`; and a prose Run summary with no path-like tokens yields no claims (the gate
-// then notes "no machine-checkable paths" once, rather than flooding `inDiffNotClaimed`). The cost is
-// an extensionless real filename (`Makefile`) backticked alone reads as no-claim — acceptable, since
-// it surfaces a single note, never a false positive. A line still carrying `{{placeholder}}` is
-// template guidance, skipped.
+// then notes "no machine-checkable paths" once, rather than flooding `inDiffNotClaimed`). The residual
+// cost is the no-dot extensionless filename (`Makefile`, `LICENSE`, `Dockerfile`): it stays ambiguous
+// with a prose word, so backticked alone it reads as no-claim, and backticked alongside other paths it
+// is dropped from the claim set — which can still surface it as `inDiffNotClaimed` (a narrow residual
+// false positive for that one class). A line still carrying `{{placeholder}}` is template guidance, skipped.
 function claimed_changed_files(lines: readonly string[]): string[] {
     const paths: string[] = [];
     for (const line of lines) {

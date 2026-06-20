@@ -211,4 +211,23 @@ scope: [AC-001]
 `);
         expect(prose.claimedChangedFiles).toEqual([]);
     });
+
+    it('recognizes multi-dot config files and dotfiles, not just single-extension names (#44)', () => {
+        const dotted = parse_task_packet(`---
+scope: [AC-001]
+---
+## Run summary
+
+- Changed files: \`vite.config.ts\`, \`tsconfig.base.json\`, \`.eslintrc.json\`, \`.gitignore\`, \`src/app.ts\`
+`);
+        // All five resolve — a regression guard for the false positive where a backticked root-level
+        // config/dotfile was dropped from the claim set and then flagged inDiffNotClaimed (#44).
+        expect(dotted.claimedChangedFiles).toEqual([
+            '.eslintrc.json',
+            '.gitignore',
+            'src/app.ts',
+            'tsconfig.base.json',
+            'vite.config.ts',
+        ]);
+    });
 });
