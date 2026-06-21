@@ -156,6 +156,19 @@ describe('reconcile_review — coverage (AC-019)', () => {
         expect(report.coverage).toEqual([]); // PG-001 is not "uncovered" against the spec; AC-001 has a row
     });
 
+    it('a SOL CONSTRAINT id (C-NNN) in scope reconciles cleanly — no orphan, no scope≠spec (R5-I09 end-to-end)', () => {
+        // The SOL CONSTRAINT opener now parses, so C-001 is a real spec requirement; scoping + covering it
+        // no longer false-fires `scope≠spec` + `orphan` (which it did when the SOL spec parsed to zero reqs).
+        const solSpec = `---\ntype: spec\nid: SPEC-feat\nstatus: ready\nformat: sol\nsources:\n  - ADR-0077\n---\n\n## Requirements\n\nCONSTRAINT C-001:\nTHE store MUST be append-only\nVERIFY BY a test.\n\n## Non-goals\n\n- none.\n\n## Open questions\n\n- none.\n`;
+        const report = ok({
+            taskPacketSource: taskSource(['C-001'], ['src'], ['src/a.ts']),
+            specSource: solSpec,
+            reviewPacketSource: reviewSource({ rows: [{ id: 'C-001', result: 'Pass', evidence: 'p' }] }),
+        });
+        expect(report.scopeDivergence).toEqual([]); // C-001 is a real spec requirement now
+        expect(report.coverage).toEqual([]); // C-001 has a coverage row — not orphan, not uncovered
+    });
+
     it('a draft source spec produces neither a coverage finding nor a divergence (the scope guard)', () => {
         const report = ok({
             taskPacketSource: taskSource(['AC-001', 'AC-002'], ['src'], []),

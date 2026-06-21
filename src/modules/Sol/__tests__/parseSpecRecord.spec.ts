@@ -132,6 +132,14 @@ Verify with: a test.
         expect(record.requirements).toEqual([]);
     });
 
+    it('parses SOL CONSTRAINT (C-) / INVARIANT (I-) / INTERFACE (IF-) openers, not just REQ (R5-I09)', () => {
+        // Their ids must parse as requirements so a task can scope C-/I-/IF- and the coverage reconcile
+        // does not false-fire orphan / scope≠spec on them. QUESTION (Q-) is intentionally NOT a requirement.
+        const source = `---\ntype: spec\nid: SPEC-pol\nstatus: ready\nformat: sol\n---\n\n# Policy\n\n## Requirements\n\nREQ AC-001:\nTHE service MUST authorize\nVERIFY BY test:a\n\nCONSTRAINT C-001:\nTHE store MUST be append-only\nVERIFY BY test:b\n\nINVARIANT I-001:\nTHE balance MUST never go negative\nVERIFY BY test:c\n\nINTERFACE IF-001:\nTHE API MUST expose GET /check\nVERIFY BY test:d\n\nQUESTION Q-001:\nshould retries be capped?\n`;
+        const record = assertOk(parse_spec_record({ source, path: 'pol.md' }));
+        expect(record.requirements.map((r) => r.id)).toEqual(['AC-001', 'C-001', 'I-001', 'IF-001']);
+    });
+
     it('tolerates orphan list lines and blank lines in frontmatter, and absent scalars', () => {
         const source = `---\n  - orphan list line\n\nsources: [only.md]\n---\n\nbody\n`;
         const record = assertOk(parse_spec_record({ source, path: 'x.md' }));

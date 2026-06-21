@@ -206,6 +206,11 @@ function claimed_changed_files(lines: readonly string[]): string[] {
         // Label-then-list form — the paths live in the FOLLOWING list items. Harvest the run of list-item
         // blocks: stop at a non-list block (a heading / paragraph ends the list), or — when the label is
         // itself a list item — at a sibling at the same-or-shallower indent (a different bullet's list).
+        // Under a HEADING/paragraph label, the run continues across blank-separated bullets until the next
+        // heading/prose: a path-like bullet under a `Changed files` heading IS a claimed changed file. This
+        // deliberately PREFERS over-capture to under-capture — in a reconcile-only gate an extra claim is a
+        // soft `claimed-not-changed` warning, whereas a DROPPED path re-creates the `changed-not-claimed`
+        // false positive this scanner exists to kill (R5-I01); a non-path bullet harvests nothing anyway.
         for (let next = index + 1; next < blocks.length; next += 1) {
             const item = blocks[next];
             if (item.kind !== 'list-item') {

@@ -530,6 +530,31 @@ describe('C004 one-strength-word', () => {
             )
         ).toEqual(['C004']);
     });
+
+    it('counts strength words only in the SOL RESPONSE clause, not the WHEN/IF trigger condition (R5-I02)', () => {
+        // A conditional modal in the trigger ("WHEN a request MAY be retried") is condition prose, not a
+        // second obligation — only the response clause's strength word binds. SOL is detected by the
+        // UPPERCASE trigger keyword, so plain (lower/title-case) specs are unaffected.
+        expect(
+            check_one_strength_word(
+                spec({ requirements: [req('AC-001', 'WHEN a request may be retried THE service MUST be idempotent')] })
+            )
+        ).toEqual([]);
+        // a GENUINE bundle in the SOL response (two THE…MUST clauses) is still flagged
+        expect(
+            codes(
+                check_one_strength_word(
+                    spec({ requirements: [req('AC-002', 'THE service MUST log AND THE service MUST alert')] })
+                )
+            )
+        ).toEqual(['C004']);
+        // a SOL trigger with NO response strength word still fails (zero in the response)
+        expect(
+            codes(
+                check_one_strength_word(spec({ requirements: [req('AC-003', 'WHEN x may happen THE service responds')] }))
+            )
+        ).toEqual(['C004']);
+    });
 });
 
 describe('C005 non-goals-present', () => {

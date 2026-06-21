@@ -164,6 +164,25 @@ function statement_text(body: string): string {
     return verify === null ? body : body.slice(0, verify.index);
 }
 
+// A leading SOL trigger clause: the requirement opens with an uppercase EARS keyword (the SOL form).
+const SOL_TRIGGER = /^\s*(?:WHERE|WHILE|WHEN|IF)\b/;
+// The SOL response-clause marker: an uppercase standalone `THE` introduces `THE <actor> <STRENGTH> …`.
+const SOL_RESPONSE = /\bTHE\b/;
+
+// For C004's strength count, narrow a SOL requirement to its RESPONSE clause (`THE <actor> <STRENGTH>
+// …`). In the SOL grammar the binding strength word lives in the response, NOT in the trigger condition
+// (`WHEN/IF/WHILE/WHERE …`), but a condition naturally carries a conditional modal — "WHEN a request
+// MAY be retried THE service MUST be idempotent" has one obligation, not two. Strip a leading SOL
+// trigger up to the first uppercase `THE` so the condition's modal is not miscounted (R5-I02). Detected
+// by the UPPERCASE SOL keyword only, so a plain (lower/title-case) prose spec is left untouched.
+function response_clause(statement: string): string {
+    if (!SOL_TRIGGER.test(statement)) {
+        return statement;
+    }
+    const response = SOL_RESPONSE.exec(statement);
+    return response === null ? statement : statement.slice(response.index);
+}
+
 // --- C001 unique-ids -----------------------------------------------------------------------------
 export function check_unique_ids(spec: ParsedSpec): Diagnostic[] {
     const seen = new Map<string, number>();
@@ -202,7 +221,7 @@ export function check_verify_with(spec: ParsedSpec): Diagnostic[] {
 export function check_one_strength_word(spec: ParsedSpec): Diagnostic[] {
     const diagnostics: Diagnostic[] = [];
     for (const requirement of spec.requirements) {
-        const count = count_strength_words(statement_text(requirement.body));
+        const count = count_strength_words(response_clause(statement_text(requirement.body)));
         if (count !== 1) {
             // R5-I12: the message names the action, not just the count — builders praised the rule but had
             // to map the bare count to "split bundled behaviors" / "add the missing MUST" themselves.
