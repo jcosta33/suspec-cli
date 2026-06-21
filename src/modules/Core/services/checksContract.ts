@@ -169,14 +169,15 @@ const SOL_TRIGGER = /^\s*(?:WHERE|WHILE|WHEN|IF)\b/;
 // The SOL response-clause marker: an uppercase standalone `THE` introduces `THE <actor> <STRENGTH> …`.
 const SOL_RESPONSE = /\bTHE\b/;
 
-// For C004's strength count, narrow a SOL requirement to its RESPONSE clause (`THE <actor> <STRENGTH>
-// …`). In the SOL grammar the binding strength word lives in the response, NOT in the trigger condition
-// (`WHEN/IF/WHILE/WHERE …`), but a condition naturally carries a conditional modal — "WHEN a request
-// MAY be retried THE service MUST be idempotent" has one obligation, not two. Strip a leading SOL
-// trigger up to the first uppercase `THE` so the condition's modal is not miscounted (R5-I02). Detected
-// by the UPPERCASE SOL keyword only, so a plain (lower/title-case) prose spec is left untouched.
-function response_clause(statement: string): string {
-    if (!SOL_TRIGGER.test(statement)) {
+// For C004's strength count on a SOL (`format: sol`) requirement, narrow to its RESPONSE clause
+// (`THE <actor> <STRENGTH> …`). In the SOL grammar the binding strength word lives in the response, NOT
+// in the trigger condition (`WHEN/IF/WHILE/WHERE …`), but a condition naturally carries a conditional
+// modal — "WHEN a request MAY be retried THE service MUST be idempotent" has one obligation, not two.
+// Strip a leading SOL trigger up to the first uppercase `THE` so the condition's modal is not miscounted
+// (R5-I02). Gated on `format: sol`, so a plain prose spec is untouched BY CONSTRUCTION (never by the
+// regex casing alone).
+function response_clause(statement: string, isSol: boolean): string {
+    if (!isSol || !SOL_TRIGGER.test(statement)) {
         return statement;
     }
     const response = SOL_RESPONSE.exec(statement);
@@ -220,8 +221,9 @@ export function check_verify_with(spec: ParsedSpec): Diagnostic[] {
 // --- C004 one-strength-word ----------------------------------------------------------------------
 export function check_one_strength_word(spec: ParsedSpec): Diagnostic[] {
     const diagnostics: Diagnostic[] = [];
+    const isSol = spec.frontmatter.format === 'sol';
     for (const requirement of spec.requirements) {
-        const count = count_strength_words(response_clause(statement_text(requirement.body)));
+        const count = count_strength_words(response_clause(statement_text(requirement.body), isSol));
         if (count !== 1) {
             // R5-I12: the message names the action, not just the count — builders praised the rule but had
             // to map the bare count to "split bundled behaviors" / "add the missing MUST" themselves.

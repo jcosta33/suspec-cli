@@ -532,27 +532,18 @@ describe('C004 one-strength-word', () => {
     });
 
     it('counts strength words only in the SOL RESPONSE clause, not the WHEN/IF trigger condition (R5-I02)', () => {
-        // A conditional modal in the trigger ("WHEN a request MAY be retried") is condition prose, not a
-        // second obligation — only the response clause's strength word binds. SOL is detected by the
-        // UPPERCASE trigger keyword, so plain (lower/title-case) specs are unaffected.
-        expect(
-            check_one_strength_word(
-                spec({ requirements: [req('AC-001', 'WHEN a request may be retried THE service MUST be idempotent')] })
-            )
-        ).toEqual([]);
+        const sol = (id: string, body: string) => spec({ frontmatter: { format: 'sol' }, requirements: [req(id, body)] });
+        // A conditional modal in the trigger ("WHEN a request may be retried") is condition prose, not a
+        // second obligation — only the response clause's strength word binds (for a format: sol spec).
+        expect(check_one_strength_word(sol('AC-001', 'WHEN a request may be retried THE service MUST be idempotent'))).toEqual([]);
         // a GENUINE bundle in the SOL response (two THE…MUST clauses) is still flagged
-        expect(
-            codes(
-                check_one_strength_word(
-                    spec({ requirements: [req('AC-002', 'THE service MUST log AND THE service MUST alert')] })
-                )
-            )
-        ).toEqual(['C004']);
+        expect(codes(check_one_strength_word(sol('AC-002', 'THE service MUST log AND THE service MUST alert')))).toEqual(['C004']);
         // a SOL trigger with NO response strength word still fails (zero in the response)
+        expect(codes(check_one_strength_word(sol('AC-003', 'WHEN x may happen THE service responds')))).toEqual(['C004']);
+        // the gate is by-construction: the SAME shape in a PLAIN (non-sol) spec is counted in full, so the
+        // trigger modal still flags — `response_clause` never narrows a non-sol spec.
         expect(
-            codes(
-                check_one_strength_word(spec({ requirements: [req('AC-003', 'WHEN x may happen THE service responds')] }))
-            )
+            codes(check_one_strength_word(spec({ requirements: [req('AC-004', 'WHEN a request may be retried THE service MUST be idempotent')] })))
         ).toEqual(['C004']);
     });
 });
