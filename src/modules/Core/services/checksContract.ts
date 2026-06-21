@@ -204,10 +204,16 @@ export function check_one_strength_word(spec: ParsedSpec): Diagnostic[] {
     for (const requirement of spec.requirements) {
         const count = count_strength_words(statement_text(requirement.body));
         if (count !== 1) {
+            // R5-I12: the message names the action, not just the count — builders praised the rule but had
+            // to map the bare count to "split bundled behaviors" / "add the missing MUST" themselves.
+            const remedy =
+                count > 1
+                    ? ' — split into one obligation per requirement'
+                    : ' — add the one strength word (MUST/SHOULD/…) this requirement binds on';
             diagnostics.push(
                 diagnostic(
                     'C004',
-                    `requirement ${requirement.id} states ${count} strength words (expected exactly one)`,
+                    `requirement ${requirement.id} states ${count} strength words (expected exactly one)${remedy}`,
                     requirement.line
                 )
             );
@@ -438,7 +444,9 @@ export function verify_binding_message(finding: VerifyBindingFinding): string {
         case 'duplicate':
             return `requirement ${finding.id} carries more than one verify block`;
         case 'free-form-only':
-            return `coverage row ${finding.id} is Pass with only a free-form Evidence cell (no verify block) — routed to human attention`;
+            // R5-I11: spell out that this is ADVISORY + how to silence it, so it doesn't read as "you
+            // reviewed wrong". A prose Evidence cell can't be machine-matched, so it routes to a human.
+            return `coverage row ${finding.id} is Pass with only a free-form Evidence cell (advisory — add a \`verify\` block to machine-confirm, or leave as-is to route to human attention)`;
     }
 }
 

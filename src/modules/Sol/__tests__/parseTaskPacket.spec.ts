@@ -190,6 +190,23 @@ scope: [AC-001]
         expect(none.claimedChangedFiles).toEqual([]);
     });
 
+    it('reads a SOFT-WRAPPED Changed files bullet across its continuation lines (R5-I01/R5-I05)', () => {
+        // A wrapped list dropped the paths on continuation lines, false-flagging them changed-not-claimed.
+        // The whole logical bullet is read; the following sub-bullet (`  - …`) correctly ends it.
+        const wrapped = parse_task_packet(`---
+scope: [AC-001]
+---
+## Run summary
+
+- Changed files: \`snippets.py\` (load-on-boot + write-through, in-memory path
+  preserved), \`test_snippets.py\` (new, 4 stdlib unittest cases),
+  \`.gitignore\` (ignore the runtime json).
+- Verify results (all PASS):
+  - AC-001 ok
+`);
+        expect(wrapped.claimedChangedFiles).toEqual(['.gitignore', 'snippets.py', 'test_snippets.py']);
+    });
+
     it('drops backticked non-path tokens — a commit sha or a symbol is not a claimed file (#44)', () => {
         const noisy = parse_task_packet(`---
 scope: [AC-001]

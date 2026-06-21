@@ -122,13 +122,25 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
             // "git init + commit first" onboarding step, leaving a co-located/brownfield adopter thinking
             // a 2-file pointer is the whole workspace. When footprint was auto-chosen, say so and show the
             // switch. (`--json` already carries `mode`, and an explicitly-forced layout needs no banner.)
-            render: (report) =>
-                report.mode === 'footprint' && !forcedLayout
-                    ? 'detected a non-empty directory → footprint layout: only the pointer files ' +
-                      '(.gitignore + AGENTS.md).\nFor the full workspace (specs/ tasks/ reviews/ templates/ …) ' +
-                      're-run with --workspace.\n' +
-                      format_init_report(report)
-                    : format_init_report(report),
+            render: (report) => {
+                const banner =
+                    report.mode === 'footprint' && !forcedLayout
+                        ? 'detected a non-empty directory → footprint layout: only the pointer files ' +
+                          '(.gitignore + AGENTS.md).\nFor the full workspace (specs/ tasks/ reviews/ templates/ …) ' +
+                          're-run with --workspace.\n'
+                        : '';
+                // R5-I07: the kit's full-workspace AGENTS.md ships with {{placeholders}}, so a fresh
+                // workspace fails its own `swarm check` (a warning) on minute one. Close init's own loop —
+                // name the next step so the first signal isn't an unexplained failure. (The fill step
+                // otherwise lives only in the kit README a setup-notes-only hire never opens.) Only the
+                // workspace layout writes the placeholder-bearing AGENTS.md; the footprint pointer has none.
+                const nextStep =
+                    report.mode === 'workspace'
+                        ? '\nnext: fill the {{placeholders}} in AGENTS.md before relying on the workspace ' +
+                          '(`swarm check` flags them as a warning until you do).'
+                        : '';
+                return banner + format_init_report(report) + nextStep;
+            },
         });
     } finally {
         cleanup();

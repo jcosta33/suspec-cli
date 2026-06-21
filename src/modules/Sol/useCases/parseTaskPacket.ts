@@ -163,14 +163,38 @@ function path_entries(lines: readonly string[]): string[] {
 // with a prose word, so backticked alone it reads as no-claim, and backticked alongside other paths it
 // is dropped from the claim set — which can still surface it as `inDiffNotClaimed` (a narrow residual
 // false positive for that one class). A line still carrying `{{placeholder}}` is template guidance, skipped.
+// A soft-wrapped continuation of the previous bullet: indented, non-blank, and NOT itself a new list
+// item (`- `/`* `/`+ `) or a heading — so `  preserved), \`test_snippets.py\`` continues the
+// `- Changed files:` bullet while `  - AC-001 …` (a sub-bullet) and `- Verify results` (a new bullet)
+// end it. Reading the whole logical bullet is what kills the changed-not-claimed false positive on
+// paths that wrapped onto a continuation line (R5-I01 / R5-I05).
+function is_soft_wrap_continuation(line: string): boolean {
+    if (line.trim().length === 0 || !/^\s/.test(line)) {
+        return false;
+    }
+    const afterIndent = line.replace(/^\s+/, '');
+    return !/^[-*+]\s/.test(afterIndent) && !afterIndent.startsWith('#');
+}
+
 function claimed_changed_files(lines: readonly string[]): string[] {
     const paths: string[] = [];
-    for (const line of lines) {
-        const match = CHANGED_FILES_LINE.exec(line);
-        if (match === null || line.includes('{{')) {
+    for (let index = 0; index < lines.length; index += 1) {
+        const match = CHANGED_FILES_LINE.exec(lines[index]);
+        if (match === null || lines[index].includes('{{')) {
             continue;
         }
-        const value = match[1];
+        // Gather the whole LOGICAL `Changed files:` bullet — the matched line plus any soft-wrapped
+        // continuation lines — before extracting path tokens, so a wrapped list does not drop the names
+        // on its continuation lines (which then false-flagged as changed-not-claimed, R5-I01/R5-I05).
+        let value = match[1];
+        let next = index + 1;
+        while (next < lines.length && is_soft_wrap_continuation(lines[next])) {
+            value += ` ${lines[next].trim()}`;
+            next += 1;
+        }
+        if (value.includes('{{')) {
+            continue;
+        }
         const backticked = [...value.matchAll(BACKTICK_TOKEN)].map((m) => m[1].trim());
         // Prefer the explicit backticked tokens; fall back to bare whitespace/comma-split tokens when a
         // line backticked none. Either way, keep only path-like tokens (so prose words and non-path
