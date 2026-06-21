@@ -108,3 +108,65 @@ export function visible_text(scanned: readonly ScannedLine[]): string {
         .map((line) => strip_inline_code(line.text))
         .join('\n');
 }
+
+// A logical markdown block — the structure model the field parsers were missing (they read physical
+// lines, so a soft-wrapped bullet or a label-then-list layout dropped its tail). A `list-item` or
+// `paragraph` FOLDS its soft-wrapped continuation lines (a CommonMark lazy continuation: a following
+// non-blank line that is not itself a list item, a heading, or fenced) into one logical `text`; a
+// blank line, a new list item, a heading, or a fence ends the block. Fenced content is excluded
+// entirely (verbatim example text, never structure). `text` keeps backticks intact (path/code tokens
+// live there); use `strip_inline_code` separately for prose scans.
+export type LogicalBlock = Readonly<{
+    kind: 'list-item' | 'heading' | 'paragraph';
+    indent: number; // leading spaces before the marker (list-item / heading) or the content (paragraph)
+    marker: string; // the list marker (`-`/`*`/`+`/`1.`) or the heading hashes (`##`); '' for a paragraph
+    text: string; // the logical content with soft-wrapped continuation lines folded in (joined by ' ')
+    startLine: number; // 0-based index of the block's first line in the input
+}>;
+
+const LIST_ITEM = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
+const BLOCK_HEADING = /^(\s*)(#{1,6})\s+(.*)$/;
+
+export function logical_blocks(lines: readonly string[]): LogicalBlock[] {
+    const scanned = scan_markdown(lines);
+    const blocks: LogicalBlock[] = [];
+    let open: { kind: 'list-item' | 'paragraph'; indent: number; marker: string; parts: string[]; startLine: number } | null = null;
+    const flush = (): void => {
+        if (open !== null) {
+            blocks.push({ kind: open.kind, indent: open.indent, marker: open.marker, text: open.parts.join(' ').trim(), startLine: open.startLine });
+            open = null;
+        }
+    };
+    for (let index = 0; index < lines.length; index += 1) {
+        if (scanned[index].inFence) {
+            flush();
+            continue;
+        }
+        const line = lines[index];
+        if (line.trim().length === 0) {
+            flush();
+            continue;
+        }
+        const item = LIST_ITEM.exec(line);
+        if (item !== null) {
+            flush();
+            open = { kind: 'list-item', indent: item[1].length, marker: item[2], parts: [item[3]], startLine: index };
+            continue;
+        }
+        const heading = BLOCK_HEADING.exec(line);
+        if (heading !== null) {
+            flush();
+            blocks.push({ kind: 'heading', indent: heading[1].length, marker: heading[2], text: heading[3].trim(), startLine: index });
+            continue;
+        }
+        // A non-blank, non-item, non-heading, non-fenced line: fold it into the open block (a lazy
+        // continuation), or start a fresh paragraph.
+        if (open !== null) {
+            open.parts.push(line.trim());
+        } else {
+            open = { kind: 'paragraph', indent: line.length - line.trimStart().length, marker: '', parts: [line.trim()], startLine: index };
+        }
+    }
+    flush();
+    return blocks;
+}

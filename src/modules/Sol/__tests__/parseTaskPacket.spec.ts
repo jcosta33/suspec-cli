@@ -170,6 +170,70 @@ scope: [AC-001]
         expect(bare.claimedChangedFiles).toEqual(['src/a.ts', 'src/b.ts']);
     });
 
+    it('reads a LABEL-then-bullet-list layout — `**Changed files:**` / `### Changed files` then a list (R5-I13)', () => {
+        // The old first-physical-line scanner dropped these to ZERO claims (the paths live on separate
+        // bullet lines under the label, not on the label line). The structure-aware harvest reads both.
+        const bold = parse_task_packet(`---
+scope: [AC-001]
+---
+## Run summary
+
+**Changed files:**
+
+- \`src/server.js\`
+- \`src/db.js\`
+`);
+        expect(bold.claimedChangedFiles).toEqual(['src/db.js', 'src/server.js']);
+
+        const heading = parse_task_packet(`---
+scope: [AC-001]
+---
+## Run summary
+
+### Changed files
+
+- \`src/a.ts\`
+- \`src/b.ts\`
+`);
+        expect(heading.claimedChangedFiles).toEqual(['src/a.ts', 'src/b.ts']);
+    });
+
+    it('a list-item Changed-files label owns only its OWN sub-bullets, never a sibling bullet\'s list', () => {
+        const packet = parse_task_packet(`---
+scope: [AC-001]
+---
+## Run summary
+
+- Changed files:
+  - \`src/a.ts\`
+  - \`src/b.ts\`
+- Verify results:
+  - \`should-not-leak.ts\` ran green
+`);
+        expect(packet.claimedChangedFiles).toEqual(['src/a.ts', 'src/b.ts']);
+    });
+
+    it('a fenced `## ` heading does not false-close a section; a fenced backticked path is not a protection/area', () => {
+        const packet = parse_task_packet(`---
+scope: [AC-001]
+---
+## Do not change
+
+- \`src/frozen.ts\`
+
+\`\`\`md
+- \`src/example-only.ts\`
+## Affected areas
+\`\`\`
+
+## Affected areas
+
+- \`src/real.ts\`
+`);
+        expect(packet.doNotChange).toEqual(['src/frozen.ts']); // the fenced example path is excluded
+        expect(packet.affectedAreas).toEqual(['src/real.ts']); // the section was not false-closed by the fenced H2
+    });
+
     it('a packet with an unfilled Run summary placeholder claims nothing', () => {
         const tmpl = parse_task_packet(`---
 scope: [AC-001]

@@ -13,6 +13,7 @@
 // that omitted the backticks still reconciles.
 
 import { isErr } from '../../../infra/errors/result.ts';
+import { logical_blocks, scan_markdown } from '../../../infra/markdownScan.ts';
 import { split_frontmatter } from '../services/frontmatter.ts';
 
 export type TaskPacket = Readonly<{
@@ -36,7 +37,6 @@ const RUN_SUMMARY_HEADING = /^##\s+Run summary\s*$/i;
 const AFFECTED_AREAS_HEADING = /^##\s+Affected areas\s*$/i;
 const DO_NOT_CHANGE_HEADING = /^##\s+Do not change\s*$/i;
 const ANY_H2 = /^##\s+/;
-const CHANGED_FILES_LINE = /changed files\s*:\s*(.*)$/i;
 const BACKTICK_TOKEN = /`([^`]+)`/g;
 // A bare path-like token (so prose words are skipped). Three shapes: a slash-separated path; a dotted
 // filename with one or more dots and an optional leading dot (`a.ts`, `vite.config.ts`,
@@ -102,9 +102,19 @@ function read_scope(source: string): string[] {
 // The body lines of the H2 section whose heading matches `heading` (until the next H2 or EOF).
 function section_lines(source: string, heading: RegExp): string[] {
     const lines = source.split(/\r\n|[\r\n]/);
+    const scanned = scan_markdown(lines);
     const out: string[] = [];
     let inSection = false;
-    for (const line of lines) {
+    for (let index = 0; index < lines.length; index += 1) {
+        const line = lines[index];
+        // A `## …` heading INSIDE a fenced code block is verbatim example text — it must neither open nor
+        // close a section (the structure-blind splitter previously false-closed a section on a fenced H2).
+        if (scanned[index].inFence) {
+            if (inSection) {
+                out.push(line);
+            }
+            continue;
+        }
         if (heading.test(line)) {
             inSection = true;
             continue;
@@ -134,9 +144,12 @@ function section_lines(source: string, heading: RegExp): string[] {
 // changed-file path, so it is harmless. The convention — keep the section to real protections — is a
 // template note, not a parser guess.
 function path_entries(lines: readonly string[]): string[] {
+    const scanned = scan_markdown(lines);
     const areas: string[] = [];
-    for (const line of lines) {
-        if (line.includes('{{')) {
+    for (let index = 0; index < lines.length; index += 1) {
+        const line = lines[index];
+        // A backticked path inside a fenced code example is verbatim, not a declared protection/area.
+        if (scanned[index].inFence || line.includes('{{')) {
             continue;
         }
         for (const match of line.matchAll(BACKTICK_TOKEN)) {
@@ -152,58 +165,57 @@ function path_entries(lines: readonly string[]): string[] {
     return [...new Set(areas)].sort();
 }
 
-// From the Run summary lines, the claimed changed-file paths. Read every `Changed files: …` line's
-// tokens — backtick-quoted by convention, with a bare-token fallback when a line carries none — and
-// keep only the **path-like** ones (swarm-hq #44). Path-validating both branches is the precision
-// fix: a backticked non-path token (a commit sha `0791385`, a function name `reconcile_self_report`,
-// a command) is no longer mistaken for a claimed file, so it cannot raise a spurious
-// `claimedNotInDiff`; and a prose Run summary with no path-like tokens yields no claims (the gate
-// then notes "no machine-checkable paths" once, rather than flooding `inDiffNotClaimed`). The residual
-// cost is the no-dot extensionless filename (`Makefile`, `LICENSE`, `Dockerfile`): it stays ambiguous
-// with a prose word, so backticked alone it reads as no-claim, and backticked alongside other paths it
-// is dropped from the claim set — which can still surface it as `inDiffNotClaimed` (a narrow residual
-// false positive for that one class). A line still carrying `{{placeholder}}` is template guidance, skipped.
-// A soft-wrapped continuation of the previous bullet: indented, non-blank, and NOT itself a new list
-// item (`- `/`* `/`+ `) or a heading — so `  preserved), \`test_snippets.py\`` continues the
-// `- Changed files:` bullet while `  - AC-001 …` (a sub-bullet) and `- Verify results` (a new bullet)
-// end it. Reading the whole logical bullet is what kills the changed-not-claimed false positive on
-// paths that wrapped onto a continuation line (R5-I01 / R5-I05).
-function is_soft_wrap_continuation(line: string): boolean {
-    if (line.trim().length === 0 || !/^\s/.test(line)) {
-        return false;
-    }
-    const afterIndent = line.replace(/^\s+/, '');
-    return !/^[-*+]\s/.test(afterIndent) && !afterIndent.startsWith('#');
+// The path-like tokens in one logical block's text — backtick-quoted by convention, with a bare-token
+// fallback when none are backticked — keeping only the **path-like** ones (swarm-hq #44). Path-validating
+// both branches is the precision fix: a backticked non-path token (a commit sha `0791385`, a function
+// name `reconcile_self_report`, a command) is not mistaken for a claimed file, so it cannot raise a
+// spurious `claimedNotInDiff`; and prose with no path-like tokens yields no claims. The residual cost is
+// the no-dot extensionless filename (`Makefile`, `LICENSE`): it stays ambiguous with a prose word.
+function harvest_path_tokens(text: string): string[] {
+    const backticked = [...text.matchAll(BACKTICK_TOKEN)].map((match) => match[1].trim());
+    const candidates = backticked.length > 0 ? backticked : text.split(/[\s,]+/);
+    return candidates.map((token) => token.trim()).filter((token) => token.length > 0 && PATH_LIKE.test(token));
 }
 
+// The `Changed files` LABEL of a Run-summary block — a list item / paragraph / heading whose text (after
+// optional `**bold**`/`_emphasis_` wrappers) begins with "Changed files". The captured remainder is the
+// inline path list (`Changed files: \`a\`, \`b\``), empty for the label-then-list layout.
+const CHANGED_FILES_LABEL = /^[*_\s]*changed files[*_\s]*:?[*_\s]*(.*)$/i;
+
+// From the Run summary lines, the claimed changed-file paths — read by STRUCTURE, not physical line,
+// via the shared `logical_blocks` scanner so all three layouts reconcile to the same set:
+//   - inline:  `- Changed files: \`a\`, \`b\``  (soft-wrapped continuation lines fold into the block — R5-I01/R5-I05)
+//   - label+list:  `**Changed files:**` / `### Changed files` then a `- \`a\`` bullet list  (R5-I13 — the
+//     case the old first-physical-line scanner dropped to zero claims)
+// A block still carrying `{{placeholder}}` is template guidance, skipped.
 function claimed_changed_files(lines: readonly string[]): string[] {
+    const blocks = logical_blocks(lines);
     const paths: string[] = [];
-    for (let index = 0; index < lines.length; index += 1) {
-        const match = CHANGED_FILES_LINE.exec(lines[index]);
-        if (match === null || lines[index].includes('{{')) {
+    for (let index = 0; index < blocks.length; index += 1) {
+        const block = blocks[index];
+        const label = CHANGED_FILES_LABEL.exec(block.text);
+        if (label === null || block.text.includes('{{')) {
             continue;
         }
-        // Gather the whole LOGICAL `Changed files:` bullet — the matched line plus any soft-wrapped
-        // continuation lines — before extracting path tokens, so a wrapped list does not drop the names
-        // on its continuation lines (which then false-flagged as changed-not-claimed, R5-I01/R5-I05).
-        let value = match[1];
-        let next = index + 1;
-        while (next < lines.length && is_soft_wrap_continuation(lines[next])) {
-            value += ` ${lines[next].trim()}`;
-            next += 1;
-        }
-        if (value.includes('{{')) {
+        const inline = label[1].trim();
+        if (inline.length > 0) {
+            // Inline form — the paths (and any folded soft-wrap continuations) are on the label block.
+            paths.push(...harvest_path_tokens(inline));
             continue;
         }
-        const backticked = [...value.matchAll(BACKTICK_TOKEN)].map((m) => m[1].trim());
-        // Prefer the explicit backticked tokens; fall back to bare whitespace/comma-split tokens when a
-        // line backticked none. Either way, keep only path-like tokens (so prose words and non-path
-        // backticked tokens are both dropped).
-        const candidates = backticked.length > 0 ? backticked : value.split(/[\s,]+/);
-        for (const token of candidates) {
-            const trimmed = token.trim();
-            if (trimmed.length > 0 && PATH_LIKE.test(trimmed)) {
-                paths.push(trimmed);
+        // Label-then-list form — the paths live in the FOLLOWING list items. Harvest the run of list-item
+        // blocks: stop at a non-list block (a heading / paragraph ends the list), or — when the label is
+        // itself a list item — at a sibling at the same-or-shallower indent (a different bullet's list).
+        for (let next = index + 1; next < blocks.length; next += 1) {
+            const item = blocks[next];
+            if (item.kind !== 'list-item') {
+                break;
+            }
+            if (block.kind === 'list-item' && item.indent <= block.indent) {
+                break;
+            }
+            if (!item.text.includes('{{')) {
+                paths.push(...harvest_path_tokens(item.text));
             }
         }
     }
