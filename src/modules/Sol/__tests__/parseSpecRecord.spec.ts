@@ -116,6 +116,22 @@ Verify with: a test.
         expect(record.nonGoalsBody).toBe('');
     });
 
+    it('parses SOL `REQ <ID>:` requirement openers + their VERIFY BY command for format: sol (R4-ISS-01)', () => {
+        // Without this a format: sol spec parsed to ZERO requirements, so swarm check returned a false
+        // "clean" on any broken SOL spec — the core checks (id/verify/coverage) never saw the requirements.
+        const source = `---\ntype: spec\nid: SPEC-led\nstatus: ready\nformat: sol\n---\n\n# Ledger\n\n## Requirements\n\nREQ AC-001:\nWHEN a client POSTs THE service MUST append\nVERIFY BY test:unit:cmdTest:lib#append\n\nREQ AC-002:\nWHEN a client GETs THE service MUST respond\nVERIFY BY test:unit:cmdTest:lib#read\n`;
+        const record = assertOk(parse_spec_record({ source, path: 'led.md' }));
+        expect(record.requirements.map((r) => r.id)).toEqual(['AC-001', 'AC-002']);
+        expect(record.requirements[0].verifyCommand).toBe('test:unit:cmdTest:lib#append');
+    });
+
+    it('does NOT treat `REQ <ID>:` as a requirement in a non-SOL (plain) spec', () => {
+        // The REQ opener is a SOL construct; a stray `REQ AC-001:` line in a plain spec must not parse.
+        const source = `---\ntype: spec\nid: X\nstatus: ready\n---\n\n## Requirements\n\nREQ AC-001:\nWHEN a thing THE service MUST do it\n`;
+        const record = assertOk(parse_spec_record({ source, path: 'x.md' }));
+        expect(record.requirements).toEqual([]);
+    });
+
     it('tolerates orphan list lines and blank lines in frontmatter, and absent scalars', () => {
         const source = `---\n  - orphan list line\n\nsources: [only.md]\n---\n\nbody\n`;
         const record = assertOk(parse_spec_record({ source, path: 'x.md' }));

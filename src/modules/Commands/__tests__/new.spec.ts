@@ -118,6 +118,22 @@ describe('new command (direct surface, AC-013)', () => {
         expect((await capture(() => run(['spec'], ws))).code).toBe(2);
     });
 
+    it('scaffolds a change plan; refuses to clobber on a repeat (R4-ISS-06)', async () => {
+        const first = await capture(() => run(['change-plan', 'db-migration', '--title', 'DB migration'], ws));
+        expect(first.code).toBe(0);
+        const plan = readFileSync(join(ws, 'change-plans', 'db-migration.md'), 'utf8');
+        expect(plan).toContain('id: CHANGE-db-migration');
+        expect(plan).toContain('## Behavioral preservation guarantees');
+        expect(plan).toContain('## Transformation waves');
+        expect((await capture(() => run(['change-plan', 'db-migration'], ws))).code).toBe(2);
+    });
+
+    it('change-plan with no slug → usage error', async () => {
+        const { code, err } = await capture(() => run(['change-plan'], ws));
+        expect(code).toBe(2);
+        expect(err).toContain('usage');
+    });
+
     it('an unknown type → exit 2', async () => {
         const { code, err } = await capture(() => run(['frobnicate'], ws));
         expect(code).toBe(2);

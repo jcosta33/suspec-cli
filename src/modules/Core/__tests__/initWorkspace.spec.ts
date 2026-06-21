@@ -186,6 +186,18 @@ describe('init_workspace — footprint mode', () => {
         expect(second.merged).toEqual([]);
         expect(second.level).toBe('clean');
     });
+
+    it('a workspace init over a prior footprint init upgrades the pointer AGENTS.md, backing up the stub (R4-ISS-08)', () => {
+        // Footprint first: AGENTS.md becomes the pointer stub (carries the swarm:start markers).
+        assertOk(run({ mode: 'footprint' }));
+        expect(readFileSync(join(target, 'AGENTS.md'), 'utf8')).toContain('<!-- swarm:start -->');
+        // Then upgrade to workspace: the stub must NOT be silently skipped — it is replaced by the full
+        // kit AGENTS.md and backed up, so the workspace gets its real bootloader and no user content is lost.
+        const report = assertOk(run({ mode: 'workspace' }));
+        expect(readFileSync(join(target, 'AGENTS.md'), 'utf8')).toBe('KIT WORKSPACE AGENTS\n');
+        expect(report.backedUp).toContain('AGENTS.md');
+        expect(existsSync(join(target, 'AGENTS.md.swarm-bak'))).toBe(true);
+    });
 });
 
 describe('init_workspace — kit without .gitignore.additions', () => {

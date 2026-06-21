@@ -68,11 +68,12 @@ export const COMMAND_CATALOG = [
     },
     {
         name: 'new',
-        description: 'Cut a task packet from a spec, or scaffold a new spec',
+        description: 'Cut a task packet from a spec, or scaffold a new spec / change plan',
         usage: [
-            'swarm new <task|spec>',
+            'swarm new <task|spec|change-plan>',
             '  task --from <SPEC-id> [--scope AC-001,AC-002] [--id <TASK-id>]   cut a task (scope never invented)',
             '  spec <slug>                                     scaffold a fresh draft spec',
+            '  change-plan <slug>                              scaffold a draft change plan (migrations/rewrites)',
             '  --id <TASK-id>                                  name a 2nd+ task from one spec (else TASK-<spec-slug>)',
             '  --json · -i                                     machine output · interactive flow',
         ],

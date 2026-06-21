@@ -4,7 +4,7 @@
 // second source of truth), writes nothing, and renders no verdict. One use-case dispatching on kind.
 
 import { existsSync, readFileSync } from 'fs';
-import { join, resolve, relative, isAbsolute } from 'path';
+import { join, resolve, relative, isAbsolute, basename } from 'path';
 
 import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
@@ -56,7 +56,28 @@ function resolve_spec_path(workspaceDir: string, ref: string): string | null {
 }
 
 export function show_artifact(input: ShowArtifactInput): Result<ShowResult, AppError> {
-    const { workspaceDir, kind, ref } = input;
+    const { workspaceDir } = input;
+    let kind = input.kind;
+    let ref = input.ref;
+
+    // R4-ISS-16: accept `swarm show <path>` (kind omitted), the way `swarm check <path>` does. When the
+    // first arg isn't a known kind but is a confined, existing .md file, infer the kind from its
+    // frontmatter `type:` so pointing show at a file path no longer dead-ends on "unknown show kind".
+    // A spec resolver takes the path directly; the task/review resolvers take a stem, so hand them the
+    // basename without `.md`.
+    if (ref === undefined && /\.(md|markdown)$/i.test(kind) && is_confined(workspaceDir, kind)) {
+        const filePath = join(workspaceDir, kind);
+        if (existsSync(filePath)) {
+            const type = frontmatter_value(readFileSync(filePath, 'utf8'), 'type');
+            if (type === 'spec') {
+                ref = kind;
+                kind = 'spec';
+            } else if (type === 'task' || type === 'review') {
+                ref = basename(filePath).replace(/\.(md|markdown)$/i, '');
+                kind = type;
+            }
+        }
+    }
 
     if (kind === 'checks') {
         // swarm-cli's own enforced contract (drift-guarded against canon's checks.yaml) — not a file read.
@@ -138,5 +159,9 @@ export function show_artifact(input: ShowArtifactInput): Result<ShowResult, AppE
         return ok({ level: 'clean', kind: 'review', value: parse_review_packet(readFileSync(path, 'utf8')) });
     }
 
-    return err(usage_error(`unknown show kind: ${kind} (expected task | spec | review | checks)`));
+    return err(
+        usage_error(
+            `unknown show kind: ${kind} (expected task | spec | review | checks — or a file path, e.g. \`swarm show specs/foo/spec.md\`)`
+        )
+    );
 }

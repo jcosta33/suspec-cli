@@ -198,6 +198,14 @@ describe('normalize_cmd (ADR-0083 / swarm-hq #16)', () => {
     it('keeps genuinely different commands distinct', () => {
         expect(normalize_cmd('`npm test -- a`')).not.toBe(normalize_cmd('`npm test -- b`'));
     });
+    it('strips a trailing em/en-dash note clause but never an ASCII `--` flag (R4-ISS-11)', () => {
+        // The em-dash note form (`cmd` — note) must reduce to the same bare command as the parenthetical
+        // form, so switching note delimiters does not flip every coverage row to a C013 cmd-mismatch...
+        expect(normalize_cmd(`\`${bare}\` — the refresh path`)).toBe(bare);
+        expect(normalize_cmd(`\`${bare}\` – en-dash note`)).toBe(bare);
+        // ...while a real `--` flag (ASCII double hyphen) is NEVER treated as a note and is preserved.
+        expect(normalize_cmd('`npm test -- auth-refresh.spec.ts`')).toBe(bare);
+    });
 });
 
 describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {

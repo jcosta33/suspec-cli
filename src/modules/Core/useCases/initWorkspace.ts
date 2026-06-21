@@ -242,6 +242,19 @@ function copy_plain(input: InitWorkspaceInput, rel: string, buckets: PlainBucket
         return; // identical — idempotent no-op
     }
 
+    // R4-ISS-08: a workspace init run over a PRIOR FOOTPRINT init finds a footprint-pointer AGENTS.md
+    // (the small stub carrying the `swarm:start` markers — the full workspace AGENTS.md never has them).
+    // The default skip would preserve that pointer, leaving a footprint bootloader inside a workspace
+    // layout (the Project facts + Commands table that tasks resolve Verify commands against are missing).
+    // The pointer is kit scaffolding being upgraded, not the user's own file, so replace it with the full
+    // workspace AGENTS.md regardless of policy — backing the stub up so nothing the user added is lost.
+    if (rel === 'AGENTS.md' && readFileSync(dst, 'utf8').includes(AGENTS_START)) {
+        renameSync(dst, free_backup_path(dst));
+        copyFileSync(src, dst);
+        buckets.backedUp.push(rel);
+        return;
+    }
+
     // A genuine conflict: the user already has a different file here.
     if (input.policy === 'overwrite') {
         copyFileSync(src, dst);

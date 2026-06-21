@@ -143,6 +143,19 @@ describe('reconcile_review — coverage (AC-019)', () => {
         expect(report.scopeDivergence).toEqual(['AC-009']);
     });
 
+    it('a plan-local PG-NNN guarantee id in scope is NOT flagged as uncovered or scope≠spec (R4-ISS-02/05)', () => {
+        // A migration task scopes its change plan's PG-NNN guarantees alongside the spec ACs. PG ids are
+        // plan-local (C010), not spec requirements, so the spec-keyed checks must skip them — otherwise
+        // every migration false-fires "uncovered PG-001" + "scope≠spec PG-001". The AC still reconciles.
+        const report = ok({
+            taskPacketSource: taskSource(['AC-001', 'PG-001'], ['src'], ['src/a.ts']),
+            specSource: specSource('ready', ['AC-001']),
+            reviewPacketSource: reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p' }] }),
+        });
+        expect(report.scopeDivergence).toEqual([]); // PG-001 is not a spec gap
+        expect(report.coverage).toEqual([]); // PG-001 is not "uncovered" against the spec; AC-001 has a row
+    });
+
     it('a draft source spec produces neither a coverage finding nor a divergence (the scope guard)', () => {
         const report = ok({
             taskPacketSource: taskSource(['AC-001', 'AC-002'], ['src'], []),

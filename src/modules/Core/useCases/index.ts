@@ -51,5 +51,6 @@ export { check_update, type UpdateCheckReport, type CheckUpdateInput } from './c
 export { init_workspace } from './initWorkspace.ts';
 export { cut_packet } from './cutPacket.ts';
 export { scaffold_spec } from './scaffoldSpec.ts';
+export { scaffold_change_plan } from './scaffoldChangePlan.ts';
 export { pull_intake, type PullIntakeInput, type PullIntakeReport, type GhFetcher } from './pullIntake.ts';
 export { scaffold_finding, type ScaffoldFindingInput, type ScaffoldFindingReport } from './scaffoldFinding.ts';

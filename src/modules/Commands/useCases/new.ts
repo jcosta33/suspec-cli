@@ -5,7 +5,14 @@
 //   swarm new spec <slug> [--title <t>] [--owner <o>]          scaffold a fresh draft spec
 //   swarm new                                                  the interactive flow (TTY)
 
-import { project, emit_error, usage_error, cut_packet, scaffold_spec } from '../../Core/useCases/index.ts';
+import {
+    project,
+    emit_error,
+    usage_error,
+    cut_packet,
+    scaffold_spec,
+    scaffold_change_plan,
+} from '../../Core/useCases/index.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import { run_new_flow, create_clack_prompter } from '../../Tui/useCases/index.ts';
 
@@ -56,7 +63,14 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         return project({
             result: cut_packet({ workspaceDir: cwd, specId: fromFlag, scope, taskId }),
             json,
-            render: (report) => `cut ${report.taskId} (${String(report.scope.length)} scoped)\n  ${report.path}`,
+            render: (report) => {
+                const head = `cut ${report.taskId} (${String(report.scope.length)} scoped)\n  ${report.path}`;
+                // R4-ISS-09: an empty scope cuts an UNBOUNDED task — easy to skim past a terse "(0 scoped)".
+                // Say so loudly so a new hire doesn't ship a task with no requirement ids bounding it.
+                return report.scope.length === 0
+                    ? `${head}\n  note: no --scope given — this task's scope is EMPTY (unbounded). Pass --scope AC-001,… or fill the Scope section before working.`
+                    : head;
+            },
         });
     }
 
@@ -79,11 +93,32 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         });
     }
 
+    if (type === 'change-plan') {
+        const slug = positional[1];
+        if (slug === undefined) {
+            return emit_error(usage_error('usage: swarm new change-plan <slug> [--title <t>] [--owner <o>]'), json);
+        }
+        const titleFlag = flags.get('title');
+        const ownerFlag = flags.get('owner');
+        return project({
+            result: scaffold_change_plan({
+                workspaceDir: cwd,
+                slug,
+                title: typeof titleFlag === 'string' ? titleFlag : undefined,
+                owner: typeof ownerFlag === 'string' ? ownerFlag : undefined,
+            }),
+            json,
+            render: (report) => `scaffolded ${report.changePlanId}\n  ${report.path}`,
+        });
+    }
+
     if (type === undefined) {
         return emit_error(
-            usage_error('usage: swarm new <task|spec> — `new task --from <SPEC-id> [--scope …]` or `new spec <slug>`'),
+            usage_error(
+                'usage: swarm new <task|spec|change-plan> — `new task --from <SPEC-id> [--scope …]`, `new spec <slug>`, or `new change-plan <slug>`'
+            ),
             json
         );
     }
-    return emit_error(usage_error(`unknown new type: ${type} — use task | spec`), json);
+    return emit_error(usage_error(`unknown new type: ${type} — use task | spec | change-plan`), json);
 }

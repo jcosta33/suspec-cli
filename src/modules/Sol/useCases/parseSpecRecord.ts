@@ -60,6 +60,12 @@ export type ParseSpecRecordResult = Result<
 >;
 
 const REQUIREMENT_HEADING = /^###\s+([A-Z][A-Z0-9]*-\d+)\b/;
+// A SOL (`format: sol`) requirement opens with `REQ <ID>:` instead of a `### <ID>` markdown heading.
+// Recognized only for `format: sol` specs so the CORE checks (C001 id-unique, C003 verify-present, C007
+// no-TBD, C012 coverage) run on them — without it a SOL spec parses to zero requirements and `swarm check`
+// returns a false "clean" on any broken SOL spec (R4-ISS-01). The SOL-specific structural codes
+// (SOL-S/P/M/V/O) are a larger grammar still to be implemented; this lifts the core contract onto SOL.
+const SOL_REQUIREMENT_OPENER = /^REQ\s+([A-Z][A-Z0-9]*-\d+)\s*:/;
 const SECTION_HEADING = /^##\s+(.+?)\s*$/;
 const MARKDOWN_LINK = /\]\(([^)\s#]+)/g;
 const WIKI_LINK = /\[\[([^\]]+)\]\]/g;
@@ -186,6 +192,7 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
     let nonGoalsBody = '';
     let openQuestionsPresent = false;
 
+    const isSol = frontmatter.format === 'sol';
     let current_requirement: { id: string; line: number; bodyLines: string[] } | null = null;
     let in_non_goals = false;
 
@@ -220,6 +227,19 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
             in_non_goals = false;
             current_requirement = { id: requirement_match[1], line: source_line, bodyLines: [] };
             continue;
+        }
+
+        // SOL requirement opener (`REQ <ID>:`) — only for `format: sol`, so a stray `REQ` in a plain spec
+        // is never misread. The body lines that follow (WHEN/THE/MUST/VERIFY BY/…) collect normally, so
+        // `extract_verify_command` lifts the `VERIFY BY` line for C003 just as it does for a plain spec.
+        if (isSol) {
+            const sol_match = SOL_REQUIREMENT_OPENER.exec(line);
+            if (sol_match !== null) {
+                flush_requirement();
+                in_non_goals = false;
+                current_requirement = { id: sol_match[1], line: source_line, bodyLines: [] };
+                continue;
+            }
         }
 
         const section_match = SECTION_HEADING.exec(line);

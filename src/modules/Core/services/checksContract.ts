@@ -409,16 +409,19 @@ export type VerifyBindingFinding = Readonly<{
 }>;
 
 // Normalize a Verify command for the closed-value comparison (ADR-0083: exact after normalization).
-// Collapse whitespace, then strip a trailing `(parenthetical)` note and surrounding backticks — the
-// canon's own `Verify with:` format wraps the command in backticks and may carry a trailing note
-// (docs/04, the examples), while the review block records it bare; both sides MUST normalize identically
-// or a conformant block false-fires a cmd-mismatch (swarm-hq #16). Trailing-paren is stripped before the
-// backticks so the documented ``cmd`` (note) form reduces cleanly to the bare command.
+// Collapse whitespace, then strip a trailing note (a `(parenthetical)` OR an em/en-dash clause) and
+// surrounding backticks — the canon's own `Verify with:` format wraps the command in backticks and may
+// carry a trailing note (docs/04, the examples), while the review block records it bare; both sides MUST
+// normalize identically or a conformant block false-fires a cmd-mismatch (swarm-hq #16). The note is
+// stripped before the backticks so the documented ``cmd`` (note) / ``cmd`` — note forms reduce cleanly to
+// the bare command. The dash form keys on an EM/EN dash (—/–), never the ASCII hyphen, so a real flag
+// like `npm test -- a.spec.ts` is never truncated (R4-ISS-11).
 export function normalize_cmd(value: string): string {
     return value
         .trim()
         .replace(/\s+/g, ' ')
         .replace(/\s*\([^()]*\)\s*$/, '')
+        .replace(/\s+[—–]\s.*$/, '')
         .replace(/^`+/, '')
         .replace(/`+$/, '')
         .trim();

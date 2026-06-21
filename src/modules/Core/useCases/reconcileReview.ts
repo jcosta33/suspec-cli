@@ -121,9 +121,16 @@ export function reconcile_review(input: ReconcileReviewInput): Result<ReviewRepo
     const reviewPacket = input.reviewPacketSource !== null ? parse_review_packet(input.reviewPacketSource) : null;
     const coverageRowIds = reviewPacket !== null ? reviewPacket.coverageRows.map((row) => row.id) : [];
 
+    // A migration task scopes its change plan's plan-local guarantee ids (`PG-NNN`, the form C010 assigns
+    // to a preserved behavior with no spec id) alongside the spec ACs. Those are NOT spec requirements, so
+    // the SPEC-keyed checks below (C012 coverage + scope↔spec divergence) must not flag them — doing so
+    // false-fired "uncovered" + "scope≠spec" on every migration (R4-ISS-02 / R4-ISS-05). The change plan's
+    // own checks (C010) verify the guarantees; the task review only owns the spec-requirement coverage.
+    const specKeyedScope = packet.scope.filter((id) => !/^PG-\d+$/.test(id));
+
     const coverage: CoverageFinding[] = coverage_facts({
         sourceSpecStatus: spec.frontmatter.status,
-        inScopeIds: packet.scope,
+        inScopeIds: specKeyedScope,
         specRequirementIds,
         coverageRowIds,
     }).map((finding) => ({ ...finding, message: coverage_message(finding) }));
@@ -166,7 +173,7 @@ export function reconcile_review(input: ReconcileReviewInput): Result<ReviewRepo
         // Draft-guarded like coverage (ADR-0079): a draft spec's ids are work-in-progress, so a
         // scope-vs-spec id mismatch is not yet a finalized divergence to surface.
         scopeDivergence:
-            spec.frontmatter.status === 'draft' ? [] : scope_divergence(packet.scope, specRequirementIds),
+            spec.frontmatter.status === 'draft' ? [] : scope_divergence(specKeyedScope, specRequirementIds),
         selfReport,
         doNotChangeTouched,
         emptyEvidencePassRows,

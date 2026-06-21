@@ -84,6 +84,22 @@ beforeEach(() => {
 afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
 describe('show_artifact', () => {
+    it('accepts a file PATH with the kind omitted, inferring the kind from frontmatter type (R4-ISS-16)', () => {
+        // `swarm show specs/feat/spec.md` (no `spec` kind) must work like `swarm check <path>`.
+        const spec = show_artifact({ workspaceDir: ws, kind: 'specs/feat/spec.md' });
+        expect(isErr(spec)).toBe(false);
+        if (!isErr(spec)) {
+            expect(spec.value.kind).toBe('spec');
+            expect((spec.value.value as { requirements: unknown[] }).requirements).toHaveLength(1);
+        }
+        // ...and a task path infers the task kind (resolved via its basename stem).
+        const task = show_artifact({ workspaceDir: ws, kind: 'tasks/feat.md' });
+        expect(isErr(task)).toBe(false);
+        if (!isErr(task)) {
+            expect(task.value.kind).toBe('task');
+        }
+    });
+
     it('checks — emits the contract version + the core checks (no file read)', () => {
         const r = show_artifact({ workspaceDir: ws, kind: 'checks' });
         expect(isErr(r)).toBe(false);
