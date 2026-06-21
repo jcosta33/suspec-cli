@@ -7,7 +7,6 @@
 // Direct output + exit codes flow through the shared unixOutcome contract (AC-001).
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
 
 import {
     check_spec,
@@ -16,6 +15,8 @@ import {
     check_change_plan,
     build_spec_ref_resolver,
     build_anchor_resolver,
+    build_source_exists,
+    infer_workspace_root,
     find_workspace_spec_files,
     find_sibling_spec_files,
     project,
@@ -82,7 +83,9 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
                 render: format_check_report,
             });
         }
-        const exists = (ref: string) => existsSync(resolve(dirname(file), ref));
+        // C009 resolves a source ref relative to the spec dir OR the workspace root (so a root-level
+        // `intake/x.md` sourced from `specs/<feature>/spec.md` resolves, not only a co-located ref).
+        const exists = build_source_exists(file, infer_workspace_root(file, cwd));
         // The C015 resolver: built from the spec's named sources.md (read here, so the engine stays
         // pure); admits every key when no sources.md is resolvable — the ADR-0087 no-false-flag rule.
         const anchor_resolves = build_anchor_resolver(source, file);

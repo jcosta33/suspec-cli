@@ -6,7 +6,7 @@
 // writes nothing.
 
 import { readdirSync, existsSync, readFileSync } from 'fs';
-import { join, dirname, resolve } from 'path';
+import { join } from 'path';
 
 import { ok, isOk, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
@@ -15,6 +15,7 @@ import { run_spec_checks, verdict_for, type Diagnostic } from '../services/check
 import { check_change_plan } from './checkChangePlan.ts';
 import { build_spec_ref_resolver } from './resolveSpecRef.ts';
 import { build_anchor_resolver } from './buildAnchorResolver.ts';
+import { build_source_exists } from './resolveSourcePath.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
 export type WorkspaceFinding = Readonly<{
@@ -128,7 +129,9 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
             continue;
         }
         const record = parsed.value;
-        const exists = (ref: string) => existsSync(resolve(dirname(specPath), ref));
+        // C009 resolves a source ref relative to the spec dir OR the workspace root (`intake/x.md` at the
+        // workspace root, sourced from `specs/<feature>/spec.md`, must resolve — not only a co-located ref).
+        const exists = build_source_exists(specPath, input.workspaceDir);
         // The C015 resolver, built from this spec's named sources.md (admit-all when none resolvable).
         const anchor_resolves = build_anchor_resolver(specSource, specPath);
         const diagnostics = run_spec_checks({ spec: record, exists, anchor_resolves });

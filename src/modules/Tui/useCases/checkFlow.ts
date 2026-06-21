@@ -3,9 +3,9 @@
 // the Core engines, so it is testable with a mock Prompter (no terminal).
 
 import { readdirSync, existsSync, readFileSync } from 'fs';
-import { join, resolve, dirname } from 'path';
+import { join } from 'path';
 
-import { check_spec, check_workspace, exit_code_for } from '../../Core/useCases/index.ts';
+import { check_spec, check_workspace, exit_code_for, build_source_exists } from '../../Core/useCases/index.ts';
 import { isOk } from '../../../infra/errors/result.ts';
 import { type Prompter, is_cancelled } from './prompter.ts';
 import { format_check_report, format_workspace_report } from '../services/render.ts';
@@ -40,7 +40,9 @@ async function check_one(prompter: Prompter, workspaceDir: string): Promise<numb
     }
     const spin = prompter.spinner();
     spin.start('Running C001–C009…');
-    const exists = (ref: string) => existsSync(resolve(dirname(file), ref));
+    // C009 resolves a source ref relative to the spec dir OR the workspace root (so a root-level
+    // `intake/x.md` sourced from `specs/<feature>/spec.md` resolves, not only a co-located ref).
+    const exists = build_source_exists(file, workspaceDir);
     const result = check_spec({ source: readFileSync(file, 'utf8'), path: file, exists });
     spin.stop('Checked.');
     if (!isOk(result)) {

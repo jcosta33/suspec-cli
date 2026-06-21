@@ -179,6 +179,23 @@ describe('check_workspace', () => {
         expect(refs?.diagnostics.filter((d) => d.code === 'C009')).toHaveLength(1);
     });
 
+    it('resolves a ROOT-relative source too — `intake/x.md` at the workspace root from specs/<f>/spec.md (C009)', () => {
+        // The doc-recommended layout sources a root-level intake; it must resolve from the workspace root,
+        // not only the spec dir (the false negative that forced the undocumented `../../intake/x.md`).
+        writeSpec('pulled', CONFORMANT.replace('  - ADR-0077', '  - intake/sup-204.md'));
+        mkdirSync(join(ws, 'intake'), { recursive: true });
+        writeFileSync(join(ws, 'intake', 'sup-204.md'), 'ticket\n');
+        withTemplates();
+        const report = assertOk(check_workspace({ workspaceDir: ws }));
+        const pulled = report.specs.find((s) => s.path.includes('/pulled/'));
+        expect(pulled?.diagnostics.filter((d) => d.code === 'C009')).toHaveLength(0); // resolved at the root
+        // ...and a genuinely-missing root ref still fails.
+        writeSpec('broke', CONFORMANT.replace('  - ADR-0077', '  - intake/nope.md'));
+        const report2 = assertOk(check_workspace({ workspaceDir: ws }));
+        const broke = report2.specs.find((s) => s.path.includes('/broke/'));
+        expect(broke?.diagnostics.filter((d) => d.code === 'C009')).toHaveLength(1);
+    });
+
     it('an empty workspace (no specs) is clean', () => {
         withTemplates();
         const report = assertOk(check_workspace({ workspaceDir: ws }));

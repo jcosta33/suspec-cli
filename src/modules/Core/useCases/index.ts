@@ -18,6 +18,7 @@ export { check_review_file } from './checkReviewFile.ts';
 export { check_change_plan } from './checkChangePlan.ts';
 export { build_spec_ref_resolver } from './resolveSpecRef.ts';
 export { build_anchor_resolver } from './buildAnchorResolver.ts';
+export { build_source_exists, infer_workspace_root } from './resolveSourcePath.ts';
 export { find_workspace_spec_files, find_sibling_spec_files } from './findSpecFiles.ts';
 
 // launch engine — worktrees, no agent (AC-009/010); run launch resolution (SPEC-swarm-cli-run)
