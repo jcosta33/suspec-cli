@@ -112,5 +112,28 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         });
     }
 
-    return project({ result: reconcile_review(resolved.value), json, render: format_review_report });
+    const reviewInput = resolved.value;
+    return project({
+        result: reconcile_review(reviewInput),
+        json,
+        render: (report) => {
+            const notes: string[] = [];
+            // R5-I06: name where the self-report packet was read from, so a worker who edited a different
+            // copy (e.g. on `main` instead of in the worktree) sees why the reconcile looks the way it does.
+            if (reviewInput.packetRef !== undefined) {
+                notes.push(`reconciled the task packet from ${reviewInput.packetRef}`);
+            }
+            // R5-I04: an empty diff usually means the branch is already MERGED into the base (every claim
+            // then reads claimed-not-changed), or nothing changed — point at the pre-merge review / a base.
+            if (reviewInput.diffChangedFiles.length === 0) {
+                const base = reviewInput.base ?? 'the base';
+                notes.push(
+                    `note: 0 changed files vs ${base} — if this branch is already merged into ${base} its diff is empty; ` +
+                        `review the branch BEFORE merging, or pass \`--base <the branch's fork point>\`.`
+                );
+            }
+            const prefix = notes.length > 0 ? `${notes.join('\n')}\n\n` : '';
+            return prefix + format_review_report(report);
+        },
+    });
 }

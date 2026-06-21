@@ -93,6 +93,18 @@ describe('new command (direct surface, AC-013)', () => {
         expect(existsSync(join(ws, 'tasks', 'TASK-.md'))).toBe(false);
     });
 
+    it('--force re-cuts over an existing task packet — the empty-scope-stub recovery (R5-I08)', async () => {
+        // First cut with no --scope writes an unbounded stub; re-cutting with --scope is no-clobber...
+        expect((await capture(() => run(['task', '--from', 'SPEC-x'], ws))).code).toBe(0);
+        const collide = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-001'], ws));
+        expect(collide.code).toBe(2);
+        expect(collide.err).toContain('--force');
+        // ...until --force replaces it with the now-scoped packet.
+        const forced = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-001', '--force'], ws));
+        expect(forced.code).toBe(0);
+        expect(readFileSync(join(ws, 'tasks', 'TASK-x.md'), 'utf8')).toContain('scope: [AC-001]');
+    });
+
     it('task with no --from → usage error', async () => {
         const { code, err } = await capture(() => run(['task'], ws));
         expect(code).toBe(2);

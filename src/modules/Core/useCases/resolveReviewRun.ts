@@ -87,10 +87,8 @@ export function resolve_review_run(input: ResolveReviewRunInput): Result<Reconci
     // keep the workspace copy (split-repo, where the worktree is code-only and has no tasks/).
     const relTaskPath = relative(input.workspaceDir, task.path);
     const worktreePacketPath = join(worktree.path, relTaskPath);
-    const reviewedPacketSource =
-        worktreePacketPath !== task.path && existsSync(worktreePacketPath)
-            ? readFileSync(worktreePacketPath, 'utf8')
-            : taskPacketSource;
+    const readFromWorktree = worktreePacketPath !== task.path && existsSync(worktreePacketPath);
+    const reviewedPacketSource = readFromWorktree ? readFileSync(worktreePacketPath, 'utf8') : taskPacketSource;
 
     // Resolve the spec the reconcile checks against from the SAME (reviewed) packet whose scope + claims
     // it reads, so spec and scope are never lifted from two different copies of the packet. The worktree
@@ -124,5 +122,10 @@ export function resolve_review_run(input: ResolveReviewRunInput): Result<Reconci
         // demanding opposite forms in the same field.
         reviewPacketSource: find_review_packet(input.workspaceDir, task.id),
         diffChangedFiles,
+        // Context the command surfaces (the reconcile engine ignores these). packetRef names WHERE the
+        // self-report was read from (R5-I06 — the worktree branch under review, or the workspace checkout
+        // in a split-repo layout), so a worker who edited the wrong copy sees why the reconcile differs.
+        base,
+        packetRef: readFromWorktree && worktree.branch !== null ? `the worktree branch ${worktree.branch}` : 'this workspace checkout',
     });
 }

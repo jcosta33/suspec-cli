@@ -18,6 +18,9 @@ export type CutPacketInput = Readonly<{
     specId: string;
     scope: readonly string[];
     taskId?: string;
+    // Overwrite an existing packet (R5-I08) — a common case is re-cutting with `--scope` after a first
+    // `swarm new task` (no scope) wrote an unbounded stub that no-clobber then refused to replace.
+    force?: boolean;
 }>;
 
 export type CutPacketReport = Readonly<{
@@ -148,8 +151,12 @@ export function cut_packet(input: CutPacketInput): Result<CutPacketReport, AppEr
         return err(usage_error(`invalid task id: "${taskId}" — letters, digits, '.', '_', '-' only (no '/' or '..')`));
     }
     const taskPath = join(input.workspaceDir, 'tasks', `${taskId}.md`);
-    if (existsSync(taskPath)) {
-        return err(createAppError('TaskExists', `a task packet already exists: tasks/${taskId}.md`, { taskId }));
+    if (existsSync(taskPath) && input.force !== true) {
+        return err(
+            createAppError('TaskExists', `a task packet already exists: tasks/${taskId}.md (re-cut with --force to replace it)`, {
+                taskId,
+            })
+        );
     }
 
     const verify = scope.map((id) => ({

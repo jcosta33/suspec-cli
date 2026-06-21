@@ -180,6 +180,17 @@ describe('review command — finished-run reconcile (AC-017/024)', () => {
         expect(code).toBe(1);
         expect(out).toContain('review TASK-feat');
         expect(out).toContain('uncovered'); // AC-002
+        // R5-I06: the human output names WHERE the self-report packet was read from (the worktree branch).
+        expect(out).toContain('reconciled the task packet from the worktree branch swarm/feat/feat');
+    });
+
+    it('hints when the diff is empty — the merged-branch zero-diff trap (R5-I04)', async () => {
+        // A clean worktree reviewed against its OWN tip has nothing in the diff (the merged-branch shape):
+        // every claim would read claimed-not-changed, so the command points at pre-merge review / a base.
+        buildRun({ reviewRows: '| AC-001 | Pass | pasted | no |', dirtyWorktree: false });
+        const { out } = await capture(() => run(['TASK-feat', '--base', 'swarm/feat/feat'], repo));
+        expect(out).toContain('0 changed files');
+        expect(out).toContain('already merged');
     });
 
     it('--json emits a machine report that parses and carries the reconcile facts', async () => {

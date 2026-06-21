@@ -41,6 +41,11 @@ export type ReconcileReviewInput = Readonly<{
     reviewPacketSource: string | null;
     // The worktree's net change against its base branch (committed + uncommitted), name-only.
     diffChangedFiles: readonly string[];
+    // Context the COMMAND surfaces; the reconcile engine ignores both. `base` is the diff base used, and
+    // `packetRef` names where the self-report packet was read from (R5-I06). Optional so the pure-fixture
+    // reconcile tests need not set them.
+    base?: string;
+    packetRef?: string;
 }>;
 
 // A coverage finding: an in-scope id with no row (uncovered) or a row naming an id absent from the

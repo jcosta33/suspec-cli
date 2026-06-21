@@ -75,6 +75,7 @@ export const COMMAND_CATALOG = [
             '  spec <slug>                                     scaffold a fresh draft spec',
             '  change-plan <slug>                              scaffold a draft change plan (migrations/rewrites)',
             '  --id <TASK-id>                                  name a 2nd+ task from one spec (else TASK-<spec-slug>)',
+            '  --force                                         re-cut over an existing task packet (e.g. to add --scope)',
             '  --json · -i                                     machine output · interactive flow',
         ],
     },

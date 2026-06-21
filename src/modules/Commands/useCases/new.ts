@@ -18,7 +18,7 @@ import { run_new_flow, create_clack_prompter } from '../../Tui/useCases/index.ts
 
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
     const { positional, flags } = parse_flags(argv, {
-        booleans: ['--json', '-i', '--interactive'],
+        booleans: ['--json', '-i', '--interactive', '--force'],
         strings: ['--from', '--scope', '--title', '--owner', '--id'],
     });
     const json = flags.get('json') === true;
@@ -61,7 +61,7 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
             taskId = `TASK-${slug}`;
         }
         return project({
-            result: cut_packet({ workspaceDir: cwd, specId: fromFlag, scope, taskId }),
+            result: cut_packet({ workspaceDir: cwd, specId: fromFlag, scope, taskId, force: flags.get('force') === true }),
             json,
             render: (report) => {
                 const head = `cut ${report.taskId} (${String(report.scope.length)} scoped)\n  ${report.path}`;
