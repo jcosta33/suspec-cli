@@ -57,10 +57,18 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         // The slug becomes a `.worktrees/<slug>` directory name — it must be a single safe segment so it
         // cannot escape (`../…`) or nest (`a/b/c`), the same guard scaffold/cut use (swarm-hq #22).
         if (!is_safe_segment(slug)) {
-            return emit_error(usage_error(`invalid slug: "${slug}" — expected a single path-safe segment (no "/", "..", or leading "-")`), json);
+            return emit_error(
+                usage_error(
+                    `invalid slug: "${slug}" — expected a single path-safe segment (no "/", "..", or leading "-")`
+                ),
+                json
+            );
         }
         if (taskSlug !== undefined && !is_safe_segment(taskSlug)) {
-            return emit_error(usage_error(`invalid --task value: "${taskSlug}" — expected a single path-safe segment`), json);
+            return emit_error(
+                usage_error(`invalid --task value: "${taskSlug}" — expected a single path-safe segment`),
+                json
+            );
         }
         // SW-005: tie --task to a REAL cut task so the worktree branch tail matches what `swarm review`
         // and `swarm run` later look up. The worker naturally passes a capability name (`create-list`)
@@ -116,8 +124,14 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
             result: create_worktree({ repoRoot, specSlug: slug, taskSlug: effectiveTaskSlug, baseBranch }),
             json,
             render: (report) => {
-                const head = `${report.reused ? 'reusing' : 'created'} ${report.branch}\n  ${report.worktreePath}`;
-                return report.port === null ? head : `${head}\n  runtime port ${report.port}`;
+                let out = `${report.reused ? 'reusing' : 'created'} ${report.branch}\n  ${report.worktreePath}`;
+                if (report.port !== null) {
+                    out += `\n  runtime port ${report.port}`;
+                }
+                if (report.baseAheadOfRemote !== null && report.baseAheadOfRemote > 0) {
+                    out += `\n  advisory: base "${baseBranch}" is ${report.baseAheadOfRemote} commit(s) ahead of its remote — a PR from this worktree may carry unpushed base commits; push the base first.`;
+                }
+                return out;
             },
         });
     }

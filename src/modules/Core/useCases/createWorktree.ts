@@ -12,7 +12,7 @@ import { join } from 'path';
 
 import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
-import { find_worktree_for_branch, worktree_create } from '../../Workspace/useCases/index.ts';
+import { find_worktree_for_branch, worktree_create, commits_ahead_of_remote } from '../../Workspace/useCases/index.ts';
 import { parse_runtime_isolation_config, type RuntimeIsolationConfig } from '../services/runtimeIsolation.ts';
 import { derive_worktree_names } from '../services/worktreeNames.ts';
 import { stamp_runtime_isolation } from './stampRuntimeIsolation.ts';
@@ -43,6 +43,9 @@ export type CreateWorktreeInput = Readonly<{
     baseBranch: string;
     readConfig?: (repoRoot: string) => RuntimeIsolationConfig;
     writeStamp?: (path: string, content: string) => void;
+    // How far the base branch is ahead of its remote — injectable so the advisory is testable without a
+    // remote. Defaults to the read-only `commits_ahead_of_remote` (no fetch).
+    aheadOfRemote?: (baseBranch: string, repoRoot: string) => number | null;
 }>;
 
 export type CreateWorktreeReport = Readonly<{
@@ -51,10 +54,18 @@ export type CreateWorktreeReport = Readonly<{
     worktreePath: string;
     reused: boolean;
     port: number | null;
+    // Advisory (non-fatal): commits the base branch carries beyond its remote — a PR cut from this
+    // worktree would include them. null when there is no remote to compare against.
+    baseAheadOfRemote: number | null;
 }>;
 
 export function create_worktree(input: CreateWorktreeInput): Result<CreateWorktreeReport, AppError> {
     const { branch, worktreePath } = derive_worktree_names(input);
+
+    // Read-only advisory: is the base ahead of its remote? Computed once, never fetches. Non-fatal —
+    // it never changes the level, only surfaces a note so a PR isn't cut on an unpushed base.
+    const aheadOfRemote = input.aheadOfRemote ?? commits_ahead_of_remote;
+    const baseAheadOfRemote = aheadOfRemote(input.baseBranch, input.repoRoot);
 
     const existing = find_worktree_for_branch(branch, input.repoRoot);
     let resolvedPath: string;
@@ -86,5 +97,5 @@ export function create_worktree(input: CreateWorktreeInput): Result<CreateWorktr
         }).port;
     }
 
-    return ok({ level: 'clean', branch, worktreePath: resolvedPath, reused, port });
+    return ok({ level: 'clean', branch, worktreePath: resolvedPath, reused, port, baseAheadOfRemote });
 }

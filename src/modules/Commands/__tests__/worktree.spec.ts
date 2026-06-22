@@ -56,7 +56,7 @@ describe('worktree command (direct surface, AC-009/010/002)', () => {
         expect(second.out).toContain('reusing');
     });
 
-    it('create --task derives the branch tail from the resolved task\'s frontmatter id, not the raw arg (SW-005)', async () => {
+    it("create --task derives the branch tail from the resolved task's frontmatter id, not the raw arg (SW-005)", async () => {
         // A task whose FILENAME stem differs from its frontmatter `id` — so the branch tail can only be
         // right if create resolves the task and uses its canonical id (`TASK-real-name` → `real-name`),
         // not the --task arg (which would give `alias`). This is exactly what review/run key off.
@@ -70,7 +70,10 @@ describe('worktree command (direct surface, AC-009/010/002)', () => {
 
     it('create --task that names no cut task fails early, listing the real tasks — never a silent mismatch (SW-005)', async () => {
         mkdirSync(join(repo, 'tasks'), { recursive: true });
-        writeFileSync(join(repo, 'tasks', 'TASK-checkout-discount.md'), '---\ntype: task\nid: TASK-checkout-discount\n---\n');
+        writeFileSync(
+            join(repo, 'tasks', 'TASK-checkout-discount.md'),
+            '---\ntype: task\nid: TASK-checkout-discount\n---\n'
+        );
         // The worker guesses the capability name (`discount`) rather than the task id tail — the old code
         // made a branch nothing could find. Now it errors early with the valid options and creates nothing.
         const { code, err } = await capture(() => run(['create', 'checkout', '--task', 'discount'], repo));
@@ -153,6 +156,32 @@ describe('worktree command (direct surface, AC-009/010/002)', () => {
         } finally {
             rmSync(notRepo, { recursive: true, force: true });
         }
+    });
+
+    it('create advises when the base branch is ahead of its remote (#46)', async () => {
+        // Stand up an origin remote, push the base, then add an unpushed local commit so the base is
+        // ahead of its remote — the advisory must surface so a PR is not cut on an unpushed base.
+        const remote = realpathSync(mkdtempSync(join(tmpdir(), 'swarm-wt-remote-')));
+        try {
+            execFileSync('git', ['init', '--bare'], { cwd: remote, encoding: 'utf8' });
+            git(['remote', 'add', 'origin', remote]);
+            const base = git(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
+            git(['push', '-u', 'origin', base]);
+            git(['commit', '--allow-empty', '-m', 'unpushed local']);
+            const { code, out } = await capture(() => run(['create', 'checkout'], repo));
+            expect(code).toBe(0); // advisory is non-fatal
+            expect(out).toContain(`base "${base}" is 1 commit(s) ahead of its remote`);
+            expect(out).toContain('push the base first');
+        } finally {
+            rmSync(remote, { recursive: true, force: true });
+        }
+    });
+
+    it('create does NOT advise when the base is in sync with (or has no) remote (#46)', async () => {
+        // The default repo here has no remote → no advisory line, just the created/port output.
+        const { code, out } = await capture(() => run(['create', 'checkout'], repo));
+        expect(code).toBe(0);
+        expect(out).not.toContain('ahead of its remote');
     });
 
     it('create with a runtime-isolation config surfaces the assigned port (AC-010)', async () => {

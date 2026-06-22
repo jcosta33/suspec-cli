@@ -70,6 +70,20 @@ describe('init_workspace — workspace mode, greenfield', () => {
         }
     });
 
+    it('writes the .agents/.swarm-version provenance pin from a --from kit VERSION (#12)', () => {
+        const fromKit = mkdtempSync(join(tmpdir(), 'swarm-fromkit-'));
+        try {
+            writeFileSync(join(fromKit, 'AGENTS.md'), 'A\n');
+            writeFileSync(join(fromKit, 'VERSION'), '1.2.0\n');
+            init_workspace({ sourceDir: fromKit, targetDir: target, policy: 'skip', mode: 'workspace' });
+            const pin = join(target, '.agents', '.swarm-version');
+            expect(existsSync(pin)).toBe(true);
+            expect(readFileSync(pin, 'utf8').trim()).toBe('1.2.0');
+        } finally {
+            rmSync(fromKit, { recursive: true, force: true });
+        }
+    });
+
     it('stamps nothing when the kit has no VERSION file (older kit)', () => {
         const report = assertOk(run()); // the shared fixture kit carries no VERSION
         expect(existsSync(join(target, '.agents', '.swarm-version'))).toBe(false);

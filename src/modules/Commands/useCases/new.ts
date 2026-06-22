@@ -54,14 +54,23 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         const idFlag = flags.get('id');
         let taskId: string | undefined;
         if (typeof idFlag === 'string') {
-            const slug = idFlag.replace(/^TASK-/i, '').toLowerCase().trim();
+            const slug = idFlag
+                .replace(/^TASK-/i, '')
+                .toLowerCase()
+                .trim();
             if (slug.length === 0) {
                 return emit_error(usage_error('--id needs a task slug, e.g. --id checkout-discount'), json);
             }
             taskId = `TASK-${slug}`;
         }
         return project({
-            result: cut_packet({ workspaceDir: cwd, specId: fromFlag, scope, taskId, force: flags.get('force') === true }),
+            result: cut_packet({
+                workspaceDir: cwd,
+                specId: fromFlag,
+                scope,
+                taskId,
+                force: flags.get('force') === true,
+            }),
             json,
             render: (report) => {
                 const head = `cut ${report.taskId} (${String(report.scope.length)} scoped)\n  ${report.path}`;
@@ -89,7 +98,14 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
                 owner: typeof ownerFlag === 'string' ? ownerFlag : undefined,
             }),
             json,
-            render: (report) => `scaffolded ${report.specId}\n  ${report.path}`,
+            render: (report) => {
+                const head = `scaffolded ${report.specId}\n  ${report.path}`;
+                if (report.ordinalClash === undefined) {
+                    return head;
+                }
+                const { ordinal, existingSlug, nextFree } = report.ordinalClash;
+                return `${head}\n  note: ordinal ${ordinal} already used by "${existingSlug}" — duplicate ordinal; next free is ${nextFree}`;
+            },
         });
     }
 

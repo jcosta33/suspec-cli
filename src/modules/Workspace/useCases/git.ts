@@ -72,6 +72,45 @@ export function current_branch(repoRoot: string): string | null {
 }
 
 /**
+ * How many commits the local `baseBranch` is AHEAD of its remote-tracking ref — or null when there is
+ * no remote to compare against (so nothing to advise). READ-ONLY: never fetches, so it reflects the
+ * last known remote state, not a live one. Resolves the remote ref in two steps: the branch's
+ * configured `@{upstream}`, else `refs/remotes/origin/<baseBranch>`. A non-zero count means a PR cut
+ * from a worktree based here would carry unpushed base commits.
+ */
+export function commits_ahead_of_remote(baseBranch: string, repoRoot: string): number | null {
+    const upstream = spawnSync('git', ['rev-parse', '--verify', '--quiet', `${baseBranch}@{upstream}`], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+    });
+    let remoteRef: string | null = null;
+    if (upstream.status === 0) {
+        remoteRef = `${baseBranch}@{upstream}`;
+    } else {
+        const originRef = spawnSync('git', ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${baseBranch}`], {
+            cwd: repoRoot,
+            encoding: 'utf8',
+        });
+        if (originRef.status === 0) {
+            remoteRef = `refs/remotes/origin/${baseBranch}`;
+        }
+    }
+    if (remoteRef === null) {
+        return null;
+    }
+    const count = spawnSync('git', ['rev-list', '--count', `${remoteRef}..${baseBranch}`], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+    });
+    /* v8 ignore next 5 -- defensive: once remoteRef resolved, `rev-list --count` against it cannot fail or emit a non-number */
+    if (count.status !== 0) {
+        return null;
+    }
+    const ahead = parseInt((count.stdout || '').trim(), 10);
+    return Number.isNaN(ahead) ? null : ahead;
+}
+
+/**
  * Whether the repo has at least one commit (a resolvable HEAD). A fresh `git init` has none, so a
  * worktree cannot be created yet — the command turns this into a clear message rather than leaking a
  * raw "fatal: invalid reference" from git.

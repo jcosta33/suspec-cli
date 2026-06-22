@@ -2,6 +2,7 @@
 export {
     resolve_repo_root,
     current_branch,
+    commits_ahead_of_remote,
     repo_has_commits,
     worktree_list,
     find_worktree_for_branch,
