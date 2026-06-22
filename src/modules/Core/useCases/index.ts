@@ -47,9 +47,11 @@ export { draft_review_packet, type DraftReviewPacketInput, type DraftReviewPacke
 
 // drift engine — swarm update --check, no agent, no write (SPEC-swarm-update, ADR-0091)
 export { check_update, type UpdateCheckReport, type CheckUpdateInput } from './checkUpdate.ts';
+// drift apply — swarm update --write, reuses init_workspace's copy engine (SPEC-swarm-update AC-008)
+export { apply_update, type ApplyUpdateReport, type ApplyUpdateInput } from './applyUpdate.ts';
 
 // prepare engine — init + new, no agent (AC-012/013/016); pull + promote, no board (W5 AC-001/002)
-export { init_workspace } from './initWorkspace.ts';
+export { init_workspace, type ConflictPolicy } from './initWorkspace.ts';
 export { cut_packet } from './cutPacket.ts';
 export { scaffold_spec } from './scaffoldSpec.ts';
 export { scaffold_change_plan } from './scaffoldChangePlan.ts';

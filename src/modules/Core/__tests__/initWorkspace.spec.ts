@@ -139,6 +139,54 @@ describe('init_workspace — workspace mode, greenfield', () => {
         expect(second.merged).toEqual([]);
         expect(second.level).toBe('clean');
     });
+
+    it('a DANGLING destination symlink is a conflict on the link — never writes through to its (outside) target', () => {
+        // `existsSync` follows a symlink and reports a dangling one as ABSENT; copying then writes THROUGH
+        // the broken link to its target (which can live outside the workspace) and silently loses the link.
+        // The engine must lstat the link itself and treat it as a conflict.
+        const external = `${target}-ghost`; // outside the workspace — the dangling link's (absent) target
+        rmSync(external, { force: true }); // ensure the target does NOT exist → the link dangles
+        symlinkSync(external, join(target, 'README.md')); // a kit file's destination is a DANGLING link out
+        try {
+            const report = assertOk(run({ policy: 'backup' }));
+            // nothing was written through the link to the outside path
+            expect(existsSync(external)).toBe(false);
+            // the user's dangling link was preserved as a backup, the kit file landed as a real file
+            expect(lstatSync(join(target, 'README.md.swarm-bak')).isSymbolicLink()).toBe(true);
+            expect(lstatSync(join(target, 'README.md')).isSymbolicLink()).toBe(false);
+            expect(readFileSync(join(target, 'README.md'), 'utf8')).toBe('KIT README\n');
+            expect(report.backedUp).toContain('README.md');
+        } finally {
+            rmSync(external, { force: true });
+        }
+    });
+
+    it('skip policy on a DANGLING destination symlink keeps the link and still never writes through', () => {
+        const external = `${target}-ghost2`;
+        rmSync(external, { force: true });
+        symlinkSync(external, join(target, 'README.md'));
+        try {
+            const report = assertOk(run({ policy: 'skip' }));
+            expect(existsSync(external)).toBe(false); // nothing written through the link
+            expect(lstatSync(join(target, 'README.md')).isSymbolicLink()).toBe(true); // link kept as-is
+            expect(report.skipped).toContain('README.md');
+        } finally {
+            rmSync(external, { force: true });
+        }
+    });
+
+    it('pathFilter (the --write refresh scope) copies ONLY matching kit paths, never the rest', () => {
+        // `swarm update --write` passes a kit-owned filter so a lived-in workspace's own files are not
+        // re-scaffolded. Here: refresh only `specs/` — AGENTS.md/README/status must NOT be written.
+        const report = assertOk(run({ pathFilter: (rel) => rel.startsWith('specs/') }));
+        expect(report.written).toContain('specs/demo/spec.md');
+        expect(report.written).not.toContain('AGENTS.md');
+        expect(report.written).not.toContain('README.md');
+        expect(existsSync(join(target, 'README.md'))).toBe(false);
+        // `.gitignore` still merges and the pin still stamps regardless of the filter
+        expect(report.written).toContain('.gitignore');
+        expect(existsSync(join(target, '.agents', '.swarm-version'))).toBe(false); // kit fixture has no VERSION
+    });
 });
 
 describe('init_workspace — existing repo (the conflict case)', () => {

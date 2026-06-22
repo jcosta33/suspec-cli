@@ -18,6 +18,7 @@ import {
     symlinkSync,
     readlinkSync,
     unlinkSync,
+    type Stats,
 } from 'fs';
 import { join, relative, dirname } from 'path';
 
@@ -44,6 +45,12 @@ export type InitWorkspaceInput = Readonly<{
     targetDir: string;
     policy: ConflictPolicy;
     mode: InitMode;
+    // Optional kit-tree filter (workspace mode only). When present, only kit files whose relative path
+    // passes it are copied — `swarm update --write` uses this to refresh ONLY the kit-owned guidance
+    // (templates/, .agents/skills/, hooks/, …) and never touch a lived-in workspace's own artifacts
+    // (the board, specs, a customized AGENTS.md). Absent (the default, `swarm init`) → copy the whole
+    // tree, the scaffold behavior. `.gitignore` always merges and the pin always re-stamps, regardless.
+    pathFilter?: (rel: string) => boolean;
 }>;
 
 const GITIGNORE_START = '# >>> swarm >>>';
@@ -53,7 +60,7 @@ const AGENTS_END = '<!-- swarm:end -->';
 // Fallback ignores when a kit source ships no `.gitignore.additions`. `.worktrees/` is the load-bearing
 // one: committing an in-repo worktree stages an embedded gitlink (SW-002), so guard it even in the
 // degenerate no-kit path.
-const GITIGNORE_FALLBACK = '.worktrees/\n.swarm/\n.swarm-cache/\n*.swarm-bak';
+const GITIGNORE_FALLBACK = '.worktrees/\n.swarm/\n.swarm-cache/\n*.swarm-bak\n*.swarm-bak.*';
 const AGENTS_POINTER = [
     'This repository is adopted into a Swarm workflow. The spec / task / review',
     'workspace and templates come from the Swarm starter kit',
@@ -132,6 +139,10 @@ export function init_workspace(input: InitWorkspaceInput): Result<InitReport, Ap
                 if (rel === '.gitignore' || rel === '.gitignore.additions') {
                     continue;
                 }
+                // A refresh (`--write`) restricts the copy to kit-owned paths; init copies everything.
+                if (input.pathFilter !== undefined && !input.pathFilter(rel)) {
+                    continue;
+                }
                 copy_plain(input, rel, { written, skipped, backedUp, overwritten });
             }
             stamp_version(input, written);
@@ -201,12 +212,27 @@ function free_backup_path(dst: string): string {
     return candidate;
 }
 
+// The destination entry as seen WITHOUT following a link — null when nothing is there. `existsSync`
+// follows symlinks, so it reports a DANGLING link as absent; copying then writes THROUGH the broken
+// link to its (possibly out-of-workspace) target and silently loses the user's link. `lstat` sees the
+// link itself, so a dangling dest is correctly detected as present-and-a-conflict.
+function dst_entry(dst: string): Stats | null {
+    try {
+        return lstatSync(dst);
+    } catch {
+        return null; // ENOENT — truly absent
+    }
+}
+
 function copy_plain(input: InitWorkspaceInput, rel: string, buckets: PlainBuckets): void {
     const src = join(input.sourceDir, rel);
     const dst = join(input.targetDir, rel);
+    const existing = dst_entry(dst);
 
     if (lstatSync(src).isSymbolicLink()) {
-        if (!existsSync(dst)) {
+        // Only create the link when nothing (not even a dangling link) is already there — never
+        // symlinkSync over an existing entry (it throws EEXIST). An existing dest is left as-is.
+        if (existing === null) {
             mkdirSync(dirname(dst), { recursive: true });
             symlinkSync(readlinkSync(src), dst);
             buckets.written.push(rel);
@@ -214,16 +240,17 @@ function copy_plain(input: InitWorkspaceInput, rel: string, buckets: PlainBucket
         return;
     }
 
-    if (!existsSync(dst)) {
+    if (existing === null) {
         mkdirSync(dirname(dst), { recursive: true });
         copyFileSync(src, dst);
         buckets.written.push(rel);
         return;
     }
 
-    // A destination symlink is a conflict on the LINK — never copy through it (that would follow the
-    // link and clobber its target, which may live outside the workspace). Operate on the link itself.
-    if (lstatSync(dst).isSymbolicLink()) {
+    // A destination symlink (live OR dangling) is a conflict on the LINK — never copy through it (that
+    // would follow the link and clobber its target, which may live outside the workspace). Operate on
+    // the link itself.
+    if (existing.isSymbolicLink()) {
         if (input.policy === 'overwrite') {
             unlinkSync(dst);
             copyFileSync(src, dst);

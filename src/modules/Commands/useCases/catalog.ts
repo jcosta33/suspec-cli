@@ -17,13 +17,16 @@ export const COMMAND_CATALOG = [
     },
     {
         name: 'update',
-        description: 'Check whether the workspace has drifted behind the latest kit (no write)',
+        description: 'Check kit drift, or refresh the kit-owned guidance (conflict-safe)',
         usage: [
-            'swarm update [--check]',
-            '  (the drift check)           compare .agents/.swarm-version to the kit VERSION',
+            'swarm update [--check | --write]',
+            '  --check (default)           compare .agents/.swarm-version to the kit VERSION; writes nothing',
+            '  --write | --apply           refresh kit-owned guidance (templates/ .agents/skills/ hooks/ …) + re-stamp the pin',
+            '  --on-conflict backup|overwrite|skip   handle a customized kit file (default: backup → *.swarm-bak)',
             '  --from <path|url>           kit source (default: the swarm-starter-kit on GitHub)',
             '  --json                      machine output',
-            '  exit 0 up-to-date · 1 behind · 2 error; reads only — the 3-way-merge apply is deferred (ADR-0091)',
+            '  --check: exit 0 up-to-date · 1 behind · 2 error · --write: 1 if files need reconciling',
+            '  your specs, tasks, reviews, board, decisions, and AGENTS.md are yours — --write never touches them',
         ],
     },
     {

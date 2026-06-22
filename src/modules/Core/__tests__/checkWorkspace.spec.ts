@@ -138,6 +138,40 @@ describe('check_workspace', () => {
         expect(placeholder?.level).toBe('warning');
     });
 
+    it('warns on a bloated AGENTS.md, never on a real-sized one (agents-oversize, #14)', () => {
+        writeSpec('good', CONFORMANT);
+        withTemplates();
+        // A real bootloader (measured 45–101 lines) stays clean — the band is ~4× the convention.
+        writeFileSync(join(ws, 'AGENTS.md'), `# Guide\n${'a working line\n'.repeat(100)}`);
+        const realSized = assertOk(check_workspace({ workspaceDir: ws }));
+        expect(realSized.workspaceFindings.find((f) => f.code === 'agents-oversize')).toBeUndefined();
+        expect(realSized.verdict).toBe('clean');
+
+        // A bloated AGENTS.md (well over the line band, under the byte band) nudges at warning on lines.
+        writeFileSync(join(ws, 'AGENTS.md'), `# Guide\n${'a bloated line\n'.repeat(500)}`);
+        const bloated = assertOk(check_workspace({ workspaceDir: ws }));
+        const oversize = bloated.workspaceFindings.find((f) => f.code === 'agents-oversize');
+        expect(oversize?.level).toBe('warning');
+        expect(oversize?.message).toContain('always-loaded');
+        expect(oversize?.message).toContain('lines');
+        expect(bloated.verdict).toBe('clean'); // a warning, not a blocking gate failure
+
+        // A few-but-enormous-line file trips the BYTE band (>24 KB) via the cheap stat, without slurping
+        // the whole file to count lines — the KB measure is reported instead.
+        writeFileSync(join(ws, 'AGENTS.md'), `# Guide\n${'x'.repeat(30000)}\n`);
+        const bigBytes = assertOk(check_workspace({ workspaceDir: ws }));
+        const byteOversize = bigBytes.workspaceFindings.find((f) => f.code === 'agents-oversize');
+        expect(byteOversize?.level).toBe('warning');
+        expect(byteOversize?.message).toContain('KB');
+    });
+
+    it('--no-workspace skips the AGENTS.md size check (validity off)', () => {
+        writeSpec('good', CONFORMANT);
+        writeFileSync(join(ws, 'AGENTS.md'), `# Guide\n${'x\n'.repeat(500)}`);
+        const report = assertOk(check_workspace({ workspaceDir: ws, includeValidity: false }));
+        expect(report.workspaceFindings).toEqual([]);
+    });
+
     it('flags a duplicate frontmatter id but not a reused requirement id (C002, spec-scoped)', () => {
         writeSpec('one', CONFORMANT);
         writeSpec('two', CONFORMANT); // same SPEC-good frontmatter id + same AC-001

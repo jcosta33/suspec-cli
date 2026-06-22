@@ -5,7 +5,7 @@
 // parse + rule functions as the single-spec engine, so both forms agree. Reads the filesystem;
 // writes nothing.
 
-import { readdirSync, existsSync, readFileSync } from 'fs';
+import { readdirSync, existsSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
 
 import { ok, isOk, type Result } from '../../../infra/errors/result.ts';
@@ -19,7 +19,7 @@ import { build_source_exists } from './resolveSourcePath.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
 export type WorkspaceFinding = Readonly<{
-    code: 'C002' | 'placeholder' | 'missing-template';
+    code: 'C002' | 'placeholder' | 'missing-template' | 'agents-oversize';
     // SW-006: an unfilled {{placeholder}} in a freshly-scaffolded AGENTS.md is a "finish setup" nudge,
     // not broken work — it must NOT block the gate on day one (the kit's own AGENTS.md ships with
     // placeholders, so `swarm check` right after `swarm init` would otherwise greet a new user with a
@@ -53,6 +53,11 @@ export type CheckWorkspaceInput = Readonly<{
 }>;
 
 const PLACEHOLDER = /\{\{[^}]+\}\}/;
+// The AGENTS.md size band — deliberately generous (~4× the ~100-line convention) so it is 0-FP on a
+// real bootloader and only warns on genuine bloat. Lines is the primary signal (the convention is
+// line-stated); bytes is a backstop for a few-but-enormous-line file.
+const AGENTS_MAX_LINES = 400;
+const AGENTS_MAX_BYTES = 24576; // 24 KB
 
 function find_spec_files(workspaceDir: string): string[] {
     const specsDir = join(workspaceDir, 'specs');
@@ -79,7 +84,16 @@ function find_change_plan_files(workspaceDir: string): string[] {
     const out: string[] = [];
     for (const entry of readdirSync(dir).sort()) {
         const path = join(dir, entry);
-        if (entry.endsWith('.md') && existsSync(path) && /^type:\s*change-plan\s*$/m.test(readFileSync(path, 'utf8').split(/\r\n|[\r\n]/).slice(0, 12).join('\n'))) {
+        if (
+            entry.endsWith('.md') &&
+            existsSync(path) &&
+            /^type:\s*change-plan\s*$/m.test(
+                readFileSync(path, 'utf8')
+                    .split(/\r\n|[\r\n]/)
+                    .slice(0, 12)
+                    .join('\n')
+            )
+        ) {
             out.push(path);
         }
     }
@@ -110,6 +124,35 @@ function workspace_validity(workspaceDir: string): WorkspaceFinding[] {
             level: 'blocking',
             message: 'no templates/ directory — the core templates are missing',
         });
+    }
+    // AGENTS.md is the always-loaded context file; the convention is to keep it short (~100 lines) so
+    // every task pays a small, fixed context cost (glossary: AGENTS.md). A file several times that is
+    // bloat the agent re-reads every run. The band is GENEROUS — ~4× the convention — so a real
+    // bootloader (measured 45–101 lines, 3–6 KB) never trips it; only genuine bloat warns. A nudge
+    // (warning), never blocking — an oversized but valid AGENTS.md is still a working workspace.
+    const agentsPath = join(workspaceDir, 'AGENTS.md');
+    if (existsSync(agentsPath)) {
+        // Gate on the file size FIRST (a cheap stat) before reading — a pathological multi-GB AGENTS.md
+        // would otherwise OOM the very check meant to flag bloat. Over the byte band we already know it
+        // is oversize and warn on the KB measure without slurping the whole file; only a within-band
+        // file (≤24 KB) is read to count lines.
+        const byteCount = statSync(agentsPath).size;
+        if (byteCount > AGENTS_MAX_BYTES) {
+            findings.push({
+                code: 'agents-oversize',
+                level: 'warning',
+                message: `AGENTS.md is ${Math.round(byteCount / 1024)} KB — the always-loaded context file should stay short; move depth into the guides it points to`,
+            });
+        } else {
+            const lineCount = readFileSync(agentsPath, 'utf8').split('\n').length;
+            if (lineCount > AGENTS_MAX_LINES) {
+                findings.push({
+                    code: 'agents-oversize',
+                    level: 'warning',
+                    message: `AGENTS.md is ${lineCount} lines (convention: ~100) — the always-loaded context file should stay short; move depth into the guides it points to`,
+                });
+            }
+        }
     }
     return findings;
 }
