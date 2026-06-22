@@ -39,3 +39,6 @@ tmp/
 # legacy pre-migration execution frames (local scratch)
 .agents/tasks/
 .worktrees/
+
+# Generated Codex agent definitions (swarm agents emit --codex) — regenerate, do not commit
+.codex/

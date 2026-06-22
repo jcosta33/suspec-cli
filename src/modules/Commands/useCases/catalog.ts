@@ -128,6 +128,18 @@ export const COMMAND_CATALOG = [
         ],
     },
     {
+        name: 'agents',
+        description: 'Project Claude Code agent definitions into another runner (Codex TOML)',
+        usage: [
+            'swarm agents emit --codex [--from <dir>]',
+            '  emit --codex                generate .codex/agents/*.toml from the agent definitions',
+            '  --from <dir>                the agent *.md defs (default: ./.claude/agents, else ../swarm-agents/agents)',
+            '  --force                     overwrite existing generated .toml files (they regenerate)',
+            '  --json                      machine output',
+            '  prose discipline only — tool-scoping + hooks are Claude-Code-only and do NOT travel (ADR-0098)',
+        ],
+    },
+    {
         name: 'help',
         description: 'Show this command reference',
         usage: ['swarm help', 'swarm --help · swarm --version'],

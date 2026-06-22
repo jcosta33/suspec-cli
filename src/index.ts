@@ -22,6 +22,7 @@ import {
     run_promote,
     run_run,
     run_show,
+    run_agents,
     print_help,
     print_command_help,
 } from './modules/Commands/useCases/index.ts';
@@ -56,6 +57,7 @@ const COMMANDS: Record<string, CommandRun> = {
     promote: run_promote,
     run: run_run,
     show: run_show,
+    agents: run_agents,
 };
 
 // The dispatchable command names (excluding `help`, handled inline) — the AC-004 parity test

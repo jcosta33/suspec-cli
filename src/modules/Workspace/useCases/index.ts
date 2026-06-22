@@ -14,5 +14,8 @@ export {
     is_worktree_dirty,
 } from './git.ts';
 export { write_new_file, type FileExistsError } from './files.ts';
+// emit engine — `swarm agents emit --codex`: projects agent defs to Codex TOML (ADR-0098). A runner
+// adapter (like `launch`), so it names a runner — which is why it is a Workspace leaf, not Core.
+export { emit_agents, type EmitAgentsInput, type EmitAgentsReport } from './emitAgents.ts';
 export { fetch_gh_issue, type GhIssue, type GhFetchError } from './gh.ts';
 export { launch_adapter, write_run_record, type RunRecord, type LaunchError } from './launch.ts';
