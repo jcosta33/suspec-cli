@@ -9,7 +9,7 @@ import { join, relative } from 'path';
 
 import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
-import { current_branch, worktree_changed_files } from '../../Workspace/useCases/index.ts';
+import { current_branch, worktree_changed_files, worktree_changed_stats } from '../../Workspace/useCases/index.ts';
 import { frontmatter_value, find_source_spec, resolve_worktree, resolve_task } from './taskLocator.ts';
 import { task_slug } from '../services/worktreeNames.ts';
 import type { ReconcileReviewInput } from './reconcileReview.ts';
@@ -113,6 +113,14 @@ export function resolve_review_run(input: ResolveReviewRunInput): Result<Reconci
     // (SW-004; in split-repo the worktree has no packet, so this is a no-op).
     const diffChangedFiles = diff.value.filter((path) => path !== relTaskPath);
 
+    // C018 (oversized-packet): the per-file LOC of the committed diff. Same packet-path exclusion as
+    // above. An Err here is non-fatal — the size nudge is advisory, so a numstat hiccup degrades to "no
+    // size signal" rather than failing the whole reconcile (the name-only diff already succeeded).
+    const statsResult = worktree_changed_stats(worktree.path, base);
+    const changedFileStats = isErr(statsResult)
+        ? undefined
+        : statsResult.value.filter((stat) => stat.path !== relTaskPath);
+
     return ok({
         task: task.id,
         taskPacketSource: reviewedPacketSource,
@@ -122,6 +130,7 @@ export function resolve_review_run(input: ResolveReviewRunInput): Result<Reconci
         // demanding opposite forms in the same field.
         reviewPacketSource: find_review_packet(input.workspaceDir, task.id),
         diffChangedFiles,
+        changedFileStats,
         // Context the command surfaces (the reconcile engine ignores these). packetRef names WHERE the
         // self-report was read from (R5-I06 — the worktree branch under review, or the workspace checkout
         // in a split-repo layout), so a worker who edited the wrong copy sees why the reconcile differs.

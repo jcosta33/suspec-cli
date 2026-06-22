@@ -12,6 +12,7 @@ import { ok, isOk, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
 import { parse_spec_record } from '../../Sol/useCases/index.ts';
 import { run_spec_checks, verdict_for, type Diagnostic } from '../services/checksContract.ts';
+import { find_orphaned_references } from '../services/skillWalker.ts';
 import { check_change_plan } from './checkChangePlan.ts';
 import { build_spec_ref_resolver } from './resolveSpecRef.ts';
 import { build_anchor_resolver } from './buildAnchorResolver.ts';
@@ -19,7 +20,7 @@ import { build_source_exists } from './resolveSourcePath.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
 export type WorkspaceFinding = Readonly<{
-    code: 'C002' | 'placeholder' | 'missing-template' | 'agents-oversize';
+    code: 'C002' | 'C017' | 'placeholder' | 'missing-template' | 'agents-oversize';
     // SW-006: an unfilled {{placeholder}} in a freshly-scaffolded AGENTS.md is a "finish setup" nudge,
     // not broken work — it must NOT block the gate on day one (the kit's own AGENTS.md ships with
     // placeholders, so `swarm check` right after `swarm init` would otherwise greet a new user with a
@@ -201,6 +202,17 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
                 message: `frontmatter id ${id} is claimed by ${paths.length} specs`,
             });
         }
+    }
+
+    // C017 orphaned-reference (ADR-0097, #45): a bundled `.agents/skills/<name>/references/<file>` the
+    // SKILL.md never names. Workspace-scoped like C002; self-guards (empty when no .agents/skills/ dir),
+    // so it is safe to run unconditionally. A warning nudge — the reference is dead weight, not broken work.
+    for (const orphan of find_orphaned_references(input.workspaceDir)) {
+        findings.push({
+            code: 'C017',
+            level: 'warning',
+            message: `skill ${orphan.skill}: bundled reference references/${orphan.reference} is named nowhere in its SKILL.md (orphaned)`,
+        });
     }
 
     // Change plans (AC-006): run C010/C011 over each `change-plans/*.md`. A `SPEC-x#AC-NNN` ref

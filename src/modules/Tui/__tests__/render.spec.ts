@@ -23,6 +23,7 @@ function reviewReport(over: Partial<RenderReviewReport> = {}): RenderReviewRepor
         doNotChangeTouched: [],
         emptyEvidencePassRows: [],
         packetStructural: { badResultCells: [], badStatus: null, statusPassContradicted: false, missingSections: [] },
+        packetSize: null,
         hasReviewPacket: true,
         ...over,
     };
@@ -153,6 +154,14 @@ describe('format_review_report (AC-023: facts + route, never a verdict)', () => 
         expect(out).toContain('clean reconcile');
         expect(out).not.toMatch(/\bPass\b|\bFail\b|\bUnverified\b|\bBlocked\b/);
         expect(out).not.toMatch(/merge|Suggested decision/i);
+    });
+
+    it('surfaces the diff size as NEUTRAL info when stats are present (never an oversized finding)', () => {
+        const out = format_review_report(reviewReport({ packetSize: { changedLoc: 1200, filesTouched: 14 } }));
+        expect(out).toContain('1200 LOC across 14 files');
+        // even a large diff is NOT flagged — the oversized band is specified-not-shipped (ADR-0097)
+        expect(out).not.toMatch(/oversized|consider splitting|C018/i);
+        expect(out).toContain('clean reconcile'); // size info does not become a finding / change the level
     });
 
     it('surfaces every fact class and routes them', () => {

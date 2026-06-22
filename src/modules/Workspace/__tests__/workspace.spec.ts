@@ -10,6 +10,7 @@ import {
     commits_ahead_of_remote,
     worktree_list,
     worktree_changed_files,
+    worktree_changed_stats,
     is_worktree_dirty,
 } from '../useCases/index.ts';
 import { assertOk } from '../../../infra/errors/testing/assertOk.ts';
@@ -119,6 +120,33 @@ describe('Workspace git', () => {
         } finally {
             git(['worktree', 'remove', '--force', wtPath]);
         }
+    });
+
+    it('worktree_changed_stats returns per-file committed LOC (numstat), binary files as 0 (C018 size info)', () => {
+        const base = current_branch(repo) ?? 'main';
+        const wtPath = realpathSync(mkdtempSync(join(tmpdir(), 'swarm-wt-stats-')));
+        rmSync(wtPath, { recursive: true, force: true });
+        git(['worktree', 'add', '-b', 'swarm/feat/stats', wtPath, base]);
+        try {
+            const wtGit = (args: string[]) => execFileSync('git', args, { cwd: wtPath, encoding: 'utf8' });
+            writeFileSync(join(wtPath, 'a.ts'), 'one\ntwo\nthree\n'); // 3 insertions
+            writeFileSync(join(wtPath, 'bin.dat'), Buffer.from([0, 1, 2, 0, 255])); // binary → numstat `-`
+            wtGit(['add', 'a.ts', 'bin.dat']);
+            wtGit(['commit', '-m', 'committed']);
+
+            const stats = assertOk(worktree_changed_stats(wtPath, base));
+            const a = stats.find((s) => s.path === 'a.ts');
+            const bin = stats.find((s) => s.path === 'bin.dat');
+            expect(a?.loc).toBe(3);
+            expect(bin?.loc).toBe(0); // binary file reports `-` → counted as 0 LOC
+        } finally {
+            git(['worktree', 'remove', '--force', wtPath]);
+        }
+    });
+
+    it('worktree_changed_stats errs on an unresolvable base (exit-2 path, never a stack trace)', () => {
+        const result = worktree_changed_stats(repo, 'no-such-base-ref-xyz');
+        assertErr(result);
     });
 
     it('reports the destination of a rename whose OLD name contains " -> " (#25 C4)', () => {

@@ -138,12 +138,19 @@ export type RenderReviewReport = Readonly<{
         statusPassContradicted: boolean;
         missingSections: readonly string[];
     }>;
+    packetSize: Readonly<{ changedLoc: number; filesTouched: number }> | null;
     hasReviewPacket: boolean;
 }>;
 
 export function format_review_report(report: RenderReviewReport): string {
+    // The diff size is NEUTRAL INFO (generated/vendored excluded) — surfaced so the reviewer can judge
+    // decomposition themselves; it is never a finding (the oversized band is specified-not-shipped,
+    // ADR-0097). Falls back to the name-only file count when no LOC stats were available.
+    const sizeNote = report.packetSize
+        ? `${String(report.packetSize.changedLoc)} LOC across ${String(report.packetSize.filesTouched)} files`
+        : `${String(report.diffChangedFiles.length)} changed files`;
     const lines: string[] = [
-        `${color.bold(`review ${report.task}`)}  ${format_verdict(report.level)}  ${color.dim(`${String(report.diffChangedFiles.length)} changed files`)}`,
+        `${color.bold(`review ${report.task}`)}  ${format_verdict(report.level)}  ${color.dim(sizeNote)}`,
     ];
 
     const bullet = (message: string) => lines.push(`  ${color.yellow('⚠')}  ${message}`);

@@ -8,6 +8,8 @@
 // orphan rows, mismatched files, malformed cells — and never a Pass/Fail/Unverified/Blocked review
 // result, never a packet `status: pass`, never a merge decision.
 
+import { pass_rows_missing_evidence } from './checksContract.ts';
+
 // --- The review-packet shape the structural checks key on (the parser produces it) --------------
 
 export type CoverageRow = Readonly<{
@@ -121,9 +123,11 @@ export function scope_divergence(scopeIds: readonly string[], specRequirementIds
 
 // --- The empty-Evidence Pass rows (AC-020) -------------------------------------------------------
 // A coverage row whose Result is Pass but whose Evidence cell is empty reads Unverified — the fact is
-// surfaced (the cell is never rewritten).
+// surfaced (the cell is never rewritten). The reconcile path surfaces it ADVISORILY; the same
+// predicate, owned by the contract (C016), also drives the GATE path's hard-error — single-sourced so
+// the two surfaces can never disagree on what counts (ADR-0097).
 export function empty_evidence_pass_rows(rows: readonly CoverageRow[]): string[] {
-    return rows.filter((row) => row.result === 'Pass' && row.evidence.trim().length === 0).map((row) => row.id);
+    return pass_rows_missing_evidence(rows);
 }
 
 // --- The packet-structural facts (AC-021) --------------------------------------------------------

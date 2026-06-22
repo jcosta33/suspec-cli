@@ -357,6 +357,63 @@ export function worktree_changed_files(worktreePath: string, base: string): Resu
 }
 
 /**
+ * Per-file change size (insertions + deletions) of the worktree's committed change against its base
+ * branch — the raw signal C018 (oversized-packet) keys on. Returns `{ path, loc }` for each changed
+ * file; the contract (checksContract.packet_size_facts) owns the generated-file exclusion + the band,
+ * so this stays dumb I/O. `loc` is 0 for a binary file (numstat reports `-`). Scoped to the committed
+ * diff (`<base>...HEAD`) — the worker's recorded work, which is what review reconciles; an
+ * unresolvable base returns an Err so the command exits 2, never a stack trace.
+ */
+export function worktree_changed_stats(
+    worktreePath: string,
+    base: string
+): Result<{ path: string; loc: number }[], ChangedFilesError> {
+    // `--no-renames` so a renamed file's path field is always a real path (the rename form
+    // `old => new` would otherwise land a non-path in the `path` column, disagreeing with
+    // `worktree_changed_files`'s `--name-only` destination and confusing the generated-file exclusion).
+    const numstat = spawnSync(
+        'git',
+        ['-c', 'core.quotePath=false', 'diff', '--numstat', '--no-renames', `${base}...HEAD`],
+        { cwd: worktreePath, encoding: 'utf8' }
+    );
+    /* v8 ignore next 3 -- spawn-launch failure (git binary missing); not reachable where git is installed */
+    if (numstat.error) {
+        return err(
+            createAppError('ChangedFilesFailed', `cannot diff worktree against "${base}": ${numstat.error.message}`, {
+                worktreePath,
+                base,
+                stderr: numstat.error.message,
+            })
+        );
+    }
+    if (numstat.status !== 0) {
+        const stderr = (numstat.stderr || '').trim() || `git diff --numstat against ${base} failed`;
+        return err(createAppError('ChangedFilesFailed', `cannot diff worktree against "${base}": ${stderr}`, {
+            worktreePath,
+            base,
+            stderr,
+        }));
+    }
+
+    const stats: { path: string; loc: number }[] = [];
+    for (const line of (numstat.stdout || '').trim().split('\n')) {
+        if (line.length === 0) {
+            continue;
+        }
+        // `<insertions>\t<deletions>\t<path>` — a binary file is `-\t-\t<path>` (loc 0).
+        const parts = line.split('\t');
+        if (parts.length < 3) {
+            continue;
+        }
+        const insertions = parts[0] === '-' ? 0 : Number(parts[0]);
+        const deletions = parts[1] === '-' ? 0 : Number(parts[1]);
+        const loc = (Number.isFinite(insertions) ? insertions : 0) + (Number.isFinite(deletions) ? deletions : 0);
+        stats.push({ path: c_unquote(parts.slice(2).join('\t')), loc });
+    }
+    return ok(stats);
+}
+
+/**
  * Whether a worktree has uncommitted changes.
  */
 export function is_worktree_dirty(worktreePath: string): boolean {

@@ -165,6 +165,56 @@ describe('check_workspace', () => {
         expect(byteOversize?.message).toContain('KB');
     });
 
+    it('C017: flags a bundled reference the SKILL.md never names, but not a named one (orphan-only)', () => {
+        writeSpec('good', CONFORMANT);
+        withTemplates();
+        const skill = join(ws, '.agents', 'skills', 'write-spec');
+        mkdirSync(join(skill, 'references'), { recursive: true });
+        // The SKILL.md points at one reference (named) and forgets the other (orphan).
+        writeFileSync(join(skill, 'SKILL.md'), '# write-spec\n\nLoad `references/checklist.md` before you start.\n');
+        writeFileSync(join(skill, 'references', 'checklist.md'), '# checklist\n'); // named → not flagged
+        writeFileSync(join(skill, 'references', 'orphan.md'), '# nobody points here\n'); // orphan → C017
+        const report = assertOk(check_workspace({ workspaceDir: ws }));
+        const c017 = report.workspaceFindings.filter((f) => f.code === 'C017');
+        expect(c017).toHaveLength(1);
+        expect(c017[0].level).toBe('warning');
+        expect(c017[0].message).toContain('orphan.md');
+        expect(c017[0].message).not.toContain('checklist.md'); // the named reference is NOT flagged
+        expect(report.verdict).toBe('clean'); // a warning, not a blocking gate failure
+    });
+
+    it('C017: a skill whose SKILL.md names every bundled reference yields no orphan (0-FP)', () => {
+        writeSpec('good', CONFORMANT);
+        withTemplates();
+        const skill = join(ws, '.agents', 'skills', 'review-output');
+        mkdirSync(join(skill, 'references'), { recursive: true });
+        writeFileSync(join(skill, 'SKILL.md'), '# review-output\n\nUse `references/task-template.md`.\n');
+        writeFileSync(join(skill, 'references', 'task-template.md'), '# template\n');
+        const report = assertOk(check_workspace({ workspaceDir: ws }));
+        expect(report.workspaceFindings.filter((f) => f.code === 'C017')).toEqual([]);
+    });
+
+    it('C017: recurses into a nested references subdir, and skips skills with no SKILL.md or no references dir', () => {
+        writeSpec('good', CONFORMANT);
+        withTemplates();
+        // (a) a skill dir with NO SKILL.md → skipped (no crash)
+        mkdirSync(join(ws, '.agents', 'skills', 'no-guide', 'references'), { recursive: true });
+        writeFileSync(join(ws, '.agents', 'skills', 'no-guide', 'references', 'x.md'), 'x\n');
+        // (b) a skill with a SKILL.md but NO references dir → skipped
+        mkdirSync(join(ws, '.agents', 'skills', 'no-refs'), { recursive: true });
+        writeFileSync(join(ws, '.agents', 'skills', 'no-refs', 'SKILL.md'), '# no-refs\n');
+        // (c) a skill whose references hold a NESTED subdir — the walker recurses; the deep orphan fires
+        const deep = join(ws, '.agents', 'skills', 'deep');
+        mkdirSync(join(deep, 'references', 'sub'), { recursive: true });
+        writeFileSync(join(deep, 'SKILL.md'), '# deep\n\nSee `references/sub/named.md`.\n');
+        writeFileSync(join(deep, 'references', 'sub', 'named.md'), '# named\n'); // named → not orphan
+        writeFileSync(join(deep, 'references', 'sub', 'buried.md'), '# buried\n'); // nested orphan → C017
+        const report = assertOk(check_workspace({ workspaceDir: ws }));
+        const c017 = report.workspaceFindings.filter((f) => f.code === 'C017');
+        expect(c017.map((f) => f.message).join(' ')).toContain('buried.md');
+        expect(c017).toHaveLength(1); // only the nested orphan; (a)/(b) skipped, named.md not flagged
+    });
+
     it('--no-workspace skips the AGENTS.md size check (validity off)', () => {
         writeSpec('good', CONFORMANT);
         writeFileSync(join(ws, 'AGENTS.md'), `# Guide\n${'x\n'.repeat(500)}`);

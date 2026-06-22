@@ -106,6 +106,31 @@ function ok(over: Partial<ReconcileReviewInput>) {
     return result.value;
 }
 
+describe('reconcile_review — diff size (neutral info; oversized band specified-not-shipped, ADR-0097)', () => {
+    it('computes the size from changedFileStats (generated excluded) and NEVER changes the level', () => {
+        const base: Partial<ReconcileReviewInput> = {
+            taskPacketSource: taskSource(['AC-001'], ['src'], ['src/a.ts']),
+            specSource: specSource('ready', ['AC-001']),
+            reviewPacketSource: reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'pasted' }] }),
+        };
+        const withStats = ok({
+            ...base,
+            // 1200 authored LOC; the lockfile is excluded so it never inflates the count
+            changedFileStats: [
+                { path: 'src/a.ts', loc: 700 },
+                { path: 'src/b.ts', loc: 500 },
+                { path: 'pnpm-lock.yaml', loc: 9000 },
+            ],
+        });
+        const without = ok(base);
+        expect(withStats.packetSize).toEqual({ changedLoc: 1200, filesTouched: 2 });
+        expect(without.packetSize).toBeNull(); // a fixture reconcile (no git) omits the size
+        // a 1200-LOC diff is NOT a finding — the size is neutral info, so the level is identical to the
+        // run with no stats at all (whatever the other facts say). The reviewer judges decomposition.
+        expect(withStats.level).toBe(without.level);
+    });
+});
+
 describe('reconcile_review — coverage (AC-019)', () => {
     it('uncovered + orphan against a non-draft spec', () => {
         const report = ok({
@@ -319,12 +344,20 @@ describe('reconcile_review — packet facts (AC-020 / AC-021)', () => {
             }).packetStructural.badResultCells
         ).toEqual(['AC-001']);
         expect(
-            ok({ reviewPacketSource: reviewSource({ status: 'merged', rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p' }] }) })
-                .packetStructural.badStatus
+            ok({
+                reviewPacketSource: reviewSource({
+                    status: 'merged',
+                    rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p' }],
+                }),
+            }).packetStructural.badStatus
         ).toBe('merged');
         expect(
-            ok({ reviewPacketSource: reviewSource({ status: 'pass', rows: [{ id: 'AC-001', result: 'Fail', evidence: 'p' }] }) })
-                .packetStructural.statusPassContradicted
+            ok({
+                reviewPacketSource: reviewSource({
+                    status: 'pass',
+                    rows: [{ id: 'AC-001', result: 'Fail', evidence: 'p' }],
+                }),
+            }).packetStructural.statusPassContradicted
         ).toBe(true);
         expect(
             ok({

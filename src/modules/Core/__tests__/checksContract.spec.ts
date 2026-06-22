@@ -20,6 +20,10 @@ import {
     coverage_facts,
     check_verify_binding,
     verify_binding_facts,
+    check_pass_evidence,
+    pass_rows_missing_evidence,
+    packet_size_facts,
+    is_generated_path,
     normalize_cmd,
     type VerifyBindingInput,
     check_preserves_refs_resolve,
@@ -75,15 +79,62 @@ describe('severity_of', () => {
         expect(severity_of('C013')).toBe('warning');
         expect(severity_of('C014')).toBe('warning');
         expect(severity_of('C015')).toBe('warning');
+        expect(severity_of('C016')).toBe('hard-error'); // the gate blocks an empty-Evidence Pass
+        expect(severity_of('C017')).toBe('warning');
+    });
+});
+
+describe('C016 pass-needs-evidence (ADR-0097)', () => {
+    const rows = [
+        { id: 'AC-001', result: 'Pass', evidence: '' }, // empty Evidence on a Pass → C016
+        { id: 'AC-002', result: 'Pass', evidence: 'pasted output' }, // backed → no finding
+        { id: 'AC-003', result: 'Unverified', evidence: '' }, // empty but not Pass → no finding
+        { id: 'AC-004', result: 'Pass', evidence: '   ' }, // whitespace-only → still empty → C016
+    ];
+
+    it('reports the Pass rows whose Evidence is empty (or whitespace-only), and only those', () => {
+        expect(pass_rows_missing_evidence(rows)).toEqual(['AC-001', 'AC-004']);
+    });
+
+    it('emits a C016 hard-error diagnostic per empty-evidence Pass row', () => {
+        const diagnostics = check_pass_evidence(rows);
+        expect(diagnostics.map((d) => d.code)).toEqual(['C016', 'C016']);
+        expect(diagnostics.every((d) => d.severity === 'hard-error')).toBe(true);
+        expect(diagnostics[0].message).toContain('AC-001');
+    });
+
+    it('a fully-filled coverage table yields no C016 (0-FP)', () => {
+        expect(check_pass_evidence([{ id: 'AC-001', result: 'Pass', evidence: 'a CI link' }])).toEqual([]);
+    });
+});
+
+describe('packet_size_facts (the neutral diff-size signal; oversized band specified-not-shipped, ADR-0097)', () => {
+    it('sums LOC + counts files over human-authored files only, excluding generated/vendored/lockfiles', () => {
+        const facts = packet_size_facts([
+            { path: 'src/a.ts', loc: 100 },
+            { path: 'src/b.ts', loc: 50 },
+            { path: 'pnpm-lock.yaml', loc: 5000 }, // lockfile — excluded
+            { path: 'dist/bundle.js', loc: 9000 }, // build output — excluded
+            { path: 'node_modules/x/index.js', loc: 9000 }, // vendored — excluded
+            { path: 'src/c.test.ts.snap', loc: 200 }, // snapshot — excluded
+        ]);
+        expect(facts.changedLoc).toBe(150);
+        expect(facts.filesTouched).toBe(2);
+    });
+
+    it('is_generated_path classifies vendored / build / lockfile / minified / snapshot paths', () => {
+        expect(is_generated_path('node_modules/x/y.js')).toBe(true);
+        expect(is_generated_path('dist/app.js')).toBe(true);
+        expect(is_generated_path('package-lock.json')).toBe(true);
+        expect(is_generated_path('app.min.css')).toBe(true);
+        expect(is_generated_path('comp.snap')).toBe(true);
+        expect(is_generated_path('src/feature.ts')).toBe(false); // real authored code is not generated
     });
 });
 
 describe('C015 citation-resolves (ADR-0087)', () => {
     it('flags a dangling citation — a key the resolver rejects → one C015 warning', () => {
-        const diagnostics = check_citation_resolves(
-            spec({ citations: ['FAROS2025'] }),
-            (key) => key !== 'FAROS2025'
-        );
+        const diagnostics = check_citation_resolves(spec({ citations: ['FAROS2025'] }), (key) => key !== 'FAROS2025');
         expect(codes(diagnostics)).toEqual(['C015']);
         expect(diagnostics[0].severity).toBe('warning');
         expect(diagnostics[0].message).toBe('citation [[FAROS2025]] resolves to no `<a id>` anchor in sources.md');
@@ -95,9 +146,8 @@ describe('C015 citation-resolves (ADR-0087)', () => {
 
     it('surfaces only the dangling keys when some resolve and some do not', () => {
         const resolves = new Set(['GOOGLESA', 'MAST']);
-        const diagnostics = check_citation_resolves(
-            spec({ citations: ['GOOGLESA', 'MAST', 'FAROS2025'] }),
-            (key) => resolves.has(key)
+        const diagnostics = check_citation_resolves(spec({ citations: ['GOOGLESA', 'MAST', 'FAROS2025'] }), (key) =>
+            resolves.has(key)
         );
         expect(codes(diagnostics)).toEqual(['C015']);
         expect(diagnostics[0].message).toContain('FAROS2025');
@@ -136,9 +186,7 @@ describe('C012 coverage (ADR-0079)', () => {
             coverageRowIds: ['AC-001', 'AC-009'],
         });
         expect(codes(diagnostics)).toEqual(['C012']);
-        expect(diagnostics[0].message).toBe(
-            'coverage row AC-009 names an id absent from the source spec (orphan)'
-        );
+        expect(diagnostics[0].message).toBe('coverage row AC-009 names an id absent from the source spec (orphan)');
     });
 
     it('surfaces both faces together: uncovered + orphan', () => {
@@ -247,7 +295,9 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
             verify_binding_facts(
                 base({
                     namedCommandById: new Map([['AC-001', '`npm test -- auth-refresh.spec.ts`']]),
-                    verifyBlocks: [{ id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'pass', malformed: false }],
+                    verifyBlocks: [
+                        { id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'pass', malformed: false },
+                    ],
                 })
             )
         ).toEqual([]);
@@ -258,7 +308,9 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
             verify_binding_facts(
                 base({
                     namedCommandById: new Map([['AC-001', '`npm test -- auth-refresh.spec.ts` (the refresh path)']]),
-                    verifyBlocks: [{ id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'pass', malformed: false }],
+                    verifyBlocks: [
+                        { id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'pass', malformed: false },
+                    ],
                 })
             )
         ).toEqual([]);
@@ -271,9 +323,15 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
             })
         );
         expect(facts).toEqual([{ id: 'AC-001', kind: 'cmd-mismatch' }]);
-        expect(check_verify_binding(base({
-            verifyBlocks: [{ id: 'AC-001', cmd: 'npm test -- other.spec.ts', result: 'pass', malformed: false }],
-        }))[0]).toMatchObject({ code: 'C013', severity: 'warning' });
+        expect(
+            check_verify_binding(
+                base({
+                    verifyBlocks: [
+                        { id: 'AC-001', cmd: 'npm test -- other.spec.ts', result: 'pass', malformed: false },
+                    ],
+                })
+            )[0]
+        ).toMatchObject({ code: 'C013', severity: 'warning' });
     });
 
     it('a result=fail under a Pass row → a result-fail fact', () => {
@@ -290,9 +348,7 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
 
     it('a malformed block under a Pass row → a malformed fact', () => {
         expect(
-            verify_binding_facts(
-                base({ verifyBlocks: [{ id: 'AC-001', cmd: null, result: 'pass', malformed: true }] })
-            )
+            verify_binding_facts(base({ verifyBlocks: [{ id: 'AC-001', cmd: null, result: 'pass', malformed: true }] }))
         ).toEqual([{ id: 'AC-001', kind: 'malformed' }]);
     });
 
@@ -330,9 +386,7 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
     });
 
     it('a Pass row with no verify block (free-form cell only) → a free-form-only warning', () => {
-        expect(verify_binding_facts(base({ verifyBlocks: [] }))).toEqual([
-            { id: 'AC-001', kind: 'free-form-only' },
-        ]);
+        expect(verify_binding_facts(base({ verifyBlocks: [] }))).toEqual([{ id: 'AC-001', kind: 'free-form-only' }]);
     });
 
     it('a non-Pass row is not subject to the free-form-only warning', () => {
@@ -532,18 +586,31 @@ describe('C004 one-strength-word', () => {
     });
 
     it('counts strength words only in the SOL RESPONSE clause, not the WHEN/IF trigger condition (R5-I02)', () => {
-        const sol = (id: string, body: string) => spec({ frontmatter: { format: 'sol' }, requirements: [req(id, body)] });
+        const sol = (id: string, body: string) =>
+            spec({ frontmatter: { format: 'sol' }, requirements: [req(id, body)] });
         // A conditional modal in the trigger ("WHEN a request may be retried") is condition prose, not a
         // second obligation — only the response clause's strength word binds (for a format: sol spec).
-        expect(check_one_strength_word(sol('AC-001', 'WHEN a request may be retried THE service MUST be idempotent'))).toEqual([]);
+        expect(
+            check_one_strength_word(sol('AC-001', 'WHEN a request may be retried THE service MUST be idempotent'))
+        ).toEqual([]);
         // a GENUINE bundle in the SOL response (two THE…MUST clauses) is still flagged
-        expect(codes(check_one_strength_word(sol('AC-002', 'THE service MUST log AND THE service MUST alert')))).toEqual(['C004']);
+        expect(
+            codes(check_one_strength_word(sol('AC-002', 'THE service MUST log AND THE service MUST alert')))
+        ).toEqual(['C004']);
         // a SOL trigger with NO response strength word still fails (zero in the response)
-        expect(codes(check_one_strength_word(sol('AC-003', 'WHEN x may happen THE service responds')))).toEqual(['C004']);
+        expect(codes(check_one_strength_word(sol('AC-003', 'WHEN x may happen THE service responds')))).toEqual([
+            'C004',
+        ]);
         // the gate is by-construction: the SAME shape in a PLAIN (non-sol) spec is counted in full, so the
         // trigger modal still flags — `response_clause` never narrows a non-sol spec.
         expect(
-            codes(check_one_strength_word(spec({ requirements: [req('AC-004', 'WHEN a request may be retried THE service MUST be idempotent')] })))
+            codes(
+                check_one_strength_word(
+                    spec({
+                        requirements: [req('AC-004', 'WHEN a request may be retried THE service MUST be idempotent')],
+                    })
+                )
+            )
         ).toEqual(['C004']);
     });
 });

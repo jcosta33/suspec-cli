@@ -10,6 +10,7 @@ export {
     worktree_remove,
     worktree_prune,
     worktree_changed_files,
+    worktree_changed_stats,
     is_worktree_dirty,
 } from './git.ts';
 export { write_new_file, type FileExistsError } from './files.ts';

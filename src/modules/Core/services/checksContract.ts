@@ -15,14 +15,15 @@ import type { OutcomeLevel } from '../useCases/unixOutcome.ts';
 import { strip_inline_code } from '../../../infra/markdownScan.ts';
 
 // Pinned to swarm/checks/checks.yaml `version:`; the drift-guard test fails if the sibling diverges.
-export const CONTRACT_VERSION = '0.8.0';
+export const CONTRACT_VERSION = '0.9.0';
 
 export type CheckSeverity = 'hard-error' | 'warning';
 
 // prettier-ignore
 export type CheckId =
     | 'C001' | 'C002' | 'C003' | 'C004' | 'C005' | 'C006'
-    | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C012' | 'C013' | 'C014' | 'C015';
+    | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C012' | 'C013' | 'C014' | 'C015'
+    | 'C016' | 'C017';
 
 // Severity per check, the single source inside swarm-cli; a total Record so the lookup needs no
 // fallback. The drift guard reconciles it against swarm/checks/checks.yaml.
@@ -42,6 +43,12 @@ const SEVERITY_BY_ID: Record<CheckId, CheckSeverity> = {
     C013: 'warning',
     C014: 'warning',
     C015: 'warning',
+    // C016 pass-needs-evidence: the contract pins it hard-error (checks.yaml review_file content_rule).
+    // The GATE path (`swarm check <review>`) honors that — an empty-Evidence Pass is a structural
+    // contradiction, not a judgment call. The reconcile path (`swarm review`) still surfaces the same
+    // fact advisorily (ADR-0077 D8 never blocks); see ADR-0097.
+    C016: 'hard-error',
+    C017: 'warning',
 };
 
 export function severity_of(id: CheckId): CheckSeverity {
@@ -65,6 +72,8 @@ export const CORE_CHECKS: readonly { id: CheckId; name: string; severity: CheckS
     { id: 'C013', name: 'verify-evidence-binding', severity: severity_of('C013') },
     { id: 'C014', name: 'do-not-change-touched', severity: severity_of('C014') },
     { id: 'C015', name: 'citation-resolves', severity: severity_of('C015') },
+    { id: 'C016', name: 'pass-needs-evidence', severity: severity_of('C016') },
+    { id: 'C017', name: 'orphaned-reference', severity: severity_of('C017') },
 ];
 
 // The five strength words (checks.yaml reconciliation note: 5; SOL form is the same words uppercase).
@@ -546,6 +555,63 @@ export function check_verify_binding(input: VerifyBindingInput): Diagnostic[] {
     return verify_binding_facts(input).map((finding) =>
         diagnostic('C013', verify_binding_message(finding), null)
     );
+}
+
+// --- C016 pass-needs-evidence (ADR-0097; the implemented pass-needs-evidence content_rule) --------
+// A coverage row recorded as `Pass` whose Evidence cell is empty is a STRUCTURAL contradiction: a
+// Pass needs pasted output, a CI link, or (for a manual Verify) a named human's recorded observation
+// — an empty cell reads Unverified, never Pass. Unlike C012/C013 (judgment-laden facts shipped at
+// warning), this is unambiguous, so the contract pins it hard-error and the GATE path blocks on it.
+// The reconcile path (`swarm review`) surfaces the SAME row ids advisorily (it never blocks, ADR-0077
+// D8) — hence one predicate, two surfaces. PURE: the row records in, ids/diagnostics out.
+export type CoverageEvidenceRow = Readonly<{ id: string; result: string; evidence: string }>;
+
+// The single source for "a Pass row with no evidence" — both the gate Diagnostic (C016, below) and the
+// reconcile advisory field (reconcileFacts.empty_evidence_pass_rows) derive from this, so the two
+// surfaces can never disagree on what counts.
+export function pass_rows_missing_evidence(rows: readonly CoverageEvidenceRow[]): string[] {
+    return rows.filter((row) => row.result === 'Pass' && row.evidence.trim().length === 0).map((row) => row.id);
+}
+
+export function check_pass_evidence(rows: readonly CoverageEvidenceRow[]): Diagnostic[] {
+    return pass_rows_missing_evidence(rows).map((id) =>
+        diagnostic(
+            'C016',
+            `coverage row ${id} is Pass with an empty Evidence cell — a Pass needs pasted output, a CI link, or a named manual observation (an empty cell reads Unverified)`,
+            null
+        )
+    );
+}
+
+// --- Packet diff size (neutral info; ADR-0094 size signal) ---------------------------------------
+// ADR-0094 named an oversized-packet heuristic as a toolable signal ([[SMARTBEAR]] 200-400 LOC,
+// diffusion via [[BOSU15]]). Measuring real task diffs (ADR-0097) showed a raw LOC/files BAND cannot
+// be both useful and low-FP for code tasks: legitimate feature-with-tests commits occupy the same
+// 600-1200 LOC range as genuinely-too-big ones (≈15% false-positive at a 600-LOC band; a 0-FP band of
+// ≥1500 LOC never fires on the population it targets). So the band-based CHECK is specified-not-shipped
+// (ADR-0097), and the size is surfaced as NEUTRAL INFO instead — the reviewer sees the diff size and
+// makes their own decomposition judgment, no threshold asserted. Generated / vendored / lockfile churn
+// is excluded so the number reflects human-authored review surface. PURE: per-file LOC in, totals out.
+export type ChangedFileStat = Readonly<{ path: string; loc: number }>;
+
+const GENERATED_PATH =
+    /(?:^|\/)(?:node_modules|vendor|dist|build|out|\.next|coverage|__snapshots__)\/|(?:^|\/)(?:package-lock\.json|pnpm-lock\.yaml|yarn\.lock|composer\.lock|Cargo\.lock|poetry\.lock|Gemfile\.lock|go\.sum)$|\.(?:min\.(?:js|css)|map|snap|lock)$|\.generated\./;
+
+export function is_generated_path(path: string): boolean {
+    return GENERATED_PATH.test(path);
+}
+
+export type PacketSizeFacts = Readonly<{
+    changedLoc: number; // sum of insertions+deletions over non-generated files
+    filesTouched: number; // count of non-generated files
+}>;
+
+export function packet_size_facts(stats: readonly ChangedFileStat[]): PacketSizeFacts {
+    const authored = stats.filter((stat) => !is_generated_path(stat.path));
+    return {
+        changedLoc: authored.reduce((sum, stat) => sum + stat.loc, 0),
+        filesTouched: authored.length,
+    };
 }
 
 // --- C010 preserves-refs-resolve (change-plan, hard error) ---------------------------------------

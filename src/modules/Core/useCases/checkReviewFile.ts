@@ -17,7 +17,13 @@ import { join } from 'path';
 import { ok, isOk, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
 import { parse_spec_record, parse_task_packet } from '../../Sol/useCases/index.ts';
-import { check_coverage, check_verify_binding, verdict_for, type Diagnostic } from '../services/checksContract.ts';
+import {
+    check_coverage,
+    check_verify_binding,
+    check_pass_evidence,
+    verdict_for,
+    type Diagnostic,
+} from '../services/checksContract.ts';
 import { parse_review_packet } from '../services/parseReviewPacket.ts';
 import { read_frontmatter } from '../services/readFrontmatter.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
@@ -109,5 +115,10 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
         coverageRows: review.coverageRows,
         verifyBlocks: review.verifyBlocks,
     });
-    return clean([...coverage, ...verifyBinding]);
+    // C016 (ADR-0097): the GATE path blocks an empty-Evidence Pass row — the contract's hard-error
+    // pass-needs-evidence rule, which the `swarm check` surface (unlike the advisory reconcile) is the
+    // place to enforce. NOT draft-guarded: an empty-evidence Pass is a structural contradiction
+    // independent of the source spec's status (the row claims Pass with nothing backing it).
+    const passEvidence = check_pass_evidence(review.coverageRows);
+    return clean([...coverage, ...verifyBinding, ...passEvidence]);
 }
