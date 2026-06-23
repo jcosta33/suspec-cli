@@ -18,6 +18,7 @@ build/
 .agents/logs/
 .agents/locks/
 .agents/*.db
+.claude/*.lock
 
 # Cache
 .vite/
