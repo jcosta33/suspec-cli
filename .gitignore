@@ -30,8 +30,8 @@ node_modules
 
 # Coverage
 coverage
-# --- Swarm (code-repo footprint) ---
-# The Swarm workspace governing this repo is the sibling swarm-hq repo; only
+# --- Corpus (code-repo footprint) ---
+# The Corpus workspace governing this repo is the sibling swarm-hq repo; only
 # code-repo scratch is ignored here (the kit's .gitignore.additions).
 .agents/tmp/
 tmp/

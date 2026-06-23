@@ -1,7 +1,7 @@
 {
     "name": "swarm-cli",
     "version": "1.0.0",
-    "description": "The reference CLI for the Swarm framework — a reconcile-only harness for spec-driven agent work.",
+    "description": "The reference CLI for the Corpus framework — a reconcile-only harness for spec-driven agent work.",
     "keywords": [
         "swarm",
         "spec-driven",

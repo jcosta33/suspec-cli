@@ -1,7 +1,7 @@
 /** @type {import('dependency-cruiser').IConfiguration} */
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Swarm CLI module architecture enforcement (ADR-0077 reconcile-only harness)
+// Corpus CLI module architecture enforcement (ADR-0077 reconcile-only harness)
 //
 // Module layout (one folder per bounded context under src/modules):
 //   src/modules/Core/       — the four reconcile-only engines + the unixOutcome contract

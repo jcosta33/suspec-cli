@@ -1,5 +1,5 @@
 // @ts-check
-// ESLint config for the Swarm CLI — Node 22, TypeScript, no React, no JSX.
+// ESLint config for the Corpus CLI — Node 22, TypeScript, no React, no JSX.
 //
 // Uses only the plugins that are actually installed:
 //   - @eslint/js
