@@ -399,6 +399,56 @@ export function check_coverage(input: CoverageInput): Diagnostic[] {
     return coverage_facts(input).map((finding) => diagnostic('C012', coverage_message(finding), null));
 }
 
+// --- spec-coverage drift (corpus-works#72 item 2; corpus-cli#1) -----------------------------------
+// Advisory, NOT a contract check: no C-id, no `checks.yaml` entry, no contract-version bump — it
+// surfaces a neutral reconcile fact, reconcile-only until measured 0-FP on the real corpus and only
+// then promoted to a check (honesty framework, ADR-0063; matches the packet-size neutral-info posture).
+// Distinct axis from C012: C012 compares the task's `scope` to the review's coverage rows; this
+// compares the *source spec's* requirement ids to the task `scope` — the "the spec grew under the
+// task/review" drift. The untracked set is the spec ids no task scope tracks. PURE — id sets in,
+// a drift summary out (or null when fully tracked); the engine does the I/O. Scope-guarded to
+// non-draft source specs (mirrors C012 / the ADR-0079 guard).
+export type SpecCoverageDriftInput = Readonly<{
+    sourceSpecStatus: string | null;
+    specRequirementIds: readonly string[];
+    inScopeIds: readonly string[];
+}>;
+
+export type SpecCoverageDrift = Readonly<{
+    specCount: number;
+    trackedCount: number;
+    untracked: readonly string[];
+}>;
+
+// The message a drift renders to — single-sourced so the reconcile fact and any future Diagnostic
+// share the exact wording.
+export function spec_coverage_drift_message(drift: SpecCoverageDrift): string {
+    return `spec has ${drift.specCount} requirements; task scope tracks ${drift.trackedCount}; ${drift.untracked.length} untracked: ${drift.untracked.join(', ')}`;
+}
+
+// The structured drift fact, or null when there is nothing to surface (fully tracked, no spec ids, or
+// a draft source spec whose ids are not finalized claims). PURE.
+export function spec_coverage_drift_facts(input: SpecCoverageDriftInput): SpecCoverageDrift | null {
+    if (input.sourceSpecStatus === 'draft') {
+        return null;
+    }
+    // Unique spec ids, first-seen order preserved (a spec that names an id twice counts it once).
+    const seen = new Set<string>();
+    const specIds: string[] = [];
+    for (const id of input.specRequirementIds) {
+        if (!seen.has(id)) {
+            seen.add(id);
+            specIds.push(id);
+        }
+    }
+    const scopeSet = new Set(input.inScopeIds);
+    const untracked = specIds.filter((id) => !scopeSet.has(id));
+    if (untracked.length === 0) {
+        return null;
+    }
+    return { specCount: specIds.length, trackedCount: specIds.length - untracked.length, untracked };
+}
+
 // --- C013 verify-evidence-binding (ADR-0083) -----------------------------------------------------
 // The structured-evidence reconcile against the named source spec. A coverage row may carry an
 // optional fenced `verify` block (a sibling to the row). Where present against a Pass row, this

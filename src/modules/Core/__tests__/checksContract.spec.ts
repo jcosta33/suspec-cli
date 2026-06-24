@@ -18,6 +18,8 @@ import {
     check_citation_resolves,
     check_coverage,
     coverage_facts,
+    spec_coverage_drift_facts,
+    spec_coverage_drift_message,
     check_verify_binding,
     verify_binding_facts,
     check_pass_evidence,
@@ -232,6 +234,60 @@ describe('C012 coverage (ADR-0079)', () => {
             coverageRowIds: ['AC-009', 'AC-009'],
         });
         expect(codes(diagnostics)).toEqual(['C012']);
+    });
+});
+
+describe('spec_coverage_drift (corpus-works#72 item 2; corpus-cli#1)', () => {
+    it('reports spec ids no task scope tracks as untracked', () => {
+        expect(
+            spec_coverage_drift_facts({
+                sourceSpecStatus: 'ready',
+                specRequirementIds: ['AC-001', 'AC-002', 'AC-003', 'AC-004'],
+                inScopeIds: ['AC-001', 'AC-002'],
+            })
+        ).toEqual({ specCount: 4, trackedCount: 2, untracked: ['AC-003', 'AC-004'] });
+    });
+
+    it('renders the drift message', () => {
+        expect(spec_coverage_drift_message({ specCount: 3, trackedCount: 1, untracked: ['AC-002', 'AC-003'] })).toBe(
+            'spec has 3 requirements; task scope tracks 1; 2 untracked: AC-002, AC-003'
+        );
+    });
+
+    it('returns null when the scope tracks every spec id', () => {
+        expect(
+            spec_coverage_drift_facts({
+                sourceSpecStatus: 'ready',
+                specRequirementIds: ['AC-001', 'AC-002'],
+                inScopeIds: ['AC-001', 'AC-002', 'AC-003'],
+            })
+        ).toBeNull();
+    });
+
+    it('is exempt on a draft source spec', () => {
+        expect(
+            spec_coverage_drift_facts({
+                sourceSpecStatus: 'draft',
+                specRequirementIds: ['AC-001', 'AC-002'],
+                inScopeIds: [],
+            })
+        ).toBeNull();
+    });
+
+    it('counts a spec id named twice only once', () => {
+        expect(
+            spec_coverage_drift_facts({
+                sourceSpecStatus: 'ready',
+                specRequirementIds: ['AC-001', 'AC-001', 'AC-002'],
+                inScopeIds: ['AC-001'],
+            })
+        ).toEqual({ specCount: 2, trackedCount: 1, untracked: ['AC-002'] });
+    });
+
+    it('returns null for an empty spec', () => {
+        expect(
+            spec_coverage_drift_facts({ sourceSpecStatus: 'ready', specRequirementIds: [], inScopeIds: [] })
+        ).toBeNull();
     });
 });
 
