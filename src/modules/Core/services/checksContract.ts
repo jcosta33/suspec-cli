@@ -403,6 +403,9 @@ export function check_coverage(input: CoverageInput): Diagnostic[] {
 // Advisory, NOT a contract check: no C-id, no `checks.yaml` entry, no contract-version bump — it
 // surfaces a neutral reconcile fact, reconcile-only until measured 0-FP on the real corpus and only
 // then promoted to a check (honesty framework, ADR-0063; matches the packet-size neutral-info posture).
+// The noise source to measure before any check promotion is a non-draft spec's deliberately-deferred
+// (not-yet-tasked) ACs: the untracked set legitimately includes them — fine as neutral info, noisy as
+// a warning. So "0-FP" is UNMEASURED here, not asserted.
 // Distinct axis from C012: C012 compares the task's `scope` to the review's coverage rows; this
 // compares the *source spec's* requirement ids to the task `scope` — the "the spec grew under the
 // task/review" drift. The untracked set is the spec ids no task scope tracks. PURE — id sets in,
