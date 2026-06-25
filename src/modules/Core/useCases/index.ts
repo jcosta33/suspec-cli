@@ -37,6 +37,13 @@ export { show_artifact, type ShowResult, type ShowKind } from './showArtifact.ts
 // reconcile engine — status, no agent (AC-011); review, no agent (M2 AC-018/019/020/021/023)
 export { derive_board } from './deriveBoard.ts';
 export {
+    scan_clean_candidates,
+    type CleanReport,
+    type CleanCandidate,
+    type CleanKind,
+    type ScanCleanInput,
+} from './scanCleanCandidates.ts';
+export {
     reconcile_review,
     type ReviewReport,
     type CoverageFinding,

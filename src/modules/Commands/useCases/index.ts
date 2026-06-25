@@ -5,6 +5,7 @@ export { COMMAND_CATALOG } from './catalog.ts';
 export { run as run_check } from './check.ts';
 export { run as run_worktree } from './worktree.ts';
 export { run as run_status } from './status.ts';
+export { run as run_clean } from './clean.ts';
 export { run as run_review } from './review.ts';
 export { run as run_new } from './new.ts';
 export { run as run_init } from './init.ts';

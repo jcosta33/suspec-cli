@@ -56,6 +56,16 @@ export const COMMAND_CATALOG = [
         usage: ['corpus status', '  --json · -i                 machine output · interactive board'],
     },
     {
+        name: 'clean',
+        description: 'Report spent ephemeral artifacts (tasks/reviews) for pruning',
+        usage: [
+            'corpus clean',
+            '  (report-only v0)            list tasks/reviews whose work reached a terminal status',
+            '  --json                      machine output',
+            '  --apply                     (deferred — prints a notice until the prune policy is ratified)',
+        ],
+    },
+    {
         name: 'review',
         description: 'Reconcile a finished run — diff vs self-report vs spec (no verdict)',
         usage: [
