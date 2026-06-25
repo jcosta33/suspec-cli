@@ -19,10 +19,12 @@ import {
     infer_workspace_root,
     find_workspace_spec_files,
     find_sibling_spec_files,
+    scan_spec_staleness,
     project,
     usage_error,
 } from '../../Core/useCases/index.ts';
-import { err } from '../../../infra/errors/result.ts';
+import { resolve_repo_root } from '../../Workspace/useCases/index.ts';
+import { ok, err, isErr } from '../../../infra/errors/result.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import {
     format_check_report,
@@ -33,18 +35,56 @@ import {
 
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
     const { positional, flags } = parse_flags(argv, {
-        booleans: ['--json', '-i', '--interactive', '--no-workspace'],
+        booleans: ['--json', '-i', '--interactive', '--no-workspace', '--staleness'],
         strings: [],
     });
     const json = flags.get('json') === true;
     const interactive = flags.get('i') === true || flags.get('interactive') === true;
     const noWorkspace = flags.get('no-workspace') === true;
+    const staleness = flags.get('staleness') === true;
 
     /* v8 ignore start -- interactive dispatch is the thin shell; the flow logic is tested via the mock Prompter (checkFlow.spec) */
     if (interactive && process.stdout.isTTY === true && !json) {
         return run_check_flow(create_clack_prompter(), { workspaceDir: cwd });
     }
     /* v8 ignore stop */
+
+    // `--staleness` (ADR-0108 item 4): the git-backed spec-staleness advisory — diff each snapshotted
+    // spec's Affected areas against its recorded `snapshot:` SHA. Opt-in so the default `corpus check`
+    // stays filesystem-only (no git needed in CI). Never blocks: with no git repo it reports a skip and
+    // exits 0 (advisory), and a spec with no snapshot is simply not compared.
+    if (staleness) {
+        const rootResult = resolve_repo_root(cwd);
+        if (isErr(rootResult)) {
+            return project({
+                result: ok({ level: 'clean' as const, stale: [], scanned: 0 }),
+                json,
+                render: () => 'spec-staleness — skipped: no git repository found (staleness detection needs one)',
+            });
+        }
+        return project({
+            result: scan_spec_staleness({ workspaceDir: cwd, repoRoot: rootResult.value }),
+            json,
+            render: (report) => {
+                const lines = [
+                    `spec-staleness — ${String(report.stale.length)} possibly stale, ${String(report.scanned)} snapshotted spec(s) scanned`,
+                ];
+                for (const spec of report.stale) {
+                    lines.push(
+                        `  ${spec.id ?? spec.path} — areas changed since ${spec.snapshot.slice(0, 8)}: ${spec.changedAreas.join(', ')}`
+                    );
+                }
+                if (report.stale.length === 0) {
+                    lines.push(
+                        report.scanned === 0
+                            ? '  no spec records a `snapshot:` SHA yet — add one to a ready/active spec to enable staleness detection.'
+                            : '  all snapshotted specs are current.'
+                    );
+                }
+                return lines.join('\n');
+            },
+        });
+    }
 
     if (positional.length > 0) {
         const file = positional[0];

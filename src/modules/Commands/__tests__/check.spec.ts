@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { execFileSync } from 'child_process';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -244,5 +245,58 @@ describe('check never engages the TUI under --json or a non-TTY (AC-015)', () =>
         const { code, out } = await capture(() => run([file, '-i']));
         expect(code).toBe(0);
         expect(out).toContain('clean');
+    });
+});
+
+describe('check --staleness (ADR-0108 item 4)', () => {
+    it('skips gracefully (exit 0) when there is no git repository', async () => {
+        // `dir` is a bare tmpdir, not a git repo → staleness cannot run; it reports a skip, never errors.
+        const { code, out } = await capture(() => run(['--staleness'], dir));
+        expect(code).toBe(0);
+        expect(out).toContain('skipped: no git repository');
+    });
+
+    const git = (repo: string, args: string[]): string => execFileSync('git', args, { cwd: repo, encoding: 'utf8' });
+    function gitRepo(): string {
+        const repo = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-check-stale-')));
+        git(repo, ['init']);
+        git(repo, ['config', 'user.email', 't@e.com']);
+        git(repo, ['config', 'user.name', 'T']);
+        return repo;
+    }
+    function writeStaleSpec(repo: string, snapshot: string | null, area = 'src/a.ts'): void {
+        mkdirSync(join(repo, 'specs', 'x'), { recursive: true });
+        const snap = snapshot !== null ? `snapshot: ${snapshot}\n` : '';
+        writeFileSync(
+            join(repo, 'specs', 'x', 'spec.md'),
+            `---\ntype: spec\nid: SPEC-x\nstatus: active\n${snap}sources:\n  - self\n---\n\n## Affected areas\n\n- \`${area}\`\n`
+        );
+    }
+
+    it('lists a spec whose area drifted since its snapshot', async () => {
+        const repo = gitRepo();
+        mkdirSync(join(repo, 'src'), { recursive: true });
+        writeFileSync(join(repo, 'src', 'a.ts'), 'v1\n');
+        git(repo, ['add', '.']);
+        git(repo, ['commit', '-m', 'code']);
+        const sha = git(repo, ['rev-parse', 'HEAD']).trim();
+        writeStaleSpec(repo, sha);
+        writeFileSync(join(repo, 'src', 'a.ts'), 'v2\n'); // drift after the snapshot
+        const { code, out } = await capture(() => run(['--staleness'], repo));
+        rmSync(repo, { recursive: true, force: true });
+        expect(code).toBe(0);
+        expect(out).toContain('1 possibly stale');
+        expect(out).toContain('src/a.ts');
+    });
+
+    it('reports nothing-to-check (--json) when no spec records a snapshot', async () => {
+        const repo = gitRepo();
+        git(repo, ['commit', '--allow-empty', '-m', 'init']);
+        writeStaleSpec(repo, null); // no snapshot → not scanned
+        const { out } = await capture(() => run(['--staleness', '--json'], repo));
+        rmSync(repo, { recursive: true, force: true });
+        const parsed = JSON.parse(out) as { stale: unknown[]; scanned: number };
+        expect(parsed.scanned).toBe(0);
+        expect(parsed.stale).toEqual([]);
     });
 });

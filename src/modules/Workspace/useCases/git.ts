@@ -428,3 +428,32 @@ export function is_worktree_dirty(worktreePath: string): boolean {
     }
     return (result.stdout || '').trim().length > 0;
 }
+
+/**
+ * The repo-relative paths that changed between a snapshot commit and the working tree (ADR-0108 item 4
+ * staleness). Returns `null` — meaning "cannot determine, skip" — when the SHA does not resolve in this
+ * repo or git fails, so the advisory degrades to silence rather than a false flag (0-FP by construction).
+ * Compares `<sha>` to the working tree (committed-since + unstaged), so a still-uncommitted edit counts.
+ */
+export function paths_changed_since(repoRoot: string, sha: string): string[] | null {
+    // Resolve the SHA to a commit first; an unknown/invalid ref degrades to null (skip), never a flag.
+    const resolved = spawnSync('git', ['rev-parse', '--verify', '--quiet', `${sha}^{commit}`], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+    });
+    if (resolved.status !== 0) {
+        return null;
+    }
+    const diff = spawnSync('git', ['-c', 'core.quotePath=false', 'diff', '--name-only', sha], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+    });
+    /* v8 ignore next 3 -- spawn-launch / non-zero only on a broken repo, which the SHA resolve above already gates */
+    if (diff.error || diff.status !== 0) {
+        return null;
+    }
+    return (diff.stdout || '')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+}

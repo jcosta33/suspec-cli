@@ -44,6 +44,12 @@ export {
     type ScanCleanInput,
 } from './scanCleanCandidates.ts';
 export {
+    scan_spec_staleness,
+    type StalenessReport,
+    type StaleSpec,
+    type ScanStalenessInput,
+} from './scanSpecStaleness.ts';
+export {
     reconcile_review,
     type ReviewReport,
     type CoverageFinding,

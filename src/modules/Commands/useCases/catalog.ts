@@ -36,6 +36,7 @@ export const COMMAND_CATALOG = [
             'corpus check [file]',
             '  (no file)                   aggregate every specs/*/spec.md into one workspace verdict',
             '  <file>                      lint one spec; exit 0 clean · 1 warnings · 2 error',
+            '  --staleness                 advisory: which snapshotted specs drifted since their snapshot SHA',
             '  --json · -i                 machine output · interactive flow',
         ],
     },

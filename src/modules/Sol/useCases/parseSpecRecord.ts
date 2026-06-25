@@ -38,6 +38,10 @@ export type SpecRecordFrontmatter = Readonly<{
     // common case — a living spec amends in place and never supersedes). The keep-clean tooling
     // (ADR-0106) resolves it against the workspace's spec ids.
     supersededBy: string | null;
+    // The commit SHA the spec's current text was last written against (ADR-0108 item 4 staleness
+    // snapshot). null when absent (the common case today). When set, the staleness check diffs the
+    // spec's Affected areas between this SHA and HEAD; any change flags the spec as possibly stale.
+    snapshot: string | null;
 }>;
 
 export type SpecRecord = Readonly<{
@@ -142,6 +146,7 @@ function parse_frontmatter(lines: readonly string[], end_line: number): SpecReco
         format: scalars.get('format') ?? null,
         sources,
         supersededBy: scalars.get('superseded_by') ?? null,
+        snapshot: scalars.get('snapshot') ?? null,
     };
 }
 
