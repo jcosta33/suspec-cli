@@ -139,6 +139,14 @@ export type RenderReviewReport = Readonly<{
         missingSections: readonly string[];
     }>;
     packetSize: Readonly<{ changedLoc: number; filesTouched: number }> | null;
+    // Spec-coverage drift (corpus-cli#1) — NEUTRAL INFO, surfaced dim like the size note, never a ⚠
+    // finding (the engine keeps it out of the advisory level until measured + promoted). null = no drift.
+    specCoverageDrift: Readonly<{
+        specCount: number;
+        trackedCount: number;
+        untracked: readonly string[];
+        message: string;
+    }> | null;
     hasReviewPacket: boolean;
 }>;
 
@@ -202,6 +210,11 @@ export function format_review_report(report: RenderReviewReport): string {
     }
     for (const section of report.packetStructural.missingSections) {
         bullet(`${color.bold('missing-section')}  the review packet has no "${section}" section`);
+    }
+    // Spec-coverage drift: dim NEUTRAL line (like the size note), never a ⚠ finding — the spec grew
+    // under the task and the reviewer decides whether the untracked ids belong in this run (corpus-cli#1).
+    if (report.specCoverageDrift !== null) {
+        lines.push(`  ${color.dim(`spec-coverage drift — ${report.specCoverageDrift.message}`)}`);
     }
 
     if (lines.length === 1) {

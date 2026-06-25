@@ -220,6 +220,60 @@ describe('reconcile_review — coverage (AC-019)', () => {
     });
 });
 
+describe('reconcile_review — spec-coverage drift (corpus-works#72 item 2; corpus-cli#1)', () => {
+    it('surfaces the spec ids the task scope does not track — NEUTRAL, never raises the level', () => {
+        const report = ok({
+            // task scopes only AC-001; the spec has grown to AC-001..003 under it
+            taskPacketSource: taskSource(['AC-001'], ['src'], ['src/a.ts']),
+            specSource: specSource('ready', ['AC-001', 'AC-002', 'AC-003']),
+            reviewPacketSource: reviewSource({
+                rows: [{ id: 'AC-001', result: 'Pass', evidence: 'pasted', verify: true }],
+            }),
+        });
+        expect(report.specCoverageDrift).toEqual({
+            specCount: 3,
+            trackedCount: 1,
+            untracked: ['AC-002', 'AC-003'],
+            message: 'spec has 3 requirements; task scope tracks 1; 2 untracked: AC-002, AC-003',
+        });
+        // drift is neutral info (like packetSize) — the otherwise-clean reconcile stays clean
+        expect(report.level).toBe('clean');
+    });
+
+    it('is null when the task scope tracks every spec id', () => {
+        const report = ok({
+            taskPacketSource: taskSource(['AC-001', 'AC-002'], ['src'], ['src/a.ts']),
+            specSource: specSource('ready', ['AC-001', 'AC-002']),
+            reviewPacketSource: reviewSource({
+                rows: [
+                    { id: 'AC-001', result: 'Pass', evidence: 'p' },
+                    { id: 'AC-002', result: 'Pass', evidence: 'p' },
+                ],
+            }),
+        });
+        expect(report.specCoverageDrift).toBeNull();
+    });
+
+    it('is null for a draft source spec (the ids are not finalized claims)', () => {
+        const report = ok({
+            taskPacketSource: taskSource(['AC-001'], ['src'], ['src/a.ts']),
+            specSource: specSource('draft', ['AC-001', 'AC-002', 'AC-003']),
+        });
+        expect(report.specCoverageDrift).toBeNull();
+    });
+
+    it('excludes change-plan plan-guarantee ids (PG-NNN) from the tracked set', () => {
+        // A migration task scopes PG ids alongside spec ACs; PG ids are not spec requirements, so the
+        // drift must key on the SPEC-filtered scope and never treat a PG id as untracked coverage.
+        const report = ok({
+            taskPacketSource: taskSource(['AC-001', 'PG-001'], ['src'], ['src/a.ts']),
+            specSource: specSource('ready', ['AC-001']),
+            reviewPacketSource: reviewSource({ rows: [{ id: 'AC-001', result: 'Pass', evidence: 'p' }] }),
+        });
+        expect(report.specCoverageDrift).toBeNull();
+    });
+});
+
 describe('reconcile_review — self-report ↔ diff (AC-018)', () => {
     it('surfaces the three mismatch classes', () => {
         const report = ok({

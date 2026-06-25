@@ -24,6 +24,7 @@ function reviewReport(over: Partial<RenderReviewReport> = {}): RenderReviewRepor
         emptyEvidencePassRows: [],
         packetStructural: { badResultCells: [], badStatus: null, statusPassContradicted: false, missingSections: [] },
         packetSize: null,
+        specCoverageDrift: null,
         hasReviewPacket: true,
         ...over,
     };
@@ -162,6 +163,24 @@ describe('format_review_report (AC-023: facts + route, never a verdict)', () => 
         // even a large diff is NOT flagged — the oversized band is specified-not-shipped (ADR-0097)
         expect(out).not.toMatch(/oversized|consider splitting|C018/i);
         expect(out).toContain('clean reconcile'); // size info does not become a finding / change the level
+    });
+
+    it('surfaces spec-coverage drift as NEUTRAL info — a dim line, never a finding (corpus-cli#1)', () => {
+        const out = format_review_report(
+            reviewReport({
+                specCoverageDrift: {
+                    specCount: 3,
+                    trackedCount: 1,
+                    untracked: ['AC-002', 'AC-003'],
+                    message: 'spec has 3 requirements; task scope tracks 1; 2 untracked: AC-002, AC-003',
+                },
+            })
+        );
+        expect(out).toContain('spec-coverage drift');
+        expect(out).toContain('2 untracked: AC-002, AC-003');
+        // neutral: it does not become a ⚠ finding and does not flip the clean reconcile to a warning
+        expect(out).not.toMatch(/⚠.*spec-coverage/);
+        expect(out).not.toMatch(/\bwarning\b/);
     });
 
     it('surfaces every fact class and routes them', () => {
