@@ -421,4 +421,34 @@ preserves: [PG-001]
         expect(report.workspaceFindings.filter((f) => f.code.startsWith('supersede'))).toEqual([]);
         expect(report.verdict).toBe('clean');
     });
+
+    // Duplicate-content advisory (ADR-0106 item 3) — exact duplicates only, advisory, never blocking.
+    const writeFinding = (name: string, body: string): void => {
+        mkdirSync(join(ws, 'findings'), { recursive: true });
+        writeFileSync(join(ws, 'findings', name), `---\ntype: finding\nid: F-${name}\n---\n\n${body}\n`);
+    };
+
+    it('flags two findings with an identical body as duplicate-content (warning, never blocking)', () => {
+        writeSpec('good', CONFORMANT);
+        withTemplates();
+        writeFinding('a.md', 'The token expiry check uses < not <=, so a token is valid one second too long.');
+        writeFinding('b.md', 'The token expiry check uses < not <=, so a token is valid one second too long.');
+        const report = assertOk(check_workspace({ workspaceDir: ws }));
+        const dup = report.workspaceFindings.find((f) => f.code === 'duplicate-content');
+        expect(dup?.level).toBe('warning');
+        expect(dup?.message).toContain('findings/a.md');
+        expect(dup?.message).toContain('findings/b.md');
+        expect(report.verdict).toBe('clean'); // advisory — duplication does not block the merge
+    });
+
+    it('does not flag distinct findings, a README, or an empty-body finding', () => {
+        writeSpec('good', CONFORMANT);
+        withTemplates();
+        writeFinding('a.md', 'A real lesson about caching.');
+        writeFinding('b.md', 'A different lesson about retries.');
+        writeFileSync(join(ws, 'findings', 'README.md'), '# findings\n'); // placeholder — never compared
+        writeFinding('empty.md', ''); // empty body — never a duplicate
+        const report = assertOk(check_workspace({ workspaceDir: ws }));
+        expect(report.workspaceFindings.filter((f) => f.code === 'duplicate-content')).toEqual([]);
+    });
 });

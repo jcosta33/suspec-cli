@@ -27,7 +27,8 @@ export type WorkspaceFinding = Readonly<{
         | 'missing-template'
         | 'agents-oversize'
         | 'supersede-unresolved'
-        | 'supersede-missing-pointer';
+        | 'supersede-missing-pointer'
+        | 'duplicate-content';
     // SW-006: an unfilled {{placeholder}} in a freshly-scaffolded AGENTS.md is a "finish setup" nudge,
     // not broken work — it must NOT block the gate on day one (the kit's own AGENTS.md ships with
     // placeholders, so `corpus check` right after `corpus init` would otherwise greet a new user with a
@@ -106,6 +107,35 @@ function find_change_plan_files(workspaceDir: string): string[] {
         }
     }
     return out;
+}
+
+// Duplicate-content advisory (ADR-0106 item 3; ADR-0096 §3.5 — duplication is the dominant durable
+// failure). v0 = EXACT duplicates only: findings whose body (frontmatter stripped, whitespace
+// collapsed) is identical. Deterministic 0-FP by construction — identical text is identical, no
+// similarity heuristic (fuzzy/near-duplicate detection needs a measured threshold; deferred). Returns
+// each group of ≥2 workspace-relative finding paths that share one normalized body.
+function find_duplicate_findings(workspaceDir: string): string[][] {
+    const dir = join(workspaceDir, 'findings');
+    if (!existsSync(dir)) {
+        return [];
+    }
+    const byBody = new Map<string, string[]>();
+    for (const name of readdirSync(dir).sort()) {
+        if (!name.endsWith('.md') || name === 'README.md') {
+            continue; // a README placeholder is never a finding
+        }
+        // Strip a leading frontmatter fence, then collapse all whitespace, so two findings differing
+        // only in frontmatter/spacing still count as the same body. An empty body never duplicates.
+        const body = readFileSync(join(dir, name), 'utf8')
+            .replace(/^---\n[\s\S]*?\n---\n/, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        if (body.length === 0) {
+            continue;
+        }
+        byBody.set(body, [...(byBody.get(body) ?? []), `findings/${name}`]);
+    }
+    return [...byBody.values()].filter((paths) => paths.length > 1);
 }
 
 function workspace_validity(workspaceDir: string): WorkspaceFinding[] {
@@ -240,6 +270,16 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
                 message: `${path} is status: superseded but names no superseded_by spec (a superseded spec points at its replacement, ADR-0108)`,
             });
         }
+    }
+
+    // Duplicate-content (ADR-0106 item 3): findings that restate each other verbatim. Advisory warning,
+    // exact-match only (0-FP); fuzzy/near-duplicate detection is deferred to a measured threshold.
+    for (const group of find_duplicate_findings(input.workspaceDir)) {
+        findings.push({
+            code: 'duplicate-content',
+            level: 'warning',
+            message: `duplicate finding content — ${group.join(', ')} share an identical body; single-source it (ADR-0096)`,
+        });
     }
 
     // C017 orphaned-reference (ADR-0097, #45): a bundled `.agents/skills/<name>/references/<file>` the
