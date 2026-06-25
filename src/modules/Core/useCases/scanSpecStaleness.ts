@@ -1,11 +1,15 @@
-// ReconcileEngine — spec staleness (ADR-0108 item 4; SPEC-spec-staleness-detection). For each spec
-// that records a `snapshot:` SHA, diff its `## Affected areas` paths between that SHA and the working
-// tree; any change flags the spec as possibly stale. ADVISORY — a warning, no C-id, no checks.yaml,
-// never blocking — until measured and promoted (ADR-0063; DOCER has false positives). Co-located v0:
-// the diff runs in the workspace's OWN repo, so a cross-root area (a path in a sibling repo) simply
-// never matches a changed file here — it degrades to silence, never a false flag. Read-only.
+// ReconcileEngine — spec staleness (ADR-0108 item 4; SPEC-spec-staleness-detection; corpus-cli#2
+// cross-root). For each spec that records a `snapshot:` SHA, diff its `## Affected areas` paths between
+// that SHA and the working tree; any change flags the spec as possibly stale. ADVISORY — a warning, no
+// C-id, no checks.yaml, never blocking — until measured and promoted (ADR-0063; DOCER has false
+// positives). CROSS-ROOT: a context-prefixed area (`corpus-cli/src/…`) is resolved to its SIBLING repo
+// (`../corpus-cli`) and diffed THERE, so a spec in a dedicated workspace whose code lives in sibling
+// repos (the multi-repo layout) is checked correctly; the `snapshot:` SHA resolves in exactly the repo
+// it belongs to (others return null → those areas skip). Everything degrades to silence (0-FP): no
+// snapshot, draft, unresolvable SHA, no git, missing sibling. Read-only.
 
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
 
 import { ok, isOk, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
@@ -61,6 +65,23 @@ function is_under(changed: string, area: string): boolean {
     return changed === a || changed.startsWith(`${a}/`);
 }
 
+// Resolve a declared Affected-area path to the git repo it lives in (corpus-cli#2 cross-root). A
+// context-prefixed path (`corpus-cli/src/foo.ts`) whose first segment names a SIBLING git repo
+// (`<workspaceParent>/corpus-cli` with a `.git`) resolves to that sibling; everything else resolves to
+// the workspace's own repo. Returns the repo root and the area path AS SEEN INSIDE that repo (the
+// sibling prefix stripped, so it matches the sibling's repo-relative diff output).
+function resolve_area_repo(workspaceDir: string, repoRoot: string, area: string): { repo: string; areaInRepo: string } {
+    const slash = area.indexOf('/');
+    if (slash > 0) {
+        const prefix = area.slice(0, slash);
+        const sibling = join(workspaceDir, '..', prefix);
+        if (existsSync(join(sibling, '.git'))) {
+            return { repo: sibling, areaInRepo: area.slice(slash + 1) };
+        }
+    }
+    return { repo: repoRoot, areaInRepo: area };
+}
+
 export function scan_spec_staleness(input: ScanStalenessInput): Result<StalenessReport, AppError> {
     const stale: StaleSpec[] = [];
     let scanned = 0;
@@ -76,15 +97,28 @@ export function scan_spec_staleness(input: ScanStalenessInput): Result<Staleness
         if (fm.status === 'draft' || fm.snapshot === null) {
             continue;
         }
+        const snapshot = fm.snapshot;
         scanned += 1;
-        const changed = paths_changed_since(input.repoRoot, fm.snapshot);
-        if (changed === null) {
-            continue; // the SHA does not resolve in this repo / git unavailable — skip (0-FP)
+        // Per-area repo resolution (cross-root): an area is checked in its OWN repo. The snapshot SHA
+        // resolves in exactly the repo it belongs to (paths_changed_since returns null elsewhere → that
+        // repo's areas skip). Diffs are cached per repo so a multi-area spec runs one diff per repo.
+        const diffByRepo = new Map<string, readonly string[] | null>();
+        const changedAreas: string[] = [];
+        for (const area of affected_area_paths(source)) {
+            const { repo, areaInRepo } = resolve_area_repo(input.workspaceDir, input.repoRoot, area);
+            if (!diffByRepo.has(repo)) {
+                diffByRepo.set(repo, paths_changed_since(repo, snapshot));
+            }
+            const changed = diffByRepo.get(repo);
+            if (changed === null || changed === undefined) {
+                continue; // the SHA does not resolve in this repo / git unavailable — skip (0-FP)
+            }
+            if (changed.some((file) => is_under(file, areaInRepo))) {
+                changedAreas.push(area);
+            }
         }
-        const areas = affected_area_paths(source);
-        const changedAreas = areas.filter((area) => changed.some((file) => is_under(file, area)));
         if (changedAreas.length > 0) {
-            stale.push({ path: specPath, id: fm.id, snapshot: fm.snapshot, changedAreas });
+            stale.push({ path: specPath, id: fm.id, snapshot, changedAreas });
         }
     }
     return ok({ level: 'clean', stale, scanned });
