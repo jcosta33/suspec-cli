@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 
 // `corpus new <type> …` — the prepare engine's command surface (AC-013, D-004):
-//   corpus new task --from <SPEC-id> [--scope AC-001,AC-002]   cut a task packet (scope copied, never invented)
+//   corpus new task --from <SPEC-id> [--scope AC-001,AC-002]   SPLIT a spec into a slice (scope copied, never invented)
 //   corpus new spec <slug> [--title <t>] [--owner <o>]          scaffold a fresh draft spec
 //   corpus new                                                  the interactive flow (TTY)
+//
+// `new task` is the SPLIT tool (ADR-0103): summon it when one spec fans out into N parallel slices, not
+// as a default station. 1:1 work needs no task — implement against the spec and record the run in its
+// append-only `## Execution` section. The spec is the unit; the task is an on-demand subdivision.
 
 import {
     project,
@@ -131,7 +135,7 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     if (type === undefined) {
         return emit_error(
             usage_error(
-                'usage: corpus new <task|spec|change-plan> — `new task --from <SPEC-id> [--scope …]`, `new spec <slug>`, or `new change-plan <slug>`'
+                'usage: corpus new <task|spec|change-plan> — `new task --from <SPEC-id> [--scope …]` SPLITS a spec into a slice (1:1 work needs no task — record the run in the spec\'s `## Execution`), `new spec <slug>`, or `new change-plan <slug>`'
             ),
             json
         );
