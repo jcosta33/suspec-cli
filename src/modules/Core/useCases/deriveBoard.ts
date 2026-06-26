@@ -8,18 +8,11 @@ import { join } from 'path';
 
 import { ok, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
-import { read_frontmatter, type Frontmatter } from '../services/readFrontmatter.ts';
+import { read_frontmatter, fm_scalar, type Frontmatter } from '../services/readFrontmatter.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
-// Frontmatter values are a scalar or a block list. Board fields except `source` are scalars; read the
-// first item if a list slipped in. `source` is genuinely a list (spec, optionally a change-plan).
-// Narrow with `typeof` (not `Array.isArray`, which widens to `any[]`).
-function scalar(value: string | readonly string[] | undefined): string | undefined {
-    if (value === undefined || typeof value === 'string') {
-        return value;
-    }
-    return value[0];
-}
+// Board fields except `source` are scalars (read via `fm_scalar`); `source` is genuinely a list (a
+// spec, optionally a change-plan) — narrow with `typeof` (not `Array.isArray`, which widens to `any[]`).
 function as_list(value: string | readonly string[] | undefined): readonly string[] {
     if (value === undefined) {
         return [];
@@ -76,7 +69,7 @@ function read_specs(workspaceDir: string): { id: string; status: string }[] {
             continue;
         }
         const fm = read_frontmatter(readFileSync(specPath, 'utf8'));
-        specs.push({ id: scalar(fm.id) ?? entry, status: scalar(fm.status) ?? 'unknown' });
+        specs.push({ id: fm_scalar(fm.id) ?? entry, status: fm_scalar(fm.status) ?? 'unknown' });
     }
     return specs;
 }
@@ -90,8 +83,8 @@ export function derive_board(input: DeriveBoardInput): Result<DerivedBoard, AppE
     const reviewStatusByTask = new Map<string, string>();
     const needsHuman: string[] = [];
     for (const review of reviews) {
-        const reviewTask = scalar(review.task);
-        const reviewStatus = scalar(review.status);
+        const reviewTask = fm_scalar(review.task);
+        const reviewStatus = fm_scalar(review.status);
         if (reviewTask !== undefined) {
             reviewStatusByTask.set(reviewTask, reviewStatus ?? 'draft');
         }
@@ -105,17 +98,17 @@ export function derive_board(input: DeriveBoardInput): Result<DerivedBoard, AppE
         }
     }
 
-    const task_id_of = (task: Frontmatter) => scalar(task.id) ?? '(unnamed task)';
+    const task_id_of = (task: Frontmatter) => fm_scalar(task.id) ?? '(unnamed task)';
 
     const tasksWithoutReview = tasks
-        .filter((task) => scalar(task.status) === REVIEW_READY && !reviewStatusByTask.has(task_id_of(task)))
+        .filter((task) => fm_scalar(task.status) === REVIEW_READY && !reviewStatusByTask.has(task_id_of(task)))
         .map(task_id_of);
 
     const boardTaskFor = (task: Frontmatter): BoardTask => {
         const id = task_id_of(task);
         return {
             id,
-            status: scalar(task.status) ?? 'unknown',
+            status: fm_scalar(task.status) ?? 'unknown',
             hasReview: reviewStatusByTask.has(id),
             reviewStatus: reviewStatusByTask.get(id) ?? null,
         };

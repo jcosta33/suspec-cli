@@ -26,7 +26,7 @@ import {
     type PacketSizeFacts,
 } from '../services/checksContract.ts';
 import { parse_review_packet } from '../services/parseReviewPacket.ts';
-import { read_frontmatter } from '../services/readFrontmatter.ts';
+import { read_frontmatter, fm_scalar } from '../services/readFrontmatter.ts';
 import {
     reconcile_self_report,
     do_not_change_touched,
@@ -133,14 +133,6 @@ const EMPTY_PACKET_FACTS: PacketStructuralFacts = {
 // Any reconcile finding present → the advisory `warning` level (exit 1, AC-024). A clean reconcile →
 // `clean` (exit 0). The engine never returns `blocking`: every reconcile fact is advisory, and a hard
 // error is reserved for the command's Err arm (bad git / usage / no workspace).
-// A frontmatter value normalized to a scalar: a list (YAML `- item`) reads as its first element, a
-// scalar passes through, absent stays undefined. So a hash/sha written either way is read, never dropped.
-function fm_scalar(value: string | readonly string[] | undefined): string | undefined {
-    if (value === undefined || typeof value === 'string') {
-        return value;
-    }
-    return value[0];
-}
 
 // The backtick-wrapped paths under a `## <section>` heading of the spec — path-shaped tokens only (a
 // slash or a dot-extension, never a `{{placeholder}}`). Used in the task-less case to read the spec's

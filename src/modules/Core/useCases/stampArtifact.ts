@@ -11,7 +11,7 @@ import { join, isAbsolute } from 'path';
 import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
 import { head_sha } from '../../Workspace/useCases/index.ts';
-import { read_frontmatter, upsert_frontmatter } from '../services/readFrontmatter.ts';
+import { read_frontmatter, upsert_frontmatter, fm_scalar } from '../services/readFrontmatter.ts';
 import { find_source_spec } from './taskLocator.ts';
 import { resolve_review_run } from './resolveReviewRun.ts';
 import { resolve_review_run_by_spec } from './resolveReviewRunBySpec.ts';
@@ -30,13 +30,6 @@ export type StampArtifactInput = Readonly<{
     repoRoot: string;
     ref: string; // a spec id/slug or a review filename/slug
 }>;
-
-function scalar(value: string | readonly string[] | undefined): string | undefined {
-    if (value === undefined || typeof value === 'string') {
-        return value;
-    }
-    return value[0];
-}
 
 // Resolve a spec file for the ref: a dir slug (specs/<ref>/spec.md) or a frontmatter id.
 function find_spec_path(workspaceDir: string, ref: string): string | null {
@@ -74,8 +67,8 @@ export function stamp_artifact(input: StampArtifactInput): Result<StampReport, A
     }
     const reviewSource = readFileSync(reviewPath, 'utf8');
     const frontmatter = read_frontmatter(reviewSource);
-    const taskId = scalar(frontmatter.task);
-    const specId = scalar(frontmatter.spec);
+    const taskId = fm_scalar(frontmatter.task);
+    const specId = fm_scalar(frontmatter.spec);
     let resolved;
     if (taskId !== undefined) {
         resolved = resolve_review_run({ workspaceDir: input.workspaceDir, repoRoot: input.repoRoot, task: taskId });

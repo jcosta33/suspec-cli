@@ -8,6 +8,16 @@ import { normalize_scalar } from '../../../infra/yamlScalar.ts';
 
 export type Frontmatter = Record<string, string | string[]>;
 
+// Collapse a frontmatter value to its scalar reading: a string stays as-is, a block list
+// reads as its first item, undefined stays undefined. Use when a field is logically singular
+// (`id`, `status`, `task`, `spec`) but the parser may have widened it to string[].
+export function fm_scalar(value: string | readonly string[] | undefined): string | undefined {
+    if (value === undefined || typeof value === 'string') {
+        return value;
+    }
+    return value[0];
+}
+
 const KEY = /^(\w[\w-]*):\s*(.*)$/;
 const LIST_ITEM = /^\s*-\s+(.*)$/;
 const BOM = 0xfeff;

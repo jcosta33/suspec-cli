@@ -68,7 +68,7 @@ Each command is both a Unix part and an interactive flow:
 | `corpus clean`                                  | Prune spent ephemeral artifacts (tasks/reviews) — dry run, or `--apply`                          |
 | `corpus stamp <ref>`                            | Stamp staleness provenance — a spec `snapshot:`, or a review `evidence_hash:` + `reviewed_sha:`  |
 | `corpus review <task>`                          | Reconcile a finished run — diff vs self-report vs spec; the human owns the verdict               |
-| `corpus new <task\|spec>`                       | Cut a task packet from a spec (scope never invented), or scaffold a spec                         |
+| `corpus new <task\|spec\|change-plan>`          | Cut a task packet from a spec (scope never invented), or scaffold a spec / change-plan           |
 | `corpus pull <ref>`                             | Snapshot a ticket into `intake/` — verbatim, never a spec or the board                           |
 | `corpus promote <task>`                         | Scaffold a candidate finding from a finished task (no learning asserted)                         |
 | `corpus run <task> --agent <name>`              | Launch a prepared task on an external agent in its worktree; records the launch (no verdict)     |

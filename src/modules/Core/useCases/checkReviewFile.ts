@@ -25,7 +25,7 @@ import {
     type Diagnostic,
 } from '../services/checksContract.ts';
 import { parse_review_packet } from '../services/parseReviewPacket.ts';
-import { read_frontmatter } from '../services/readFrontmatter.ts';
+import { read_frontmatter, fm_scalar } from '../services/readFrontmatter.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
 export type CheckReviewFileInput = Readonly<{
@@ -38,13 +38,6 @@ export type CheckReviewFileReport = Readonly<{
     level: OutcomeLevel;
     diagnostics: readonly Diagnostic[];
 }>;
-
-function scalar(value: string | readonly string[] | undefined): string | undefined {
-    if (value === undefined || typeof value === 'string') {
-        return value;
-    }
-    return value[0];
-}
 
 // The task packet path for a review's `task:` id (tasks/<task>.md), or null when absent.
 function find_task_packet(workspaceDir: string, taskId: string): string | null {
@@ -60,7 +53,7 @@ function find_source_spec(workspaceDir: string, specId: string): string | null {
     }
     for (const slug of readdirSync(specsDir).sort()) {
         const specPath = join(specsDir, slug, 'spec.md');
-        if (existsSync(specPath) && scalar(read_frontmatter(readFileSync(specPath, 'utf8')).id) === specId) {
+        if (existsSync(specPath) && fm_scalar(read_frontmatter(readFileSync(specPath, 'utf8')).id) === specId) {
             return readFileSync(specPath, 'utf8');
         }
     }
@@ -70,7 +63,7 @@ function find_source_spec(workspaceDir: string, specId: string): string | null {
 export function check_review_file(input: CheckReviewFileInput): Result<CheckReviewFileReport, AppError> {
     const reviewSource = readFileSync(input.reviewPath, 'utf8');
     const reviewFrontmatter = read_frontmatter(reviewSource);
-    const taskId = scalar(reviewFrontmatter.task);
+    const taskId = fm_scalar(reviewFrontmatter.task);
 
     const clean = (diagnostics: Diagnostic[]): Result<CheckReviewFileReport, AppError> =>
         ok({ path: input.reviewPath, level: verdict_for(diagnostics), diagnostics });
@@ -109,7 +102,7 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
         }
         const packet = parse_task_packet(taskSource);
         taskScope = packet.scope;
-        const specId = scalar(read_frontmatter(taskSource).source);
+        const specId = fm_scalar(read_frontmatter(taskSource).source);
         const specSource = specId !== undefined ? find_source_spec(input.workspaceDir, specId) : null;
         if (specSource !== null) {
             specView = viewFromSpec(specSource);
@@ -124,7 +117,7 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
         }
     } else {
         // The task-less 1:1 review names its spec directly (`spec:`); with neither, nothing to reconcile.
-        const specId = scalar(reviewFrontmatter.spec);
+        const specId = fm_scalar(reviewFrontmatter.spec);
         const specSource = specId !== undefined ? find_source_spec(input.workspaceDir, specId) : null;
         if (specSource !== null) {
             specView = viewFromSpec(specSource);

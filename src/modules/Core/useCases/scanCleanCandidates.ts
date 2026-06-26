@@ -10,7 +10,7 @@ import { join } from 'path';
 
 import { ok, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
-import { read_frontmatter } from '../services/readFrontmatter.ts';
+import { read_frontmatter, fm_scalar } from '../services/readFrontmatter.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
 export type CleanKind = 'task' | 'review';
@@ -40,13 +40,6 @@ const TERMINAL: Record<CleanKind, ReadonlySet<string>> = {
     review: new Set(['pass', 'waived']),
 };
 
-function scalar(value: string | readonly string[] | undefined): string | undefined {
-    if (value === undefined || typeof value === 'string') {
-        return value;
-    }
-    return value[0];
-}
-
 function scan_dir(
     workspaceDir: string,
     dir: 'tasks' | 'reviews',
@@ -64,9 +57,9 @@ function scan_dir(
             continue;
         }
         const fm = read_frontmatter(readFileSync(join(abs, name), 'utf8'));
-        const status = scalar(fm.status) ?? '';
+        const status = fm_scalar(fm.status) ?? '';
         if (TERMINAL[kind].has(status)) {
-            out.push({ path: `${dir}/${name}`, kind, id: scalar(fm.id) ?? null, status });
+            out.push({ path: `${dir}/${name}`, kind, id: fm_scalar(fm.id) ?? null, status });
         } else {
             counters.kept += 1;
         }
