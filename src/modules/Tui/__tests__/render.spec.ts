@@ -25,6 +25,8 @@ function reviewReport(over: Partial<RenderReviewReport> = {}): RenderReviewRepor
         packetStructural: { badResultCells: [], badStatus: null, statusPassContradicted: false, missingSections: [] },
         packetSize: null,
         specCoverageDrift: null,
+        evidenceDigest: 'abc123',
+        reviewStale: null,
         hasReviewPacket: true,
         ...over,
     };
@@ -163,6 +165,16 @@ describe('format_review_report (AC-023: facts + route, never a verdict)', () => 
         // even a large diff is NOT flagged — the oversized band is specified-not-shipped (ADR-0097)
         expect(out).not.toMatch(/oversized|consider splitting|C018/i);
         expect(out).toContain('clean reconcile'); // size info does not become a finding / change the level
+    });
+
+    it('shows the evidence digest in the header and flags a Stale review (ADR-0107 fast-track)', () => {
+        const clean = format_review_report(reviewReport({ evidenceDigest: 'deadbeef00' }));
+        expect(clean).toContain('digest deadbeef00'); // shown for stamping, in the header (no extra line)
+        expect(clean).toContain('clean reconcile'); // the digest header does not suppress the no-facts note
+        const stale = format_review_report(reviewReport({ reviewStale: { reviewedSha: 'abc1234' }, level: 'warning' }));
+        expect(stale).toContain('Stale');
+        expect(stale).toContain('reviewed at abc1234');
+        expect(stale).toContain('re-review');
     });
 
     it('surfaces spec-coverage drift as NEUTRAL info — a dim line, never a finding (corpus-cli#1)', () => {

@@ -147,6 +147,10 @@ export type RenderReviewReport = Readonly<{
         untracked: readonly string[];
         message: string;
     }> | null;
+    // Fast-track staleness (ADR-0107): the current evidence digest (stamp it as `evidence_hash:`), and
+    // whether the packet is Stale (a stored hash that no longer matches → re-review).
+    evidenceDigest: string;
+    reviewStale: Readonly<{ reviewedSha: string | null }> | null;
     hasReviewPacket: boolean;
 }>;
 
@@ -158,7 +162,7 @@ export function format_review_report(report: RenderReviewReport): string {
         ? `${String(report.packetSize.changedLoc)} LOC across ${String(report.packetSize.filesTouched)} files`
         : `${String(report.diffChangedFiles.length)} changed files`;
     const lines: string[] = [
-        `${color.bold(`review ${report.task}`)}  ${format_verdict(report.level)}  ${color.dim(sizeNote)}`,
+        `${color.bold(`review ${report.task}`)}  ${format_verdict(report.level)}  ${color.dim(sizeNote)}  ${color.dim(`digest ${report.evidenceDigest}`)}`,
     ];
 
     const bullet = (message: string) => lines.push(`  ${color.yellow('⚠')}  ${message}`);
@@ -215,6 +219,12 @@ export function format_review_report(report: RenderReviewReport): string {
     // under the task and the reviewer decides whether the untracked ids belong in this run (corpus-cli#1).
     if (report.specCoverageDrift !== null) {
         lines.push(`  ${color.dim(`spec-coverage drift — ${report.specCoverageDrift.message}`)}`);
+    }
+    // Fast-track staleness (ADR-0107): a ⚠ finding when the stored evidence_hash no longer matches —
+    // re-review. (The current digest itself is in the header, dim, so the reviewer can re-stamp it.)
+    if (report.reviewStale !== null) {
+        const since = report.reviewStale.reviewedSha !== null ? ` (reviewed at ${report.reviewStale.reviewedSha})` : '';
+        bullet(`${color.bold('Stale')}  the diff or cited evidence changed since this review${since} — re-review`);
     }
 
     if (lines.length === 1) {

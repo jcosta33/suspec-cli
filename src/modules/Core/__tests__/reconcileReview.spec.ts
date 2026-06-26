@@ -585,3 +585,33 @@ Verify with: a test.
         expect(report.selfReport.inDiffNotClaimed).toContain('src/b.ts');
     });
 });
+
+describe('reconcile_review — fast-track staleness (ADR-0107)', () => {
+    // A review packet with `reviewed_sha:` + an optional `evidence_hash:`, one coverage row.
+    const reviewMd = (hash: string | null): string =>
+        `---\ntype: review\nid: REVIEW-feat\ntask: TASK-feat\nreviewed_sha: abc1234\n${hash !== null ? `evidence_hash: ${hash}\n` : ''}status: needs-human\n---\n\n## Requirement coverage\n\n| ID | Result | Evidence | Human attention |\n|---|---|---|---|\n| AC-001 | Pass | p | no |\n`;
+    const base = {
+        diffChangedFiles: ['src/a.ts'],
+        specSource: specSource('ready', ['AC-001']),
+        taskPacketSource: taskSource(['AC-001'], ['src'], ['src/a.ts']),
+    };
+
+    it('exposes the current evidence digest and is not stale without a stored hash', () => {
+        const report = ok({ ...base, reviewPacketSource: reviewMd(null) });
+        expect(report.evidenceDigest).toMatch(/^[0-9a-f]{16}$/);
+        expect(report.reviewStale).toBeNull();
+    });
+
+    it('is not stale when the stored evidence_hash matches the current digest', () => {
+        const probe = ok({ ...base, reviewPacketSource: reviewMd(null) });
+        const report = ok({ ...base, reviewPacketSource: reviewMd(probe.evidenceDigest) });
+        expect(report.reviewStale).toBeNull();
+    });
+
+    it('flips to Stale (warning, re-route) when the stored evidence_hash no longer matches', () => {
+        const report = ok({ ...base, reviewPacketSource: reviewMd('0000000000000000') });
+        expect(report.reviewStale).not.toBeNull();
+        expect(report.reviewStale?.reviewedSha).toBe('abc1234');
+        expect(report.level).toBe('warning'); // warns + re-routes, never blocks
+    });
+});

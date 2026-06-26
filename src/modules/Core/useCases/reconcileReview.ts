@@ -26,12 +26,14 @@ import {
     type PacketSizeFacts,
 } from '../services/checksContract.ts';
 import { parse_review_packet } from '../services/parseReviewPacket.ts';
+import { read_frontmatter } from '../services/readFrontmatter.ts';
 import {
     reconcile_self_report,
     do_not_change_touched,
     scope_divergence,
     empty_evidence_pass_rows,
     packet_structural_facts,
+    evidence_digest,
     type SelfReportMismatch,
     type PacketStructuralFacts,
 } from '../services/reconcileFacts.ts';
@@ -110,6 +112,13 @@ export type ReviewReport = Readonly<{
     // spec is fully tracked, has no ids, or is draft (the scope guard lives in the contract). The
     // review-vs-spec face (spec grew beyond the review's coverage rows) follows with the no-task keying.
     specCoverageDrift: SpecCoverageDriftReport | null;
+    // Fast-track staleness (ADR-0107). evidenceDigest is the CURRENT digest over the diff + the
+    // coverage rows' evidence — the value a reviewer stamps as `evidence_hash:` when finalizing (read it
+    // off `--json`). reviewStale is set when the packet carries a stored `evidence_hash:` that no longer
+    // matches — the diff or the cited evidence moved, so the prior review is `Stale` and re-routes to
+    // re-review. Stale RAISES the advisory level (a warning), never blocks (detection, not a verdict).
+    evidenceDigest: string;
+    reviewStale: { reviewedSha: string | null } | null;
     // Whether a review packet was present (false → every in-scope id reads uncovered).
     hasReviewPacket: boolean;
 }>;
@@ -163,9 +172,11 @@ function level_for(report: Omit<ReviewReport, 'level'>): OutcomeLevel {
         report.packetStructural.badResultCells.length > 0 ||
         report.packetStructural.badStatus !== null ||
         report.packetStructural.statusPassContradicted ||
-        report.packetStructural.missingSections.length > 0;
-    // NOTE: packetSize is deliberately NOT a finding — it is neutral size info the reviewer judges, not
-    // a band-based check (the oversized-packet band is specified-not-shipped, ADR-0097).
+        report.packetStructural.missingSections.length > 0 ||
+        // Fast-track staleness (ADR-0107): a Stale packet warns + re-routes to re-review.
+        report.reviewStale !== null;
+    // NOTE: packetSize + specCoverageDrift are deliberately NOT findings — neutral info the reviewer
+    // judges (the oversized band is specified-not-shipped, ADR-0097). reviewStale IS a finding (warns).
     return hasFinding ? 'warning' : 'clean';
 }
 
@@ -263,6 +274,18 @@ export function reconcile_review(input: ReconcileReviewInput): Result<ReviewRepo
     const specCoverageDrift: SpecCoverageDriftReport | null =
         driftFacts !== null ? { ...driftFacts, message: spec_coverage_drift_message(driftFacts) } : null;
 
+    // Fast-track staleness (ADR-0107): the CURRENT evidence digest over the diff + the coverage rows'
+    // evidence. When the packet carries a stored `evidence_hash:` that no longer matches, the prior
+    // review is Stale (the diff or the cited evidence moved) and re-routes to re-review. `reviewed_sha:`
+    // is informational (when it was reviewed). Both are optional review-frontmatter keys.
+    const evidenceDigest = evidence_digest(input.diffChangedFiles, reviewPacket?.coverageRows ?? []);
+    const reviewFrontmatter = input.reviewPacketSource !== null ? read_frontmatter(input.reviewPacketSource) : null;
+    const storedHashRaw = reviewFrontmatter?.evidence_hash;
+    const storedHash = typeof storedHashRaw === 'string' ? storedHashRaw : undefined;
+    const reviewedShaRaw = reviewFrontmatter?.reviewed_sha;
+    const reviewedSha = typeof reviewedShaRaw === 'string' ? reviewedShaRaw : null;
+    const reviewStale = storedHash !== undefined && storedHash !== evidenceDigest ? { reviewedSha } : null;
+
     const withoutLevel: Omit<ReviewReport, 'level'> = {
         task: input.task,
         diffChangedFiles: [...input.diffChangedFiles],
@@ -278,6 +301,8 @@ export function reconcile_review(input: ReconcileReviewInput): Result<ReviewRepo
         packetStructural,
         packetSize,
         specCoverageDrift,
+        evidenceDigest,
+        reviewStale,
         hasReviewPacket: reviewPacket !== null,
     };
 
