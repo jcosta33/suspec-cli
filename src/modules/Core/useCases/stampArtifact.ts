@@ -71,13 +71,14 @@ export function stamp_artifact(input: StampArtifactInput): Result<StampReport, A
     const frontmatter = read_frontmatter(reviewSource);
     const taskId = scalar(frontmatter.task);
     const specId = scalar(frontmatter.spec);
-    if (taskId === undefined && specId === undefined) {
+    let resolved;
+    if (taskId !== undefined) {
+        resolved = resolve_review_run({ workspaceDir: input.workspaceDir, repoRoot: input.repoRoot, task: taskId });
+    } else if (specId !== undefined) {
+        resolved = resolve_review_run_by_spec({ workspaceDir: input.workspaceDir, repoRoot: input.repoRoot, spec: specId });
+    } else {
         return err(usage_error(`cannot stamp ${input.ref}: the review names neither a task: nor a spec:`));
     }
-    const resolved =
-        taskId !== undefined
-            ? resolve_review_run({ workspaceDir: input.workspaceDir, repoRoot: input.repoRoot, task: taskId })
-            : resolve_review_run_by_spec({ workspaceDir: input.workspaceDir, repoRoot: input.repoRoot, spec: specId as string });
     if (isErr(resolved)) {
         return err(resolved.error);
     }
