@@ -6,7 +6,7 @@
 // (never the board — the no-board-write invariant, ADR-0084 D3, holds).
 
 import { existsSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { join, isAbsolute } from 'path';
 
 import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
@@ -49,6 +49,11 @@ function find_spec_path(workspaceDir: string, ref: string): string | null {
 }
 
 export function stamp_artifact(input: StampArtifactInput): Result<StampReport, AppError> {
+    // Defense-in-depth: a ref is an id / dir-slug / review filename — never a path. Reject traversal,
+    // separators, or an absolute ref so the writes below can never land outside specs/ or reviews/.
+    if (input.ref.includes('..') || input.ref.includes('/') || input.ref.includes('\\') || isAbsolute(input.ref)) {
+        return err(usage_error(`invalid ref "${input.ref}": expected a spec id/slug or a review filename, not a path`));
+    }
     const sha = head_sha(input.repoRoot);
     if (sha === null) {
         return err(usage_error('cannot stamp: no resolvable git HEAD (not a repo, or no commits yet)'));

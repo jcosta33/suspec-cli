@@ -74,6 +74,17 @@ describe('stamp_artifact (corpus stamp; ADR-0107/0108)', () => {
         expect(isOk(stamp_artifact({ workspaceDir: repo, repoRoot: repo, ref: 'nonexistent' }))).toBe(false);
     });
 
+    it('refuses a path-like ref (traversal defense — no write outside the workspace)', () => {
+        const outside = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-stamp-outside-')));
+        writeFileSync(join(outside, 'spec.md'), '---\nid: SPEC-victim\n---\n');
+        // a traversal ref would resolve a spec.md outside the workspace; it must be refused before any write
+        const result = stamp_artifact({ workspaceDir: repo, repoRoot: repo, ref: `../${outside.split('/').pop() ?? 'x'}` });
+        const untouched = readFileSync(join(outside, 'spec.md'), 'utf8');
+        rmSync(outside, { recursive: true, force: true });
+        expect(isOk(result)).toBe(false);
+        expect(untouched).not.toContain('snapshot:'); // the outside file was never written
+    });
+
     it('errors when the repo has no resolvable HEAD (a fresh init, no commits)', () => {
         const fresh = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-stamp-fresh-')));
         execFileSync('git', ['init'], { cwd: fresh });

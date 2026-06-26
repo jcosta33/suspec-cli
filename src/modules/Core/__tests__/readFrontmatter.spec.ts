@@ -65,4 +65,26 @@ describe('upsert_frontmatter', () => {
         const src = '# no frontmatter\n';
         expect(upsert_frontmatter(src, { snapshot: 'x' })).toBe(src);
     });
+
+    it('replaces a block-list key with a scalar, leaving no orphaned list items', () => {
+        const out = upsert_frontmatter('---\nid: T\nsource:\n  - SPEC-A\n  - SPEC-B\nstatus: ready\n---\n# body\n', {
+            source: 'SPEC-C',
+        });
+        expect(read_frontmatter(out)).toEqual({ id: 'T', source: 'SPEC-C', status: 'ready' });
+        expect(out).not.toContain('- SPEC-A'); // the old list items are gone, not orphaned into the body
+        expect(out).toContain('# body');
+    });
+
+    it('collapses a duplicate key to the single stamped value (no stale second copy)', () => {
+        const out = upsert_frontmatter('---\nid: R\nsnapshot: old1\nsnapshot: old2\n---\n', { snapshot: 'new' });
+        expect((out.match(/snapshot:/g) ?? []).length).toBe(1);
+        expect(read_frontmatter(out).snapshot).toBe('new');
+    });
+
+    it('preserves a body line that equals --- (a horizontal rule below the closing fence)', () => {
+        const out = upsert_frontmatter('---\nid: X\n---\n\nintro\n\n---\n\nmore\n', { snapshot: 's' });
+        expect(read_frontmatter(out)).toEqual({ id: 'X', snapshot: 's' });
+        expect(out).toContain('intro');
+        expect(out).toContain('more'); // the body's own --- separator + content survive
+    });
 });
