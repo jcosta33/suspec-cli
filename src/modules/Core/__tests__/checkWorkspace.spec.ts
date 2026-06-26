@@ -451,4 +451,38 @@ preserves: [PG-001]
         const report = assertOk(check_workspace({ workspaceDir: ws }));
         expect(report.workspaceFindings.filter((f) => f.code === 'duplicate-content')).toEqual([]);
     });
+
+    // promotion-or-die (ADR-0106 item 6) — a named finding candidate must land in findings/, advisory.
+    it('flags a finding candidate named in ## Execution with no findings/<slug>.md', () => {
+        writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- Finding candidates: cache-bug, retry-storm\n`);
+        withTemplates();
+        const report = assertOk(check_workspace({ workspaceDir: ws }));
+        const flagged = report.workspaceFindings.filter((f) => f.code === 'unpromoted-finding');
+        expect(flagged.map((f) => f.message.includes('cache-bug') || f.message.includes('retry-storm'))).toContain(true);
+        expect(flagged.every((f) => f.level === 'warning')).toBe(true);
+        expect(report.verdict).toBe('clean'); // advisory — never blocks the merge
+    });
+
+    it('does not flag a finding candidate that was promoted (findings/<slug>.md exists)', () => {
+        writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- Finding candidates: cache-bug\n`);
+        mkdirSync(join(ws, 'findings'), { recursive: true });
+        writeFileSync(join(ws, 'findings', 'cache-bug.md'), '---\ntype: finding\nid: F-cache\n---\n\nthe lesson\n');
+        withTemplates();
+        const report = assertOk(check_workspace({ workspaceDir: ws }));
+        expect(report.workspaceFindings.filter((f) => f.code === 'unpromoted-finding')).toEqual([]);
+    });
+
+    it('flags nothing when no spec names a finding candidate', () => {
+        writeSpec('feat', CONFORMANT); // no ## Execution / Finding candidates line
+        withTemplates();
+        const report = assertOk(check_workspace({ workspaceDir: ws }));
+        expect(report.workspaceFindings.filter((f) => f.code === 'unpromoted-finding')).toEqual([]);
+    });
+
+    it('does not flag an unfilled template placeholder Finding-candidates line', () => {
+        writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- Finding candidates: {{slugs of durable lessons — promote or omit}}\n`);
+        withTemplates();
+        const report = assertOk(check_workspace({ workspaceDir: ws }));
+        expect(report.workspaceFindings.filter((f) => f.code === 'unpromoted-finding')).toEqual([]);
+    });
 });

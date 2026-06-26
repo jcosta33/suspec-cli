@@ -28,7 +28,8 @@ export type WorkspaceFinding = Readonly<{
         | 'agents-oversize'
         | 'supersede-unresolved'
         | 'supersede-missing-pointer'
-        | 'duplicate-content';
+        | 'duplicate-content'
+        | 'unpromoted-finding';
     // SW-006: an unfilled {{placeholder}} in a freshly-scaffolded AGENTS.md is a "finish setup" nudge,
     // not broken work — it must NOT block the gate on day one (the kit's own AGENTS.md ships with
     // placeholders, so `corpus check` right after `corpus init` would otherwise greet a new user with a
@@ -138,6 +139,38 @@ function find_duplicate_findings(workspaceDir: string): string[][] {
     return [...byBody.values()].filter((paths) => paths.length > 1);
 }
 
+// The finding-candidate slugs a spec's `## Execution` declares (a `Finding candidates: slug-a, slug-b`
+// line) — the durable lessons the run flagged. promotion-or-die (ADR-0106 item 6): each must land in
+// findings/<slug>.md, else the lesson evaporated with the ephemeral run. 0-FP by construction — only an
+// explicitly-NAMED slug is checked; un-named work is never flagged. Read-only (never writes the board).
+function finding_candidates(source: string): string[] {
+    const lines = source.split(/\r\n|[\r\n]/);
+    let inExecution = false;
+    const out: string[] = [];
+    for (const line of lines) {
+        const heading = /^##\s+(.*\S)\s*$/.exec(line);
+        if (heading !== null) {
+            inExecution = /^execution$/i.test(heading[1].trim());
+            continue;
+        }
+        if (!inExecution) {
+            continue;
+        }
+        const match = /^[-*\s]*finding candidates?:\s*(.+)$/i.exec(line.trim());
+        // Skip an unfilled template line (a `{{placeholder}}`) wholesale — else its prose words would
+        // read as slugs. A filled line lists comma/space-separated slugs.
+        if (match !== null && !match[1].includes('{{')) {
+            for (const raw of match[1].split(/[,\s]+/)) {
+                const slug = raw.trim().replace(/[`.]/g, '');
+                if (slug.length > 0) {
+                    out.push(slug);
+                }
+            }
+        }
+    }
+    return out;
+}
+
 function workspace_validity(workspaceDir: string): WorkspaceFinding[] {
     const findings: WorkspaceFinding[] = [];
     for (const liveFile of ['AGENTS.md', 'status.md']) {
@@ -203,6 +236,8 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
     // Supersession pointers collected during the spec pass, resolved AFTER it (a `superseded_by` may
     // name a spec that appears later in the sort order). ADR-0106 item 4 / ADR-0108.
     const supersessions: { path: string; supersededBy: string | null; status: string | null }[] = [];
+    // Finding candidates a spec's `## Execution` declares, resolved AFTER the pass against findings/.
+    const candidatesBySpec: { path: string; slugs: readonly string[] }[] = [];
 
     for (const specPath of specFiles) {
         const specSource = readFileSync(specPath, 'utf8');
@@ -236,6 +271,10 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
                 supersededBy: record.frontmatter.supersededBy,
                 status: record.frontmatter.status,
             });
+        }
+        const slugs = finding_candidates(specSource);
+        if (slugs.length > 0) {
+            candidatesBySpec.push({ path: specPath, slugs });
         }
     }
 
@@ -280,6 +319,21 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
             level: 'warning',
             message: `duplicate finding content — ${group.join(', ')} share an identical body; single-source it (ADR-0096)`,
         });
+    }
+
+    // Promotion-or-die (ADR-0106 item 6): a finding candidate a spec's `## Execution` named must land in
+    // findings/<slug>.md, else the lesson evaporated with the ephemeral run. Deterministic 0-FP — only a
+    // NAMED slug is checked. Advisory warning, read-only (never writes the board — ADR-0084 D3 holds).
+    for (const { path, slugs } of candidatesBySpec) {
+        for (const slug of slugs) {
+            if (!existsSync(join(input.workspaceDir, 'findings', `${slug}.md`))) {
+                findings.push({
+                    code: 'unpromoted-finding',
+                    level: 'warning',
+                    message: `${path} names finding candidate "${slug}" but findings/${slug}.md does not exist — promote it (corpus promote) or drop the mention`,
+                });
+            }
+        }
     }
 
     // C017 orphaned-reference (ADR-0097, #45): a bundled `.agents/skills/<name>/references/<file>` the
