@@ -27,6 +27,18 @@ Verify with: a-test
 ## Open questions
 
 - none.
+
+## Execution
+
+- **2026-06-26 — v0 shipped.** Did the thing.
+
+\`\`\`
+## not a heading (inside a fence)
+\`\`\`
+
+## Dropped from sources
+
+- none.
 `;
 const TASK = `---
 type: task
@@ -70,6 +82,46 @@ status: needs-human
 
 1. x
 `;
+// A cross-root task carrying an embedded spec slice (ADR-0100 `## Spec snapshot`).
+const TASK_EMBEDDED = `---
+type: task
+id: TASK-xroot
+source:
+  - SPEC-remote
+scope: [AC-001]
+status: ready
+---
+
+# Task
+
+## Spec snapshot
+
+embedded-spec: SPEC-remote
+
+- AC-001 — verify: \`a-test\`
+
+## Affected areas
+
+- \`src/x\`
+`;
+// A task-less 1:1 review naming its spec directly (review-to-spec, ADR-0103) + fast-track pins (ADR-0107).
+const REVIEW_SPEC_KEYED = `---
+type: review
+id: REVIEW-byspec
+spec: SPEC-feat
+status: pass
+reviewed_sha: abc1234
+evidence_hash: deadbeefcafe0000
+---
+
+# Review
+
+## Requirement coverage
+
+| ID | Result | Evidence | Human attention |
+|---|---|---|---|
+| AC-001 | Pass | pasted | no |
+`;
 
 let ws: string;
 beforeEach(() => {
@@ -79,7 +131,9 @@ beforeEach(() => {
     mkdirSync(join(ws, 'reviews'), { recursive: true });
     writeFileSync(join(ws, 'specs', 'feat', 'spec.md'), SPEC);
     writeFileSync(join(ws, 'tasks', 'feat.md'), TASK);
+    writeFileSync(join(ws, 'tasks', 'xroot.md'), TASK_EMBEDDED);
     writeFileSync(join(ws, 'reviews', 'feat.md'), REVIEW);
+    writeFileSync(join(ws, 'reviews', 'byspec.md'), REVIEW_SPEC_KEYED);
 });
 afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
@@ -121,6 +175,22 @@ describe('show_artifact', () => {
             expect(value.scope).toEqual(['AC-001', 'AC-002']);
             expect(value.affectedAreas).toEqual(['src/feat']);
             expect(value.doNotChange).toEqual(['src/feat/frozen.ts']);
+            // Co-located task: no embedded slice.
+            expect(value.embeddedSpecId).toBeNull();
+            expect(value.embeddedRequirements).toEqual([]);
+        }
+    });
+
+    it('task — projects the cross-root embedded spec slice when present (ADR-0100 `## Spec snapshot`)', () => {
+        const r = show_artifact({ workspaceDir: ws, kind: 'task', ref: 'xroot' });
+        expect(isErr(r)).toBe(false);
+        if (!isErr(r)) {
+            const value = r.value.value as {
+                embeddedSpecId: string | null;
+                embeddedRequirements: { id: string; verifyCommand: string | null }[];
+            };
+            expect(value.embeddedSpecId).toBe('SPEC-remote');
+            expect(value.embeddedRequirements).toEqual([{ id: 'AC-001', verifyCommand: 'a-test' }]);
         }
     });
 
@@ -135,6 +205,37 @@ describe('show_artifact', () => {
             expect(value.frontmatter.id).toBe('SPEC-feat');
             expect(value.requirements[0].id).toBe('AC-001');
             expect(value.requirements[0].verifyCommand).toBe('a-test');
+        }
+    });
+
+    it('spec — surfaces the `## Execution` run-record, fence-aware, ending at the next H2 (ADR-0103/0104)', () => {
+        const r = show_artifact({ workspaceDir: ws, kind: 'spec', ref: 'SPEC-feat' });
+        expect(isErr(r)).toBe(false);
+        if (!isErr(r)) {
+            const execution = (r.value.value as { execution: string | null }).execution;
+            expect(execution).toContain('v0 shipped');
+            // A `## …` heading quoted inside a fence is NOT read as the section boundary…
+            expect(execution).toContain('## not a heading (inside a fence)');
+            // …and the real next H2 (`## Dropped from sources`) is excluded.
+            expect(execution).not.toContain('Dropped from sources');
+        }
+    });
+
+    it('spec — execution is null when there is no `## Execution` section, or it is empty', () => {
+        const noExec = `---\ntype: spec\nid: SPEC-noexec\nstatus: ready\nsources:\n  - self\n---\n\n## Requirements\n\n### AC-001 — one\nThe tool must do it.\nVerify with: a-test\n\n## Open questions\n\n- none.\n`;
+        writeFileSync(join(ws, 'specs', 'feat', 'spec.md'), noExec);
+        const a = show_artifact({ workspaceDir: ws, kind: 'spec', ref: 'SPEC-noexec' });
+        expect(isErr(a)).toBe(false);
+        if (!isErr(a)) {
+            expect((a.value.value as { execution: string | null }).execution).toBeNull();
+        }
+        // An Execution heading with no body (immediately followed by the next H2) reads as null, not ''.
+        const emptyExec = `${noExec}\n## Execution\n\n## Dropped from sources\n\n- none.\n`;
+        writeFileSync(join(ws, 'specs', 'feat', 'spec.md'), emptyExec);
+        const b = show_artifact({ workspaceDir: ws, kind: 'spec', ref: 'SPEC-noexec' });
+        expect(isErr(b)).toBe(false);
+        if (!isErr(b)) {
+            expect((b.value.value as { execution: string | null }).execution).toBeNull();
         }
     });
 
@@ -161,13 +262,35 @@ describe('show_artifact', () => {
         }
     });
 
-    it('review — parses status, coverage rows, and verify blocks', () => {
+    it('review — parses status, coverage rows, verify blocks, and the identity/staleness frontmatter', () => {
         const r = show_artifact({ workspaceDir: ws, kind: 'review', ref: 'feat' });
         expect(isErr(r)).toBe(false);
         if (!isErr(r)) {
-            const value = r.value.value as { status: string; coverageRows: { id: string; result: string }[] };
+            const value = r.value.value as {
+                status: string;
+                coverageRows: { id: string; result: string }[];
+                frontmatter: { status: string | null; task: string | null; spec: string | null };
+            };
             expect(value.status).toBe('needs-human');
             expect(value.coverageRows[0]).toMatchObject({ id: 'AC-001', result: 'Pass' });
+            // The new frontmatter projection: a task-keyed review names its task; no `spec:`.
+            expect(value.frontmatter.status).toBe('needs-human');
+            expect(value.frontmatter.task).toBe('TASK-feat');
+            expect(value.frontmatter.spec).toBeNull();
+        }
+    });
+
+    it('review — the task-less 1:1 review names its spec + carries the fast-track pins (ADR-0103/0107)', () => {
+        const r = show_artifact({ workspaceDir: ws, kind: 'review', ref: 'byspec' });
+        expect(isErr(r)).toBe(false);
+        if (!isErr(r)) {
+            const fm = (r.value.value as {
+                frontmatter: { spec: string | null; task: string | null; reviewedSha: string | null; evidenceHash: string | null };
+            }).frontmatter;
+            expect(fm.spec).toBe('SPEC-feat');
+            expect(fm.task).toBeNull();
+            expect(fm.reviewedSha).toBe('abc1234');
+            expect(fm.evidenceHash).toBe('deadbeefcafe0000');
         }
     });
 

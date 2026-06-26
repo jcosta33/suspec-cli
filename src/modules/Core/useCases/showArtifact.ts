@@ -32,6 +32,45 @@ function is_confined(workspaceDir: string, ref: string): boolean {
     return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
 }
 
+// The raw body text of a `## <title>` section (the heading line excluded), or null when absent. Used to
+// surface a spec's append-only `## Execution` run-record (ADR-0103/0104) — post-ephemeral the durable
+// record of each change lives there — to the loader without a second parser. Fence-aware: a `## …`
+// heading quoted inside a ``` fence neither opens nor closes the section. Captures to the next H2 or EOF.
+function section_body(source: string, title: string): string | null {
+    const lines = source.split(/\r\n|[\r\n]/);
+    const wanted = title.toLowerCase();
+    let inFence = false;
+    let start = -1;
+    let end = lines.length;
+    for (let index = 0; index < lines.length; index += 1) {
+        const line = lines[index];
+        if (/^\s*(```|~~~)/.test(line)) {
+            inFence = !inFence;
+            continue;
+        }
+        if (inFence) {
+            continue;
+        }
+        const heading = /^##\s+(.+?)\s*$/.exec(line);
+        if (heading === null) {
+            continue;
+        }
+        if (start === -1) {
+            if (heading[1].toLowerCase() === wanted) {
+                start = index + 1;
+            }
+        } else {
+            end = index;
+            break;
+        }
+    }
+    if (start === -1) {
+        return null;
+    }
+    const body = lines.slice(start, end).join('\n').trim();
+    return body.length > 0 ? body : null;
+}
+
 // Resolve a spec ref to its file path, accepting either the full `SPEC-<slug>` frontmatter id, the bare
 // slug (`pastebin` → the `SPEC-pastebin` spec, or `specs/pastebin/spec.md`), or a confined workspace path.
 // Accepting the bare slug mirrors the task resolution and closes the MCP get_spec gap the blind field
@@ -111,6 +150,14 @@ export function show_artifact(input: ShowArtifactInput): Result<ShowResult, AppE
                 affectedAreas: packet.affectedAreas,
                 doNotChange: packet.doNotChange,
                 claimedChangedFiles: packet.claimedChangedFiles,
+                // The cross-root embedded spec slice (ADR-0100 / `## Spec snapshot`) — present when the
+                // task was cut against a spec in a separate repo, so a cross-root review validates against
+                // it. `embeddedSpecId` is null and `embeddedRequirements` empty for the co-located case.
+                embeddedSpecId: packet.embeddedSpecId,
+                embeddedRequirements: packet.embeddedRequirements.map((r) => ({
+                    id: r.id,
+                    verifyCommand: r.verifyCommand,
+                })),
             },
         });
     }
@@ -126,7 +173,8 @@ export function show_artifact(input: ShowArtifactInput): Result<ShowResult, AppE
         if (path === null) {
             return err(usage_error(`cannot resolve spec: ${ref}`));
         }
-        const parsed = parse_spec_record({ source: readFileSync(path, 'utf8'), path });
+        const specSource = readFileSync(path, 'utf8');
+        const parsed = parse_spec_record({ source: specSource, path });
         if (isErr(parsed)) {
             return err(parsed.error);
         }
@@ -145,6 +193,9 @@ export function show_artifact(input: ShowArtifactInput): Result<ShowResult, AppE
                 })),
                 sectionTitles: record.sectionTitles,
                 openQuestionsPresent: record.openQuestionsPresent,
+                // The append-only `## Execution` run-record (ADR-0103/0104) — the durable history of each
+                // change cycle once tasks/reviews are ephemeral. Raw section text, or null when absent.
+                execution: section_body(specSource, 'Execution'),
             },
         });
     }
@@ -160,7 +211,27 @@ export function show_artifact(input: ShowArtifactInput): Result<ShowResult, AppE
         if (!existsSync(path)) {
             return err(usage_error(`no reviews/${ref}.md in this workspace`));
         }
-        return ok({ level: 'clean', kind: 'review', value: parse_review_packet(readFileSync(path, 'utf8')) });
+        const reviewSource = readFileSync(path, 'utf8');
+        const packet = parse_review_packet(reviewSource);
+        return ok({
+            level: 'clean',
+            kind: 'review',
+            value: {
+                ...packet,
+                // The review's identity + staleness provenance from frontmatter (parse_review_packet reads
+                // only `status`): which spec/task it reviews (review-to-spec, ADR-0103 — `spec:` for the 1:1
+                // task-less case), and the fast-track pins (ADR-0107) `reviewed_sha` + `evidence_hash` a
+                // loader needs to detect a stale review. Each is null when the key is absent.
+                frontmatter: {
+                    status: frontmatter_value(reviewSource, 'status'),
+                    spec: frontmatter_value(reviewSource, 'spec'),
+                    task: frontmatter_value(reviewSource, 'task'),
+                    pr: frontmatter_value(reviewSource, 'pr'),
+                    reviewedSha: frontmatter_value(reviewSource, 'reviewed_sha'),
+                    evidenceHash: frontmatter_value(reviewSource, 'evidence_hash'),
+                },
+            },
+        });
     }
 
     return err(
