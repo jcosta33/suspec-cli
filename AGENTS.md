@@ -16,7 +16,7 @@
   `.agents/skills/implement-task/`.
 - corpus-cli is the **reconcile-only harness** (corpus ADR-0077): it prepares,
   checks, and reconciles the Corpus loop and never runs the model loop. Surface:
-  `init · update · check · worktree · status · clean · review · new · pull · promote · run · show`
+  `init · update · check · worktree · status · clean · stamp · review · new · pull · promote · run · show`
   (+ `help`) — each a direct command, most also an interactive TUI flow (`-i`;
   `corpus` with no args opens the dashboard).
   `corpus init` clones the corpus-starter-kit (no vendored copy lives here). The

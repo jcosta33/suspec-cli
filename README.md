@@ -66,6 +66,7 @@ Each command is both a Unix part and an interactive flow:
 | `corpus worktree <create\|list\|remove\|prune>` | Manage isolated task worktrees on `corpus/<spec-slug>` branches                                  |
 | `corpus status`                                 | A read-only derived board over specs ← tasks ← reviews                                           |
 | `corpus clean`                                  | Prune spent ephemeral artifacts (tasks/reviews) — dry run, or `--apply`                          |
+| `corpus stamp <ref>`                            | Stamp staleness provenance — a spec `snapshot:`, or a review `evidence_hash:` + `reviewed_sha:`  |
 | `corpus review <task>`                          | Reconcile a finished run — diff vs self-report vs spec; the human owns the verdict               |
 | `corpus new <task\|spec>`                       | Cut a task packet from a spec (scope never invented), or scaffold a spec                         |
 | `corpus pull <ref>`                             | Snapshot a ticket into `intake/` — verbatim, never a spec or the board                           |
