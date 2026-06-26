@@ -133,6 +133,15 @@ const EMPTY_PACKET_FACTS: PacketStructuralFacts = {
 // Any reconcile finding present → the advisory `warning` level (exit 1, AC-024). A clean reconcile →
 // `clean` (exit 0). The engine never returns `blocking`: every reconcile fact is advisory, and a hard
 // error is reserved for the command's Err arm (bad git / usage / no workspace).
+// A frontmatter value normalized to a scalar: a list (YAML `- item`) reads as its first element, a
+// scalar passes through, absent stays undefined. So a hash/sha written either way is read, never dropped.
+function fm_scalar(value: string | readonly string[] | undefined): string | undefined {
+    if (value === undefined || typeof value === 'string') {
+        return value;
+    }
+    return value[0];
+}
+
 // The backtick-wrapped paths under a `## <section>` heading of the spec — path-shaped tokens only (a
 // slash or a dot-extension, never a `{{placeholder}}`). Used in the task-less case to read the spec's
 // declared `## Affected areas` and the implementer's self-reported changed files from `## Execution`.
@@ -280,10 +289,11 @@ export function reconcile_review(input: ReconcileReviewInput): Result<ReviewRepo
     // is informational (when it was reviewed). Both are optional review-frontmatter keys.
     const evidenceDigest = evidence_digest(input.diffChangedFiles, reviewPacket?.coverageRows ?? []);
     const reviewFrontmatter = input.reviewPacketSource !== null ? read_frontmatter(input.reviewPacketSource) : null;
-    const storedHashRaw = reviewFrontmatter?.evidence_hash;
-    const storedHash = typeof storedHashRaw === 'string' ? storedHashRaw : undefined;
-    const reviewedShaRaw = reviewFrontmatter?.reviewed_sha;
-    const reviewedSha = typeof reviewedShaRaw === 'string' ? reviewedShaRaw : null;
+    // read_frontmatter yields a scalar OR a list for any key (YAML `- item` syntax). Normalize to the
+    // first value so a hash/sha accidentally written as a one-item list is still read — not silently
+    // dropped to undefined (which would skip Stale detection — a false negative).
+    const storedHash = fm_scalar(reviewFrontmatter?.evidence_hash);
+    const reviewedSha = fm_scalar(reviewFrontmatter?.reviewed_sha) ?? null;
     const reviewStale = storedHash !== undefined && storedHash !== evidenceDigest ? { reviewedSha } : null;
 
     const withoutLevel: Omit<ReviewReport, 'level'> = {

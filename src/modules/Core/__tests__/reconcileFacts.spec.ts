@@ -6,6 +6,7 @@ import {
     scope_divergence,
     empty_evidence_pass_rows,
     packet_structural_facts,
+    evidence_digest,
     type CoverageRow,
     type ReviewPacket,
 } from '../services/reconcileFacts.ts';
@@ -197,5 +198,37 @@ describe('packet_structural_facts (AC-021)', () => {
 
     it('a null status is not flagged as a bad status', () => {
         expect(packet_structural_facts(packet({ status: null })).badStatus).toBeNull();
+    });
+});
+
+describe('evidence_digest — fast-track staleness (ADR-0107)', () => {
+    const rows: CoverageRow[] = [
+        { id: 'AC-001', result: 'Pass', evidence: 'pasted' },
+        { id: 'AC-002', result: 'Pass', evidence: 'pasted' },
+    ];
+    const paths = ['src/a.ts', 'src/b.ts'];
+    const baseline = evidence_digest(paths, rows);
+
+    it('is a stable 16-hex digest and order-independent (paths + rows)', () => {
+        expect(baseline).toMatch(/^[0-9a-f]{16}$/);
+        expect(evidence_digest([...paths].reverse(), [...rows].reverse())).toBe(baseline);
+    });
+
+    it('changes when a path is added', () => {
+        expect(evidence_digest([...paths, 'src/c.ts'], rows)).not.toBe(baseline);
+    });
+
+    it('changes when a coverage row is added', () => {
+        expect(evidence_digest(paths, [...rows, { id: 'AC-003', result: 'Pass', evidence: 'p' }])).not.toBe(baseline);
+    });
+
+    it('changes when an evidence cell changes', () => {
+        const edited = [{ ...rows[0], evidence: 'different' }, rows[1]];
+        expect(evidence_digest(paths, edited)).not.toBe(baseline);
+    });
+
+    it('changes when a result changes (Pass → Fail)', () => {
+        const edited = [{ ...rows[0], result: 'Fail' }, rows[1]];
+        expect(evidence_digest(paths, edited)).not.toBe(baseline);
     });
 });

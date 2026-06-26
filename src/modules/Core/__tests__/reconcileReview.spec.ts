@@ -614,4 +614,11 @@ describe('reconcile_review — fast-track staleness (ADR-0107)', () => {
         expect(report.reviewStale?.reviewedSha).toBe('abc1234');
         expect(report.level).toBe('warning'); // warns + re-routes, never blocks
     });
+
+    it('reads a list-valued evidence_hash (defensive — never a false negative)', () => {
+        // a hash accidentally written as a YAML one-item list must still be read (not dropped to undefined)
+        const listReview = `---\ntype: review\nid: REVIEW-feat\ntask: TASK-feat\nreviewed_sha: abc1234\nevidence_hash:\n  - 0000000000000000\nstatus: needs-human\n---\n\n## Requirement coverage\n\n| ID | Result | Evidence | Human attention |\n|---|---|---|---|\n| AC-001 | Pass | p | no |\n`;
+        const report = ok({ ...base, reviewPacketSource: listReview });
+        expect(report.reviewStale).not.toBeNull(); // the list hash is read; it mismatches → Stale
+    });
 });
