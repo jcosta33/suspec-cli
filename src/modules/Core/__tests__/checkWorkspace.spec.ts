@@ -485,4 +485,27 @@ preserves: [PG-001]
         const report = assertOk(check_workspace({ workspaceDir: ws }));
         expect(report.workspaceFindings.filter((f) => f.code === 'unpromoted-finding')).toEqual([]);
     });
+
+    it('treats a prose phrase (spaces) as no slugs — 0-FP, not four spurious word-warnings', () => {
+        writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- Finding candidates: caching strategy matters here\n`);
+        withTemplates();
+        const report = assertOk(check_workspace({ workspaceDir: ws }));
+        expect(report.workspaceFindings.filter((f) => f.code === 'unpromoted-finding')).toEqual([]);
+    });
+
+    it('rejects path-shaped tokens (no traversal reaches existsSync)', () => {
+        writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- Finding candidates: ../../etc/passwd, sub/dir, /abs\n`);
+        withTemplates();
+        const report = assertOk(check_workspace({ workspaceDir: ws }));
+        expect(report.workspaceFindings.filter((f) => f.code === 'unpromoted-finding')).toEqual([]);
+    });
+
+    it('accepts a comma-separated list of clean slugs (backticks tolerated)', () => {
+        writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- Finding candidates: \`cache-bug\`, retry_storm\n`);
+        withTemplates();
+        const report = assertOk(check_workspace({ workspaceDir: ws }));
+        const flagged = report.workspaceFindings.filter((f) => f.code === 'unpromoted-finding').map((f) => f.message);
+        expect(flagged.some((m) => m.includes('cache-bug'))).toBe(true);
+        expect(flagged.some((m) => m.includes('retry_storm'))).toBe(true);
+    });
 });

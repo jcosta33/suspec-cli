@@ -157,12 +157,15 @@ function finding_candidates(source: string): string[] {
             continue;
         }
         const match = /^[-*\s]*finding candidates?:\s*(.+)$/i.exec(line.trim());
-        // Skip an unfilled template line (a `{{placeholder}}`) wholesale — else its prose words would
-        // read as slugs. A filled line lists comma/space-separated slugs.
+        // Skip an unfilled template line (a `{{placeholder}}`) wholesale. The list is COMMA-separated —
+        // split on comma (not whitespace) so a prose phrase collapses to one token that then fails the
+        // slug shape. Validate each is a clean filename slug (alphanumeric / hyphen / underscore — no
+        // spaces, slashes, dots, or `..`). This keeps the advisory 0-FP: prose, path components, and
+        // placeholders never read as candidate slugs (so existsSync never sees an escaping path either).
         if (match !== null && !match[1].includes('{{')) {
-            for (const raw of match[1].split(/[,\s]+/)) {
-                const slug = raw.trim().replace(/[`.]/g, '');
-                if (slug.length > 0) {
+            for (const raw of match[1].split(',')) {
+                const slug = raw.trim().replace(/`/g, '');
+                if (/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(slug)) {
                     out.push(slug);
                 }
             }
