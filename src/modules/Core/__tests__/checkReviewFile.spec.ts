@@ -364,3 +364,37 @@ describe('check_review_file — spec-keyed (task-less 1:1 review, ADR-0103 revie
         expect(c012.some((d) => d.message.includes('(orphan)') && d.message.includes('AC-099'))).toBe(true);
     });
 });
+
+describe('check_review_file — cross-root embedded snapshot (ADR-0100, corpus-cli#2)', () => {
+    it('validates coverage against the task embedded slice when the live spec is absent', () => {
+        // a task whose source spec is NOT in this workspace (cross-root), but carries an embedded slice
+        writeFileSync(
+            join(dir, 'tasks', 'TASK-x.md'),
+            '---\ntype: task\nid: TASK-x\nsource:\n  - SPEC-elsewhere\nscope: [AC-001, AC-002]\nstatus: review-ready\n---\n\n## Spec snapshot\n\nembedded-spec: SPEC-elsewhere\n\n- AC-001 — verify: `a test.`\n- AC-002 — verify: `a test.`\n\n## Run summary\n'
+        );
+        const path = join(dir, 'review.md');
+        writeFileSync(
+            path,
+            '---\ntype: review\nid: REVIEW-x\ntask: TASK-x\nstatus: needs-human\n---\n\n## Requirement coverage\n\n| ID | Result | Evidence | Human attention |\n|---|---|---|---|\n| AC-001 | Unverified | p | no |\n'
+        );
+        const report = assertOk(check_review_file({ workspaceDir: dir, reviewPath: path }));
+        const c012 = report.diagnostics.filter((d) => d.code === 'C012');
+        // AC-002 (in the embedded scope) is uncovered — validated against the embedded slice, no live spec
+        expect(c012).toHaveLength(1);
+        expect(c012[0].message).toContain('AC-002');
+    });
+
+    it('stays clean when the live spec is absent AND the task has no embedded slice', () => {
+        writeFileSync(
+            join(dir, 'tasks', 'TASK-y.md'),
+            '---\ntype: task\nid: TASK-y\nsource:\n  - SPEC-elsewhere\nscope: [AC-001]\nstatus: review-ready\n---\n\n## Run summary\n'
+        );
+        const path = join(dir, 'review.md');
+        writeFileSync(
+            path,
+            '---\ntype: review\nid: REVIEW-y\ntask: TASK-y\nstatus: needs-human\n---\n\n## Requirement coverage\n\n| ID | Result | Evidence | Human attention |\n|---|---|---|---|\n| AC-001 | Pass | p | no |\n'
+        );
+        const report = assertOk(check_review_file({ workspaceDir: dir, reviewPath: path }));
+        expect(report.diagnostics).toEqual([]); // no live spec, no embedded slice → nothing to reconcile
+    });
+});

@@ -77,7 +77,9 @@ describe('cut_packet', () => {
     it('dedups a repeated scope id (no duplicated Scope/Verify entries)', () => {
         const report = assertOk(cut_packet({ workspaceDir: ws, specId: 'SPEC-x', scope: ['AC-001', 'AC-001'] }));
         expect(report.scope).toEqual(['AC-001']);
-        expect(read(report.taskId).match(/- AC-001\b/g)).toHaveLength(1);
+        // the Scope list (an exact `- AC-001` line) appears once; the `- AC-001 — verify:` line in the
+        // embedded `## Spec snapshot` is a distinct, legitimate occurrence and is not counted here.
+        expect(read(report.taskId).match(/^- AC-001$/gm)).toHaveLength(1);
     });
 
     it('rejects a scope id that is not a requirement of the spec', () => {
@@ -128,5 +130,14 @@ describe('cut_packet', () => {
         expect(assertErr(cut_packet({ workspaceDir: ws, specId: 'SPEC-../../tmp/escape', scope: [] }))._tag).toBe(
             'Usage'
         );
+    });
+
+    it('embeds the scoped spec slice (## Spec snapshot) for cross-root validation (#2)', () => {
+        const report = assertOk(cut_packet({ workspaceDir: ws, specId: 'SPEC-x', scope: ['AC-001'] }));
+        const content = read(report.taskId);
+        expect(content).toContain('## Spec snapshot');
+        expect(content).toContain('embedded-spec: SPEC-x');
+        expect(content).toMatch(/- AC-001 — verify: /); // the scoped AC is embedded (with its command or `(none)`)
+        expect(content).not.toContain('- AC-002 — verify: '); // only the scoped slice is embedded
     });
 });

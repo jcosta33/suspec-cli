@@ -82,53 +82,74 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
     //    keys on the SPEC's full AC set — the spec is the unit, the task an optional accessory.
     // The C012/C013/C016 checks then run identically against the resolved spec. `spec:` is an OPTIONAL
     // review-frontmatter key (not in checks.yaml's required list, so it breaks no existing review).
-    let specSource: string | null;
-    let taskScope: readonly string[] | null;
+    // The resolved spec view the checks key on: the requirement ids, the named Verify command per id,
+    // and the source status (for the draft guard). It comes from the LIVE spec when resolvable, or —
+    // when the live spec is in a SEPARATE repo (cross-root) — from the task's EMBEDDED snapshot
+    // (`## Spec snapshot`, ADR-0100 / corpus-cli#2), so a cross-root review is still validated.
+    let specView: { requirementIds: readonly string[]; namedCommandById: Map<string, string | null>; status: string | null } | null = null;
+    let taskScope: readonly string[] | null = null;
+
+    const viewFromSpec = (source: string): typeof specView => {
+        const parsed = parse_spec_record({ source, path: input.reviewPath });
+        /* v8 ignore next 3 -- find_source_spec already matched this file's frontmatter, so its fence is intact; parse only errs on a missing/unclosed fence */
+        if (!isOk(parsed)) {
+            return null;
+        }
+        return {
+            requirementIds: parsed.value.requirements.map((requirement) => requirement.id),
+            namedCommandById: new Map(parsed.value.requirements.map((requirement) => [requirement.id, requirement.verifyCommand])),
+            status: parsed.value.frontmatter.status,
+        };
+    };
+
     if (taskId !== undefined) {
         const taskSource = find_task_packet(input.workspaceDir, taskId);
         if (taskSource === null) {
             return clean([]);
         }
-        taskScope = parse_task_packet(taskSource).scope;
+        const packet = parse_task_packet(taskSource);
+        taskScope = packet.scope;
         const specId = scalar(read_frontmatter(taskSource).source);
-        specSource = specId !== undefined ? find_source_spec(input.workspaceDir, specId) : null;
+        const specSource = specId !== undefined ? find_source_spec(input.workspaceDir, specId) : null;
+        if (specSource !== null) {
+            specView = viewFromSpec(specSource);
+        } else if (packet.embeddedRequirements.length > 0) {
+            // Cross-root (ADR-0100): the live spec is unreachable; validate against the embedded slice.
+            // The slice was cut from a non-draft spec, so treat it as non-draft (run the guarded checks).
+            specView = {
+                requirementIds: packet.embeddedRequirements.map((requirement) => requirement.id),
+                namedCommandById: new Map(packet.embeddedRequirements.map((requirement) => [requirement.id, requirement.verifyCommand])),
+                status: 'active',
+            };
+        }
     } else {
-        // The task-less 1:1 review names its spec directly. With neither a task nor a `spec:` there is
-        // nothing to reconcile against (clean, as before).
+        // The task-less 1:1 review names its spec directly (`spec:`); with neither, nothing to reconcile.
         const specId = scalar(reviewFrontmatter.spec);
-        specSource = specId !== undefined ? find_source_spec(input.workspaceDir, specId) : null;
-        taskScope = null;
+        const specSource = specId !== undefined ? find_source_spec(input.workspaceDir, specId) : null;
+        if (specSource !== null) {
+            specView = viewFromSpec(specSource);
+        }
     }
-    if (specSource === null) {
+    if (specView === null) {
         return clean([]);
     }
-    const parsedSpec = parse_spec_record({ source: specSource, path: input.reviewPath });
-    /* v8 ignore next 3 -- find_source_spec already read this file's frontmatter to match the id, so its `---` fence is intact; parse_spec_record only errs on a missing/unclosed fence */
-    if (!isOk(parsedSpec)) {
-        return clean([]);
-    }
-    const specRequirementIds = parsedSpec.value.requirements.map((requirement) => requirement.id);
+    const specRequirementIds = specView.requirementIds;
     // The spec-keyed path keys coverage on the full spec; the task-keyed path narrows to the task scope.
     const inScopeIds = taskScope ?? specRequirementIds;
 
     const review = parse_review_packet(reviewSource);
     const coverage = check_coverage({
-        sourceSpecStatus: parsedSpec.value.frontmatter.status,
+        sourceSpecStatus: specView.status,
         inScopeIds,
         specRequirementIds,
         coverageRowIds: review.coverageRows.map((row) => row.id),
     });
-    // C013 (ADR-0083): the same verify-evidence-binding fact the `corpus review` reconcile surfaces —
-    // mirrors reconcileReview's namedCommandById build (the named command lifted from each spec
-    // requirement, keyed by id) and the verify_binding call. The non-draft scope guard and the
-    // verdict-free shape live inside check_verify_binding / verify_binding_facts (a Diagnostic + a
-    // level, never a Result); this engine only passes the extracted records and never re-derives them.
-    const namedCommandById = new Map<string, string | null>(
-        parsedSpec.value.requirements.map((requirement) => [requirement.id, requirement.verifyCommand])
-    );
+    // C013 (ADR-0083): the verify-evidence-binding fact — the named command per id vs the review's
+    // structured verify blocks against its Pass rows. The non-draft scope guard + verdict-free shape
+    // live inside check_verify_binding; this engine only passes the extracted records.
     const verifyBinding = check_verify_binding({
-        sourceSpecStatus: parsedSpec.value.frontmatter.status,
-        namedCommandById,
+        sourceSpecStatus: specView.status,
+        namedCommandById: specView.namedCommandById,
         coverageRows: review.coverageRows,
         verifyBlocks: review.verifyBlocks,
     });

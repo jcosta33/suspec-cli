@@ -72,6 +72,14 @@ function render_packet(input: {
         input.verify.length > 0
             ? input.verify.map((v) => `- [ ] ${v.command ?? '{{command}}'} (${v.id})`).join('\n')
             : '- [ ] {{command}}';
+    // The embedded spec slice (ADR-0100, corpus-cli#2): the scoped requirements (id + Verify command)
+    // copied at cut time, so `corpus check`/`review` can validate a task/review even when the live spec
+    // lives in a SEPARATE repo (the dedicated-workspace / spec-external layout) and is unresolvable from
+    // the workspace. Generated; re-cut to refresh.
+    const embeddedSlice =
+        input.verify.length > 0
+            ? input.verify.map((v) => `- ${v.id} — verify: ${v.command !== null ? `\`${v.command}\`` : '(none)'}`).join('\n')
+            : '<!-- empty scope: no embedded slice -->';
     return `---
 type: task
 id: ${input.taskId}
@@ -110,6 +118,14 @@ ${verifyList}
 1. Read the source spec first; stay inside this task's scope.
 2. Run every Verify item and paste the real output — a claim without output is unverified.
 3. Re-read your own diff as a skeptic before finishing, then fill the Run summary.
+
+## Spec snapshot
+
+<!-- Embedded at cut from ${input.specId} (ADR-0100): the scoped requirements, so a review can be
+     validated even when the live spec is in a separate repo. Generated; re-cut to refresh. -->
+embedded-spec: ${input.specId}
+
+${embeddedSlice}
 
 ## Findings
 

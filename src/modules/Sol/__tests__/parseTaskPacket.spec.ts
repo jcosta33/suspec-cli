@@ -312,3 +312,22 @@ scope: [AC-001]
         ]);
     });
 });
+
+describe('parse_task_packet — embedded spec snapshot (ADR-0100, corpus-cli#2)', () => {
+    it('parses embedded-spec + the scoped requirements (verify command or none)', () => {
+        const packet = `---\ntype: task\nid: TASK-x\nsource:\n  - SPEC-x\nscope: [AC-001, AC-002]\nstatus: ready\n---\n\n## Spec snapshot\n\nembedded-spec: SPEC-x\n\n- AC-001 — verify: \`pnpm test\`\n- AC-002 — verify: (none)\n\n## Run summary\n`;
+        const parsed = parse_task_packet(packet);
+        expect(parsed.embeddedSpecId).toBe('SPEC-x');
+        expect(parsed.embeddedRequirements).toEqual([
+            { id: 'AC-001', verifyCommand: 'pnpm test' },
+            { id: 'AC-002', verifyCommand: null },
+        ]);
+    });
+
+    it('a packet with no ## Spec snapshot has a null embedded id + empty requirements', () => {
+        const packet = '---\ntype: task\nid: TASK-x\nscope: [AC-001]\nstatus: ready\n---\n\n## Run summary\n';
+        const parsed = parse_task_packet(packet);
+        expect(parsed.embeddedSpecId).toBeNull();
+        expect(parsed.embeddedRequirements).toEqual([]);
+    });
+});

@@ -29,6 +29,11 @@ export type TaskPacket = Readonly<{
     doNotChange: readonly string[];
     // The files the Run summary claims changed (self-report; reconciled against the real diff).
     claimedChangedFiles: readonly string[];
+    // The embedded spec slice (ADR-0100, corpus-cli#2): the spec id + scoped requirements (id + Verify
+    // command) copied into the task's `## Spec snapshot` at cut. Lets a review be validated when the live
+    // spec is in a SEPARATE repo (unresolvable from the workspace). null id + [] when no snapshot.
+    embeddedSpecId: string | null;
+    embeddedRequirements: readonly { id: string; verifyCommand: string | null }[];
 }>;
 
 const REQUIREMENT_ID = /\b[A-Z][A-Z0-9]*-\d+\b/g;
@@ -227,11 +232,43 @@ function claimed_changed_files(lines: readonly string[]): string[] {
     return [...new Set(paths)].sort();
 }
 
+// The `## Spec snapshot` embedded slice (ADR-0100, corpus-cli#2). The section carries `embedded-spec:
+// <id>` then `- <ID> — verify: \`cmd\`` (or `(none)`) lines.
+const SPEC_SNAPSHOT_HEADING = /^##\s+Spec snapshot\s*$/i;
+const EMBEDDED_SPEC = /^embedded-spec:\s*(\S+)\s*$/;
+const EMBEDDED_REQ = /^-\s+([A-Z][A-Z0-9]*-\d+)\s+—\s+verify:\s*(.*)$/;
+
+function embedded_spec_id(lines: readonly string[]): string | null {
+    for (const line of lines) {
+        const match = EMBEDDED_SPEC.exec(line.trim());
+        if (match !== null) {
+            return match[1];
+        }
+    }
+    return null;
+}
+
+function embedded_requirements(lines: readonly string[]): { id: string; verifyCommand: string | null }[] {
+    const out: { id: string; verifyCommand: string | null }[] = [];
+    for (const line of lines) {
+        const match = EMBEDDED_REQ.exec(line.trim());
+        if (match === null) {
+            continue;
+        }
+        const backtick = /^`([^`]+)`$/.exec(match[2].trim());
+        out.push({ id: match[1], verifyCommand: backtick !== null ? backtick[1] : null });
+    }
+    return out;
+}
+
 export function parse_task_packet(source: string): TaskPacket {
+    const snapshotLines = section_lines(source, SPEC_SNAPSHOT_HEADING);
     return {
         scope: read_scope(source),
         affectedAreas: path_entries(section_lines(source, AFFECTED_AREAS_HEADING)),
         doNotChange: path_entries(section_lines(source, DO_NOT_CHANGE_HEADING)),
         claimedChangedFiles: claimed_changed_files(section_lines(source, RUN_SUMMARY_HEADING)),
+        embeddedSpecId: embedded_spec_id(snapshotLines),
+        embeddedRequirements: embedded_requirements(snapshotLines),
     };
 }
