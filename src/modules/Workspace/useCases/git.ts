@@ -473,3 +473,12 @@ export function path_is_tracked(repoRoot: string, relPath: string): boolean {
     });
     return result.status === 0;
 }
+
+/**
+ * The current HEAD commit SHA of a repo, or null outside a repo / with no commits. `corpus stamp` uses
+ * it to record the code state a spec snapshot / review was taken against (ADR-0107/0108).
+ */
+export function head_sha(repoRoot: string): string | null {
+    const result = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' });
+    return result.status === 0 ? result.stdout.trim() : null;
+}

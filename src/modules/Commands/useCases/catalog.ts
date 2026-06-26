@@ -67,6 +67,16 @@ export const COMMAND_CATALOG = [
         ],
     },
     {
+        name: 'stamp',
+        description: 'Stamp staleness provenance — a spec snapshot, or a review evidence hash',
+        usage: [
+            'corpus stamp <ref>',
+            '  <spec id|slug>              write snapshot: HEAD (enables `check --staleness`)',
+            '  <review file|slug>          write reviewed_sha + evidence_hash (enables fast-track Stale)',
+            '  --repo <path>               stamp against a separate code repo · --json',
+        ],
+    },
+    {
         name: 'review',
         description: 'Reconcile a finished run — diff vs self-report vs spec (no verdict)',
         usage: [

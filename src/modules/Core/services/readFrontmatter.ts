@@ -55,3 +55,36 @@ export function read_frontmatter(source: string): Frontmatter {
     }
     return out;
 }
+
+// Upsert scalar keys into the leading `---` frontmatter block — updated in place if the key exists,
+// else inserted just before the closing fence. The rest of the file is byte-preserved. `corpus stamp`
+// uses it to write a spec's `snapshot:` or a review's `reviewed_sha:`/`evidence_hash:`. Pure: source in,
+// source out. A file with no (or an unterminated) frontmatter fence is returned unchanged.
+export function upsert_frontmatter(source: string, updates: Readonly<Record<string, string>>): string {
+    const hasBom = source.charCodeAt(0) === BOM;
+    const text = hasBom ? source.slice(1) : source;
+    const eol = text.includes('\r\n') ? '\r\n' : '\n';
+    const lines = text.split(/\r\n|[\r\n]/);
+    if (lines[0] !== '---') {
+        return source;
+    }
+    let close = 1;
+    while (close < lines.length && lines[close] !== '---') {
+        close += 1;
+    }
+    if (close >= lines.length) {
+        return source; // unterminated frontmatter — do not touch
+    }
+    const pending = new Map(Object.entries(updates));
+    for (let i = 1; i < close; i += 1) {
+        const keyMatch = KEY.exec(lines[i]);
+        const replacement = keyMatch !== null ? pending.get(keyMatch[1]) : undefined;
+        if (keyMatch !== null && replacement !== undefined) {
+            lines[i] = `${keyMatch[1]}: ${replacement}`;
+            pending.delete(keyMatch[1]);
+        }
+    }
+    const inserts = [...pending.entries()].map(([key, value]) => `${key}: ${value}`);
+    lines.splice(close, 0, ...inserts);
+    return (hasBom ? '﻿' : '') + lines.join(eol);
+}
