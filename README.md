@@ -40,7 +40,7 @@ corpus                       # open the interactive dashboard
 corpus init                  # scaffold a Corpus workspace from the starter kit
 corpus check                 # lint every spec in the workspace
 corpus status                # the workspace board — specs, tasks, reviews, gaps
-corpus new task --from SPEC-checkout --scope AC-001,AC-002
+corpus new task --from SPEC-001 --scope AC-001,AC-002   # SPEC-001 is an illustrative spec id
 corpus worktree create checkout
 ```
 
