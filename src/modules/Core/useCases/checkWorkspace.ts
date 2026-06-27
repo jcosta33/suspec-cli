@@ -30,7 +30,8 @@ export type WorkspaceFinding = Readonly<{
         | 'supersede-missing-pointer'
         | 'duplicate-content'
         | 'unpromoted-finding'
-        | 'incomplete-execution-digest';
+        | 'incomplete-execution-digest'
+        | 'active-spec-no-execution';
     // SW-006: an unfilled {{placeholder}} in a freshly-scaffolded AGENTS.md is a "finish setup" nudge,
     // not broken work — it must NOT block the gate on day one (the kit's own AGENTS.md ships with
     // placeholders, so `corpus check` right after `corpus init` would otherwise greet a new user with a
@@ -298,6 +299,8 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
     const candidatesBySpec: { path: string; slugs: readonly string[] }[] = [];
     // Half-stamped `## Execution` entries (ADR-0110) — one staleness pin without the other.
     const incompleteDigestsBySpec: { path: string; labels: readonly string[] }[] = [];
+    // `status: active` specs missing a `## Execution` section (ADR-0116, spec-side invariant).
+    const activeSpecsWithoutExecution: string[] = [];
 
     for (const specPath of specFiles) {
         const specSource = readFileSync(specPath, 'utf8');
@@ -339,6 +342,19 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
         const incompleteDigests = incomplete_execution_digests(specSource);
         if (incompleteDigests.length > 0) {
             incompleteDigestsBySpec.push({ path: specPath, labels: incompleteDigests });
+        }
+        // Shipped-spec invariant, spec side (ADR-0116 Decision 2): a spec whose own frontmatter status is
+        // `active` (the in-force living-spec state, ADR-0108) MUST carry a `## Execution` change-cycle
+        // entry — the durable AC→evidence digest ADR-0110 keeps for the change that shipped. Reuses the
+        // section list ADR-0110's parse already produces (sectionTitles holds every `## <title>`, fenced
+        // examples excluded), so `## Execution` detection is the same parse the digest checks key on — no
+        // new freeform parsing. 0-FP by construction: gated on the in-force `active` status alone, so a
+        // draft/ready/in-flight spec (not yet shipped) and a superseded/legacy spec are never touched.
+        if (
+            record.frontmatter.status === 'active' &&
+            !record.sectionTitles.some((title) => title.trim().toLowerCase() === 'execution')
+        ) {
+            activeSpecsWithoutExecution.push(specPath);
         }
     }
 
@@ -411,6 +427,20 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
                 message: `${path}: Execution entry "${label}" has one staleness pin but not the other — complete it (reviewed-sha + evidence-hash, via corpus stamp) or drop both (ADR-0110)`,
             });
         }
+    }
+
+    // Shipped-spec invariant, spec side (ADR-0116 Decision 2; SPEC-method-gates AC-005, the tractable
+    // core): an `active` spec with no `## Execution` section is incoherent — the board-recorded "shipped"
+    // state and the ADR-0110 AC→evidence digest are owed but absent. Advisory warning, reconcile-only —
+    // no C-id, no checks.yaml rule, never blocks (ADR-0063/0077), pending measured 0-FP and promotion.
+    // The board/spec status-coherence half of ADR-0116 (Decision 1) stays proposed — the status.md board
+    // is freeform prose; parsing it for "shipped" claims is high-FP and out of scope here.
+    for (const path of activeSpecsWithoutExecution) {
+        findings.push({
+            code: 'active-spec-no-execution',
+            level: 'warning',
+            message: `${path} is status: active but has no ## Execution section — a shipped living spec carries its AC→evidence digest (add a ## Execution change-cycle entry, ADR-0116/0110)`,
+        });
     }
 
     // C017 orphaned-reference (ADR-0097, #45): a bundled `.agents/skills/<name>/references/<file>` the

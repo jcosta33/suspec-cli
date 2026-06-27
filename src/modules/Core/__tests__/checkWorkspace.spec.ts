@@ -542,4 +542,53 @@ preserves: [PG-001]
         withTemplates();
         expect(digestFindings()).toEqual([]);
     });
+
+    // ADR-0116 (spec side) — an `active` spec MUST carry a `## Execution` section; SPEC-method-gates AC-005,
+    // the tractable core. Advisory (0-FP: only an in-force `active` status is gated), never blocking.
+    const noExecutionFindings = (): { message: string; level: 'blocking' | 'warning' }[] =>
+        assertOk(check_workspace({ workspaceDir: ws })).workspaceFindings.filter(
+            (f) => f.code === 'active-spec-no-execution'
+        );
+
+    it('does NOT flag an active spec that carries a ## Execution section', () => {
+        writeSpec(
+            'shipped',
+            `${CONFORMANT.replace('status: ready', 'status: active')}\n## Execution\n\n- **2026-06-26 — shipped** (corpus-cli \`abc1234\`).\n`
+        );
+        withTemplates();
+        expect(noExecutionFindings()).toEqual([]);
+    });
+
+    it('FLAGS an active spec with NO ## Execution section as a warning, never blocking (ADR-0116)', () => {
+        writeSpec('shipped', CONFORMANT.replace('status: ready', 'status: active')); // active, no ## Execution
+        withTemplates();
+        const finding = noExecutionFindings();
+        expect(finding).toHaveLength(1);
+        expect(finding[0].level).toBe('warning');
+        expect(finding[0].message).toContain('status: active');
+        expect(finding[0].message).toContain('## Execution');
+        const report = assertOk(check_workspace({ workspaceDir: ws }));
+        expect(report.verdict).toBe('clean'); // advisory — it does not block the merge
+        expect(report.level).toBe('warning');
+    });
+
+    it('does NOT flag a draft or ready spec with no ## Execution (only active is gated)', () => {
+        writeSpec('drafting', CONFORMANT.replace('status: ready', 'status: draft')); // draft, no Execution
+        writeSpec('ready', CONFORMANT); // status: ready, no Execution
+        withTemplates();
+        expect(noExecutionFindings()).toEqual([]);
+    });
+
+    it('does NOT count a ## Execution heading quoted inside a fenced code block (reuses ADR-0110 parse, 0-FP)', () => {
+        // The section list excludes fenced examples, so a `## Execution` shown as example text is not a real
+        // section — an active spec whose only Execution heading is fenced still trips the invariant.
+        writeSpec(
+            'shipped',
+            `${CONFORMANT.replace('status: ready', 'status: active')}\n## Notes\n\n\`\`\`md\n## Execution\n\`\`\`\n`
+        );
+        withTemplates();
+        const finding = noExecutionFindings();
+        expect(finding).toHaveLength(1);
+        expect(finding[0].level).toBe('warning');
+    });
 });

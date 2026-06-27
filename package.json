@@ -38,6 +38,8 @@
         "prepack": "pnpm run build",
         "test": "vitest",
         "test:run": "vitest run",
+        "coverage": "vitest run --coverage",
+        "gate": "pnpm typecheck && pnpm lint && pnpm coverage && pnpm build",
         "typecheck": "tsc --noEmit",
         "format": "prettier --write \"**/*.{ts,js,mjs,cjs,json,md}\"",
         "lint": "eslint --cache --cache-location node_modules/.cache/eslint/ \"src/**/*.ts\"",
