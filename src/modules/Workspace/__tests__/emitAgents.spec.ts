@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -12,6 +12,11 @@ let target: string;
 
 function agentDef(name: string, tools: string): string {
     return `---\nname: ${name}\ndescription: >-\n  Do the ${name} job, read-only.\ntools: ${tools}\n---\n\n# ${name}\n\nBody of ${name}.\n`;
+}
+
+// A retired redirect stub: same shape, plus `status: retired` in the frontmatter.
+function retiredAgentDef(name: string, tools: string): string {
+    return `---\nname: ${name}\nstatus: retired\ndescription: >-\n  Retired — do NOT install ${name}.\ntools: ${tools}\n---\n\n# ${name}\n\nThis stub only redirects inbound refs.\n`;
 }
 
 beforeEach(() => {
@@ -67,5 +72,33 @@ describe('emit_agents (corpus agents emit --codex, ADR-0098)', () => {
         } finally {
             rmSync(empty, { recursive: true, force: true });
         }
+    });
+
+    it('SKIPS a `status: retired` redirect stub (no .toml), logging the intentional drop; others still emit', () => {
+        // the retired stub mirrors corpus-evidence-checker: kept for inbound-ref resolution, must NOT
+        // be projected into Codex as an installable agent (its own body says "do not install").
+        writeFileSync(join(src, 'corpus-evidence-checker.md'), retiredAgentDef('corpus-evidence-checker', 'Read, Bash'));
+        const logSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+            const report = assertOk(emit_agents({ sourceDir: src, targetDir: target, overwrite: false }));
+            // the two normal agents still emit; the retired stub does not appear in `written`
+            expect(report.written.sort()).toEqual(['corpus-explorer.toml', 'corpus-reviewer.toml']);
+            expect(report.retired).toEqual(['corpus-evidence-checker.toml']);
+            // NO toml on disk for the retired stub; the normal one is present
+            expect(existsSync(join(target, '.codex', 'agents', 'corpus-evidence-checker.toml'))).toBe(false);
+            expect(existsSync(join(target, '.codex', 'agents', 'corpus-reviewer.toml'))).toBe(true);
+            // the intentional skip is logged (unlike the quiet non-def skip)
+            expect(logSpy).toHaveBeenCalledWith('skipped corpus-evidence-checker (status: retired)');
+        } finally {
+            logSpy.mockRestore();
+        }
+    });
+
+    it('a normal agent (no status) emits as before — proven against the retired path', () => {
+        // corpus-reviewer carries no `status:` → still projected to an installable toml
+        const report = assertOk(emit_agents({ sourceDir: src, targetDir: target, overwrite: false }));
+        expect(report.written).toContain('corpus-reviewer.toml');
+        expect(report.retired).toEqual([]);
+        expect(existsSync(join(target, '.codex', 'agents', 'corpus-reviewer.toml'))).toBe(true);
     });
 });

@@ -39,7 +39,7 @@ Tests live in **`__tests__/`** subfolders **inside** the folder that owns the co
 
 **Rule:** For `path/to/SourceFile.ts`, the spec is `path/to/__tests__/SourceFile.spec.ts` (same basename).
 
-**Imports:** From `useCases/__tests__/git.spec.ts`, import the subject with a **sibling-relative** path — e.g. `import { parseGitOutput } from '../git';`.
+**Imports:** From `useCases/__tests__/git.spec.ts`, import the subject with a **sibling-relative** path — e.g. `import { current_branch } from '../git';`.
 
 **Module-wide** shared utilities (dummy factories, module-local mocks) live in **`src/modules/<Module>/__tests__/`** at the **module root** and are imported from deeper specs with relative paths.
 
@@ -74,26 +74,26 @@ Every `it` block should clearly describe the behavior under test:
 
 ### 5.1 Use cases
 
-Subject: `src/modules/Workspace/useCases/git.ts` — parses git output, calls utilities.
+Subject: `src/modules/Workspace/useCases/git.ts` — runs git, parses its output.
 
 Mock external dependencies with `vi.mock()` or inline stubs. No DI framework is used in this CLI.
 
 ```typescript
 // src/modules/Workspace/useCases/__tests__/git.spec.ts
 import { describe, it, expect, vi } from 'vitest';
-import { getCurrentBranch } from '../git';
+import { current_branch } from '../git';
 
 vi.mock('node:child_process', () => ({
-    execSync: vi.fn(),
+    spawnSync: vi.fn(),
 }));
 
-import { execSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 
-describe('getCurrentBranch', () => {
-    it('should return the current branch name', () => {
-        vi.mocked(execSync).mockReturnValue('feature/cli-cleanup\n');
+describe('current_branch', () => {
+    it('returns the current branch name', () => {
+        vi.mocked(spawnSync).mockReturnValue({ status: 0, stdout: 'feature/cli-cleanup\n' } as never);
 
-        const result = getCurrentBranch();
+        const result = current_branch('/repo');
 
         expect(result).toBe('feature/cli-cleanup');
     });

@@ -45,6 +45,9 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
             if (report.skipped.length > 0) {
                 lines.push(`  skipped (exists — re-run with --force): ${report.skipped.join(', ')}`);
             }
+            if (report.retired.length > 0) {
+                lines.push(`  skipped (status: retired — not installable): ${report.retired.join(', ')}`);
+            }
             lines.push('  note: tool-scoping + hooks are Claude-Code-only and did NOT travel (see each file header)');
             return lines.join('\n');
         },

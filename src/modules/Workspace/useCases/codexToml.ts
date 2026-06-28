@@ -13,6 +13,8 @@ export type AgentDef = Readonly<{
     name: string;
     description: string; // folded to a single line (best-effort; metadata for the header only)
     tools: string; // the raw `tools:` allowlist value, or '' when none (Claude-Code-enforced, not ported)
+    status: string; // the raw `status:` value, or '' when none — `retired` marks a redirect stub the
+    // emitter must NOT project into Codex (the stub exists only to resolve inbound Claude-Code refs).
     body: string; // everything after the closing frontmatter fence — the system prompt
 }>;
 
@@ -75,7 +77,7 @@ export function parse_agent_def(source: string): AgentDef | null {
         }
     }
 
-    return { name, description, tools: scalar('tools'), body };
+    return { name, description, tools: scalar('tools'), status: scalar('status'), body };
 }
 
 // Escape an arbitrary string for a TOML multiline basic string (`"""…"""`):

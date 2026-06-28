@@ -86,6 +86,19 @@ describe('agents command (corpus agents emit, ADR-0098)', () => {
         expect(out).toContain('skipped (exists — re-run with --force)');
     });
 
+    it('a `status: retired` stub is reported as skipped (not installable), normal agents still emit', async () => {
+        writeFileSync(
+            join(src, 'corpus-evidence-checker.md'),
+            '---\nname: corpus-evidence-checker\nstatus: retired\ndescription: >-\n  Retired — do NOT install.\ntools: Read\n---\n\n# corpus-evidence-checker\n\nRedirect stub.\n'
+        );
+        const { code, out } = await capture(() => run(['emit', '--from', src], cwd));
+        expect(code).toBe(0);
+        expect(out).toContain('skipped (status: retired — not installable): corpus-evidence-checker.toml');
+        // the retired stub is NOT projected; the normal agent is
+        expect(existsSync(join(cwd, '.codex', 'agents', 'corpus-evidence-checker.toml'))).toBe(false);
+        expect(existsSync(join(cwd, '.codex', 'agents', 'corpus-reviewer.toml'))).toBe(true);
+    });
+
     it('with no --from, resolves ./.claude/agents when present (default source)', async () => {
         // place the defs at the default local source the command tries first
         const localAgents = join(cwd, '.claude', 'agents');

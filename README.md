@@ -49,7 +49,7 @@ Run any command with `-i` for its interactive form (`corpus check -i`). The inte
 
 ## The two surfaces
 
-Each command is both a Unix part and an interactive flow:
+Each command is both a direct command and an interactive flow:
 
 - **Direct** — `--json` machine output, exit codes (`0` clean · `1` warnings · `2` error),
   stdout-for-data / stderr-for-messages, `--no-workspace` degradation. Compose it in scripts and CI.

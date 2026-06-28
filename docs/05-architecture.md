@@ -48,10 +48,12 @@ A TypeScript module is composed of a **public contract surface** and **private i
 
 Each module exposes independently-importable contract surfaces, typically through `index.ts`.
 
-| Contract folder | Role                              | Import target                                                                           |
-| --------------- | --------------------------------- | --------------------------------------------------------------------------------------- |
-| `useCases/`     | public write boundary (functions) | `#/modules/<M>/useCases` — `export { fn }` only, **no** `export type` from `useCases/`. |
-| `events/`       | domain event payload types        | `#/modules/<M>/events` — `export type` / values as needed                               |
+| Contract folder      | Role                              | Import target                                                                           |
+| -------------------- | --------------------------------- | --------------------------------------------------------------------------------------- |
+| `useCases/`          | public write boundary (functions) | `#/modules/<M>/useCases` — `export { fn }` only, **no** `export type` from `useCases/`. |
+| `events/` (optional) | domain event payload types        | `#/modules/<M>/events` — `export type` / values as needed                               |
+
+> `events/` is the convention for a module that needs to publish event payload types; the reconcile-only harness has no event bus, so no module currently populates one.
 
 ### 2.2 Private internals
 
@@ -61,10 +63,10 @@ These are implementation details and may change freely inside the module.
 models/
 repositories/
 services/
-validators/
+validators/   (optional)
 ```
 
-These are private unless explicitly promoted to a contract-folder barrel.
+These are private unless explicitly promoted to a contract-folder barrel. `validators/` is the convention for a module that needs them; no module currently has one (invariant checks live inline or in `services/`).
 
 ## 3. Architectural Concepts
 
@@ -91,9 +93,9 @@ Models are the plain data structures that represent your domain. They contain no
 
 Services contain stateless business logic that spans multiple entities or concepts but does not belong in one use case. (e.g. specialized path resolution, AST parsing).
 
-### 3.5 `validators/`
+### 3.5 `validators/` (optional)
 
-Validators enforce invariants. They are pure functions that check whether an operation is valid.
+Validators enforce invariants. They are pure functions that check whether an operation is valid. This is a reserved convention — no module currently has a `validators/` folder; invariant checks live inline or in `services/`.
 
 ## 4. Dependency direction
 
@@ -110,7 +112,7 @@ useCases
   -> repositories
 
 repositories
-  -> external APIs / fs / SQLite
+  -> external APIs / fs / git
 ```
 
 Never the reverse. `repositories` MUST NOT import from `useCases`.

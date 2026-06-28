@@ -30,6 +30,7 @@ export type EmitAgentsReport = Readonly<{
     target: string; // the .codex/agents dir written into
     written: readonly string[]; // <name>.toml files written
     skipped: readonly string[]; // existing files left in place (no --force)
+    retired: readonly string[]; // agent defs marked `status: retired` — intentionally NOT projected
 }>;
 
 export function emit_agents(input: EmitAgentsInput): Result<EmitAgentsReport, AppError> {
@@ -49,6 +50,7 @@ export function emit_agents(input: EmitAgentsInput): Result<EmitAgentsReport, Ap
 
     const written: string[] = [];
     const skipped: string[] = [];
+    const retired: string[] = [];
     const targetRoot = resolve(input.targetDir, '.codex', 'agents');
 
     try {
@@ -56,6 +58,15 @@ export function emit_agents(input: EmitAgentsInput): Result<EmitAgentsReport, Ap
             const def = parse_agent_def(readFileSync(join(input.sourceDir, file), 'utf8'));
             if (def === null) {
                 continue; // not an agent definition (no frontmatter / no name) — skip quietly
+            }
+            if (def.status === 'retired') {
+                // A retired redirect stub (e.g. corpus-evidence-checker) is kept in `agents/` only to
+                // resolve inbound Claude-Code refs; its own body says "do not install it". Honour that —
+                // project NO Codex toml for it. Unlike the quiet non-def skip above, log this one: it is
+                // an intentional drop, not an unrecognised file.
+                retired.push(`${def.name}.toml`);
+                console.error(`skipped ${def.name} (status: retired)`);
+                continue;
             }
             const outPath = join(targetRoot, `${def.name}.toml`);
             // write_new_file errs only on a no-clobber collision (an existing file, no --force) → skip it;
@@ -71,7 +82,7 @@ export function emit_agents(input: EmitAgentsInput): Result<EmitAgentsReport, Ap
         );
     }
 
-    if (written.length === 0 && skipped.length === 0) {
+    if (written.length === 0 && skipped.length === 0 && retired.length === 0) {
         return err(
             createAppError('AgentsSourceEmpty', `no agent definitions to emit in ${input.sourceDir}`, {
                 source: input.sourceDir,
@@ -84,5 +95,6 @@ export function emit_agents(input: EmitAgentsInput): Result<EmitAgentsReport, Ap
         target: targetRoot,
         written,
         skipped,
+        retired,
     });
 }

@@ -4,7 +4,7 @@ This guide defines coding conventions and patterns for clarity, consistency, and
 
 ## TypeScript soundness
 
-Agent-enforced rules for typing and tests — no `any` escapes, lazy assertions, or suppression comments without justification — are **canonical in `AGENTS.md`** under *TypeScript — soundness*. Follow that section for implementation; this document does not repeat it.
+Agent-enforced rules for typing and tests — no `any` escapes, lazy assertions, or suppression comments without justification — are **canonical in `.agents/repo-conventions.md`** under *TypeScript conventions* (the **Soundness** bullet). Follow that section for implementation; this document does not repeat it.
 
 ## Prefer explicit control flow
 
@@ -84,16 +84,24 @@ helpers/format-time.ts    # kebab-case
 
 ### Variable and function names
 
+Variables are `camelCase`. Module-level functions are `snake_case` and declared with `export function` (not `export const` arrows). Both are descriptive and verbose — no abbreviations.
+
 ```typescript
 // ✅ Good: Descriptive, verbose names
 const currentUserPermissions = getUserPermissions();
 const isWorkspaceDirty = workspace.status === 'dirty';
-const calculateFadeOutDuration = (baseDuration: number) => baseDuration * 1.2;
+
+export function current_branch(repoRoot: string): string | null {
+    // ...
+}
 
 // ❌ Bad: Abbreviated, unclear names
 const usrPerms = getUserPermissions();
 const isDrt = workspace.status === 'dirty';
-const calcFade = (d: number) => d * 1.2;
+
+export function cur_br(r: string): string | null {
+    // ...
+}
 ```
 
 ### Type and class names
@@ -148,17 +156,19 @@ import { execSync } from 'node:child_process';
 
 ### Export patterns
 
-```typescript
-// ✅ Good: Named exports
-export const formatTime = (seconds: number) => {
-    /* */
-};
+Module-level functions are declared with `export function`, not `export const` arrows. Always named exports — never default exports.
 
-// ❌ Bad: Default exports
-const formatTime = (seconds: number) => {
+```typescript
+// ✅ Good: Named function declaration
+export function format_time(seconds: number): string {
     /* */
-};
-export default formatTime;
+}
+
+// ❌ Bad: Default export
+function format_time(seconds: number): string {
+    /* */
+}
+export default format_time;
 ```
 
 ### Import paths
@@ -239,14 +249,14 @@ export const handleClick = (onClick?: () => void): void => {
 
 ```typescript
 // ✅ Good: Clear, descriptive function names
-export const calculateSandboxPath = ({ basePath, slug }: CalculateSandboxPathInput): string => {
+export function calculate_sandbox_path({ basePath, slug }: CalculateSandboxPathInput): string {
     return `${basePath}/${slug}`;
-};
+}
 
 // ❌ Bad: Abbreviated, unclear names
-export const calcPath = (b: string, s: string): string => {
+export function calc_path(b: string, s: string): string {
     return `${b}/${s}`;
-};
+}
 ```
 
 ### Parameter patterns
@@ -299,9 +309,9 @@ type CreateSandboxOutput = {
     branch: string;
 };
 
-export const createSandbox = (input: CreateSandboxInput): CreateSandboxOutput => {
+export function create_sandbox(input: CreateSandboxInput): CreateSandboxOutput {
     // ...
-};
+}
 ```
 
 ## Conventional programming patterns
