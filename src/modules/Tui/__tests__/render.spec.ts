@@ -138,12 +138,12 @@ describe('format_board', () => {
 
 describe('format_worktrees', () => {
     it('renders entries and an empty placeholder', () => {
-        expect(format_worktrees([])).toContain('no corpus worktrees');
+        expect(format_worktrees([])).toContain('no suspec worktrees');
         const out = format_worktrees([
-            { branch: 'corpus/x', path: '/wt/x', dirty: false },
-            { branch: 'corpus/y', path: '/wt/y', dirty: true },
+            { branch: 'suspec/x', path: '/wt/x', dirty: false },
+            { branch: 'suspec/y', path: '/wt/y', dirty: true },
         ]);
-        expect(out).toContain('corpus/x');
+        expect(out).toContain('suspec/x');
         expect(out).toContain('clean');
         expect(out).toContain('dirty');
     });
@@ -177,7 +177,7 @@ describe('format_review_report (AC-023: facts + route, never a verdict)', () => 
         expect(stale).toContain('re-review');
     });
 
-    it('surfaces spec-coverage drift as NEUTRAL info — a dim line, never a finding (corpus-cli#1)', () => {
+    it('surfaces spec-coverage drift as NEUTRAL info — a dim line, never a finding (suspec-cli#1)', () => {
         const out = format_review_report(
             reviewReport({
                 specCoverageDrift: {

@@ -27,7 +27,7 @@ Verify with: a test.
 `;
 
 beforeEach(() => {
-    repo = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-rrbs-')));
+    repo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-rrbs-')));
     git(['init']);
     git(['config', 'user.email', 't@e.com']);
     git(['config', 'user.name', 'T']);

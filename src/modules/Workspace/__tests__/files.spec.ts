@@ -9,7 +9,7 @@ import { assertErr } from '../../../infra/errors/testing/assertErr.ts';
 
 let dir: string;
 beforeEach(() => {
-    dir = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-files-')));
+    dir = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-files-')));
 });
 afterEach(() => {
     rmSync(dir, { recursive: true, force: true });

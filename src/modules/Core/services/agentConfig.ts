@@ -1,7 +1,7 @@
-// Parse the code repo's `.corpus/config.yaml` `agents:` block into adapter records, and resolve the
+// Parse the code repo's `.suspec/config.yaml` `agents:` block into adapter records, and resolve the
 // adapter a launch should use. PURE (text in, records out) — the file read lives in the use-case.
 //
-// No YAML dependency: like the rest of corpus-cli (frontmatter is hand-scanned in taskLocator), this
+// No YAML dependency: like the rest of suspec-cli (frontmatter is hand-scanned in taskLocator), this
 // reads exactly the documented two-level `agents:` shape (future-cli.md "Agent adapters") — a top-level
 // `agents:` mapping whose children are `default: <name>`, an `available:` list (informational, ignored
 // here), and one mapping per adapter carrying `command` / `working_directory` / `startup_instruction`.
@@ -134,16 +134,16 @@ export function parse_agent_config(text: string): AgentConfig {
 export function resolve_adapter(config: AgentConfig, requested?: string): Result<Adapter, AppError> {
     const name = requested ?? config.default;
     if (name === null || name === undefined || name.length === 0) {
-        return err(usage('no agent given and no `agents.default` in .corpus/config.yaml — pass --agent <name>'));
+        return err(usage('no agent given and no `agents.default` in .suspec/config.yaml — pass --agent <name>'));
     }
     const raw = config.adapters.get(name);
     if (raw === undefined) {
         const known = [...config.adapters.keys()];
         const hint = known.length > 0 ? ` (configured: ${known.join(', ')})` : ' (no adapters configured)';
-        return err(usage(`unknown agent "${name}" in .corpus/config.yaml${hint}`));
+        return err(usage(`unknown agent "${name}" in .suspec/config.yaml${hint}`));
     }
     if (raw.command === undefined || raw.command.length === 0) {
-        return err(usage(`agent "${name}" in .corpus/config.yaml has no \`command\``));
+        return err(usage(`agent "${name}" in .suspec/config.yaml has no \`command\``));
     }
     return ok({
         name,

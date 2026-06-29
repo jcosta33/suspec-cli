@@ -6,7 +6,7 @@ import { CANCEL, is_cancelled } from '../useCases/prompter.ts';
 describe('create_mock_prompter', () => {
     it('records the human-facing calls', () => {
         const p = create_mock_prompter();
-        p.intro('Corpus');
+        p.intro('Suspec');
         p.note('hello', 'Title');
         p.info('i');
         p.success('s');
@@ -17,7 +17,7 @@ describe('create_mock_prompter', () => {
         s.start('working');
         s.message('still working');
         s.stop('done');
-        expect(p.calls.intros).toEqual(['Corpus']);
+        expect(p.calls.intros).toEqual(['Suspec']);
         expect(p.calls.notes).toEqual([{ message: 'hello', title: 'Title' }]);
         expect(p.calls.infos).toEqual(['i']);
         expect(p.calls.successes).toEqual(['s']);

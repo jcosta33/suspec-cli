@@ -2,7 +2,7 @@
 name: implement-task
 type: agent-guide
 description: >-
-  Implement a Corpus task packet: read the sources first, stay inside scope, run
+  Implement a Suspec task packet: read the sources first, stay inside scope, run
   every Verify item and paste real output, self-review your diff before
   handoff. ALWAYS apply when given a task packet (`type: task`) or asked to
   implement against a spec's requirements. Do not edit outside the task's

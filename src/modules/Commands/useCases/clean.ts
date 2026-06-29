@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
-// `corpus clean` — prune spent ephemeral artifacts (SPEC-corpus-clean, ADR-0106 item 2). Dry-run by
+// `suspec clean` — prune spent ephemeral artifacts (SPEC-suspec-clean, ADR-0106 item 2). Dry-run by
 // default: it REPORTS the tasks/reviews whose work reached a terminal status. `--apply` prunes them —
 // a GITIGNORED/untracked candidate is deleted (the working set, recoverable from the run); a COMMITTED
 // one is moved under archive/ (ADR-0096). Touches ONLY spent tasks/reviews — never the durable set
 // (specs/findings/decisions/board).
-//   corpus clean            report spent ephemeral artifacts (dry run)
-//   corpus clean --apply    prune them — delete gitignored, archive committed (needs a git repo)
-//   corpus clean --json     machine output
+//   suspec clean            report spent ephemeral artifacts (dry run)
+//   suspec clean --apply    prune them — delete gitignored, archive committed (needs a git repo)
+//   suspec clean --json     machine output
 
 import { isErr } from '../../../infra/errors/result.ts';
 import { project, emit_error, scan_clean_candidates, apply_clean } from '../../Core/useCases/index.ts';
@@ -37,7 +37,7 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
             json,
             render: (result) => {
                 const lines = [
-                    `corpus clean --apply — ${String(result.deleted.length)} deleted, ${String(result.archived.length)} archived`,
+                    `suspec clean --apply — ${String(result.deleted.length)} deleted, ${String(result.archived.length)} archived`,
                 ];
                 for (const path of result.deleted) {
                     lines.push(`  deleted   ${path}  (gitignored — recoverable from the run)`);
@@ -58,7 +58,7 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
         json,
         render: (report) => {
             const lines = [
-                `corpus clean — ${String(report.candidates.length)} prunable, ${String(report.keptCount)} kept (dry run; --apply to prune)`,
+                `suspec clean — ${String(report.candidates.length)} prunable, ${String(report.keptCount)} kept (dry run; --apply to prune)`,
             ];
             for (const candidate of report.candidates) {
                 lines.push(`  ${candidate.path}  (${candidate.kind} status: ${candidate.status} — spent)`);

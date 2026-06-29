@@ -9,7 +9,7 @@ import { check_workspace } from '../useCases/checkWorkspace.ts';
 let ws: string;
 
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'corpus-ws-'));
+    ws = mkdtempSync(join(tmpdir(), 'suspec-ws-'));
 });
 
 afterEach(() => {
@@ -516,19 +516,19 @@ preserves: [PG-001]
             .map((f) => f.message);
 
     it('does NOT flag an Execution entry with a COMPLETE digest (both pins filled)', () => {
-        writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- **2026-06-26 — shipped** (corpus-cli \`abc1234\`).\n  - reviewed-sha: \`abc1234\` · evidence-hash: \`deadbeefcafe0000\`\n`);
+        writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- **2026-06-26 — shipped** (suspec-cli \`abc1234\`).\n  - reviewed-sha: \`abc1234\` · evidence-hash: \`deadbeefcafe0000\`\n`);
         withTemplates();
         expect(digestFindings()).toEqual([]);
     });
 
     it('does NOT flag a prose Execution entry with NO digest (legacy / simple 1:1 work)', () => {
-        writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- **2026-06-26 — shipped** (corpus-cli \`abc1234\`).\n  - Run summary: changed login.ts; ran the suite.\n`);
+        writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- **2026-06-26 — shipped** (suspec-cli \`abc1234\`).\n  - Run summary: changed login.ts; ran the suite.\n`);
         withTemplates();
         expect(digestFindings()).toEqual([]);
     });
 
     it('FLAGS a half-stamped Execution entry (one pin, not the other) as a warning, never blocking', () => {
-        writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- **2026-06-26 — shipped** (corpus-cli \`abc1234\`).\n  - reviewed-sha: \`abc1234\`\n`);
+        writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- **2026-06-26 — shipped** (suspec-cli \`abc1234\`).\n  - reviewed-sha: \`abc1234\`\n`);
         withTemplates();
         const report = assertOk(check_workspace({ workspaceDir: ws }));
         const finding = report.workspaceFindings.find((f) => f.code === 'incomplete-execution-digest');
@@ -538,7 +538,7 @@ preserves: [PG-001]
     });
 
     it('does NOT flag pins left as unfilled {{placeholders}} (a freshly-scaffolded spec)', () => {
-        writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- **{{date}} — {{summary}}**\n  - reviewed-sha: {{code SHA reviewed}} · evidence-hash: {{written by corpus stamp}}\n`);
+        writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- **{{date}} — {{summary}}**\n  - reviewed-sha: {{code SHA reviewed}} · evidence-hash: {{written by suspec stamp}}\n`);
         withTemplates();
         expect(digestFindings()).toEqual([]);
     });
@@ -553,7 +553,7 @@ preserves: [PG-001]
     it('does NOT flag an active spec that carries a ## Execution section', () => {
         writeSpec(
             'shipped',
-            `${CONFORMANT.replace('status: ready', 'status: active')}\n## Execution\n\n- **2026-06-26 — shipped** (corpus-cli \`abc1234\`).\n`
+            `${CONFORMANT.replace('status: ready', 'status: active')}\n## Execution\n\n- **2026-06-26 — shipped** (suspec-cli \`abc1234\`).\n`
         );
         withTemplates();
         expect(noExecutionFindings()).toEqual([]);
@@ -603,7 +603,7 @@ preserves: [PG-001]
 
     it('FLAGS a ready spec WITH a ## Execution section as a warning, never blocking (FINDING-0116)', () => {
         // status: ready (the CONFORMANT default) + a real ## Execution section = shipped but not in-force.
-        writeSpec('shipped', `${CONFORMANT}\n## Execution\n\n- **2026-06-26 — shipped** (corpus-cli \`abc1234\`).\n`);
+        writeSpec('shipped', `${CONFORMANT}\n## Execution\n\n- **2026-06-26 — shipped** (suspec-cli \`abc1234\`).\n`);
         withTemplates();
         const finding = nonactiveExecutionFindings();
         expect(finding).toHaveLength(1);
@@ -618,7 +618,7 @@ preserves: [PG-001]
     it('FLAGS a done spec WITH a ## Execution section as a warning (FINDING-0116)', () => {
         writeSpec(
             'shipped',
-            `${CONFORMANT.replace('status: ready', 'status: done')}\n## Execution\n\n- **2026-06-26 — shipped** (corpus-cli \`abc1234\`).\n`
+            `${CONFORMANT.replace('status: ready', 'status: done')}\n## Execution\n\n- **2026-06-26 — shipped** (suspec-cli \`abc1234\`).\n`
         );
         withTemplates();
         const finding = nonactiveExecutionFindings();
@@ -629,7 +629,7 @@ preserves: [PG-001]
     it('does NOT flag an active spec WITH a ## Execution section (the happy path — in-force + shipped)', () => {
         writeSpec(
             'shipped',
-            `${CONFORMANT.replace('status: ready', 'status: active')}\n## Execution\n\n- **2026-06-26 — shipped** (corpus-cli \`abc1234\`).\n`
+            `${CONFORMANT.replace('status: ready', 'status: active')}\n## Execution\n\n- **2026-06-26 — shipped** (suspec-cli \`abc1234\`).\n`
         );
         withTemplates();
         expect(nonactiveExecutionFindings()).toEqual([]);
@@ -650,7 +650,7 @@ preserves: [PG-001]
             `${CONFORMANT.replace('id: SPEC-good', 'id: SPEC-old\nsuperseded_by: SPEC-new').replace(
                 'status: ready',
                 'status: superseded'
-            )}\n## Execution\n\n- **2026-06-26 — shipped** (corpus-cli \`abc1234\`).\n`
+            )}\n## Execution\n\n- **2026-06-26 — shipped** (suspec-cli \`abc1234\`).\n`
         );
         writeSpec('new', CONFORMANT.replace('id: SPEC-good', 'id: SPEC-new')); // the live replacement
         withTemplates();

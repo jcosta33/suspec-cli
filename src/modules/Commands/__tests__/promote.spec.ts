@@ -9,7 +9,7 @@ const VERDICT_WORDS = /\b(Pass|Fail|Unverified|Blocked)\b/;
 
 let ws: string;
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'corpus-promote-cmd-'));
+    ws = mkdtempSync(join(tmpdir(), 'suspec-promote-cmd-'));
 });
 afterEach(() => {
     rmSync(ws, { recursive: true, force: true });
@@ -68,7 +68,7 @@ describe('promote command (direct surface, AC-002/AC-005)', () => {
     it('no task → usage error, exit 2', async () => {
         const { code, err } = await capture(() => run([], ws));
         expect(code).toBe(2);
-        expect(err).toContain('usage: corpus promote');
+        expect(err).toContain('usage: suspec promote');
     });
 
     it('refuses to clobber an existing finding; --force overwrites exactly that one file', async () => {

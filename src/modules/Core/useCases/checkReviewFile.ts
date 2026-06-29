@@ -1,9 +1,9 @@
 // CheckEngine, review-packet scope (M2, AC-028 / ADR-0079; C013 per ADR-0083): run C012 (coverage)
-// and C013 (verify-evidence-binding) on a review file. `corpus check <review-file>` recognizes a
+// and C013 (verify-evidence-binding) on a review file. `suspec check <review-file>` recognizes a
 // `type: review` packet and reconciles its coverage table against the source spec — keyed on the task
 // packet's declared `scope` — at both checks' `warning` severity. Read-only; writes nothing. This is
-// the `corpus check` face of the same C012/C013 the review engine surfaces (one check, two commands;
-// ADR-0079/0083 — AC-005 requires BOTH `corpus review` and `corpus check` to surface the C013 fact).
+// the `suspec check` face of the same C012/C013 the review engine surfaces (one check, two commands;
+// ADR-0079/0083 — AC-005 requires BOTH `suspec review` and `suspec check` to surface the C013 fact).
 //
 // Resolution: the review's frontmatter `task:` → tasks/<task>.md (scope + source spec id) → the
 // specs/*/spec.md whose id matches (requirement ids + named verify commands + draft-guard status).
@@ -78,7 +78,7 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
     // The resolved spec view the checks key on: the requirement ids, the named Verify command per id,
     // and the source status (for the draft guard). It comes from the LIVE spec when resolvable, or —
     // when the live spec is in a SEPARATE repo (cross-root) — from the task's EMBEDDED snapshot
-    // (`## Spec snapshot`, ADR-0100 / corpus-cli#2), so a cross-root review is still validated.
+    // (`## Spec snapshot`, ADR-0100 / suspec-cli#2), so a cross-root review is still validated.
     let specView: { requirementIds: readonly string[]; namedCommandById: Map<string, string | null>; status: string | null } | null = null;
     let taskScope: readonly string[] | null = null;
 
@@ -147,7 +147,7 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
         verifyBlocks: review.verifyBlocks,
     });
     // C016 (ADR-0097): the GATE path blocks an empty-Evidence Pass row — the contract's hard-error
-    // pass-needs-evidence rule, which the `corpus check` surface (unlike the advisory reconcile) is the
+    // pass-needs-evidence rule, which the `suspec check` surface (unlike the advisory reconcile) is the
     // place to enforce. NOT draft-guarded: an empty-evidence Pass is a structural contradiction
     // independent of the source spec's status (the row claims Pass with nothing backing it).
     const passEvidence = check_pass_evidence(review.coverageRows);

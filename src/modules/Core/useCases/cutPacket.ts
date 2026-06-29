@@ -19,7 +19,7 @@ export type CutPacketInput = Readonly<{
     scope: readonly string[];
     taskId?: string;
     // Overwrite an existing packet (R5-I08) — a common case is re-cutting with `--scope` after a first
-    // `corpus new task` (no scope) wrote an unbounded stub that no-clobber then refused to replace.
+    // `suspec new task` (no scope) wrote an unbounded stub that no-clobber then refused to replace.
     force?: boolean;
 }>;
 
@@ -72,8 +72,8 @@ function render_packet(input: {
         input.verify.length > 0
             ? input.verify.map((v) => `- [ ] ${v.command ?? '{{command}}'} (${v.id})`).join('\n')
             : '- [ ] {{command}}';
-    // The embedded spec slice (ADR-0100, corpus-cli#2): the scoped requirements (id + Verify command)
-    // copied at cut time, so `corpus check`/`review` can validate a task/review even when the live spec
+    // The embedded spec slice (ADR-0100, suspec-cli#2): the scoped requirements (id + Verify command)
+    // copied at cut time, so `suspec check`/`review` can validate a task/review even when the live spec
     // lives in a SEPARATE repo (the dedicated-workspace / spec-external layout) and is unresolvable from
     // the workspace. Generated; re-cut to refresh.
     const embeddedSlice =

@@ -10,7 +10,7 @@ let repo: string;
 const git = (args: string[]) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' });
 
 beforeEach(() => {
-    repo = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-wt-cmd-')));
+    repo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-wt-cmd-')));
     git(['init']);
     git(['config', 'user.email', 't@e.com']);
     git(['config', 'user.name', 'T']);
@@ -41,16 +41,16 @@ async function capture(fn: () => Promise<number>): Promise<{ out: string; err: s
 }
 
 describe('worktree command (direct surface, AC-009/010/002)', () => {
-    it('create → exit 0 and the worktree exists on corpus/<slug>', async () => {
+    it('create → exit 0 and the worktree exists on suspec/<slug>', async () => {
         const { code } = await capture(() => run(['create', 'checkout'], repo));
         expect(code).toBe(0);
-        expect(git(['worktree', 'list'])).toContain('corpus/checkout');
+        expect(git(['worktree', 'list'])).toContain('suspec/checkout');
     });
 
     it('create with --task makes a per-task branch; a second create reuses', async () => {
         const first = await capture(() => run(['create', 'checkout', '--task', 'ac-1'], repo));
         expect(first.code).toBe(0);
-        expect(git(['worktree', 'list'])).toContain('corpus/checkout/ac-1');
+        expect(git(['worktree', 'list'])).toContain('suspec/checkout/ac-1');
         const second = await capture(() => run(['create', 'checkout', '--task', 'ac-1'], repo));
         expect(second.code).toBe(0);
         expect(second.out).toContain('reusing');
@@ -64,8 +64,8 @@ describe('worktree command (direct surface, AC-009/010/002)', () => {
         writeFileSync(join(repo, 'tasks', 'TASK-alias.md'), '---\ntype: task\nid: TASK-real-name\n---\n');
         const created = await capture(() => run(['create', 'checkout', '--task', 'TASK-alias'], repo));
         expect(created.code).toBe(0);
-        expect(git(['worktree', 'list'])).toContain('corpus/checkout/real-name');
-        expect(git(['worktree', 'list'])).not.toContain('corpus/checkout/alias');
+        expect(git(['worktree', 'list'])).toContain('suspec/checkout/real-name');
+        expect(git(['worktree', 'list'])).not.toContain('suspec/checkout/alias');
     });
 
     it('create --task that names no cut task fails early, listing the real tasks — never a silent mismatch (SW-005)', async () => {
@@ -80,7 +80,7 @@ describe('worktree command (direct surface, AC-009/010/002)', () => {
         expect(code).toBe(2);
         expect(err).toContain('no task matching "discount"');
         expect(err).toContain('TASK-checkout-discount');
-        expect(git(['worktree', 'list'])).not.toContain('corpus/checkout');
+        expect(git(['worktree', 'list'])).not.toContain('suspec/checkout');
     });
 
     it('create with no slug → usage error exit 2', async () => {
@@ -99,7 +99,7 @@ describe('worktree command (direct surface, AC-009/010/002)', () => {
         const human = await capture(() => run(['list'], repo));
         expect(human.code).toBe(0);
         const machine = await capture(() => run(['list', '--json'], repo));
-        expect(JSON.parse(machine.out).worktrees.some((w: { branch: string }) => w.branch === 'corpus/checkout')).toBe(
+        expect(JSON.parse(machine.out).worktrees.some((w: { branch: string }) => w.branch === 'suspec/checkout')).toBe(
             true
         );
     });
@@ -108,7 +108,7 @@ describe('worktree command (direct surface, AC-009/010/002)', () => {
         await capture(() => run(['create', 'checkout'], repo));
         const removed = await capture(() => run(['remove', 'checkout', '--force'], repo));
         expect(removed.code).toBe(0);
-        expect(git(['worktree', 'list'])).not.toContain('corpus/checkout');
+        expect(git(['worktree', 'list'])).not.toContain('suspec/checkout');
         expect((await capture(() => run(['remove'], repo))).code).toBe(2);
     });
 
@@ -125,12 +125,12 @@ describe('worktree command (direct surface, AC-009/010/002)', () => {
     it('no subcommand (non-TTY) → prints usage, never the literal "undefined"', async () => {
         const { code, err } = await capture(() => run([], repo));
         expect(code).toBe(2);
-        expect(err).toContain('usage: corpus worktree');
+        expect(err).toContain('usage: suspec worktree');
         expect(err).not.toContain('undefined');
     });
 
     it('create on a repo with no commits → exit 2 with a helpful message, not a raw git error', async () => {
-        const fresh = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-nocommit-')));
+        const fresh = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-nocommit-')));
         execFileSync('git', ['init'], { cwd: fresh });
         try {
             const { code, err } = await capture(() => run(['create', 'checkout'], fresh));
@@ -146,11 +146,11 @@ describe('worktree command (direct surface, AC-009/010/002)', () => {
         const { code, err } = await capture(() => run(['create', 'checkout', '--base', '-x'], repo));
         expect(code).toBe(2);
         expect(err).toContain('invalid --base');
-        expect(git(['worktree', 'list'])).not.toContain('corpus/checkout');
+        expect(git(['worktree', 'list'])).not.toContain('suspec/checkout');
     });
 
     it('outside a git repo → exit 2', async () => {
-        const notRepo = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-norepo-')));
+        const notRepo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-norepo-')));
         try {
             expect((await capture(() => run(['list'], notRepo))).code).toBe(2);
         } finally {
@@ -161,7 +161,7 @@ describe('worktree command (direct surface, AC-009/010/002)', () => {
     it('create advises when the base branch is ahead of its remote (#46)', async () => {
         // Stand up an origin remote, push the base, then add an unpushed local commit so the base is
         // ahead of its remote — the advisory must surface so a PR is not cut on an unpushed base.
-        const remote = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-wt-remote-')));
+        const remote = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-wt-remote-')));
         try {
             execFileSync('git', ['init', '--bare'], { cwd: remote, encoding: 'utf8' });
             git(['remote', 'add', 'origin', remote]);
@@ -186,7 +186,7 @@ describe('worktree command (direct surface, AC-009/010/002)', () => {
 
     it('create with a runtime-isolation config surfaces the assigned port (AC-010)', async () => {
         writeFileSync(
-            join(repo, 'corpus.config.json'),
+            join(repo, 'suspec.config.json'),
             JSON.stringify({ runtimeIsolation: { portRangeStart: 6000, portRangeSize: 20 } })
         );
         const { out, code } = await capture(() => run(['create', 'checkout'], repo));
@@ -196,7 +196,7 @@ describe('worktree command (direct surface, AC-009/010/002)', () => {
 
     it('create --json carries the port field when runtime isolation is configured (AC-010/008)', async () => {
         writeFileSync(
-            join(repo, 'corpus.config.json'),
+            join(repo, 'suspec.config.json'),
             JSON.stringify({ runtimeIsolation: { portRangeStart: 6000, portRangeSize: 20 } })
         );
         const { out } = await capture(() => run(['create', 'checkout', '--json'], repo));

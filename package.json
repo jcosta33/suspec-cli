@@ -1,28 +1,28 @@
 {
-    "name": "corpus-cli",
+    "name": "suspec-cli",
     "version": "1.0.0",
-    "description": "The reference CLI for the Corpus framework — a reconcile-only harness for spec-driven agent work.",
+    "description": "The reference CLI for the Suspec framework — a reconcile-only harness for spec-driven agent work.",
     "keywords": [
-        "corpus",
+        "suspec",
         "spec-driven",
         "agents",
         "cli",
         "reconcile",
         "worktree"
     ],
-    "homepage": "https://github.com/jcosta33/corpus-cli#readme",
+    "homepage": "https://github.com/jcosta33/suspec-cli#readme",
     "bugs": {
-        "url": "https://github.com/jcosta33/corpus-cli/issues"
+        "url": "https://github.com/jcosta33/suspec-cli/issues"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/jcosta33/corpus-cli.git"
+        "url": "git+https://github.com/jcosta33/suspec-cli.git"
     },
     "license": "MIT",
     "author": "José Costa",
     "type": "module",
     "bin": {
-        "corpus": "./bin/corpus.js"
+        "suspec": "./bin/suspec.js"
     },
     "files": [
         "bin",

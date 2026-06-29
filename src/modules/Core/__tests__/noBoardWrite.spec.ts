@@ -9,7 +9,7 @@ import { ok } from '../../../infra/errors/result.ts';
 import { pull_intake, type GhFetcher } from '../useCases/pullIntake.ts';
 import { scaffold_finding } from '../useCases/scaffoldFinding.ts';
 
-// ADR-0084 D3 — THE LOAD-BEARING INVARIANT: no corpus-cli command writes `status.md` or any board
+// ADR-0084 D3 — THE LOAD-BEARING INVARIANT: no suspec-cli command writes `status.md` or any board
 // state; the board is hand-edited. The board-mutating close is PARKED (DECIDE #1.2). This boundary
 // regression test makes the no-board-write property an invariant, not a convention — it asserts the
 // write-set of EVERY use-case layer (Commands, Sol, Core, Workspace) excludes the board, and that the
@@ -27,7 +27,7 @@ import { scaffold_finding } from '../useCases/scaffoldFinding.ts';
 // word token near a write call — the realistic ways a board write would be spelled. The byte-unchanged
 // dynamic checks below are the runtime backstop for paths a static scan cannot see: `pull`/`promote`
 // here; the other shipped writers get the same backstop in Commands/__tests__/ — `review --write`
-// (review.spec) and `corpus run` (run.spec) — each driven against a pre-existing board.
+// (review.spec) and `suspec run` (run.spec) — each driven against a pre-existing board.
 
 // The four layers that hold use-cases (one function per file). The scan must cover every layer a write
 // could be wired into, not Core alone.
@@ -96,7 +96,7 @@ describe('the prepare verbs leave the board byte-unchanged (AC-003)', () => {
     const fetch_stub: GhFetcher = () => ok({ title: 'T', body: 'B' });
 
     beforeEach(() => {
-        ws = mkdtempSync(join(tmpdir(), 'corpus-board-'));
+        ws = mkdtempSync(join(tmpdir(), 'suspec-board-'));
     });
     afterEach(() => {
         rmSync(ws, { recursive: true, force: true });

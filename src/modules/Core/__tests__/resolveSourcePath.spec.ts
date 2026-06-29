@@ -7,7 +7,7 @@ import { build_source_exists, infer_workspace_root } from '../useCases/resolveSo
 
 let ws: string;
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'corpus-src-'));
+    ws = mkdtempSync(join(tmpdir(), 'suspec-src-'));
     mkdirSync(join(ws, 'specs', 'demo'), { recursive: true });
     mkdirSync(join(ws, 'intake'), { recursive: true });
     writeFileSync(join(ws, 'specs', 'demo', 'spec.md'), '---\n---\n');
@@ -32,9 +32,9 @@ describe('infer_workspace_root — the parent of the nearest `specs/` dir', () =
     });
 
     it('does NOT overshoot to an ancestor that merely looks like a workspace', () => {
-        // A workspace nested inside an outer dir (e.g. another corpus repo) — the inference must stop at
+        // A workspace nested inside an outer dir (e.g. another suspec repo) — the inference must stop at
         // THIS workspace's `specs/` parent, not climb to the outer dir. Keyed on `specs/`, not a marker.
-        const outer = mkdtempSync(join(tmpdir(), 'corpus-outer-'));
+        const outer = mkdtempSync(join(tmpdir(), 'suspec-outer-'));
         try {
             const inner = join(outer, 'nested-workspace');
             mkdirSync(join(inner, 'specs', 'feat'), { recursive: true });

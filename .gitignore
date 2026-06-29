@@ -31,15 +31,15 @@ node_modules
 
 # Coverage
 coverage
-# --- Corpus (code-repo footprint) ---
-# The Corpus workspace governing this repo is the sibling corpus-hq repo; only
+# --- Suspec (code-repo footprint) ---
+# The Suspec workspace governing this repo is the sibling suspec-hq repo; only
 # code-repo scratch is ignored here (the kit's .gitignore.additions).
 .agents/tmp/
 tmp/
-.corpus/
+.suspec/
 # legacy pre-migration execution frames (local scratch)
 .agents/tasks/
 .worktrees/
 
-# Generated Codex agent definitions (corpus agents emit --codex) — regenerate, do not commit
+# Generated Codex agent definitions (suspec agents emit --codex) — regenerate, do not commit
 .codex/

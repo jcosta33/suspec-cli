@@ -86,9 +86,9 @@ ${input.body}
 `;
 }
 
-const PASTE_PLACEHOLDER = `{{Paste the upstream ticket/PR/page content verbatim here. \`corpus pull\` could
+const PASTE_PLACEHOLDER = `{{Paste the upstream ticket/PR/page content verbatim here. \`suspec pull\` could
 not fetch this ref automatically — only \`gh-issue\`-style refs are fetched via the
-\`gh\` CLI today (richer per-tracker connectors are deferred \`corpus-*\` plugins). Do
+\`gh\` CLI today (richer per-tracker connectors are deferred \`suspec-*\` plugins). Do
 not normalize it: the spec interprets, the intake preserves what was actually asked.}}`;
 
 function today(): string {
@@ -98,7 +98,7 @@ function today(): string {
 export function pull_intake(input: PullIntakeInput): Result<PullIntakeReport, AppError> {
     const ref = input.ref.trim();
     if (ref.length === 0) {
-        return err(usage_error('usage: corpus pull <ref> — a ticket ref (a gh issue, a URL, or a tracker key)'));
+        return err(usage_error('usage: suspec pull <ref> — a ticket ref (a gh issue, a URL, or a tracker key)'));
     }
 
     const slug = slugify_ref(ref);

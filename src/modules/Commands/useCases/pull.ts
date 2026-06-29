@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-// `corpus pull <ref>` — the prepare engine's intake command surface (W5, AC-001/AC-005). Thin: wire
+// `suspec pull <ref>` — the prepare engine's intake command surface (W5, AC-001/AC-005). Thin: wire
 // the real `gh` fetcher to the engine, write one `intake/<slug>.md`, and report its path. It writes
 // no spec, mutates no board, and emits no review result/board-flip/merge decision — it prepares a
 // file and reports where it landed (a verdict-free prepare op, ADR-0077 D8).
-//   corpus pull <ref>            snapshot a ticket into intake/<slug>.md (verbatim; gh-issue fetched)
-//   corpus pull <ref> --force    overwrite an existing snapshot (else no-clobber)
-//   corpus pull <ref> --json     machine output (the path + slug; never a verdict)
+//   suspec pull <ref>            snapshot a ticket into intake/<slug>.md (verbatim; gh-issue fetched)
+//   suspec pull <ref> --force    overwrite an existing snapshot (else no-clobber)
+//   suspec pull <ref> --json     machine output (the path + slug; never a verdict)
 
 import { project, emit_error, usage_error, pull_intake } from '../../Core/useCases/index.ts';
 import { fetch_gh_issue } from '../../Workspace/useCases/index.ts';
@@ -23,7 +23,7 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
 
     if (ref === undefined) {
         return emit_error(
-            usage_error('usage: corpus pull <ref> — a ticket ref (a gh issue, a URL, or a tracker key)'),
+            usage_error('usage: suspec pull <ref> — a ticket ref (a gh issue, a URL, or a tracker key)'),
             json
         );
     }

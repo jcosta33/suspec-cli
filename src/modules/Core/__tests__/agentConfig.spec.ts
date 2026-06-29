@@ -3,10 +3,10 @@ import { describe, it, expect } from 'vitest';
 import { parse_agent_config, resolve_adapter } from '../services/agentConfig.ts';
 import { isErr } from '../../../infra/errors/result.ts';
 
-// The documented `.corpus/config.yaml` shape (future-cli.md "Agent adapters").
+// The documented `.suspec/config.yaml` shape (future-cli.md "Agent adapters").
 const CONFIG = `knowledge:
   type: git
-  path: ../corpus-workspace
+  path: ../suspec-workspace
 project:
   id: my-app
 agents:

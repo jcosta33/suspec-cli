@@ -84,7 +84,7 @@ export function project<TValue extends { readonly level: OutcomeLevel }>(
     return exit_code_for(value.level);
 }
 
-// A command that needs a Corpus workspace but was run with `--no-workspace` or outside one returns
+// A command that needs a Suspec workspace but was run with `--no-workspace` or outside one returns
 // this (AC-002) — a clear message and exit 2, never an unhandled crash.
 export function no_workspace_error(capability: string): AppError<'NoWorkspace', { capability: string }> {
     return createAppError('NoWorkspace', `needs a workspace for ${capability}`, { capability });

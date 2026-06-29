@@ -9,7 +9,7 @@
 // target) — the inverse is a different, higher-FP check (a guide naming `foo.md` in prose may mean a
 // repo file, not a bundled reference). Matching is lenient — the bare filename anywhere in the body
 // counts as "named" (a markdown link, a bare mention, a code span) — so the check stays 0-FP on a
-// guide that does point at its references (measured 0-orphan on the real skills corpus, ADR-0097).
+// guide that does point at its references (measured 0-orphan on the real skills suspec, ADR-0097).
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';

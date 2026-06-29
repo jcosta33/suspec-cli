@@ -8,7 +8,7 @@ import { scan_clean_candidates } from '../useCases/scanCleanCandidates.ts';
 
 let ws: string;
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'corpus-clean-'));
+    ws = mkdtempSync(join(tmpdir(), 'suspec-clean-'));
 });
 afterEach(() => {
     rmSync(ws, { recursive: true, force: true });
@@ -22,7 +22,7 @@ function writeArtifact(dir: string, name: string, fm: Record<string, string>): v
     writeFileSync(join(ws, dir, name), `---\n${front}\n---\n\nbody\n`);
 }
 
-describe('scan_clean_candidates (SPEC-corpus-clean, ADR-0106 item 2)', () => {
+describe('scan_clean_candidates (SPEC-suspec-clean, ADR-0106 item 2)', () => {
     it('reports spent tasks (closed) and reviews (pass/waived) as prune candidates', () => {
         writeArtifact('tasks', 'TASK-done.md', { type: 'task', id: 'TASK-done', status: 'closed' });
         writeArtifact('reviews', 'r-passed.md', { type: 'review', id: 'REVIEW-p', status: 'pass' });

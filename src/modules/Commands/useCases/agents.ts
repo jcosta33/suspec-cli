@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-// `corpus agents emit --codex [--from <dir>] [--force]` — project the Claude Code agent definitions
-// (the corpus-agents `agents/*.md` form) into OpenAI Codex `.codex/agents/*.toml` (ADR-0098). Reuse,
+// `suspec agents emit --codex [--from <dir>] [--force]` — project the Claude Code agent definitions
+// (the suspec-agents `agents/*.md` form) into OpenAI Codex `.codex/agents/*.toml` (ADR-0098). Reuse,
 // not duplication: the markdown defs stay the single source; this generates the Codex form. It writes
 // definitions, never runs an agent (the reconcile-only posture holds, ADR-0077).
 //
 // Source resolution (no network): `--from <dir>` if given, else `./.claude/agents` if present, else
-// `../corpus-agents/agents`. Honest scope: only the prose discipline ports — every emitted file says
+// `../suspec-agents/agents`. Honest scope: only the prose discipline ports — every emitted file says
 // tool-scoping + hooks are Claude-Code-only.
 
 import { existsSync } from 'node:fs';
@@ -25,7 +25,7 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
     const sub = positional[0] ?? '';
 
     if (sub !== 'emit') {
-        return emit_error(usage_error('usage: corpus agents emit --codex [--from <dir>] [--force]'), json);
+        return emit_error(usage_error('usage: suspec agents emit --codex [--from <dir>] [--force]'), json);
     }
     // `--codex` is the only emit target today, and is the default so a bare `emit` works; the flag is
     // declared (accepted, not an error) so a future target can be added without breaking this surface.
@@ -55,7 +55,7 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
 }
 
 // Resolve the agent-definitions source dir: an explicit `--from`, else the local `.claude/agents`
-// (a workspace that vendored its agents), else the sibling corpus-agents catalog. No network.
+// (a workspace that vendored its agents), else the sibling suspec-agents catalog. No network.
 function resolve_agents_source(cwd: string, from: string | undefined): string {
     if (from !== undefined) {
         return resolve(cwd, from);
@@ -64,5 +64,5 @@ function resolve_agents_source(cwd: string, from: string | undefined): string {
     if (existsSync(local)) {
         return local;
     }
-    return resolve(cwd, '..', 'corpus-agents', 'agents');
+    return resolve(cwd, '..', 'suspec-agents', 'agents');
 }

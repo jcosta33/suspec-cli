@@ -2,7 +2,7 @@
 // a spinner. Pure orchestration over the injected Prompter + the Core engine + Workspace.git, so it
 // is testable with a mock Prompter against a real throwaway git repo.
 
-import { create_worktree, list_corpus_worktrees, remove_worktree, prune_worktrees } from '../../Core/useCases/index.ts';
+import { create_worktree, list_suspec_worktrees, remove_worktree, prune_worktrees } from '../../Core/useCases/index.ts';
 import { resolve_repo_root, current_branch } from '../../Workspace/useCases/index.ts';
 import { isErr } from '../../../infra/errors/result.ts';
 import { type Prompter, is_cancelled } from './prompter.ts';
@@ -10,9 +10,9 @@ import { format_worktrees } from '../services/render.ts';
 
 export type WorktreeFlowDeps = Readonly<{ cwd: string }>;
 
-// Reverse derive_worktree_names: corpus/<spec>[/<task>] → its slug parts.
+// Reverse derive_worktree_names: suspec/<spec>[/<task>] → its slug parts.
 function parse_branch(branch: string): { specSlug: string; taskSlug?: string } {
-    const rest = branch.replace(/^corpus\//, '');
+    const rest = branch.replace(/^suspec\//, '');
     const slash = rest.indexOf('/');
     if (slash === -1) {
         return { specSlug: rest };
@@ -44,9 +44,9 @@ async function create(prompter: Prompter, repoRoot: string): Promise<number> {
 }
 
 async function remove(prompter: Prompter, repoRoot: string): Promise<number> {
-    const report = list_corpus_worktrees(repoRoot);
+    const report = list_suspec_worktrees(repoRoot);
     if (report.worktrees.length === 0) {
-        prompter.warn('No corpus worktrees to remove.');
+        prompter.warn('No suspec worktrees to remove.');
         prompter.outro('Nothing to remove.');
         return 1;
     }
@@ -83,7 +83,7 @@ async function remove(prompter: Prompter, repoRoot: string): Promise<number> {
 }
 
 export async function run_worktree_flow(prompter: Prompter, deps: WorktreeFlowDeps): Promise<number> {
-    prompter.intro('corpus worktree');
+    prompter.intro('suspec worktree');
     const rootResult = resolve_repo_root(deps.cwd);
     if (isErr(rootResult)) {
         prompter.error(rootResult.error.message);
@@ -95,7 +95,7 @@ export async function run_worktree_flow(prompter: Prompter, deps: WorktreeFlowDe
     const action = await prompter.select({
         message: 'Worktree action',
         options: [
-            { value: 'list', label: 'List corpus worktrees' },
+            { value: 'list', label: 'List suspec worktrees' },
             { value: 'create', label: 'Create a worktree for a spec' },
             { value: 'remove', label: 'Remove a worktree' },
             { value: 'prune', label: 'Prune stale worktrees' },
@@ -107,7 +107,7 @@ export async function run_worktree_flow(prompter: Prompter, deps: WorktreeFlowDe
     }
 
     if (action === 'list') {
-        prompter.note(format_worktrees(list_corpus_worktrees(repoRoot).worktrees), 'Worktrees');
+        prompter.note(format_worktrees(list_suspec_worktrees(repoRoot).worktrees), 'Worktrees');
         prompter.outro('done');
         return 0;
     }

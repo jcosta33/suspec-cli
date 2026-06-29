@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 // The dispatcher (AC-004/014). A thin in-process router over the M1 command surface — no agent
-// fallback, no telemetry/registry bootstrap, no model loop. `corpus` with no command opens the
-// dashboard (TTY) or prints help (piped); `corpus <cmd>` routes to its command; an unknown command
+// fallback, no telemetry/registry bootstrap, no model loop. `suspec` with no command opens the
+// dashboard (TTY) or prints help (piped); `suspec <cmd>` routes to its command; an unknown command
 // prints to stderr and exits 2. The advertised set equals the dispatchable set by construction
 // (see the AC-004 parity test).
 
@@ -40,7 +40,7 @@ function print_version(): void {
     const pkgPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json');
     const raw: unknown = JSON.parse(readFileSync(pkgPath, 'utf8'));
     const version = is_record(raw) && typeof raw.version === 'string' ? raw.version : 'unknown';
-    process.stdout.write(`corpus ${version}\n`);
+    process.stdout.write(`suspec ${version}\n`);
 }
 
 // A command returns an exit code — synchronously (`status`, which only renders) or asynchronously
@@ -99,7 +99,7 @@ export async function dispatch(argv: string[], cwd: string = process.cwd()): Pro
 
     const run = COMMANDS[command];
     if (run === undefined) {
-        process.stderr.write(`Unknown command: ${command}\nRun 'corpus --help' to see the commands.\n`);
+        process.stderr.write(`Unknown command: ${command}\nRun 'suspec --help' to see the commands.\n`);
         return 2;
     }
 
@@ -119,7 +119,7 @@ if (is_main_module(import.meta.url, process.argv[1])) {
         },
         (error: unknown) => {
             // Defense in depth: any uncaught error becomes a clean message + exit 2, never a stack trace.
-            process.stderr.write(`corpus: ${error instanceof Error ? error.message : String(error)}\n`);
+            process.stderr.write(`suspec: ${error instanceof Error ? error.message : String(error)}\n`);
             process.exitCode = 2;
         }
     );

@@ -1,8 +1,8 @@
-# corpus-cli repo conventions
+# suspec-cli repo conventions
 
-Project-owned rules for working in this repository (persist across Corpus kit upgrades). Load this when
+Project-owned rules for working in this repository (persist across Suspec kit upgrades). Load this when
 implementing or refactoring TypeScript here. These are the **de-contaminated** rules carried over from
-the pre-Corpus `AGENTS.md` — the earlier file had React/TanStack/Rust-Tauri-audio content copied from
+the pre-Suspec `AGENTS.md` — the earlier file had React/TanStack/Rust-Tauri-audio content copied from
 another project; none of that applies (this repo is a TypeScript CLI, no UI, no Rust).
 
 ## Module architecture (DDD boundaries)
@@ -32,7 +32,7 @@ another project; none of that applies (this repo is a TypeScript CLI, no UI, no 
 
 ## The reconcile-only boundary (ADR-0077)
 
-corpus-cli prepares, checks, and reconciles the Corpus loop — it **never runs the model/agent loop**,
+suspec-cli prepares, checks, and reconciles the Suspec loop — it **never runs the model/agent loop**,
 owns no chat UI, and issues no review verdict. The logic lives in `src/modules/Core` (the four
 engines: check, launch/worktree, reconcile/status, prepare/init+new — plus `unixOutcome`, the
 `--json`/exit-code contract). Two surfaces wrap Core: the thin direct commands (`src/modules/Commands`,

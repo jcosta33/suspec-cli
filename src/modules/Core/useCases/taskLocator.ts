@@ -37,15 +37,15 @@ export function frontmatter_value(source: string, key: string): string | null {
 }
 
 // Resolve a task from a CLI arg that may be the bare slug (`pastebin`) OR the full id (`TASK-pastebin`)
-// to the one canonical `tasks/TASK-<slug>.md` file `corpus new task` writes — so the whole loop
+// to the one canonical `tasks/TASK-<slug>.md` file `suspec new task` writes — so the whole loop
 // (new · show · review · status · the MCP) agrees on a single key: the task's frontmatter `id`. Tries
 // the literal `tasks/<arg>.md` first (the id form), then `tasks/TASK-<arg>.md` (the bare-slug form),
 // skipping the second when the arg already carries the prefix. Returns the path, the frontmatter `id`
-// (the canonical key reviews bind to and `corpus status` matches), and the source; null when neither
+// (the canonical key reviews bind to and `suspec status` matches), and the source; null when neither
 // file exists.
 export function resolve_task(workspaceDir: string, arg: string): { path: string; id: string; source: string } | null {
     // Bidirectional: whether the arg is the bare slug or the TASK- id, and whether the file on disk is
-    // `TASK-<slug>.md` (what `corpus new task` writes) or the legacy bare `<slug>.md`, resolve to it.
+    // `TASK-<slug>.md` (what `suspec new task` writes) or the legacy bare `<slug>.md`, resolve to it.
     const slug = arg.replace(/^TASK-/i, '');
     const stems = [...new Set([arg, `TASK-${slug}`, slug])];
     for (const stem of stems) {
@@ -59,7 +59,7 @@ export function resolve_task(workspaceDir: string, arg: string): { path: string;
 }
 
 // Every task id declared in the workspace's tasks/ (the frontmatter `id`, else the filename stem),
-// sorted. Used to suggest valid --task values when `corpus worktree create --task <t>` names something
+// sorted. Used to suggest valid --task values when `suspec worktree create --task <t>` names something
 // that isn't a cut task (SW-005) — turning a silently-mismatched branch into an early, listed error.
 export function list_task_ids(workspaceDir: string): string[] {
     const tasksDir = join(workspaceDir, 'tasks');
@@ -88,20 +88,20 @@ export function find_source_spec(workspaceDir: string, specId: string): { path: 
     return null;
 }
 
-// The task's worktree (path + branch). The branch follows `corpus/<spec-slug>/<task-slug>` (ADR-0046);
-// the task-slug is the task id minus a leading `TASK-`, lower-cased. Falls back to the lone corpus
+// The task's worktree (path + branch). The branch follows `suspec/<spec-slug>/<task-slug>` (ADR-0046);
+// the task-slug is the task id minus a leading `TASK-`, lower-cased. Falls back to the lone suspec
 // worktree whose branch's final segment matches, so an unconventional layout still resolves. One
 // `worktree list` call returns both path and branch together. Null = none found.
 export function resolve_worktree(repoRoot: string, specSlug: string, taskId: string): ResolvedWorktree | null {
     const taskSlug = task_slug(taskId);
     const list = worktree_list(repoRoot);
-    const direct = list.find((entry) => entry.branch === `corpus/${specSlug}/${taskSlug}`);
+    const direct = list.find((entry) => entry.branch === `suspec/${specSlug}/${taskSlug}`);
     if (direct !== undefined) {
         return direct;
     }
     const matches = list.filter(
         (entry) =>
-            entry.branch !== null && entry.branch.startsWith('corpus/') && entry.branch.split('/').pop() === taskSlug
+            entry.branch !== null && entry.branch.startsWith('suspec/') && entry.branch.split('/').pop() === taskSlug
     );
     return matches.length === 1 ? matches[0] : null;
 }

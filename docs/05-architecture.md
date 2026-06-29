@@ -1,6 +1,6 @@
 # TypeScript Module Architecture
 
-This document defines the **TypeScript-side module architecture** for the Corpus CLI.
+This document defines the **TypeScript-side module architecture** for the Suspec CLI.
 
 It explains:
 

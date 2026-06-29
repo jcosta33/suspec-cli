@@ -2,7 +2,7 @@
 // conforming to the checks.yaml spec frontmatter + the SAME section shape as the frozen
 // `templates/spec.md` the kit ships (Intent, Non-goals, Requirements with one AC placeholder, Open
 // questions, Affected areas, Dropped from sources) — kept in parity so a hand author following the kit
-// template and `corpus new spec` land on the same skeleton (SW-008). status: draft, so the TBD
+// template and `suspec new spec` land on the same skeleton (SW-008). status: draft, so the TBD
 // placeholders do not trip C007. Never overwrites an existing spec.
 
 import { existsSync, writeFileSync, mkdirSync } from 'fs';

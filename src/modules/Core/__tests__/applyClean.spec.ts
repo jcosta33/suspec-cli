@@ -12,7 +12,7 @@ let repo: string;
 const git = (args: string[]): string => execFileSync('git', args, { cwd: repo, encoding: 'utf8' });
 
 beforeEach(() => {
-    repo = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-applyclean-')));
+    repo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-applyclean-')));
     git(['init']);
     git(['config', 'user.email', 't@e.com']);
     git(['config', 'user.name', 'T']);
@@ -28,7 +28,7 @@ const candidate = (path: string, kind: 'task' | 'review', status: string): Clean
     status,
 });
 
-describe('apply_clean (SPEC-corpus-clean --apply; ADR-0096/0104)', () => {
+describe('apply_clean (SPEC-suspec-clean --apply; ADR-0096/0104)', () => {
     it('archives a committed (tracked) candidate and deletes a gitignored one', () => {
         // a committed review (tracked) → archive; a gitignored task (untracked) → delete
         mkdirSync(join(repo, 'reviews'), { recursive: true });
@@ -72,10 +72,10 @@ describe('apply_clean (SPEC-corpus-clean --apply; ADR-0096/0104)', () => {
     });
 
     it('refuses a candidate whose path escapes the workspace (defense-in-depth)', () => {
-        const outside = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-outside-')));
+        const outside = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-outside-')));
         const sentinel = join(outside, 'keep.md');
         writeFileSync(sentinel, 'do not touch\n');
-        const escaping = relative(repo, sentinel); // ../corpus-outside-xxx/keep.md
+        const escaping = relative(repo, sentinel); // ../suspec-outside-xxx/keep.md
         const result = assertOk(
             apply_clean({ workspaceDir: repo, repoRoot: repo, candidates: [candidate(escaping, 'review', 'pass')] })
         );

@@ -90,7 +90,7 @@ function reviewWithVerify(
 }
 
 beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'corpus-check-review-'));
+    dir = mkdtempSync(join(tmpdir(), 'suspec-check-review-'));
     mkdirSync(join(dir, 'specs', 'feat'), { recursive: true });
     mkdirSync(join(dir, 'tasks'), { recursive: true });
     writeFileSync(join(dir, 'specs', 'feat', 'spec.md'), SPEC);
@@ -198,10 +198,10 @@ describe('check_review_file — C012 on a review packet (AC-028)', () => {
     });
 });
 
-// The W4a regression guard: `corpus check <review-file>` must surface the SAME C013 verify-evidence-
-// binding fact the `corpus review` reconcile does (AC-005 — BOTH commands). Before the fix, this path
+// The W4a regression guard: `suspec check <review-file>` must surface the SAME C013 verify-evidence-
+// binding fact the `suspec review` reconcile does (AC-005 — BOTH commands). Before the fix, this path
 // ran only C012 and read the violating packet as clean (exit 0). Each violating packet here warns via
-// `corpus review`; a consistent/draft packet surfaces no C013 finding.
+// `suspec review`; a consistent/draft packet surfaces no C013 finding.
 describe('check_review_file — C013 verify-evidence-binding on a review packet (AC-005, ADR-0083)', () => {
     it('reports C013 for a cmd mismatch (block cmd disagrees with the named command)', () => {
         const path = join(dir, 'review.md');
@@ -272,7 +272,7 @@ describe('check_review_file — C013 verify-evidence-binding on a review packet 
         expect(report.level).toBe('clean');
     });
 
-    it('the C013 fact via `corpus check` is verdict-free (a diagnostic + a level, never a Result)', () => {
+    it('the C013 fact via `suspec check` is verdict-free (a diagnostic + a level, never a Result)', () => {
         const path = join(dir, 'review.md');
         writeFileSync(path, review('| AC-001 | Pass | p | no |\n| AC-002 | Pass | p | no |'));
         const report = assertOk(check_review_file({ workspaceDir: dir, reviewPath: path }));
@@ -284,7 +284,7 @@ describe('check_review_file — C013 verify-evidence-binding on a review packet 
 });
 
 // C016 (ADR-0097): the GATE path BLOCKS an empty-Evidence Pass row — the verified B2 defect (the
-// standalone `corpus check <review>` path used to never evaluate the cell). Unlike C012/C013 (warning),
+// standalone `suspec check <review>` path used to never evaluate the cell). Unlike C012/C013 (warning),
 // C016 is hard-error: an empty cell on a Pass is a structural contradiction, so the gate fails it.
 describe('check_review_file — C016 pass-needs-evidence (the gate blocks an empty-Evidence Pass)', () => {
     it('BLOCKS a Pass row with an empty Evidence cell (hard-error → blocking / exit 2)', () => {
@@ -365,7 +365,7 @@ describe('check_review_file — spec-keyed (task-less 1:1 review, ADR-0103 revie
     });
 });
 
-describe('check_review_file — cross-root embedded snapshot (ADR-0100, corpus-cli#2)', () => {
+describe('check_review_file — cross-root embedded snapshot (ADR-0100, suspec-cli#2)', () => {
     it('validates coverage against the task embedded slice when the live spec is absent', () => {
         // a task whose source spec is NOT in this workspace (cross-root), but carries an embedded slice
         writeFileSync(

@@ -11,7 +11,7 @@ import { format_init_report } from '../services/render.ts';
 export type InitFlowDeps = Readonly<{ sourceDir: string; targetDir: string; mode: 'workspace' | 'footprint' }>;
 
 export async function run_init_flow(prompter: Prompter, deps: InitFlowDeps): Promise<number> {
-    prompter.intro('corpus init');
+    prompter.intro('suspec init');
     prompter.note(`Target: ${deps.targetDir}\nLayout: ${deps.mode}`, 'Plan');
 
     const proceed = await prompter.confirm({ message: `Scaffold the ${deps.mode} here?`, initialValue: true });
@@ -24,7 +24,7 @@ export async function run_init_flow(prompter: Prompter, deps: InitFlowDeps): Pro
         message: 'If a file already exists…',
         options: [
             { value: 'skip', label: 'Keep mine (skip it)', hint: 'recommended — never overwrites' },
-            { value: 'backup', label: 'Back mine up (.corpus-bak), write the kit version' },
+            { value: 'backup', label: 'Back mine up (.suspec-bak), write the kit version' },
             { value: 'overwrite', label: 'Overwrite with the kit version' },
         ],
     });

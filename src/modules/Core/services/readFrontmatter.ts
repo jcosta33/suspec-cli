@@ -70,7 +70,7 @@ export function read_frontmatter(source: string): Frontmatter {
 // exists (its whole value range, so a former block list leaves no orphaned `- item` lines), else
 // inserted just before the closing fence. A duplicate of an updated key is collapsed to the single
 // stamped value (no stale second copy). The body below the closing fence is byte-preserved. Pure;
-// a file with no (or an unterminated) frontmatter fence is returned unchanged. `corpus stamp` uses it
+// a file with no (or an unterminated) frontmatter fence is returned unchanged. `suspec stamp` uses it
 // to write a spec's `snapshot:` or a review's `reviewed_sha:`/`evidence_hash:`.
 export function upsert_frontmatter(source: string, updates: Readonly<Record<string, string>>): string {
     const hasBom = source.charCodeAt(0) === BOM;

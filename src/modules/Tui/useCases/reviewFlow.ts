@@ -1,4 +1,4 @@
-// The interactive `corpus review` flow (M2, AC-027): pick a finished run's task, resolve it, run the
+// The interactive `suspec review` flow (M2, AC-027): pick a finished run's task, resolve it, run the
 // SAME read-only reconcile engine the direct command uses (resolve_review_run → reconcile_review),
 // and show the coloured reconcile-facts report. Pure orchestration over the injected Prompter + the
 // Core engines, so it is testable with a mock Prompter (no terminal). It surfaces facts and routes —
@@ -28,7 +28,7 @@ function list_tasks(workspaceDir: string): string[] {
 }
 
 export async function run_review_flow(prompter: Prompter, deps: ReviewFlowDeps): Promise<number> {
-    prompter.intro('corpus review');
+    prompter.intro('suspec review');
 
     const root = resolve_repo_root(deps.workspaceDir);
     if (!isOk(root)) {

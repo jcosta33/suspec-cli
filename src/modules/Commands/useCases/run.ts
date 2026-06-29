@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 
-// `corpus run <task> --agent <name>` — the launch verb (SPEC-corpus-cli-run). Completes prepare → LAUNCH
+// `suspec run <task> --agent <name>` — the launch verb (SPEC-suspec-cli-run). Completes prepare → LAUNCH
 // → reconcile: it launches an external coding agent on an already-prepared task, inside that task's
 // worktree, and records the launch. Thin — resolve the launch inputs (task packet, worktree, adapter
-// from `.corpus/config.yaml`), launch the agent, write the launch-envelope run record, and report the
+// from `.suspec/config.yaml`), launch the agent, write the launch-envelope run record, and report the
 // facts. It never *becomes* the agent (no model loop, no edits of its own), never writes the board or a
 // review, and never renders a verdict (ADR-0077 reconcile-only; AC-002/003/007).
-//   corpus run <task> --agent <name>   launch <name> on <task> in its worktree, record the launch
-//   corpus run <task>                  use the config's agents.default
-//   corpus run <task> --json           machine output (verdict-free)
+//   suspec run <task> --agent <name>   launch <name> on <task> in its worktree, record the launch
+//   suspec run <task>                  use the config's agents.default
+//   suspec run <task> --json           machine output (verdict-free)
 //
-// corpus run's OWN exit: 0 when it launched and recorded successfully and the agent exited 0; 1 (a
-// warning) when the launch+record succeeded but the agent exited non-zero (a soft signal, not corpus's
-// failure); 2 only for corpus's own errors (no task / outside a repo / unknown agent / no worktree /
+// suspec run's OWN exit: 0 when it launched and recorded successfully and the agent exited 0; 1 (a
+// warning) when the launch+record succeeded but the agent exited non-zero (a soft signal, not suspec's
+// failure); 2 only for suspec's own errors (no task / outside a repo / unknown agent / no worktree /
 // the program could not be launched). The agent's exit is a recorded FACT, not propagated verbatim.
 
 import { isErr } from '../../../infra/errors/result.ts';
@@ -39,7 +39,7 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
 
     // AC-008: a missing task arg is a usage error (exit 2), writing nothing.
     if (task === undefined) {
-        return emit_error(usage_error('usage: corpus run <task> [--agent <name>] [--json]'), json);
+        return emit_error(usage_error('usage: suspec run <task> [--agent <name>] [--json]'), json);
     }
 
     // AC-008: outside a git repository is a usage error (exit 2), launching nothing.
@@ -57,7 +57,7 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
     }
     const { adapter, worktreePath, branch, source } = plan.value;
 
-    // AC-001/002: launch the agent in the task's worktree. corpus writes no code of its own; whatever
+    // AC-001/002: launch the agent in the task's worktree. suspec writes no code of its own; whatever
     // lands in the worktree is the agent's. A failure to launch the program is exit 2.
     const launched = launch_adapter(adapter.command, adapter.startup_instruction, worktreePath);
     if (isErr(launched)) {
@@ -72,7 +72,7 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
     const changed = base !== null ? worktree_changed_files(worktreePath, base) : null;
     const changed_files = changed !== null && !isErr(changed) ? changed.value : undefined;
 
-    // AC-004: record the launch envelope under `.corpus/work/` (the code repo's gitignored scratch).
+    // AC-004: record the launch envelope under `.suspec/work/` (the code repo's gitignored scratch).
     const record: RunRecord = {
         task_id: task,
         adapter: adapter.name,
@@ -105,6 +105,6 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
         render: (value) =>
             `launched ${value.adapter} in ${value.worktree}  (agent exit ${value.exit})\n` +
             `  run record: ${value.record}\n` +
-            `  next: corpus review ${task}`,
+            `  next: suspec review ${task}`,
     });
 }

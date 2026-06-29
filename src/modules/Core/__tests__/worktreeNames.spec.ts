@@ -13,13 +13,13 @@ describe('task_slug', () => {
 describe('derive_worktree_names', () => {
     it('derives a whole-spec branch and worktree path', () => {
         const names = derive_worktree_names({ repoRoot: '/repo', specSlug: 'checkout' });
-        expect(names.branch).toBe('corpus/checkout');
+        expect(names.branch).toBe('suspec/checkout');
         expect(names.worktreePath).toBe('/repo/.worktrees/checkout');
     });
 
     it('derives a per-task branch and path when a task slug is given', () => {
         const names = derive_worktree_names({ repoRoot: '/repo', specSlug: 'checkout', taskSlug: 'ac-001' });
-        expect(names.branch).toBe('corpus/checkout/ac-001');
+        expect(names.branch).toBe('suspec/checkout/ac-001');
         expect(names.worktreePath).toBe('/repo/.worktrees/checkout~ac-001');
     });
 
@@ -32,16 +32,16 @@ describe('derive_worktree_names', () => {
 
     it('treats an empty task slug as no task', () => {
         const names = derive_worktree_names({ repoRoot: '/repo', specSlug: 'checkout', taskSlug: '' });
-        expect(names.branch).toBe('corpus/checkout');
+        expect(names.branch).toBe('suspec/checkout');
     });
 
     // The field-test blocker: the worktree command passes the raw `--task` value (which may be the full
-    // `TASK-<slug>` id `corpus status` reports, or mixed-case), and the consumer (resolve_worktree) keys
+    // `TASK-<slug>` id `suspec status` reports, or mixed-case), and the consumer (resolve_worktree) keys
     // off `task_slug(taskId)`. The producer must derive the SAME tail, or review/run never find the
     // worktree. Branch tail AND dir name must both be the normalized slug, and must agree across forms.
     it('normalizes a TASK-prefixed / mixed-case task slug to the canonical branch tail', () => {
         const prefixed = derive_worktree_names({ repoRoot: '/r', specSlug: 'checkout', taskSlug: 'TASK-Discount' });
-        expect(prefixed.branch).toBe('corpus/checkout/discount');
+        expect(prefixed.branch).toBe('suspec/checkout/discount');
         expect(prefixed.worktreePath).toBe('/r/.worktrees/checkout~discount');
     });
 

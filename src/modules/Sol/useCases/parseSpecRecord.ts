@@ -76,7 +76,7 @@ const REQUIREMENT_HEADING = /^###\s+([A-Z][A-Z0-9]*-\d+)\b/;
 // because the spec parsed to zero requirements). QUESTION (Q-) is intentionally NOT a requirement — it
 // is an open question, not an obligation. Recognized only for `format: sol` specs so the CORE checks
 // (C001 id-unique, C003 verify-present, C007 no-TBD, C012 coverage) run on them — without it a SOL spec
-// parses to zero requirements and `corpus check` returns a false "clean" on any broken SOL spec
+// parses to zero requirements and `suspec check` returns a false "clean" on any broken SOL spec
 // (R4-ISS-01). The SOL-specific structural codes (SOL-S/P/M/V/O) are a larger grammar still to come.
 const SOL_REQUIREMENT_OPENER = /^(?:REQ|CONSTRAINT|INVARIANT|INTERFACE)\s+([A-Z][A-Z0-9]*-\d+)\s*:/;
 const SECTION_HEADING = /^##\s+(.+?)\s*$/;

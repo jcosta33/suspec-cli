@@ -1,4 +1,4 @@
-// The kit update-apply engine (`corpus update --write`, SPEC-corpus-update AC-008, ADR-0091). Behind the
+// The kit update-apply engine (`suspec update --write`, SPEC-suspec-update AC-008, ADR-0091). Behind the
 // drift check, this refreshes the KIT-OWNED guidance in an existing workspace WITHOUT touching the
 // adopter's own artifacts. It is built by reuse, not a fresh merge engine:
 //   1. `check_update` re-reads the pin vs the kit VERSION — apply is a no-op when not behind (so a
@@ -6,7 +6,7 @@
 //   2. when behind, `init_workspace` (mode: workspace) replays the conflict-safe copy engine, but
 //      SCOPED by `pathFilter` to the kit-owned paths only — templates/, .agents/skills/, advanced/,
 //      hooks/. New kit files are written, a changed kit-owned file follows the policy (default
-//      `backup`: the user's edited copy → `*.corpus-bak`, the kit's lands), identical files no-op,
+//      `backup`: the user's edited copy → `*.suspec-bak`, the kit's lands), identical files no-op,
 //      `.gitignore` marker-merges (additive), and `stamp_version` re-stamps the pin.
 // The scope is the whole point of the design (ADOPTING.md's upgrade contract): a lived-in workspace's
 // board, specs, decisions, README, and customized bootloader are the adopter's — `--write` must not
@@ -24,12 +24,12 @@ import { init_workspace, type ConflictPolicy } from './initWorkspace.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
 export type ApplyUpdateInput = Readonly<{
-    // The workspace root (the dir carrying `.agents/.corpus-version`).
+    // The workspace root (the dir carrying `.agents/.suspec-version`).
     workspaceDir: string;
     // A resolved kit source dir (a local `--from` path or a temp clone) carrying VERSION + the tree.
     kitSourceDir: string;
     // How a changed KIT-OWNED file is handled: `backup` (default — the user's edited copy preserved as
-    // `*.corpus-bak`), `overwrite` (the kit's lands, the user's edit lost), or `skip` (the kit's change
+    // `*.suspec-bak`), `overwrite` (the kit's lands, the user's edit lost), or `skip` (the kit's change
     // is NOT applied; the pin stays behind so the next `--check` still flags it).
     policy: ConflictPolicy;
 }>;
@@ -42,9 +42,9 @@ export type ApplyUpdateReport = Readonly<{
     // The kit's latest version (what `--write` offers). Informational — the PIN only reaches it when
     // `pinAdvanced` is true (a `skip` that left a conflict un-applied keeps the pin at `fromVersion`).
     toVersion: string;
-    // Whether the `.agents/.corpus-version` pin advanced to `toVersion`. False when a conflict was
+    // Whether the `.agents/.suspec-version` pin advanced to `toVersion`. False when a conflict was
     // skipped — the workspace is NOT fully at the new version, so the pin stays behind and the next
-    // `corpus update --check` honestly still flags it.
+    // `suspec update --check` honestly still flags it.
     pinAdvanced: boolean;
     written: readonly string[];
     skipped: readonly string[];
@@ -104,12 +104,12 @@ export function apply_update(input: ApplyUpdateInput): Result<ApplyUpdateReport,
     const report = copied.value;
 
     // `--on-conflict skip` left a kit-owned change UN-applied, but `stamp_version` (inside the copy)
-    // already advanced the pin to the new version — so the next `corpus update --check` would read
+    // already advanced the pin to the new version — so the next `suspec update --check` would read
     // "up to date" while real drift remains. Restore the pin to the pre-apply version so a skipped
     // apply stays honestly "behind". (Backup/overwrite fully apply the change → the new pin is correct.)
     const skippedSomething = report.skipped.length > 0;
     if (skippedSomething) {
-        writeFileSync(join(input.workspaceDir, '.agents', '.corpus-version'), `${currentVersion}\n`);
+        writeFileSync(join(input.workspaceDir, '.agents', '.suspec-version'), `${currentVersion}\n`);
     }
 
     // A displaced user file (backed up) or an un-applied change (skipped) is what the adopter must

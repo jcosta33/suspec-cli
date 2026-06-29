@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 
-// `corpus review <task>` — the reconcile engine's diff-touching command surface (M2,
+// `suspec review <task>` — the reconcile engine's diff-touching command surface (M2,
 // AC-017/024/026/027). Thin: resolve a finished run from a task id/slug (its worktree, its diff, its
 // source spec, its task packet, its review packet if one exists), call the read-only engine, and
 // project the reconcile facts to text / `--json` under the advisory exit posture (AC-024). It writes
 // nothing (AC-025) and spawns no agent (AC-026); `--agent` is reserved for M3 and rejected here.
-//   corpus review <task>            reconcile the finished run for <task> (read-only, M2)
-//   corpus review <task> --repo <p> reconcile when the code lives in a SEPARATE repo from the workspace
-//   corpus review <task> --write    write a DRAFT reviews/<slug>.md from the reconcile (W4b)
-//   corpus review                   (TTY) enter the interactive flow (AC-027)
-//   corpus review --json            machine output, never prompts
+//   suspec review <task>            reconcile the finished run for <task> (read-only, M2)
+//   suspec review <task> --repo <p> reconcile when the code lives in a SEPARATE repo from the workspace
+//   suspec review <task> --write    write a DRAFT reviews/<slug>.md from the reconcile (W4b)
+//   suspec review                   (TTY) enter the interactive flow (AC-027)
+//   suspec review --json            machine output, never prompts
 //
 // `--write` (W4b, AC-001) is opt-in: WITHOUT it the command stays exactly M2's read-only stdout
 // reconcile. WITH it the command renders a `status: draft`, all-Unverified draft packet from the same
@@ -49,7 +49,7 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     // argv element that `includes('--agent')` would miss (#25).
     if (argv.some((a) => a === '--agent' || a.startsWith('--agent='))) {
         return emit_error(
-            usage_error('`corpus review --agent` is not available — M2 is the mechanical reconcile'),
+            usage_error('`suspec review --agent` is not available — M2 is the mechanical reconcile'),
             json
         );
     }
@@ -62,13 +62,13 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
 
     if (task === undefined) {
         return emit_error(
-            usage_error('usage: corpus review <task> [--base <branch>] [--repo <code-repo>] [--json]'),
+            usage_error('usage: suspec review <task> [--base <branch>] [--repo <code-repo>] [--json]'),
             json
         );
     }
 
     // The git repo whose worktree + diff this run lives in. Defaults to the workspace's own repo (the
-    // co-located layout). `--repo <path>` points at a SEPARATE code repo so review works when the Corpus
+    // co-located layout). `--repo <path>` points at a SEPARATE code repo so review works when the Suspec
     // workspace and the code are distinct git repos (the documented dedicated-workspace layout).
     const repoFlag = flags.get('repo');
     if (typeof repoFlag === 'string' && repoFlag.startsWith('-')) {

@@ -237,7 +237,7 @@ describe('C012 coverage (ADR-0079)', () => {
     });
 });
 
-describe('spec_coverage_drift (corpus-works#72 item 2; corpus-cli#1)', () => {
+describe('spec_coverage_drift (suspec-works#72 item 2; suspec-cli#1)', () => {
     it('reports spec ids no task scope tracks as untracked', () => {
         expect(
             spec_coverage_drift_facts({
@@ -291,7 +291,7 @@ describe('spec_coverage_drift (corpus-works#72 item 2; corpus-cli#1)', () => {
     });
 });
 
-describe('normalize_cmd (ADR-0083 / corpus-works #16)', () => {
+describe('normalize_cmd (ADR-0083 / suspec-works #16)', () => {
     const bare = 'npm test -- auth-refresh.spec.ts';
     it('reduces the canon Verify-with forms (backtick-wrapped, trailing note, extra whitespace) to the same bare command', () => {
         expect(normalize_cmd(`\`${bare}\``)).toBe(bare);
@@ -346,7 +346,7 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
         ).toEqual([]);
     });
 
-    it('a backtick-wrapped named command (the canon Verify-with format) matches a bare block — no false cmd-mismatch (corpus-works #16)', () => {
+    it('a backtick-wrapped named command (the canon Verify-with format) matches a bare block — no false cmd-mismatch (suspec-works #16)', () => {
         expect(
             verify_binding_facts(
                 base({
@@ -359,7 +359,7 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
         ).toEqual([]);
     });
 
-    it('a named command with a trailing (parenthetical) note matches a bare block — no false cmd-mismatch (corpus-works #16)', () => {
+    it('a named command with a trailing (parenthetical) note matches a bare block — no false cmd-mismatch (suspec-works #16)', () => {
         expect(
             verify_binding_facts(
                 base({
@@ -565,7 +565,7 @@ describe('C011 waves-present (change-plan, AC-003)', () => {
 describe('is_workspace_ref', () => {
     it('treats paths and doc-like files as workspace refs', () => {
         expect(is_workspace_ref('specs/x/spec.md')).toBe(true);
-        expect(is_workspace_ref('../corpus/checks/checks.yaml')).toBe(true);
+        expect(is_workspace_ref('../suspec/checks/checks.yaml')).toBe(true);
         expect(is_workspace_ref('file.md')).toBe(true);
         expect(is_workspace_ref('config.json')).toBe(true);
     });
@@ -757,23 +757,23 @@ describe('run_spec_checks + verdict_for', () => {
     });
 });
 
-describe('drift guard against the sibling corpus/checks/checks.yaml', () => {
-    // PG-005's drift-guard teeth are conditional on the sibling `../corpus` checkout being present: in a
-    // hermetic corpus-cli-only checkout the contract source isn't on disk, so the guard CANNOT run and
-    // no-ops (SKIPPED below, never silently green). CI MUST check out the sibling `../corpus` for the
+describe('drift guard against the sibling suspec/checks/checks.yaml', () => {
+    // PG-005's drift-guard teeth are conditional on the sibling `../suspec` checkout being present: in a
+    // hermetic suspec-cli-only checkout the contract source isn't on disk, so the guard CANNOT run and
+    // no-ops (SKIPPED below, never silently green). CI MUST check out the sibling `../suspec` for the
     // guard to bite — we deliberately do NOT vendor a checks.yaml copy here (a second source of truth
     // would itself drift from the canon it is meant to pin). The skip is named + warned so an absent
     // sibling is a visible signal in the run, not a silent pass.
-    const contractPath = resolve(process.cwd(), '../corpus/checks/checks.yaml');
+    const contractPath = resolve(process.cwd(), '../suspec/checks/checks.yaml');
     const present = existsSync(contractPath);
     if (!present) {
         console.warn(
-            `[no-op] drift guard SKIPPED: sibling contract ${contractPath} absent — CI must check out ../corpus for PG-005 to bite`
+            `[no-op] drift guard SKIPPED: sibling contract ${contractPath} absent — CI must check out ../suspec for PG-005 to bite`
         );
     }
     const guardName = present
         ? 'pins the same version and core-check table'
-        : 'pins the same version and core-check table (SKIPPED: sibling ../corpus absent)';
+        : 'pins the same version and core-check table (SKIPPED: sibling ../suspec absent)';
 
     (present ? it : it.skip)(guardName, () => {
         const text = readFileSync(contractPath, 'utf8');

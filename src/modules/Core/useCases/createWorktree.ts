@@ -1,9 +1,9 @@
-// LaunchEngine.create (AC-009): create an isolated worktree on corpus/<spec-slug>[/<task-slug>] off
+// LaunchEngine.create (AC-009): create an isolated worktree on suspec/<spec-slug>[/<task-slug>] off
 // the base branch. Idempotent-ish — if the branch already has a worktree, return it (reused) rather
 // than failing or duplicating. No agent (AC-014): this is pure git orchestration.
 //
 // AC-010: after the worktree resolves, stamp a distinct port offset when the consumer-side
-// corpus.config.json declares a runtime-isolation range — keyed on the branch, so two tasks of one
+// suspec.config.json declares a runtime-isolation range — keyed on the branch, so two tasks of one
 // spec get distinct ports. The config read and stamp writer are injectable so the wiring is testable
 // without touching disk.
 
@@ -18,9 +18,9 @@ import { derive_worktree_names } from '../services/worktreeNames.ts';
 import { stamp_runtime_isolation } from './stampRuntimeIsolation.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
-const CONFIG_FILENAME = 'corpus.config.json';
+const CONFIG_FILENAME = 'suspec.config.json';
 
-// Default reader for the consumer-side corpus.config.json. Returns null — a no-op stamp — when the
+// Default reader for the consumer-side suspec.config.json. Returns null — a no-op stamp — when the
 // file is absent or unparseable; valid shapes are validated by the pure parser service.
 function read_runtime_isolation_config(repoRoot: string): RuntimeIsolationConfig {
     const path = join(repoRoot, CONFIG_FILENAME);

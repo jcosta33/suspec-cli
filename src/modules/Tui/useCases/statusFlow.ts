@@ -10,7 +10,7 @@ import { format_board } from '../services/render.ts';
 export type StatusFlowDeps = Readonly<{ workspaceDir: string }>;
 
 export function run_status_flow(prompter: Prompter, deps: StatusFlowDeps): number {
-    prompter.intro('corpus status');
+    prompter.intro('suspec status');
     const result = derive_board({ workspaceDir: deps.workspaceDir });
     /* v8 ignore start -- derive_board does not err; it returns a Result for contract uniformity */
     if (!isOk(result)) {

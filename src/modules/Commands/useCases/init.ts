@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-// `corpus init [dir]` — the prepare engine's init surface (AC-012/016, D-003). Resolves the kit
-// source (clone jcosta33/corpus-starter-kit by default; `--from <path|url>` overrides), then copies
+// `suspec init [dir]` — the prepare engine's init surface (AC-012/016, D-003). Resolves the kit
+// source (clone jcosta33/suspec-starter-kit by default; `--from <path|url>` overrides), then copies
 // it conflict-safely (skip by default; `--force` / `--on-conflict skip|overwrite|backup`).
 // `--workspace`/`--footprint` force the layout, else it is auto-detected (empty dir → workspace,
 // existing repo → footprint). `-i` opens the interactive wizard.
@@ -17,12 +17,12 @@ import { project, emit_error, usage_error, init_workspace } from '../../Core/use
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import { format_init_report, run_init_flow, create_clack_prompter } from '../../Tui/useCases/index.ts';
 
-const DEFAULT_KIT = 'https://github.com/jcosta33/corpus-starter-kit';
+const DEFAULT_KIT = 'https://github.com/jcosta33/suspec-starter-kit';
 
 export type KitSource = Readonly<{ sourceDir: string; cleanup: () => void }>;
 
 // A kit source must not be flag-shaped or a transport-scheme URL: git's `ext::`/`fd::`/`ssh+ext::`
-// transports can execute arbitrary commands, and a leading `-` is parsed as a clone option (corpus-works #22).
+// transports can execute arbitrary commands, and a leading `-` is parsed as a clone option (suspec-works #22).
 // Mirrors the is_safe_base guard for the same family; DEFAULT_KIT (https) and normal URLs pass.
 function is_safe_clone_source(url: string): boolean {
     return !url.startsWith('-') && !/^(?:ext|fd|ssh\+ext)::/i.test(url);
@@ -30,7 +30,7 @@ function is_safe_clone_source(url: string): boolean {
 
 /* v8 ignore start -- network clone shell; tests resolve the kit via a local --from */
 function clone_kit(url: string): Result<KitSource, AppError> {
-    const temp = mkdtempSync(join(tmpdir(), 'corpus-kit-'));
+    const temp = mkdtempSync(join(tmpdir(), 'suspec-kit-'));
     const result = spawnSync('git', ['-c', 'protocol.ext.allow=never', 'clone', '--depth', '1', url, temp], {
         encoding: 'utf8',
     });
@@ -81,7 +81,7 @@ function resolve_mode(flags: Map<string, string | boolean>, targetDir: string): 
     if (!existsSync(targetDir)) {
         return 'workspace';
     }
-    // An already-initialized Corpus workspace (it carries the kit's templates/ + specs/) keeps
+    // An already-initialized Suspec workspace (it carries the kit's templates/ + specs/) keeps
     // workspace mode on re-run, so a second `init` stays idempotent instead of flipping to footprint.
     if (existsSync(join(targetDir, 'templates')) && existsSync(join(targetDir, 'specs'))) {
         return 'workspace';
@@ -134,14 +134,14 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
                           're-run with --workspace.\n'
                         : '';
                 // R5-I07: the kit's full-workspace AGENTS.md ships with {{placeholders}}, so a fresh
-                // workspace fails its own `corpus check` (a warning) on minute one. Close init's own loop —
+                // workspace fails its own `suspec check` (a warning) on minute one. Close init's own loop —
                 // name the next step so the first signal isn't an unexplained failure. (The fill step
                 // otherwise lives only in the kit README a setup-notes-only hire never opens.) Only the
                 // workspace layout writes the placeholder-bearing AGENTS.md; the footprint pointer has none.
                 const nextStep =
                     report.mode === 'workspace'
                         ? '\nnext: fill the {{placeholders}} in AGENTS.md before relying on the workspace ' +
-                          '(`corpus check` flags them as a warning until you do).'
+                          '(`suspec check` flags them as a warning until you do).'
                         : '';
                 return banner + format_init_report(report) + nextStep;
             },

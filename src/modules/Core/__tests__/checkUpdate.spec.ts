@@ -10,8 +10,8 @@ let workspace: string;
 let kit: string;
 
 beforeEach(() => {
-    workspace = mkdtempSync(join(tmpdir(), 'corpus-cu-ws-'));
-    kit = mkdtempSync(join(tmpdir(), 'corpus-cu-kit-'));
+    workspace = mkdtempSync(join(tmpdir(), 'suspec-cu-ws-'));
+    kit = mkdtempSync(join(tmpdir(), 'suspec-cu-kit-'));
 });
 afterEach(() => {
     rmSync(workspace, { recursive: true, force: true });
@@ -20,7 +20,7 @@ afterEach(() => {
 
 function pin(version: string): void {
     mkdirSync(join(workspace, '.agents'), { recursive: true });
-    writeFileSync(join(workspace, '.agents', '.corpus-version'), `${version}\n`);
+    writeFileSync(join(workspace, '.agents', '.suspec-version'), `${version}\n`);
 }
 function kitVersion(version: string): void {
     writeFileSync(join(kit, 'VERSION'), `${version}\n`);
@@ -95,7 +95,7 @@ describe('check_update (the drift engine, pure)', () => {
 
     it('an empty/whitespace pin → err (VersionPinMissing), never a silent up-to-date', () => {
         mkdirSync(join(workspace, '.agents'), { recursive: true });
-        writeFileSync(join(workspace, '.agents', '.corpus-version'), '   \n');
+        writeFileSync(join(workspace, '.agents', '.suspec-version'), '   \n');
         kitVersion('2.0.0');
         const result = check_update({ workspaceDir: workspace, kitSourceDir: kit });
         expect(isErr(result)).toBe(true);

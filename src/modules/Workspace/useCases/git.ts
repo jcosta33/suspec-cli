@@ -266,7 +266,7 @@ export type ChangedFilesError = AppError<'ChangedFilesFailed', { worktreePath: s
 // unusual byte) in double quotes with C-style escapes (`"src/my file.ts"`, `\t`, `\"`, `\\`, octal
 // `\NNN` for control bytes — non-ASCII is shown literally because both git calls pass
 // `core.quotePath=false`). `git diff --name-only` reports the same path unquoted, so without decoding the
-// two sources never reconcile and a spaced/non-ASCII path is dropped or double-counted (corpus-works #22). A
+// two sources never reconcile and a spaced/non-ASCII path is dropped or double-counted (suspec-works #22). A
 // path that is not double-quoted is returned unchanged.
 function c_unquote(path: string): string {
     if (!(path.startsWith('"') && path.endsWith('"') && path.length >= 2)) {
@@ -461,7 +461,7 @@ export function paths_changed_since(repoRoot: string, sha: string): string[] | n
 
 /**
  * Whether a path is tracked by git — present in the index (committed OR staged), via
- * `git ls-files --error-unmatch` — vs gitignored/untracked. `corpus clean --apply` uses this to decide
+ * `git ls-files --error-unmatch` — vs gitignored/untracked. `suspec clean --apply` uses this to decide
  * delete (gitignored ephemeral — recoverable from the run) vs archive (committed-transitory — moved
  * under archive/, ADR-0096). Outside a git repo `git ls-files` is non-zero, so the path reads
  * untracked — callers that need the distinction resolve the repo first.
@@ -475,7 +475,7 @@ export function path_is_tracked(repoRoot: string, relPath: string): boolean {
 }
 
 /**
- * The current HEAD commit SHA of a repo, or null outside a repo / with no commits. `corpus stamp` uses
+ * The current HEAD commit SHA of a repo, or null outside a repo / with no commits. `suspec stamp` uses
  * it to record the code state a spec snapshot / review was taken against (ADR-0107/0108).
  */
 export function head_sha(repoRoot: string): string | null {

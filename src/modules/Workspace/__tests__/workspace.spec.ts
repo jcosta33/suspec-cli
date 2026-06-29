@@ -20,7 +20,7 @@ let repo: string;
 const git = (args: string[]) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' });
 
 beforeEach(() => {
-    repo = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-ws-git-')));
+    repo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-ws-git-')));
     git(['init']);
     git(['config', 'user.email', 't@e.com']);
     git(['config', 'user.name', 'T']);
@@ -33,7 +33,7 @@ afterEach(() => {
 describe('Workspace git', () => {
     it('resolve_repo_root returns the root inside a repo and Errs outside one', () => {
         expect(assertOk(resolve_repo_root(repo))).toBe(repo);
-        const notRepo = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-norepo-')));
+        const notRepo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-norepo-')));
         try {
             expect(assertErr(resolve_repo_root(notRepo))._tag).toBe('NoGitRepo');
         } finally {
@@ -57,7 +57,7 @@ describe('Workspace git', () => {
         const base = current_branch(repo) ?? 'main';
         // Stand up a bare "remote", push the base, and set it as the branch upstream. The local then
         // gets two commits ahead WITHOUT pushing — no fetch happens, so the probe sees the stale remote.
-        const remote = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-remote-')));
+        const remote = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-remote-')));
         try {
             execFileSync('git', ['init', '--bare'], { cwd: remote, encoding: 'utf8' });
             git(['remote', 'add', 'origin', remote]);
@@ -75,7 +75,7 @@ describe('Workspace git', () => {
         const base = current_branch(repo) ?? 'main';
         // Create an origin remote-tracking ref WITHOUT setting branch.<base>.merge upstream config: push
         // with --no-set-upstream so `<base>@{upstream}` is unresolvable and the origin fallback is exercised.
-        const remote = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-remote-nofu-')));
+        const remote = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-remote-nofu-')));
         try {
             execFileSync('git', ['init', '--bare'], { cwd: remote, encoding: 'utf8' });
             git(['remote', 'add', 'origin', remote]);
@@ -105,9 +105,9 @@ describe('Workspace git', () => {
         // base = the branch this worktree was cut from; make a feature worktree with one committed
         // change and one uncommitted (tracked + untracked) change on top of it.
         const base = current_branch(repo) ?? 'main';
-        const wtPath = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-wt-')));
+        const wtPath = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-wt-')));
         rmSync(wtPath, { recursive: true, force: true }); // git worktree add wants a non-existent path
-        git(['worktree', 'add', '-b', 'corpus/feat/ac-018', wtPath, base]);
+        git(['worktree', 'add', '-b', 'suspec/feat/ac-018', wtPath, base]);
         try {
             const wtGit = (args: string[]) => execFileSync('git', args, { cwd: wtPath, encoding: 'utf8' });
             writeFileSync(join(wtPath, 'committed.ts'), 'a');
@@ -124,9 +124,9 @@ describe('Workspace git', () => {
 
     it('worktree_changed_stats returns per-file committed LOC (numstat), binary files as 0 (C018 size info)', () => {
         const base = current_branch(repo) ?? 'main';
-        const wtPath = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-wt-stats-')));
+        const wtPath = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-wt-stats-')));
         rmSync(wtPath, { recursive: true, force: true });
-        git(['worktree', 'add', '-b', 'corpus/feat/stats', wtPath, base]);
+        git(['worktree', 'add', '-b', 'suspec/feat/stats', wtPath, base]);
         try {
             const wtGit = (args: string[]) => execFileSync('git', args, { cwd: wtPath, encoding: 'utf8' });
             writeFileSync(join(wtPath, 'a.ts'), 'one\ntwo\nthree\n'); // 3 insertions
@@ -151,9 +151,9 @@ describe('Workspace git', () => {
 
     it('reports the destination of a rename whose OLD name contains " -> " (#25 C4)', () => {
         const base = current_branch(repo) ?? 'main';
-        const wtPath = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-wt-rn-')));
+        const wtPath = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-wt-rn-')));
         rmSync(wtPath, { recursive: true, force: true });
-        git(['worktree', 'add', '-b', 'corpus/feat/ac-rn', wtPath, base]);
+        git(['worktree', 'add', '-b', 'suspec/feat/ac-rn', wtPath, base]);
         try {
             const wtGit = (args: string[]) => execFileSync('git', args, { cwd: wtPath, encoding: 'utf8' });
             writeFileSync(join(wtPath, 'a -> b.ts'), 'x');
@@ -174,7 +174,7 @@ describe('Workspace git', () => {
     });
 
     it('degrades gracefully outside a git repo', () => {
-        const notRepo = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-norepo-')));
+        const notRepo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-norepo-')));
         try {
             expect(current_branch(notRepo)).toBeNull();
             expect(worktree_list(notRepo)).toEqual([]);

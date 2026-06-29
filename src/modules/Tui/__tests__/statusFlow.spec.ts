@@ -8,7 +8,7 @@ import { run_status_flow } from '../useCases/statusFlow.ts';
 
 let ws: string;
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'corpus-statusflow-'));
+    ws = mkdtempSync(join(tmpdir(), 'suspec-statusflow-'));
 });
 afterEach(() => {
     rmSync(ws, { recursive: true, force: true });

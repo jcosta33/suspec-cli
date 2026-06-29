@@ -33,7 +33,7 @@ Verify with: a test.
 `;
 
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'corpus-checkflow-'));
+    ws = mkdtempSync(join(tmpdir(), 'suspec-checkflow-'));
     mkdirSync(join(ws, 'templates'), { recursive: true }); // a valid workspace (checks.md clause b)
 });
 afterEach(() => {

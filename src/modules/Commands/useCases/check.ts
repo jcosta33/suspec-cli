@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-// `corpus check [file]` — the check engine's command surface (AC-005/006/008).
-//   corpus check <spec-file>   lint one spec
-//   corpus check               render the whole-workspace verdict (D-001)
-//   corpus check -i            the interactive flow (AC-015), TTY + not --json only
+// `suspec check [file]` — the check engine's command surface (AC-005/006/008).
+//   suspec check <spec-file>   lint one spec
+//   suspec check               render the whole-workspace verdict (D-001)
+//   suspec check -i            the interactive flow (AC-015), TTY + not --json only
 // Direct output + exit codes flow through the shared unixOutcome contract (AC-001).
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
@@ -50,7 +50,7 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     /* v8 ignore stop */
 
     // `--staleness` (ADR-0108 item 4): the git-backed spec-staleness advisory — diff each snapshotted
-    // spec's Affected areas against its recorded `snapshot:` SHA. Opt-in so the default `corpus check`
+    // spec's Affected areas against its recorded `snapshot:` SHA. Opt-in so the default `suspec check`
     // stays filesystem-only (no git needed in CI). Never blocks: with no git repo it reports a skip and
     // exits 0 (advisory), and a spec with no snapshot is simply not compared.
     if (staleness) {

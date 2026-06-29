@@ -73,7 +73,7 @@ function today(): string {
 export function scaffold_finding(input: ScaffoldFindingInput): Result<ScaffoldFindingReport, AppError> {
     const from = input.from.trim();
     if (from.length === 0) {
-        return err(usage_error('usage: corpus promote <task> — the task/review id the finding is promoted from'));
+        return err(usage_error('usage: suspec promote <task> — the task/review id the finding is promoted from'));
     }
 
     const slug = finding_slug(from);

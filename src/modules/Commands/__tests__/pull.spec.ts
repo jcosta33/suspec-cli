@@ -11,7 +11,7 @@ const VERDICT_WORDS = /\b(Pass|Fail|Unverified|Blocked)\b/;
 
 let ws: string;
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'corpus-pull-cmd-'));
+    ws = mkdtempSync(join(tmpdir(), 'suspec-pull-cmd-'));
 });
 afterEach(() => {
     rmSync(ws, { recursive: true, force: true });
@@ -80,7 +80,7 @@ describe('pull command (direct surface, AC-001/AC-005)', () => {
     it('no ref → usage error, exit 2, no verdict', async () => {
         const { code, err } = await capture(() => run([], ws));
         expect(code).toBe(2);
-        expect(err).toContain('usage: corpus pull');
+        expect(err).toContain('usage: suspec pull');
         expect(err).not.toMatch(VERDICT_WORDS);
     });
 

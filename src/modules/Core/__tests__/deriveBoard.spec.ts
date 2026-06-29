@@ -9,7 +9,7 @@ import { derive_board } from '../useCases/deriveBoard.ts';
 let ws: string;
 
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'corpus-board-'));
+    ws = mkdtempSync(join(tmpdir(), 'suspec-board-'));
 });
 
 afterEach(() => {

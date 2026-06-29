@@ -8,7 +8,7 @@ import { run } from '../useCases/clean.ts';
 
 let ws: string;
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'corpus-clean-cmd-'));
+    ws = mkdtempSync(join(tmpdir(), 'suspec-clean-cmd-'));
 });
 afterEach(() => {
     rmSync(ws, { recursive: true, force: true });
@@ -33,7 +33,7 @@ function capture(fn: () => number): { out: string; code: number } {
     }
 }
 
-describe('clean command (SPEC-corpus-clean)', () => {
+describe('clean command (SPEC-suspec-clean)', () => {
     it('reports spent artifacts with counts and exits 0 (dry run)', () => {
         writeArtifact('tasks', 'TASK-done.md', 'closed');
         writeArtifact('reviews', 'r-live.md', 'draft');
@@ -66,7 +66,7 @@ describe('clean command (SPEC-corpus-clean)', () => {
     });
 
     it('--apply prunes in a git repo: deletes a gitignored spent task, exits 0', () => {
-        const repo = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-clean-apply-')));
+        const repo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-clean-apply-')));
         execFileSync('git', ['init'], { cwd: repo });
         execFileSync('git', ['config', 'user.email', 't@e.com'], { cwd: repo });
         execFileSync('git', ['config', 'user.name', 'T'], { cwd: repo });
@@ -83,7 +83,7 @@ describe('clean command (SPEC-corpus-clean)', () => {
     });
 
     it('--apply archives a committed spent review (kept in the tree under archive/)', () => {
-        const repo = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-clean-arch-')));
+        const repo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-clean-arch-')));
         execFileSync('git', ['init'], { cwd: repo });
         execFileSync('git', ['config', 'user.email', 't@e.com'], { cwd: repo });
         execFileSync('git', ['config', 'user.name', 'T'], { cwd: repo });
@@ -100,7 +100,7 @@ describe('clean command (SPEC-corpus-clean)', () => {
     });
 
     it('--apply in a clean repo with nothing spent says so', () => {
-        const repo = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-clean-empty-')));
+        const repo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-clean-empty-')));
         execFileSync('git', ['init'], { cwd: repo });
         execFileSync('git', ['config', 'user.email', 't@e.com'], { cwd: repo });
         execFileSync('git', ['config', 'user.name', 'T'], { cwd: repo });

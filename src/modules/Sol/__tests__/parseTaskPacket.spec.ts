@@ -52,7 +52,7 @@ describe('parse_task_packet — scope (AC-017)', () => {
         expect(parse_task_packet('# Task\n\nno frontmatter\n').scope).toEqual([]);
     });
 
-    it('reads a wrapped flow-style scope list across continuation lines (corpus-works #15)', () => {
+    it('reads a wrapped flow-style scope list across continuation lines (suspec-works #15)', () => {
         const wrapped = `---\ntype: task\nid: TASK-feat\nscope: [AC-001,\n  AC-002,\n  AC-003]\nstatus: review-ready\n---\n# Task\n`;
         expect(parse_task_packet(wrapped).scope).toEqual(['AC-001', 'AC-002', 'AC-003']);
     });
@@ -70,7 +70,7 @@ describe('parse_task_packet — scope (AC-017)', () => {
     });
 });
 
-describe('parse_task_packet — ReDoS guard (corpus-works #15)', () => {
+describe('parse_task_packet — ReDoS guard (suspec-works #15)', () => {
     it('parses a Changed-files line carrying a huge path-shaped token in well under a second', () => {
         const huge = `${'a/'.repeat(80000)}:`; // a non-matching token that was O(n²) under the old PATH_LIKE
         const packet = `---\ntype: task\nscope: [AC-001]\n---\n\n## Run summary\n\n- Changed files: ${huge}\n`;
@@ -94,7 +94,7 @@ scope: [AC-001]
 ---
 ## Affected areas
 
-- \`corpus-cli:src/x.ts\`
+- \`suspec-cli:src/x.ts\`
 `);
         expect(p.affectedAreas).toEqual(['src/x.ts']);
     });
@@ -313,7 +313,7 @@ scope: [AC-001]
     });
 });
 
-describe('parse_task_packet — embedded spec snapshot (ADR-0100, corpus-cli#2)', () => {
+describe('parse_task_packet — embedded spec snapshot (ADR-0100, suspec-cli#2)', () => {
     it('parses embedded-spec + the scoped requirements (verify command or none)', () => {
         const packet = `---\ntype: task\nid: TASK-x\nsource:\n  - SPEC-x\nscope: [AC-001, AC-002]\nstatus: ready\n---\n\n## Spec snapshot\n\nembedded-spec: SPEC-x\n\n- AC-001 — verify: \`pnpm test\`\n- AC-002 — verify: (none)\n\n## Run summary\n`;
         const parsed = parse_task_packet(packet);

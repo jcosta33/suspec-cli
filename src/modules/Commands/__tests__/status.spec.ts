@@ -7,7 +7,7 @@ import { run } from '../useCases/status.ts';
 
 let ws: string;
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'corpus-status-cmd-'));
+    ws = mkdtempSync(join(tmpdir(), 'suspec-status-cmd-'));
 });
 afterEach(() => {
     rmSync(ws, { recursive: true, force: true });

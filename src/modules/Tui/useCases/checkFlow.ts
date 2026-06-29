@@ -80,7 +80,7 @@ function report_outro(level: 'clean' | 'warning' | 'blocking'): string {
 }
 
 export async function run_check_flow(prompter: Prompter, deps: CheckFlowDeps): Promise<number> {
-    prompter.intro('corpus check');
+    prompter.intro('suspec check');
     const scope = await prompter.select({
         message: 'What would you like to check?',
         options: [

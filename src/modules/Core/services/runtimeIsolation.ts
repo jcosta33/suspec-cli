@@ -1,5 +1,5 @@
 // Runtime-isolation config (AC-010): the shared port-range shape plus a pure parser for the
-// consumer-side `corpus.config.json`'s `runtimeIsolation` block. The disk read lives in the
+// consumer-side `suspec.config.json`'s `runtimeIsolation` block. The disk read lives in the
 // create_worktree use-case; this validation is a pure service (use-cases depend on services, never
 // the reverse). Any shape that is not a usable port range parses to null — a no-op stamp.
 

@@ -4,7 +4,7 @@
 // through, so a quoted value, an inline comment, or both are read as YAML would read them. Pure.
 //
 // Two real defects this closes: a quoted `status: "ready"` whose leaked quotes break the enum guards
-// (the C007 `!== 'ready'` / C012-C013 `=== 'draft'` comparisons), and a `.corpus/config.yaml` value
+// (the C007 `!== 'ready'` / C012-C013 `=== 'draft'` comparisons), and a `.suspec/config.yaml` value
 // carrying an inline `# …` comment that corrupted adapter resolution.
 
 // Cut an unquoted trailing `# …` comment. YAML: a `#` opens a comment only at the start of the value

@@ -26,7 +26,7 @@ const fetch_never: GhFetcher = () => {
 };
 
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'corpus-pull-'));
+    ws = mkdtempSync(join(tmpdir(), 'suspec-pull-'));
 });
 afterEach(() => {
     rmSync(ws, { recursive: true, force: true });
@@ -37,18 +37,18 @@ describe('pull_intake — verbatim intake snapshot, never a spec (AC-001)', () =
         const report = assertOk(
             pull_intake({
                 workspaceDir: ws,
-                ref: 'jcosta33/corpus-cli#42',
+                ref: 'jcosta33/suspec-cli#42',
                 fetchGhIssue: fetch_ok('Wire the gate', 'The gate must stay green.\n\n- run vitest'),
             })
         );
-        expect(report.slug).toBe('jcosta33-corpus-cli-42');
+        expect(report.slug).toBe('jcosta33-suspec-cli-42');
         expect(report.fetched).toBe(true);
-        expect(report.path).toBe(join(ws, 'intake', 'jcosta33-corpus-cli-42.md'));
+        expect(report.path).toBe(join(ws, 'intake', 'jcosta33-suspec-cli-42.md'));
 
         const content = readFileSync(report.path, 'utf8');
         expect(content).toContain('type: intake');
         expect(content).toContain('source: gh-issue');
-        expect(content).toContain('url: jcosta33/corpus-cli#42');
+        expect(content).toContain('url: jcosta33/suspec-cli#42');
         expect(content).toMatch(/captured: \d{4}-\d{2}-\d{2}/);
         expect(content).toContain('# Intake: Wire the gate');
         // The upstream body is carried VERBATIM (un-normalized), markdown bullets and all.
@@ -86,13 +86,13 @@ describe('pull_intake — verbatim intake snapshot, never a spec (AC-001)', () =
             return ok({ title: 'T', body: 'B' });
         };
         const report = assertOk(
-            pull_intake({ workspaceDir: ws, ref: 'jcosta33/corpus-cli#42', fetchGhIssue: capture })
+            pull_intake({ workspaceDir: ws, ref: 'jcosta33/suspec-cli#42', fetchGhIssue: capture })
         );
         // gh rejects the `owner/repo#N` shorthand, so the fetcher is handed the equivalent URL …
-        expect(seen).toBe('https://github.com/jcosta33/corpus-cli/issues/42');
+        expect(seen).toBe('https://github.com/jcosta33/suspec-cli/issues/42');
         // … while the recorded url + the slug keep the ref the user typed.
-        expect(report.slug).toBe('jcosta33-corpus-cli-42');
-        expect(readFileSync(report.path, 'utf8')).toContain('url: jcosta33/corpus-cli#42');
+        expect(report.slug).toBe('jcosta33-suspec-cli-42');
+        expect(readFileSync(report.path, 'utf8')).toContain('url: jcosta33/suspec-cli#42');
     });
 
     it('passes a bare number / URL ref through to the fetcher unchanged', () => {

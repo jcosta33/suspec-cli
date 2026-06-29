@@ -1,8 +1,8 @@
-// PrepareEngine.init (AC-012 / AC-016): copy the corpus-starter-kit into the target WITHOUT ever
+// PrepareEngine.init (AC-012 / AC-016): copy the suspec-starter-kit into the target WITHOUT ever
 // overwriting the user's content by default. Plans before writing — each kit file is new (write),
 // identical (no-op, so a re-run is idempotent), or a conflict (exists & differs). Conflicts are
 // skipped by default; --force / backup are the escape hatches. `.gitignore` and `AGENTS.md` merge a
-// delimited Corpus block instead of skipping, so adoption-into-an-existing-repo is useful, not inert.
+// delimited Suspec block instead of skipping, so adoption-into-an-existing-repo is useful, not inert.
 // The source is a resolved kit directory (cloned from GitHub or supplied via --from) — the clone I/O
 // is a separate step, so this engine is exercised against a local fixture in tests.
 
@@ -46,25 +46,25 @@ export type InitWorkspaceInput = Readonly<{
     policy: ConflictPolicy;
     mode: InitMode;
     // Optional kit-tree filter (workspace mode only). When present, only kit files whose relative path
-    // passes it are copied — `corpus update --write` uses this to refresh ONLY the kit-owned guidance
+    // passes it are copied — `suspec update --write` uses this to refresh ONLY the kit-owned guidance
     // (templates/, .agents/skills/, hooks/, …) and never touch a lived-in workspace's own artifacts
-    // (the board, specs, a customized AGENTS.md). Absent (the default, `corpus init`) → copy the whole
+    // (the board, specs, a customized AGENTS.md). Absent (the default, `suspec init`) → copy the whole
     // tree, the scaffold behavior. `.gitignore` always merges and the pin always re-stamps, regardless.
     pathFilter?: (rel: string) => boolean;
 }>;
 
-const GITIGNORE_START = '# >>> corpus >>>';
-const GITIGNORE_END = '# <<< corpus <<<';
-const AGENTS_START = '<!-- corpus:start -->';
-const AGENTS_END = '<!-- corpus:end -->';
+const GITIGNORE_START = '# >>> suspec >>>';
+const GITIGNORE_END = '# <<< suspec <<<';
+const AGENTS_START = '<!-- suspec:start -->';
+const AGENTS_END = '<!-- suspec:end -->';
 // Fallback ignores when a kit source ships no `.gitignore.additions`. `.worktrees/` is the load-bearing
 // one: committing an in-repo worktree stages an embedded gitlink (SW-002), so guard it even in the
 // degenerate no-kit path.
-const GITIGNORE_FALLBACK = '.worktrees/\n.corpus/\n.corpus-cache/\n*.corpus-bak\n*.corpus-bak.*';
+const GITIGNORE_FALLBACK = '.worktrees/\n.suspec/\n.suspec-cache/\n*.suspec-bak\n*.suspec-bak.*';
 const AGENTS_POINTER = [
-    'This repository is adopted into a Corpus workflow. The spec / task / review',
-    'workspace and templates come from the Corpus starter kit',
-    '(github.com/jcosta33/corpus-starter-kit). Run `corpus --help` for the commands.',
+    'This repository is adopted into a Suspec workflow. The spec / task / review',
+    'workspace and templates come from the Suspec starter kit',
+    '(github.com/jcosta33/suspec-starter-kit). Run `suspec --help` for the commands.',
 ].join('\n');
 
 function walk_files(dir: string, base: string): string[] {
@@ -92,7 +92,7 @@ function write_file(dst: string, content: string): void {
 // was copied from, so the watch-and-re-copy compare (ADOPTING) has an anchor. Best-effort — an older
 // kit without a VERSION file stamps nothing. The pin is tooling metadata the tool owns, so a re-init
 // re-stamps the current version unconditionally (not conflict-handled like user content). No
-// staleness comparison here: `corpus check` has no honest "latest" source yet (deferred, ADR-0081).
+// staleness comparison here: `suspec check` has no honest "latest" source yet (deferred, ADR-0081).
 function stamp_version(input: InitWorkspaceInput, written: string[]): void {
     const versionSource = join(input.sourceDir, 'VERSION');
     if (!existsSync(versionSource)) {
@@ -104,8 +104,8 @@ function stamp_version(input: InitWorkspaceInput, written: string[]): void {
     }
     const stampDir = join(input.targetDir, '.agents');
     mkdirSync(stampDir, { recursive: true });
-    writeFileSync(join(stampDir, '.corpus-version'), `${version}\n`);
-    written.push('.agents/.corpus-version');
+    writeFileSync(join(stampDir, '.suspec-version'), `${version}\n`);
+    written.push('.agents/.suspec-version');
 }
 
 export function init_workspace(input: InitWorkspaceInput): Result<InitReport, AppError> {
@@ -180,7 +180,7 @@ function merge_gitignore(input: InitWorkspaceInput, merged: string[], written: s
     (existing.length > 0 ? merged : written).push('.gitignore');
 }
 
-// Footprint only: merge a small Corpus pointer block into AGENTS.md (create it from the block if
+// Footprint only: merge a small Suspec pointer block into AGENTS.md (create it from the block if
 // absent). Idempotent — the marker block is replaced in place on re-run, never duplicated.
 function merge_agents_pointer(input: InitWorkspaceInput, merged: string[], written: string[]): void {
     const target = join(input.targetDir, 'AGENTS.md');
@@ -200,13 +200,13 @@ function merge_agents_pointer(input: InitWorkspaceInput, merged: string[], writt
 
 type PlainBuckets = { written: string[]; skipped: string[]; backedUp: string[]; overwritten: string[] };
 
-// A non-clobbering backup name: `.corpus-bak`, then `.corpus-bak.1`, … so a second --backup run never
+// A non-clobbering backup name: `.suspec-bak`, then `.suspec-bak.1`, … so a second --backup run never
 // destroys the first backup.
 function free_backup_path(dst: string): string {
-    let candidate = `${dst}.corpus-bak`;
+    let candidate = `${dst}.suspec-bak`;
     let suffix = 1;
     while (existsSync(candidate)) {
-        candidate = `${dst}.corpus-bak.${suffix}`;
+        candidate = `${dst}.suspec-bak.${suffix}`;
         suffix += 1;
     }
     return candidate;
@@ -270,7 +270,7 @@ function copy_plain(input: InitWorkspaceInput, rel: string, buckets: PlainBucket
     }
 
     // R4-ISS-08: a workspace init run over a PRIOR FOOTPRINT init finds a footprint-pointer AGENTS.md
-    // (the small stub carrying the `corpus:start` markers — the full workspace AGENTS.md never has them).
+    // (the small stub carrying the `suspec:start` markers — the full workspace AGENTS.md never has them).
     // The default skip would preserve that pointer, leaving a footprint bootloader inside a workspace
     // layout (the Project facts + Commands table that tasks resolve Verify commands against are missing).
     // The pointer is kit scaffolding being upgraded, not the user's own file, so replace it with the full

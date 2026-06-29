@@ -1,4 +1,4 @@
-// PrepareEngine — the destructive half of `corpus clean --apply` (SPEC-corpus-clean; ADR-0106 item 2,
+// PrepareEngine — the destructive half of `suspec clean --apply` (SPEC-suspec-clean; ADR-0106 item 2,
 // ADR-0104 ephemeral-by-default, ADR-0096 archive-transitory). Given the spent candidates the scan
 // surfaced (scanCleanCandidates), it prunes each: a GITIGNORED/untracked file is DELETED (it is the
 // working set, recoverable from the run); a COMMITTED file is MOVED under archive/, preserving its

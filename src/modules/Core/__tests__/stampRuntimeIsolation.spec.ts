@@ -31,7 +31,7 @@ describe('stamp_runtime_isolation', () => {
         expect(report.portOffset).toBeGreaterThanOrEqual(0);
         expect(report.portOffset).toBeLessThan(100);
         expect(report.port).toBe(4000 + (report.portOffset ?? -1));
-        expect(captured[0].path).toBe('/wt/.corpus-runtime.json');
+        expect(captured[0].path).toBe('/wt/.suspec-runtime.json');
         expect(JSON.parse(captured[0].content)).toEqual({ portOffset: report.portOffset, port: report.port });
     });
 
@@ -45,14 +45,14 @@ describe('stamp_runtime_isolation', () => {
     });
 
     it('writes the fixture to disk with the default writer', () => {
-        const dir = mkdtempSync(join(tmpdir(), 'corpus-stamp-'));
+        const dir = mkdtempSync(join(tmpdir(), 'suspec-stamp-'));
         try {
             const report = stamp_runtime_isolation({
                 worktreePath: dir,
                 slug: 'checkout',
                 config: { portRangeStart: 5000, portRangeSize: 50 },
             });
-            const stampPath = join(dir, '.corpus-runtime.json');
+            const stampPath = join(dir, '.suspec-runtime.json');
             expect(existsSync(stampPath)).toBe(true);
             expect(JSON.parse(readFileSync(stampPath, 'utf8'))).toEqual({
                 portOffset: report.portOffset,

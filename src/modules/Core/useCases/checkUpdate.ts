@@ -1,8 +1,8 @@
-// The kit drift engine (SPEC-corpus-update AC-001/003/004/005, ADR-0091). Pure: it reads the
-// workspace's `.agents/.corpus-version` pin and a resolved kit source's `VERSION` (+ optional
+// The kit drift engine (SPEC-suspec-update AC-001/003/004/005, ADR-0091). Pure: it reads the
+// workspace's `.agents/.suspec-version` pin and a resolved kit source's `VERSION` (+ optional
 // `CHANGELOG.md`), compares them, and returns whether the workspace is behind — never a network call
 // (the command surface resolves the kit, this engine only reads files) and never a write
-// (reconcile-only, ADR-0077). `corpus check` stays hermetic; the network lives in the `update` surface.
+// (reconcile-only, ADR-0077). `suspec check` stays hermetic; the network lives in the `update` surface.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -12,7 +12,7 @@ import { createAppError, type AppError } from '../../../infra/errors/createAppEr
 import type { OutcomeLevel } from './unixOutcome.ts';
 
 export type CheckUpdateInput = Readonly<{
-    // The workspace root (the dir carrying `.agents/.corpus-version`).
+    // The workspace root (the dir carrying `.agents/.suspec-version`).
     workspaceDir: string;
     // A resolved kit source dir (a local `--from` path or a temp clone) carrying `VERSION`.
     kitSourceDir: string;
@@ -70,13 +70,13 @@ function read_nonempty(path: string): string | null {
 }
 
 export function check_update(input: CheckUpdateInput): Result<UpdateCheckReport, AppError> {
-    const pinPath = join(input.workspaceDir, '.agents', '.corpus-version');
+    const pinPath = join(input.workspaceDir, '.agents', '.suspec-version');
     const currentVersion = read_nonempty(pinPath);
     if (currentVersion === null) {
         return err(
             createAppError(
                 'VersionPinMissing',
-                `no kit version pin at ${pinPath} — run from the workspace root, or this workspace predates \`corpus init\`'s pin (ADR-0081)`,
+                `no kit version pin at ${pinPath} — run from the workspace root, or this workspace predates \`suspec init\`'s pin (ADR-0081)`,
                 { path: pinPath }
             )
         );

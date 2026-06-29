@@ -36,7 +36,7 @@ Verify with: a test.
 `;
 
 beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'corpus-resolve-'));
+    dir = mkdtempSync(join(tmpdir(), 'suspec-resolve-'));
 });
 afterEach(() => {
     rmSync(dir, { recursive: true, force: true });

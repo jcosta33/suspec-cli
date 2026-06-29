@@ -1,4 +1,4 @@
-// The `gh` CLI fetch the intake prepare verb (`corpus pull`) wraps — the single impure edge for
+// The `gh` CLI fetch the intake prepare verb (`suspec pull`) wraps — the single impure edge for
 // pulling a ticket body, kept in the Workspace leaf alongside the git ops (never inlined into an
 // engine). `gh` is the GitHub CLI on PATH; this is a read-only `gh issue view`, never a write.
 // Returns a Result so a missing `gh` / a failed fetch surfaces as a clean error (the caller falls

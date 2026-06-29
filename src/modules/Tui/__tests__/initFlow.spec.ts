@@ -11,7 +11,7 @@ let kit: string;
 let target: string;
 
 beforeAll(() => {
-    kit = mkdtempSync(join(tmpdir(), 'corpus-initflowkit-'));
+    kit = mkdtempSync(join(tmpdir(), 'suspec-initflowkit-'));
     writeFileSync(join(kit, 'AGENTS.md'), 'KIT AGENTS\n');
     writeFileSync(join(kit, '.gitignore.additions'), 'node_modules/');
     writeFileSync(join(kit, 'README.md'), 'KIT README\n');
@@ -22,7 +22,7 @@ afterAll(() => {
     rmSync(kit, { recursive: true, force: true });
 });
 beforeEach(() => {
-    target = mkdtempSync(join(tmpdir(), 'corpus-initflowtarget-'));
+    target = mkdtempSync(join(tmpdir(), 'suspec-initflowtarget-'));
 });
 afterEach(() => {
     rmSync(target, { recursive: true, force: true });
@@ -48,7 +48,7 @@ describe('run_init_flow', () => {
         writeFileSync(join(target, 'README.md'), 'USER\n');
         const p = create_mock_prompter({ confirm: [true], select: ['backup'] });
         expect(await run_init_flow(p, { sourceDir: kit, targetDir: target, mode: 'workspace' })).toBe(0);
-        expect(existsSync(join(target, 'README.md.corpus-bak'))).toBe(true);
+        expect(existsSync(join(target, 'README.md.suspec-bak'))).toBe(true);
     });
 
     it('honours the overwrite policy', async () => {

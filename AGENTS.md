@@ -1,12 +1,12 @@
-# AGENTS.md — corpus-cli
+# AGENTS.md — suspec-cli
 
 <!-- Always-loaded bootloader (aim ~100 lines). Procedures load on demand from
-     `.agents/skills/`. This is a CODE repo: the Corpus workspace governing it
-     is the sibling corpus-works repo. -->
+     `.agents/skills/`. This is a CODE repo: the Suspec workspace governing it
+     is the sibling suspec-works repo. -->
 
-## Corpus
+## Suspec
 
-- Corpus workspace: `../corpus-works` — read the task packet you are given. Specs,
+- Suspec workspace: `../suspec-works` — read the task packet you are given. Specs,
   tasks, reviews, findings, decisions, and the board live there, not here.
 - Implement against the packet: read its linked spec first; stay inside its
   scope (if a requirement can't be met as written, stop and say why instead of
@@ -14,20 +14,20 @@
   (a claim without output counts as unverified); fill its `## Run summary`;
   re-read your own diff as a skeptic before handoff. Guide:
   `.agents/skills/implement-task/`.
-- corpus-cli is the **reconcile-only harness** (corpus ADR-0077): it prepares,
-  checks, and reconciles the Corpus loop and never runs the model loop. Surface:
+- suspec-cli is the **reconcile-only harness** (suspec ADR-0077): it prepares,
+  checks, and reconciles the Suspec loop and never runs the model loop. Surface:
   `init · update · check · worktree · status · clean · stamp · review · new · pull · promote · run · show · agents`
   (+ `help`) — each a direct command, most also an interactive TUI flow (`-i`;
-  `corpus` with no args opens the dashboard).
-  `corpus init` clones the corpus-starter-kit (no vendored copy lives here). The
-  checks contract this CLI implements (C001–C017) lives in the corpus repo,
+  `suspec` with no args opens the dashboard).
+  `suspec init` clones the suspec-starter-kit (no vendored copy lives here). The
+  checks contract this CLI implements (C001–C017) lives in the suspec repo,
   `checks/checks.yaml` (that file's `version:` is the contract version of record —
   don't pin a copy of it here), reimplemented in code at
   `src/modules/Core/services/checksContract.ts` and drift-guarded against it.
 
 ## Project facts
 
-- TypeScript, pnpm, vitest, eslint, dependency-cruiser; entry `bin/corpus.js` →
+- TypeScript, pnpm, vitest, eslint, dependency-cruiser; entry `bin/suspec.js` →
   `src/index.ts` (the in-process dispatcher). Modules: `Core` (the four engines and the
   `unixOutcome` contract), `Sol` (the plain-form spec parser), `Workspace` (git worktrees),
   `Terminal` (arg parsing), `Commands` (the thin wrappers), `Tui` (the interactive flows and
@@ -50,7 +50,7 @@
   `.agents/memory/glossary.md`.
 - Full conventions: `.agents/repo-conventions.md` · human coding conventions:
   `docs/07-conventions.md` · architecture: `docs/05-architecture.md` · testing:
-  `docs/06-testing.md`. (The CLI reads/writes a consumer-side `corpus.config.json`
+  `docs/06-testing.md`. (The CLI reads/writes a consumer-side `suspec.config.json`
   in the repo it operates on; this repo carries no project-config file of its own.)
 
 ## Commands
@@ -68,5 +68,5 @@ whose command cannot be resolved reads Unverified, not Pass.
 
 ## Agent role
 
-You are an implementation or review worker. Corpus organizes the work; you perform
+You are an implementation or review worker. Suspec organizes the work; you perform
 the assigned task — and you never review your own implementation.

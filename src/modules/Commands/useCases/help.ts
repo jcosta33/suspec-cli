@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// `corpus help` / `corpus --help` — the command reference, driven by COMMAND_CATALOG so it always
+// `suspec help` / `suspec --help` — the command reference, driven by COMMAND_CATALOG so it always
 // lists exactly the dispatchable surface (AC-004). Plain stdout (scriptable), coloured for humans.
 
 import color from 'picocolors';
@@ -10,21 +10,21 @@ import { COMMAND_CATALOG } from './catalog.ts';
 export function print_help(): void {
     const commands = COMMAND_CATALOG.map((entry) => `  ${entry.name.padEnd(9)} ${color.dim(entry.description)}`);
     const lines = [
-        `${color.bold('corpus')} — a reconcile-only harness for spec-driven agent work`,
+        `${color.bold('suspec')} — a reconcile-only harness for spec-driven agent work`,
         '',
         color.bold('Usage'),
-        '  corpus                    open the interactive dashboard',
-        '  corpus <command> [args]   run a command directly',
-        '  corpus <command> -i       run a command interactively',
+        '  suspec                    open the interactive dashboard',
+        '  suspec <command> [args]   run a command directly',
+        '  suspec <command> -i       run a command interactively',
         '',
         color.bold('Commands'),
         ...commands,
         '',
-        color.dim('  Run `corpus <command> --help` for a command’s usage and flags.'),
+        color.dim('  Run `suspec <command> --help` for a command’s usage and flags.'),
         '',
         color.bold('Global flags'),
         `  --json                   machine-readable output (never prompts)`,
-        `  --no-workspace           run without a Corpus workspace where possible`,
+        `  --no-workspace           run without a Suspec workspace where possible`,
         `  --version · -v           print the version`,
         '',
         color.dim('Exit codes: 0 clean · 1 warnings · 2 error.'),
@@ -32,7 +32,7 @@ export function print_help(): void {
     process.stdout.write(`${lines.join('\n')}\n`);
 }
 
-// `corpus <command> --help` — the usage block for one command, from the same catalog.
+// `suspec <command> --help` — the usage block for one command, from the same catalog.
 export function print_command_help(name: string): void {
     const entry = COMMAND_CATALOG.find((command) => command.name === name);
     if (entry === undefined) {
@@ -40,7 +40,7 @@ export function print_command_help(name: string): void {
         return;
     }
     const lines = [
-        `${color.bold(`corpus ${entry.name}`)} — ${entry.description}`,
+        `${color.bold(`suspec ${entry.name}`)} — ${entry.description}`,
         '',
         color.bold('Usage'),
         ...entry.usage.map((line) => `  ${line}`),

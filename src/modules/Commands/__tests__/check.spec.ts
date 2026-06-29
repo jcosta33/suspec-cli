@@ -31,7 +31,7 @@ Verify with: a test.
 
 let dir: string;
 beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'corpus-check-cmd-'));
+    dir = mkdtempSync(join(tmpdir(), 'suspec-check-cmd-'));
 });
 afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
@@ -258,7 +258,7 @@ describe('check --staleness (ADR-0108 item 4)', () => {
 
     const git = (repo: string, args: string[]): string => execFileSync('git', args, { cwd: repo, encoding: 'utf8' });
     function gitRepo(): string {
-        const repo = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-check-stale-')));
+        const repo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-check-stale-')));
         git(repo, ['init']);
         git(repo, ['config', 'user.email', 't@e.com']);
         git(repo, ['config', 'user.name', 'T']);

@@ -10,7 +10,7 @@ import { scaffold_spec } from '../useCases/scaffoldSpec.ts';
 let ws: string;
 
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'corpus-scaffold-'));
+    ws = mkdtempSync(join(tmpdir(), 'suspec-scaffold-'));
 });
 
 afterEach(() => {

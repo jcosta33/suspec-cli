@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
-// `corpus promote <task>` — the prepare engine's finding-scaffold command surface (W5, AC-002/AC-005).
+// `suspec promote <task>` — the prepare engine's finding-scaffold command surface (W5, AC-002/AC-005).
 // Thin: scaffold one `findings/<slug>.md` from a finished task/review id and report its path. It
 // pre-fills `from:` and leaves the *what-we-learned* body a placeholder — it asserts no learning of
 // its own — and it writes NO board and emits no review result/board-flip/merge decision (a
 // verdict-free prepare op, ADR-0077 D8). The board-mutating close stays parked (ADR-0084 D3).
-//   corpus promote <task>            scaffold findings/<slug>.md (from: pre-filled, learning left blank)
-//   corpus promote <task> --force    overwrite an existing finding (else no-clobber)
-//   corpus promote <task> --json     machine output (the path + slug; never a verdict)
+//   suspec promote <task>            scaffold findings/<slug>.md (from: pre-filled, learning left blank)
+//   suspec promote <task> --force    overwrite an existing finding (else no-clobber)
+//   suspec promote <task> --json     machine output (the path + slug; never a verdict)
 
 import { project, emit_error, usage_error, scaffold_finding } from '../../Core/useCases/index.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
@@ -23,7 +23,7 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
 
     if (task === undefined) {
         return emit_error(
-            usage_error('usage: corpus promote <task> — the task/review id the finding is promoted from'),
+            usage_error('usage: suspec promote <task> — the task/review id the finding is promoted from'),
             json
         );
     }

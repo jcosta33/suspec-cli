@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-// `corpus update [--check | --write]` — the kit drift surface (SPEC-corpus-update, ADR-0091). Resolves
-// the kit (clone jcosta33/corpus-starter-kit by default; `--from <path|url>` overrides — the same
-// resolution as `corpus init`), then either:
-//   --check (default) reconcile-only: compares the workspace's `.agents/.corpus-version` pin to the
+// `suspec update [--check | --write]` — the kit drift surface (SPEC-suspec-update, ADR-0091). Resolves
+// the kit (clone jcosta33/suspec-starter-kit by default; `--from <path|url>` overrides — the same
+// resolution as `suspec init`), then either:
+//   --check (default) reconcile-only: compares the workspace's `.agents/.suspec-version` pin to the
 //            kit's VERSION and reports drift, writing nothing. Exit 0 up-to-date · 1 behind · 2 error.
 //   --write / --apply: lands the newer kit content via the conflict-safe copy engine (default
-//            `--on-conflict backup`: a changed user file is preserved as `*.corpus-bak`, the kit's
+//            `--on-conflict backup`: a changed user file is preserved as `*.suspec-bak`, the kit's
 //            lands; `.gitignore` / `AGENTS.md` marker-merge; the pin re-stamps). Exit 0 applied-clean ·
 //            1 applied-with-files-to-reconcile / nothing-to-apply-but-already-current is 0 · 2 error.
 
@@ -25,11 +25,11 @@ import { format_update_report, format_apply_report } from '../../Tui/useCases/in
 import { resolve_kit_source, type KitSource } from './init.ts';
 
 // The kit resolver is injectable so a test can assert the cleanup contract (AC-007) without a network
-// clone; production uses the default — the same clone / `--from` resolution as `corpus init`.
+// clone; production uses the default — the same clone / `--from` resolution as `suspec init`.
 type KitResolver = (from: string | undefined) => Result<KitSource, AppError>;
 
 export function run(argv: string[], cwd: string = process.cwd(), resolveKit: KitResolver = resolve_kit_source): number {
-    // `--check` is the default: bare `corpus update` and `corpus update --check` both run the read-only
+    // `--check` is the default: bare `suspec update` and `suspec update --check` both run the read-only
     // drift check. `--write` / `--apply` (below) lands the kit content via the copy engine. The flags
     // are declared so the parser and the advertised usage agree.
     const { flags } = parse_flags(argv, {

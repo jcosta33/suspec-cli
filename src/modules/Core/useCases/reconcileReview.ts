@@ -1,4 +1,4 @@
-// ReconcileEngine — `corpus review` (M2, AC-018/019/020/021/023). The read-only diff-touching half of
+// ReconcileEngine — `suspec review` (M2, AC-018/019/020/021/023). The read-only diff-touching half of
 // the reconcile engine: given a finished run's resolved inputs (the task packet, the source spec, the
 // review packet if one exists, and the worktree's net change against its base), it mechanically
 // reconciles WHAT WAS CLAIMED vs WHAT CHANGED vs WHAT THE SPEC REQUIRED, and returns the facts a human
@@ -70,7 +70,7 @@ export type CoverageFinding = Readonly<{ id: string; kind: 'uncovered' | 'orphan
 // verdict and NOT proof a command ran (the fenced body is self-reported and unparsed).
 export type VerifyBindingReport = Readonly<{ id: string; kind: VerifyBindingFinding['kind']; message: string }>;
 
-// The spec-coverage drift fact with its rendered message (corpus-cli#1). Structured for `--json` plus
+// The spec-coverage drift fact with its rendered message (suspec-cli#1). Structured for `--json` plus
 // the single-sourced wording (the contract owns it via spec_coverage_drift_message), so the renderer
 // displays rather than re-derives — the same engine-attaches-the-message pattern as CoverageFinding.
 export type SpecCoverageDriftReport = Readonly<{
@@ -105,7 +105,7 @@ export type ReviewReport = Readonly<{
     // stats were available (a fixture reconcile). NEUTRAL INFO the reviewer judges — never a finding;
     // the band-based oversized-packet check is specified-not-shipped (ADR-0097, measured FP).
     packetSize: PacketSizeFacts | null;
-    // Spec-coverage drift (corpus-works#72 item 2; corpus-cli#1): the source spec's requirement ids the
+    // Spec-coverage drift (suspec-works#72 item 2; suspec-cli#1): the source spec's requirement ids the
     // task `scope` does not track — "the spec grew under the task". NEUTRAL INFO, not a finding: it does
     // NOT raise the advisory level (mirrors packetSize), and it is reconcile-only — no C-id, no
     // checks.yaml entry — until measured 0-FP and promoted (honesty framework, ADR-0063). null when the
@@ -264,7 +264,7 @@ export function reconcile_review(input: ReconcileReviewInput): Result<ReviewRepo
     // file exclusion + the band live in the contract (packet_size_facts).
     const packetSize = input.changedFileStats !== undefined ? packet_size_facts(input.changedFileStats) : null;
 
-    // Spec-coverage drift (corpus-cli#1): the source spec's ids the task scope does not track. Keyed on
+    // Spec-coverage drift (suspec-cli#1): the source spec's ids the task scope does not track. Keyed on
     // the SPEC-filtered scope (PG ids excluded, like coverage) so a migration's plan-guarantee ids never
     // count as untracked spec requirements. Neutral info — not folded into level_for.
     const driftFacts = spec_coverage_drift_facts({

@@ -17,7 +17,7 @@ export {
     head_sha,
 } from './git.ts';
 export { write_new_file, type FileExistsError } from './files.ts';
-// emit engine — `corpus agents emit --codex`: projects agent defs to Codex TOML (ADR-0098). A runner
+// emit engine — `suspec agents emit --codex`: projects agent defs to Codex TOML (ADR-0098). A runner
 // adapter (like `launch`), so it names a runner — which is why it is a Workspace leaf, not Core.
 export { emit_agents, type EmitAgentsInput, type EmitAgentsReport } from './emitAgents.ts';
 export { fetch_gh_issue, type GhIssue, type GhFetchError } from './gh.ts';

@@ -21,9 +21,9 @@ export { build_anchor_resolver } from './buildAnchorResolver.ts';
 export { build_source_exists, infer_workspace_root } from './resolveSourcePath.ts';
 export { find_workspace_spec_files, find_sibling_spec_files } from './findSpecFiles.ts';
 
-// launch engine — worktrees, no agent (AC-009/010); run launch resolution (SPEC-corpus-cli-run)
+// launch engine — worktrees, no agent (AC-009/010); run launch resolution (SPEC-suspec-cli-run)
 export { create_worktree } from './createWorktree.ts';
-export { list_corpus_worktrees } from './listCorpusWorktrees.ts';
+export { list_suspec_worktrees } from './listSuspecWorktrees.ts';
 export { remove_worktree } from './removeWorktree.ts';
 export { prune_worktrees } from './pruneWorktrees.ts';
 export { stamp_runtime_isolation } from './stampRuntimeIsolation.ts';
@@ -31,7 +31,7 @@ export { resolve_launch, type LaunchPlan, type ResolveLaunchInput } from './reso
 // Task resolution shared by the worktree/review/run surfaces — bidirectional id↔slug + the task list.
 export { resolve_task, list_task_ids } from './taskLocator.ts';
 
-// read-only artifact projection — the `corpus show` loader surface (the MCP adapts it; ADR-0085)
+// read-only artifact projection — the `suspec show` loader surface (the MCP adapts it; ADR-0085)
 export { show_artifact, type ShowResult, type ShowKind } from './showArtifact.ts';
 
 // reconcile engine — status, no agent (AC-011); review, no agent (M2 AC-018/019/020/021/023)
@@ -61,9 +61,9 @@ export { resolve_review_run_by_spec, type ResolveReviewRunBySpecInput } from './
 export { stamp_artifact, type StampReport, type StampArtifactInput } from './stampArtifact.ts';
 export { draft_review_packet, type DraftReviewPacketInput, type DraftReviewPacket } from './draftReviewPacket.ts';
 
-// drift engine — corpus update --check, no agent, no write (SPEC-corpus-update, ADR-0091)
+// drift engine — suspec update --check, no agent, no write (SPEC-suspec-update, ADR-0091)
 export { check_update, type UpdateCheckReport, type CheckUpdateInput } from './checkUpdate.ts';
-// drift apply — corpus update --write, reuses init_workspace's copy engine (SPEC-corpus-update AC-008)
+// drift apply — suspec update --write, reuses init_workspace's copy engine (SPEC-suspec-update AC-008)
 export { apply_update, type ApplyUpdateReport, type ApplyUpdateInput } from './applyUpdate.ts';
 
 // prepare engine — init + new, no agent (AC-012/013/016); pull + promote, no board (W5 AC-001/002)

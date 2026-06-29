@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-// `corpus worktree <create|list|remove|prune> …` — the launch engine's no-agent command surface
-// (AC-009/010). Operates on a git repo (not a Corpus workspace): it resolves the repo root and works
-// in any git repo, erroring cleanly outside one (AC-002). `corpus worktree` with no subcommand, or
+// `suspec worktree <create|list|remove|prune> …` — the launch engine's no-agent command surface
+// (AC-009/010). Operates on a git repo (not a Suspec workspace): it resolves the repo root and works
+// in any git repo, erroring cleanly outside one (AC-002). `suspec worktree` with no subcommand, or
 // `-i`, opens the interactive flow.
 
 import { ok, isErr } from '../../../infra/errors/result.ts';
@@ -11,7 +11,7 @@ import {
     emit_error,
     usage_error,
     create_worktree,
-    list_corpus_worktrees,
+    list_suspec_worktrees,
     remove_worktree,
     prune_worktrees,
     is_safe_segment,
@@ -52,10 +52,10 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     if (subcommand === 'create') {
         const slug = positional[1];
         if (slug === undefined) {
-            return emit_error(usage_error('usage: corpus worktree create <slug> [--task <t>] [--base <branch>]'), json);
+            return emit_error(usage_error('usage: suspec worktree create <slug> [--task <t>] [--base <branch>]'), json);
         }
         // The slug becomes a `.worktrees/<slug>` directory name — it must be a single safe segment so it
-        // cannot escape (`../…`) or nest (`a/b/c`), the same guard scaffold/cut use (corpus-works #22).
+        // cannot escape (`../…`) or nest (`a/b/c`), the same guard scaffold/cut use (suspec-works #22).
         if (!is_safe_segment(slug)) {
             return emit_error(
                 usage_error(
@@ -70,8 +70,8 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
                 json
             );
         }
-        // SW-005: tie --task to a REAL cut task so the worktree branch tail matches what `corpus review`
-        // and `corpus run` later look up. The worker naturally passes a capability name (`create-list`)
+        // SW-005: tie --task to a REAL cut task so the worktree branch tail matches what `suspec review`
+        // and `suspec run` later look up. The worker naturally passes a capability name (`create-list`)
         // while the task id is `TASK-potluck-create-list`; the branch tail derives from the task id, so
         // the guessed name produced a branch nothing could find, and the old error suggested an
         // impossible recovery. Resolve --task against the workspace tasks (co-located layout) and derive
@@ -86,7 +86,7 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
                 // The raw --task was validated above, but the resolved value derives from the task file's
                 // frontmatter `id:` — re-validate it as a path-safe segment so a crafted id (e.g.
                 // `TASK-x/../y`) can never become the branch tail / `.worktrees/` dir name (defense in
-                // depth: git's ref-name rules also reject it, but Corpus should not rely on that alone).
+                // depth: git's ref-name rules also reject it, but Suspec should not rely on that alone).
                 if (!is_safe_segment(effectiveTaskSlug)) {
                     return emit_error(
                         usage_error(
@@ -101,7 +101,7 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
                     return emit_error(
                         usage_error(
                             `no task matching "${taskSlug}" in this workspace — cut it first with ` +
-                                `\`corpus new task --from <SPEC-id> --id <TASK-id>\`, or name one of: ${ids.join(', ')}`
+                                `\`suspec new task --from <SPEC-id> --id <TASK-id>\`, or name one of: ${ids.join(', ')}`
                         ),
                         json
                     );
@@ -137,7 +137,7 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     }
     if (subcommand === 'list') {
         return project({
-            result: ok(list_corpus_worktrees(repoRoot)),
+            result: ok(list_suspec_worktrees(repoRoot)),
             json,
             render: (report) => format_worktrees(report.worktrees),
         });
@@ -145,7 +145,7 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     if (subcommand === 'remove') {
         const slug = positional[1];
         if (slug === undefined) {
-            return emit_error(usage_error('usage: corpus worktree remove <slug> [--task <t>] [--force]'), json);
+            return emit_error(usage_error('usage: suspec worktree remove <slug> [--task <t>] [--force]'), json);
         }
         if (!is_safe_segment(slug)) {
             return emit_error(usage_error(`invalid slug: "${slug}" — expected a single path-safe segment`), json);
@@ -162,7 +162,7 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     if (subcommand === undefined) {
         return emit_error(
             usage_error(
-                'usage: corpus worktree <create|list|remove|prune> [slug] [--task <t>] [--base <branch>] [--force]'
+                'usage: suspec worktree <create|list|remove|prune> [slug] [--task <t>] [--base <branch>] [--force]'
             ),
             json
         );

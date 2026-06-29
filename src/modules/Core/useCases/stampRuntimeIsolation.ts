@@ -23,7 +23,7 @@ export type StampRuntimeIsolationReport = Readonly<{
     port: number | null;
 }>;
 
-const STAMP_FILENAME = '.corpus-runtime.json';
+const STAMP_FILENAME = '.suspec-runtime.json';
 
 // A stable, deterministic offset from the slug: hash(slug) mod range size. Distinct slugs usually map
 // to distinct offsets, but collisions are possible once the number of live worktrees approaches the

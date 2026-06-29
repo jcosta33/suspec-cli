@@ -1,4 +1,4 @@
-// PrepareEngine — `corpus stamp <ref>` (ADR-0107/0108): write the provenance stamp that makes
+// PrepareEngine — `suspec stamp <ref>` (ADR-0107/0108): write the provenance stamp that makes
 // staleness detection live. A SPEC gets `snapshot:` = the code repo's current HEAD (the state its text
 // was written against — snapshot-staleness compares against it). A REVIEW gets `reviewed_sha:` = HEAD +
 // `evidence_hash:` = the reconcile's evidence digest (fast-track re-validates against it). Both are an

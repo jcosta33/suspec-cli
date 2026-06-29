@@ -35,7 +35,7 @@ export type WorkspaceFinding = Readonly<{
         | 'nonactive-spec-with-execution';
     // SW-006: an unfilled {{placeholder}} in a freshly-scaffolded AGENTS.md is a "finish setup" nudge,
     // not broken work — it must NOT block the gate on day one (the kit's own AGENTS.md ships with
-    // placeholders, so `corpus check` right after `corpus init` would otherwise greet a new user with a
+    // placeholders, so `suspec check` right after `suspec init` would otherwise greet a new user with a
     // red blocking verdict on boilerplate). A duplicate id (C002) or a missing templates/ tree is a
     // real structural defect and stays blocking.
     level: 'blocking' | 'warning';
@@ -399,7 +399,7 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
     // Supersede resolution (ADR-0106 item 4, ungated by ADR-0108): every `superseded_by` resolves to a
     // real spec id, and a `status: superseded` spec names its replacement. Deterministic set-membership
     // (a strong 0-FP candidate, like the spec-coverage-drift advisory) — but ADVISORY: a `warning`, no
-    // C-id, no checks.yaml rule, until measured 0-FP on the real corpus and promoted (ADR-0063).
+    // C-id, no checks.yaml rule, until measured 0-FP on the real suspec and promoted (ADR-0063).
     for (const { path, supersededBy, status } of supersessions) {
         if (supersededBy !== null && !frontmatterIdToPaths.has(supersededBy)) {
             findings.push({
@@ -436,7 +436,7 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
                 findings.push({
                     code: 'unpromoted-finding',
                     level: 'warning',
-                    message: `${path} names finding candidate "${slug}" but findings/${slug}.md does not exist — promote it (corpus promote) or drop the mention`,
+                    message: `${path} names finding candidate "${slug}" but findings/${slug}.md does not exist — promote it (suspec promote) or drop the mention`,
                 });
             }
         }
@@ -450,7 +450,7 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
             findings.push({
                 code: 'incomplete-execution-digest',
                 level: 'warning',
-                message: `${path}: Execution entry "${label}" has one staleness pin but not the other — complete it (reviewed-sha + evidence-hash, via corpus stamp) or drop both (ADR-0110)`,
+                message: `${path}: Execution entry "${label}" has one staleness pin but not the other — complete it (reviewed-sha + evidence-hash, via suspec stamp) or drop both (ADR-0110)`,
             });
         }
     }

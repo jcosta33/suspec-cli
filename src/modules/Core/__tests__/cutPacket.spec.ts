@@ -28,7 +28,7 @@ The tool must do two. Verify with: a test.
 `;
 
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'corpus-cut-'));
+    ws = mkdtempSync(join(tmpdir(), 'suspec-cut-'));
     mkdirSync(join(ws, 'specs', 'x'), { recursive: true });
     writeFileSync(join(ws, 'specs', 'x', 'spec.md'), SPEC_X);
     mkdirSync(join(ws, 'specs', 'notaspec'), { recursive: true }); // no spec.md → skipped while scanning
@@ -54,7 +54,7 @@ describe('cut_packet', () => {
     it("pre-fills each Verify line with the spec's parsed `Verify with:` command, not a {{command}} placeholder (SW-003)", () => {
         // A spec whose ACs put `Verify with:` on its OWN line (the shape the parser lifts a command from):
         // the cut packet must carry that command per scoped AC (the tool already parsed it), so the worker
-        // is not retyping data `corpus new task` already had.
+        // is not retyping data `suspec new task` already had.
         mkdirSync(join(ws, 'specs', 'v'), { recursive: true });
         writeFileSync(
             join(ws, 'specs', 'v', 'spec.md'),
@@ -91,7 +91,7 @@ describe('cut_packet', () => {
         expect(assertErr(cut_packet({ workspaceDir: ws, specId: 'SPEC-missing', scope: [] }))._tag).toBe(
             'SpecNotFound'
         );
-        const bare = mkdtempSync(join(tmpdir(), 'corpus-cut-bare-'));
+        const bare = mkdtempSync(join(tmpdir(), 'suspec-cut-bare-'));
         try {
             expect(assertErr(cut_packet({ workspaceDir: bare, specId: 'SPEC-x', scope: [] }))._tag).toBe(
                 'SpecNotFound'

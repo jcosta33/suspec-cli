@@ -5,7 +5,7 @@
 
 import { intro, outro, note, log, select, multiselect, confirm, text, spinner, isCancel } from '@clack/prompts';
 
-export const CANCEL: unique symbol = Symbol('corpus.prompt.cancel');
+export const CANCEL: unique symbol = Symbol('suspec.prompt.cancel');
 export type Cancelled = typeof CANCEL;
 
 export type Choice<TValue> = Readonly<{ value: TValue; label: string; hint?: string }>;

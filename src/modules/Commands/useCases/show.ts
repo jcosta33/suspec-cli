@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-// `corpus show <task|spec|review|checks> [ref]` — a read-only projection of a parsed Corpus artifact, the
-// loader surface corpus-mcp (ADR-0085) adapts over the `--json` contract. Thin: parse flags, call the
+// `suspec show <task|spec|review|checks> [ref]` — a read-only projection of a parsed Suspec artifact, the
+// loader surface suspec-mcp (ADR-0085) adapts over the `--json` contract. Thin: parse flags, call the
 // reconcile-only `show_artifact` engine, project. Renders no verdict and writes nothing.
-//   corpus show task <stem>        the parsed task packet (scope, affected areas, claimed changes)
-//   corpus show spec <id|path>     the parsed spec (frontmatter, requirements + verify commands)
-//   corpus show review <stem>      the parsed review packet (status, coverage rows, verify blocks)
-//   corpus show checks             the checks contract (version + the core checks)
+//   suspec show task <stem>        the parsed task packet (scope, affected areas, claimed changes)
+//   suspec show spec <id|path>     the parsed spec (frontmatter, requirements + verify commands)
+//   suspec show review <stem>      the parsed review packet (status, coverage rows, verify blocks)
+//   suspec show checks             the checks contract (version + the core checks)
 //   --json                        machine output
 
 import { project, show_artifact } from '../../Core/useCases/index.ts';

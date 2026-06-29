@@ -1,8 +1,8 @@
-// ReconcileEngine — `corpus clean` (SPEC-corpus-clean, ADR-0106 item 2). Read-only v0: scan the
+// ReconcileEngine — `suspec clean` (SPEC-suspec-clean, ADR-0106 item 2). Read-only v0: scan the
 // ephemeral artifact dirs (tasks/, reviews/) and report which files are SPENT — their work reached a
 // terminal status — and so are prune candidates. Reads the filesystem; writes nothing. The destructive
 // --apply (delete the gitignored / archive the committed) is deferred until the prune-window policy is
-// ratified (SPEC-corpus-clean D1). NEVER reads the durable set (specs, findings, decisions, the board)
+// ratified (SPEC-suspec-clean D1). NEVER reads the durable set (specs, findings, decisions, the board)
 // — this scan only ever opens tasks/ and reviews/.
 
 import { readdirSync, existsSync, readFileSync } from 'fs';

@@ -26,7 +26,7 @@ function capture(fn: () => number): { out: string; code: number } {
 }
 
 beforeEach(() => {
-    repo = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-stamp-cmd-')));
+    repo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-stamp-cmd-')));
     git(['init']);
     git(['config', 'user.email', 't@e.com']);
     git(['config', 'user.name', 'T']);
@@ -79,7 +79,7 @@ describe('stamp command', () => {
     });
 
     it('errors when run outside a git repo (no --repo)', () => {
-        const bare = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-stamp-nogit-')));
+        const bare = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-stamp-nogit-')));
         const { code } = capture(() => run(['feat'], bare));
         rmSync(bare, { recursive: true, force: true });
         expect(code).not.toBe(0);

@@ -8,7 +8,7 @@ import { assertOk } from '../../../infra/errors/testing/assertOk.ts';
 import { create_worktree } from '../useCases/createWorktree.ts';
 import { remove_worktree } from '../useCases/removeWorktree.ts';
 
-// The ahead-of-remote advisory (corpus-works #46): create_worktree reports how far the base branch is ahead
+// The ahead-of-remote advisory (suspec-works #46): create_worktree reports how far the base branch is ahead
 // of its remote so the command can warn that a PR cut from the worktree would carry unpushed base
 // commits. The probe is injectable, so the advisory is exercised here without a real remote; the git
 // orchestration runs against a throwaway repo. The advisory is non-fatal — the level stays clean.
@@ -19,7 +19,7 @@ let baseBranch: string;
 const git = (args: string[]) => execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8' });
 
 beforeAll(() => {
-    repoRoot = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-ahead-')));
+    repoRoot = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-ahead-')));
     git(['init']);
     git(['config', 'user.email', 'test@example.com']);
     git(['config', 'user.name', 'Test']);

@@ -30,7 +30,7 @@ describe('print_help', () => {
             spy.mockRestore();
         }
         const text = out.join('');
-        expect(text).toContain('corpus');
+        expect(text).toContain('suspec');
         expect(text).toContain('Usage');
         for (const command of COMMAND_CATALOG) {
             expect(text).toContain(command.name);
@@ -42,7 +42,7 @@ describe('print_help', () => {
 describe('print_command_help', () => {
     it('prints one command’s usage block', () => {
         const text = capture(() => print_command_help('worktree'));
-        expect(text).toContain('corpus worktree');
+        expect(text).toContain('suspec worktree');
         expect(text).toContain('Usage');
         expect(text).toContain('create');
     });

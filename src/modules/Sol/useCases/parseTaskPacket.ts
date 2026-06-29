@@ -29,7 +29,7 @@ export type TaskPacket = Readonly<{
     doNotChange: readonly string[];
     // The files the Run summary claims changed (self-report; reconciled against the real diff).
     claimedChangedFiles: readonly string[];
-    // The embedded spec slice (ADR-0100, corpus-cli#2): the spec id + scoped requirements (id + Verify
+    // The embedded spec slice (ADR-0100, suspec-cli#2): the spec id + scoped requirements (id + Verify
     // command) copied into the task's `## Spec snapshot` at cut. Lets a review be validated when the live
     // spec is in a SEPARATE repo (unresolvable from the workspace). null id + [] when no snapshot.
     embeddedSpecId: string | null;
@@ -45,12 +45,12 @@ const ANY_H2 = /^##\s+/;
 const BACKTICK_TOKEN = /`([^`]+)`/g;
 // A bare path-like token (so prose words are skipped). Three shapes: a slash-separated path; a dotted
 // filename with one or more dots and an optional leading dot (`a.ts`, `vite.config.ts`,
-// `tsconfig.base.json`, `.eslintrc.json`, `.env.example` — corpus-works #44 widened this past the old
+// `tsconfig.base.json`, `.eslintrc.json`, `.env.example` — suspec-works #44 widened this past the old
 // single-dot form that dropped multi-dot config files); and a leading-dot dotfile with no extension
 // (`.gitignore`, `.prettierrc`). A no-dot, no-slash, no-leading-dot token (`Makefile`, `LICENSE`) stays
 // ambiguous with a prose word and is the only residual not recognized. Written non-backtracking — every
 // `/`- or `.`-separated segment excludes its own separator, so a long non-matching token cannot trigger
-// the quadratic backtracking the previous slash form had (an O(n²) ReDoS — corpus-works #15).
+// the quadratic backtracking the previous slash form had (an O(n²) ReDoS — suspec-works #15).
 const PATH_LIKE = /^[\w.@-]+(?:\/[\w.@-]+)+$|^\.?[\w@-]+(?:\.[\w@-]+)+$|^\.[\w@-]+$/;
 // A top-level frontmatter key (`key:` at column 0) — bounds a wrapped `scope:` flow list.
 const TOP_LEVEL_KEY = /^[A-Za-z0-9_-]+:/;
@@ -72,7 +72,7 @@ function split_scope(rawValue: string): string[] {
 // The declared scope ids from the frontmatter `scope:` value. A flow list can wrap across lines
 // (`scope: [AC-001,` … `]`) or sit entirely on the lines after `scope:` (the bracket-on-next-line and
 // block-list shapes); accumulate continuation lines until the list closes (`]`) or the next top-level
-// key, so a wrapped scope is not silently under-read (corpus-works #15). [] when there is no fence / no key.
+// key, so a wrapped scope is not silently under-read (suspec-works #15). [] when there is no fence / no key.
 function read_scope(source: string): string[] {
     const split = split_frontmatter(source);
     if (isErr(split)) {
@@ -171,7 +171,7 @@ function path_entries(lines: readonly string[]): string[] {
 }
 
 // The path-like tokens in one logical block's text — backtick-quoted by convention, with a bare-token
-// fallback when none are backticked — keeping only the **path-like** ones (corpus-works #44). Path-validating
+// fallback when none are backticked — keeping only the **path-like** ones (suspec-works #44). Path-validating
 // both branches is the precision fix: a backticked non-path token (a commit sha `0791385`, a function
 // name `reconcile_self_report`, a command) is not mistaken for a claimed file, so it cannot raise a
 // spurious `claimedNotInDiff`; and prose with no path-like tokens yields no claims. The residual cost is
@@ -232,7 +232,7 @@ function claimed_changed_files(lines: readonly string[]): string[] {
     return [...new Set(paths)].sort();
 }
 
-// The `## Spec snapshot` embedded slice (ADR-0100, corpus-cli#2). The section carries `embedded-spec:
+// The `## Spec snapshot` embedded slice (ADR-0100, suspec-cli#2). The section carries `embedded-spec:
 // <id>` then `- <ID> — verify: \`cmd\`` (or `(none)`) lines.
 const SPEC_SNAPSHOT_HEADING = /^##\s+Spec snapshot\s*$/i;
 const EMBEDDED_SPEC = /^embedded-spec:\s*(\S+)\s*$/;

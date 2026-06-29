@@ -5,7 +5,7 @@ import { join } from 'path';
 
 import { run } from '../useCases/show.ts';
 
-// `corpus show <kind> [ref] [--json]` — the read-only loader command. Mirrors status.spec: build a
+// `suspec show <kind> [ref] [--json]` — the read-only loader command. Mirrors status.spec: build a
 // minimal workspace, drive run(), assert the projected JSON + the exit posture (0 clean · 2 error).
 
 const SPEC = `---
@@ -48,7 +48,7 @@ status: ready
 
 let ws: string;
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'corpus-show-cmd-'));
+    ws = mkdtempSync(join(tmpdir(), 'suspec-show-cmd-'));
     mkdirSync(join(ws, 'specs', 'feat'), { recursive: true });
     mkdirSync(join(ws, 'tasks'), { recursive: true });
     writeFileSync(join(ws, 'specs', 'feat', 'spec.md'), SPEC);
@@ -70,7 +70,7 @@ function capture(fn: () => number): { out: string; code: number } {
     }
 }
 
-describe('corpus show command', () => {
+describe('suspec show command', () => {
     it('checks --json → exit 0, emits {kind:checks} with version + checks', () => {
         const { out, code } = capture(() => run(['checks', '--json'], ws));
         expect(code).toBe(0);

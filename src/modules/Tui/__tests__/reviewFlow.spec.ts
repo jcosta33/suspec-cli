@@ -59,9 +59,9 @@ let repo: string;
 const git = (args: string[], cwd = repo) => execFileSync('git', args, { cwd, encoding: 'utf8' });
 
 // Build a finished-run workspace: a repo with specs/ + tasks/, and a launched worktree on
-// corpus/feat/feat carrying a committed change.
+// suspec/feat/feat carrying a committed change.
 beforeEach(() => {
-    repo = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-reviewflow-')));
+    repo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-reviewflow-')));
     git(['init']);
     git(['config', 'user.email', 't@e.com']);
     git(['config', 'user.name', 'T']);
@@ -74,7 +74,7 @@ beforeEach(() => {
 
     const base = git(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
     const wt = join(repo, '.worktrees', 'feat-feat');
-    git(['worktree', 'add', '-b', 'corpus/feat/feat', wt, base]);
+    git(['worktree', 'add', '-b', 'suspec/feat/feat', wt, base]);
     writeFileSync(join(wt, 'src-a.ts'), 'x'); // an uncommitted change in the run's worktree
 });
 afterEach(() => {
@@ -139,7 +139,7 @@ describe('run_review_flow (AC-027)', () => {
     });
 
     it('errors cleanly outside a git repo', async () => {
-        const notRepo = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-norepo-')));
+        const notRepo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-norepo-')));
         try {
             const p = create_mock_prompter({});
             expect(await run_review_flow(p, { workspaceDir: notRepo })).toBe(2);

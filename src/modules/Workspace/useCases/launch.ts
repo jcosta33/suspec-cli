@@ -1,7 +1,7 @@
-// The launch edge for `corpus run` (SPEC-corpus-cli-run): spawn the configured agent program in the
-// task's worktree, and write the launch-envelope run record under the code repo's `.corpus/work/`. Both
+// The launch edge for `suspec run` (SPEC-suspec-cli-run): spawn the configured agent program in the
+// task's worktree, and write the launch-envelope run record under the code repo's `.suspec/work/`. Both
 // impure actions live here in the Workspace leaf beside the git/file edges, so the command stays thin
-// and the no-board-write invariant has one place to scan. `corpus run` never *becomes* the agent — it
+// and the no-board-write invariant has one place to scan. `suspec run` never *becomes* the agent — it
 // launches the program, inherits the terminal, waits, and records the exit (D2: interactive, not
 // headless-captured).
 
@@ -14,19 +14,19 @@ import { createAppError, type AppError } from '../../../infra/errors/createAppEr
 
 export type LaunchError = AppError<'LaunchFailed', { command: string; detail: string }>;
 
-// The delegation-provenance block (ADR-0088): the trace fields `corpus run` knows when it launches a
+// The delegation-provenance block (ADR-0088): the trace fields `suspec run` knows when it launches a
 // worker — a record, never a verdict (ADR-0077 Decision 8). The contract's fuller fields (the worker's
 // inputs/filtered-context/tools/evidence) come from the in-session SubagentStart/Stop hook producer,
 // not this interactive launcher, which sees only what it launched and how it exited.
 export type RunProvenance = Readonly<{
     worker: string; // the adapter/worker launched
     reason: string; // the task it was delegated
-    isolation: 'worktree'; // `corpus run` always launches in the task's git worktree
+    isolation: 'worktree'; // `suspec run` always launches in the task's git worktree
     could_edit: boolean; // the launched agent can write in the worktree (interactive, unrestricted)
     exit: number; // the worker's exit, recorded as a fact
 }>;
 
-// The launch run record (AC-004 / ADR-0088): the facts `corpus review` reads as the recorded start
+// The launch run record (AC-004 / ADR-0088): the facts `suspec review` reads as the recorded start
 // point, plus the delegation-provenance block and the changed-files snapshot (ADR-0088 producer 1).
 // `changed_files` is the worktree diff after the agent exits (committed-since-base ∪ uncommitted);
 // `commands[]` (the agent's own commands) stays a deferred milestone (D1). Both new fields are additive
@@ -76,7 +76,7 @@ export function launch_adapter(
 
 // A filesystem-safe stem for the run-record filename: the task id minus a leading `TASK-`, lower-cased,
 // with every character outside `[a-z0-9._-]` collapsed to `-`. `/` (and any separator) can never
-// survive, so the write stays inside `.corpus/work/` — that is the load-bearing safety property. (A
+// survive, so the write stays inside `.suspec/work/` — that is the load-bearing safety property. (A
 // literal `..` could still appear as a filename component, e.g. from a `..`-laden id, but never as a
 // path separator; and two ids differing only in case collapse to one file. The record's own `task_id`
 // field preserves the exact id, so a collision overwrites with a correctly-labelled record.)
@@ -88,12 +88,12 @@ function record_stem(taskId: string): string {
 }
 
 /**
- * Write the run record under `<repoRoot>/.corpus/work/<task>.json` — gitignored scratch in the CODE
+ * Write the run record under `<repoRoot>/.suspec/work/<task>.json` — gitignored scratch in the CODE
  * repo, not a committed workspace artifact. Overwrite-by-design: each launch replaces the task's record
  * (unlike the no-clobber workspace writer). Never writes the workspace board or any workspace path.
  */
 export function write_run_record(repoRoot: string, record: RunRecord): { path: string } {
-    const dir = join(repoRoot, '.corpus', 'work');
+    const dir = join(repoRoot, '.suspec', 'work');
     const path = join(dir, `${record_stem(record.task_id)}.json`);
     mkdirSync(dir, { recursive: true });
     writeFileSync(path, `${JSON.stringify(record, null, 2)}\n`);

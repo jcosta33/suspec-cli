@@ -1,7 +1,7 @@
-// PrepareEngine — `corpus review <task> --write` (W4b, AC-001/002/003/006). Render a DRAFT review
+// PrepareEngine — `suspec review <task> --write` (W4b, AC-001/002/003/006). Render a DRAFT review
 // packet from the kit `review.md` template, populated from the SAME read-only reconcile the M2
 // command surfaces (reconcile_review) — it adds NO new reconcile logic. Writing a draft is a
-// prepare/scaffold operation (like `corpus new`), not adjudication: the human owns every Result
+// prepare/scaffold operation (like `suspec new`), not adjudication: the human owns every Result
 // (ADR-0077 Decision 8). Pure: source records in, the rendered markdown out — the caller (the
 // command / the Workspace write helper) owns the single no-clobber file write (AC-004).
 //

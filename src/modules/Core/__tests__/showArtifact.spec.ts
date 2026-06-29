@@ -125,7 +125,7 @@ evidence_hash: deadbeefcafe0000
 
 let ws: string;
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'corpus-show-'));
+    ws = mkdtempSync(join(tmpdir(), 'suspec-show-'));
     mkdirSync(join(ws, 'specs', 'feat'), { recursive: true });
     mkdirSync(join(ws, 'tasks'), { recursive: true });
     mkdirSync(join(ws, 'reviews'), { recursive: true });
@@ -139,7 +139,7 @@ afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
 describe('show_artifact', () => {
     it('accepts a file PATH with the kind omitted, inferring the kind from frontmatter type (R4-ISS-16)', () => {
-        // `corpus show specs/feat/spec.md` (no `spec` kind) must work like `corpus check <path>`.
+        // `suspec show specs/feat/spec.md` (no `spec` kind) must work like `suspec check <path>`.
         const spec = show_artifact({ workspaceDir: ws, kind: 'specs/feat/spec.md' });
         expect(isErr(spec)).toBe(false);
         if (!isErr(spec)) {
@@ -305,7 +305,7 @@ describe('show_artifact', () => {
     });
 
     it('confines reads to the workspace — a valid spec OUTSIDE the workspace is refused, not read (#42)', () => {
-        const root = mkdtempSync(join(tmpdir(), 'corpus-show-root-'));
+        const root = mkdtempSync(join(tmpdir(), 'suspec-show-root-'));
         try {
             const inner = join(root, 'ws');
             mkdirSync(inner, { recursive: true });

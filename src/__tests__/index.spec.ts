@@ -58,14 +58,14 @@ describe('dispatch (AC-004/014)', () => {
     it('--version / -v prints the version, exit 0', async () => {
         const version = await capture(() => dispatch(['--version']));
         expect(version.code).toBe(0);
-        expect(version.out).toMatch(/^corpus \d+\.\d+\.\d+/);
-        expect((await capture(() => dispatch(['-v']))).out).toContain('corpus ');
+        expect(version.out).toMatch(/^suspec \d+\.\d+\.\d+/);
+        expect((await capture(() => dispatch(['-v']))).out).toContain('suspec ');
     });
 
     it('<command> --help prints that command’s usage and does not run the command', async () => {
         const help = await capture(() => dispatch(['check', '--help']));
         expect(help.code).toBe(0);
-        expect(help.out).toContain('corpus check');
+        expect(help.out).toContain('suspec check');
         expect(help.out).toContain('Usage');
         const worktree = await capture(() => dispatch(['worktree', '-h']));
         expect(worktree.code).toBe(0);
@@ -75,7 +75,7 @@ describe('dispatch (AC-004/014)', () => {
     it('no args, non-TTY → prints help, exit 0', async () => {
         const { code, out } = await capture(() => dispatch([]));
         expect(code).toBe(0);
-        expect(out).toContain('corpus');
+        expect(out).toContain('suspec');
     });
 
     it('an unknown command → stderr + exit 2', async () => {
@@ -85,7 +85,7 @@ describe('dispatch (AC-004/014)', () => {
     });
 
     it('routes to a command (status over a workspace)', async () => {
-        const ws = mkdtempSync(join(tmpdir(), 'corpus-dispatch-'));
+        const ws = mkdtempSync(join(tmpdir(), 'suspec-dispatch-'));
         try {
             mkdirSync(join(ws, 'specs', 'x'), { recursive: true });
             writeFileSync(join(ws, 'specs', 'x', 'spec.md'), '---\ntype: spec\nid: SPEC-x\nstatus: ready\n---\n');

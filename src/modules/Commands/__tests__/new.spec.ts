@@ -24,7 +24,7 @@ Verify with: a test.
 
 let ws: string;
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'corpus-new-cmd-'));
+    ws = mkdtempSync(join(tmpdir(), 'suspec-new-cmd-'));
     mkdirSync(join(ws, 'specs', 'x'), { recursive: true });
     writeFileSync(join(ws, 'specs', 'x', 'spec.md'), SPEC_X);
 });
@@ -168,7 +168,7 @@ describe('new command (direct surface, AC-013)', () => {
     it('no type (non-TTY) → prints usage, never the literal "undefined"', async () => {
         const { code, err } = await capture(() => run([], ws));
         expect(code).toBe(2);
-        expect(err).toContain('usage: corpus new');
+        expect(err).toContain('usage: suspec new');
         expect(err).not.toContain('undefined');
     });
 

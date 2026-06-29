@@ -1,9 +1,9 @@
-// ReconcileEngine — spec staleness (ADR-0108 item 4; SPEC-spec-staleness-detection; corpus-cli#2
+// ReconcileEngine — spec staleness (ADR-0108 item 4; SPEC-spec-staleness-detection; suspec-cli#2
 // cross-root). For each spec that records a `snapshot:` SHA, diff its `## Affected areas` paths between
 // that SHA and the working tree; any change flags the spec as possibly stale. ADVISORY — a warning, no
 // C-id, no checks.yaml, never blocking — until measured and promoted (ADR-0063; DOCER has false
-// positives). CROSS-ROOT: a context-prefixed area (`corpus-cli/src/…`) is resolved to its SIBLING repo
-// (`../corpus-cli`) and diffed THERE, so a spec in a dedicated workspace whose code lives in sibling
+// positives). CROSS-ROOT: a context-prefixed area (`suspec-cli/src/…`) is resolved to its SIBLING repo
+// (`../suspec-cli`) and diffed THERE, so a spec in a dedicated workspace whose code lives in sibling
 // repos (the multi-repo layout) is checked correctly; the `snapshot:` SHA resolves in exactly the repo
 // it belongs to (others return null → those areas skip). Everything degrades to silence (0-FP): no
 // snapshot, draft, unresolvable SHA, no git, missing sibling. Read-only.
@@ -35,7 +35,7 @@ export type StalenessReport = Readonly<{
 export type ScanStalenessInput = Readonly<{ workspaceDir: string; repoRoot: string }>;
 
 // The `## Affected areas` section's backtick-wrapped paths. A path-shaped token contains a slash or a
-// dot-extension and is not a `{{placeholder}}` — so a prose backtick (e.g. `corpus check`) is ignored.
+// dot-extension and is not a `{{placeholder}}` — so a prose backtick (e.g. `suspec check`) is ignored.
 function affected_area_paths(source: string): string[] {
     const lines = source.split(/\r\n|[\r\n]/);
     const out: string[] = [];
@@ -65,9 +65,9 @@ function is_under(changed: string, area: string): boolean {
     return changed === a || changed.startsWith(`${a}/`);
 }
 
-// Resolve a declared Affected-area path to the git repo it lives in (corpus-cli#2 cross-root). A
-// context-prefixed path (`corpus-cli/src/foo.ts`) whose first segment names a SIBLING git repo
-// (`<workspaceParent>/corpus-cli` with a `.git`) resolves to that sibling; everything else resolves to
+// Resolve a declared Affected-area path to the git repo it lives in (suspec-cli#2 cross-root). A
+// context-prefixed path (`suspec-cli/src/foo.ts`) whose first segment names a SIBLING git repo
+// (`<workspaceParent>/suspec-cli` with a `.git`) resolves to that sibling; everything else resolves to
 // the workspace's own repo. Returns the repo root and the area path AS SEEN INSIDE that repo (the
 // sibling prefix stripped, so it matches the sibling's repo-relative diff output).
 function resolve_area_repo(workspaceDir: string, repoRoot: string, area: string): { repo: string; areaInRepo: string } {

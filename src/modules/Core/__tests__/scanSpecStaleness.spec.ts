@@ -11,7 +11,7 @@ let repo: string;
 const git = (args: string[]): string => execFileSync('git', args, { cwd: repo, encoding: 'utf8' });
 
 beforeEach(() => {
-    repo = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-stale-')));
+    repo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-stale-')));
     git(['init']);
     git(['config', 'user.email', 't@e.com']);
     git(['config', 'user.name', 'T']);
@@ -26,7 +26,7 @@ function writeSpec(opts: { snapshot?: string; status?: string; area?: string }):
     mkdirSync(join(repo, 'specs', 'x'), { recursive: true });
     const snapLine = opts.snapshot !== undefined ? `snapshot: ${opts.snapshot}\n` : '';
     const area = opts.area ?? 'src/a.ts';
-    const spec = `---\ntype: spec\nid: SPEC-x\nstatus: ${opts.status ?? 'active'}\n${snapLine}sources:\n  - self\n---\n\n## Affected areas\n\n- \`${area}\` — run \`corpus check\` after\n`;
+    const spec = `---\ntype: spec\nid: SPEC-x\nstatus: ${opts.status ?? 'active'}\n${snapLine}sources:\n  - self\n---\n\n## Affected areas\n\n- \`${area}\` — run \`suspec check\` after\n`;
     writeFileSync(join(repo, 'specs', 'x', 'spec.md'), spec);
 }
 
@@ -96,19 +96,19 @@ describe('scan_spec_staleness (ADR-0108 item 4; SPEC-spec-staleness-detection)',
         // The sibling ../<prefix> is absent → resolve falls back to THIS repo. The snapshot is a foreign
         // SHA that does not exist here, so paths_changed_since returns null → the area skips. This holds
         // even when a workspace dir happens to be named like the prefix and a file under it changed.
-        mkdirSync(join(repo, 'corpus-cli', 'src'), { recursive: true });
-        writeFileSync(join(repo, 'corpus-cli', 'src', 'foo.ts'), 'v1\n');
+        mkdirSync(join(repo, 'suspec-cli', 'src'), { recursive: true });
+        writeFileSync(join(repo, 'suspec-cli', 'src', 'foo.ts'), 'v1\n');
         git(['add', '.']);
         git(['commit', '-m', 'c']);
-        writeSpec({ snapshot: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef', area: 'corpus-cli/src/foo.ts' });
-        writeFileSync(join(repo, 'corpus-cli', 'src', 'foo.ts'), 'v2\n'); // a real change, but the SHA is foreign here
+        writeSpec({ snapshot: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef', area: 'suspec-cli/src/foo.ts' });
+        writeFileSync(join(repo, 'suspec-cli', 'src', 'foo.ts'), 'v2\n'); // a real change, but the SHA is foreign here
         const report = assertOk(scan_spec_staleness({ workspaceDir: repo, repoRoot: repo }));
         expect(report.stale).toEqual([]); // foreign SHA unresolvable in the fallback repo → skipped
     });
 
-    it('cross-root: resolves a sibling-repo area and flags drift THERE (corpus-cli#2)', () => {
+    it('cross-root: resolves a sibling-repo area and flags drift THERE (suspec-cli#2)', () => {
         // A dedicated-workspace layout: the spec lives in `ws`, its code in the sibling repo `sib`.
-        const parent = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-stale-xroot-')));
+        const parent = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-stale-xroot-')));
         const ws = join(parent, 'ws');
         const sib = join(parent, 'sib');
         const gitIn = (dir: string, args: string[]): string => execFileSync('git', args, { cwd: dir, encoding: 'utf8' });

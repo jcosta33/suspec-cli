@@ -33,7 +33,7 @@ Verify with: a test.
 `;
 
 beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'corpus-anchor-'));
+    dir = mkdtempSync(join(tmpdir(), 'suspec-anchor-'));
 });
 afterEach(() => {
     rmSync(dir, { recursive: true, force: true });

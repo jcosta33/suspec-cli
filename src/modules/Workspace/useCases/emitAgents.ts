@@ -1,5 +1,5 @@
-// EmitAgents (`corpus agents emit --codex`, ADR-0098). Reads the Claude Code agent definitions in a
-// source dir (the corpus-agents `agents/*.md` form) and projects each into an OpenAI Codex
+// EmitAgents (`suspec agents emit --codex`, ADR-0098). Reads the Claude Code agent definitions in a
+// source dir (the suspec-agents `agents/*.md` form) and projects each into an OpenAI Codex
 // `.codex/agents/<name>.toml`. Reuse, not duplication: the `agents/*.md` files stay the single source;
 // this GENERATES the Codex form, so the two never drift by hand. No agent is launched, no network —
 // it reads markdown and writes TOML (the reconcile-only posture, ADR-0077, holds: it emits a
@@ -15,7 +15,7 @@ import { write_new_file } from './files.ts';
 
 export type EmitAgentsInput = Readonly<{
     // The dir holding the agent `*.md` definitions (default resolved by the command: ./.claude/agents,
-    // else ../corpus-agents/agents).
+    // else ../suspec-agents/agents).
     sourceDir: string;
     // The workspace root the `.codex/agents/` tree is written under.
     targetDir: string;
@@ -38,7 +38,7 @@ export function emit_agents(input: EmitAgentsInput): Result<EmitAgentsReport, Ap
         return err(
             createAppError(
                 'AgentsSourceMissing',
-                `no agent definitions found at ${input.sourceDir} — pass --from <dir> (e.g. ../corpus-agents/agents)`,
+                `no agent definitions found at ${input.sourceDir} — pass --from <dir> (e.g. ../suspec-agents/agents)`,
                 { source: input.sourceDir }
             )
         );
@@ -60,7 +60,7 @@ export function emit_agents(input: EmitAgentsInput): Result<EmitAgentsReport, Ap
                 continue; // not an agent definition (no frontmatter / no name) — skip quietly
             }
             if (def.status === 'retired') {
-                // A retired redirect stub (e.g. corpus-evidence-checker) is kept in `agents/` only to
+                // A retired redirect stub (e.g. suspec-evidence-checker) is kept in `agents/` only to
                 // resolve inbound Claude-Code refs; its own body says "do not install it". Honour that —
                 // project NO Codex toml for it. Unlike the quiet non-def skip above, log this one: it is
                 // an intentional drop, not an unrecognised file.

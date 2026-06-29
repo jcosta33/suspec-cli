@@ -1,7 +1,7 @@
 export type FlagSpec = Readonly<{ booleans: readonly string[]; strings: readonly string[] }>;
 
 // Boolean-aware argument parser. A declared boolean flag never swallows the next token as its value
-// (so `corpus check --json file.md` keeps file.md positional); a declared string flag consumes the
+// (so `suspec check --json file.md` keeps file.md positional); a declared string flag consumes the
 // next token; `--key=value` is split inline. Flag keys are returned without their leading dashes
 // (`--force` → `force`, `-i` → `i`). The sole CLI plumbing the M1 commands need.
 export function parse_flags(

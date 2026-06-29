@@ -10,7 +10,7 @@ import { run_dashboard_flow } from '../useCases/dashboardFlow.ts';
 
 let ws: string;
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'corpus-dash-'));
+    ws = mkdtempSync(join(tmpdir(), 'suspec-dash-'));
 });
 afterEach(() => {
     rmSync(ws, { recursive: true, force: true });

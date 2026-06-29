@@ -11,7 +11,7 @@ title: Demo
 status: ready
 owner: Jane
 sources:
-  - ADR-0077, ../corpus/docs/adrs/0077.md
+  - ADR-0077, ../suspec/docs/adrs/0077.md
   - JIRA-9
 ---
 
@@ -44,7 +44,7 @@ describe('parse_spec_record', () => {
         expect(record.frontmatter.id).toBe('SPEC-demo');
         expect(record.frontmatter.status).toBe('ready');
         expect(record.frontmatter.format).toBeNull();
-        expect(record.frontmatter.sources).toEqual(['ADR-0077', '../corpus/docs/adrs/0077.md', 'JIRA-9']);
+        expect(record.frontmatter.sources).toEqual(['ADR-0077', '../suspec/docs/adrs/0077.md', 'JIRA-9']);
         expect(record.frontmatter.supersededBy).toBeNull(); // absent on a living spec — the common case
     });
 
@@ -91,7 +91,7 @@ type: spec
 id: SPEC-cite
 status: ready
 sources:
-  - ../corpus/docs/research/sources.md
+  - ../suspec/docs/research/sources.md
 ---
 
 ## Requirements
@@ -125,7 +125,7 @@ Verify with: a test.
     });
 
     it('parses SOL `REQ <ID>:` requirement openers + their VERIFY BY command for format: sol (R4-ISS-01)', () => {
-        // Without this a format: sol spec parsed to ZERO requirements, so corpus check returned a false
+        // Without this a format: sol spec parsed to ZERO requirements, so suspec check returned a false
         // "clean" on any broken SOL spec — the core checks (id/verify/coverage) never saw the requirements.
         const source = `---\ntype: spec\nid: SPEC-led\nstatus: ready\nformat: sol\n---\n\n# Ledger\n\n## Requirements\n\nREQ AC-001:\nWHEN a client POSTs THE service MUST append\nVERIFY BY test:unit:cmdTest:lib#append\n\nREQ AC-002:\nWHEN a client GETs THE service MUST respond\nVERIFY BY test:unit:cmdTest:lib#read\n`;
         const record = assertOk(parse_spec_record({ source, path: 'led.md' }));

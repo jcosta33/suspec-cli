@@ -1,4 +1,4 @@
-// The dashboard hub (AC-015): `corpus` with no command opens this, routing to the daily reconcile-
+// The dashboard hub (AC-015): `suspec` with no command opens this, routing to the daily reconcile-
 // loop flows. `init` is a one-time setup command, not a daily dashboard action, so it stays
 // standalone. Pure orchestration over the injected Prompter + the per-flow modules.
 
@@ -11,7 +11,7 @@ import { run_new_flow } from './newFlow.ts';
 export type DashboardFlowDeps = Readonly<{ cwd: string }>;
 
 export async function run_dashboard_flow(prompter: Prompter, deps: DashboardFlowDeps): Promise<number> {
-    prompter.intro('corpus');
+    prompter.intro('suspec');
     const choice = await prompter.select({
         message: 'What would you like to do?',
         options: [

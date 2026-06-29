@@ -110,7 +110,7 @@ export function format_board(board: {
     return lines.length > 0 ? lines.join('\n') : color.dim('(no specs yet)');
 }
 
-// The `corpus review` reconcile report (M2). Surfaces FACTS and routes to Human attention — never a
+// The `suspec review` reconcile report (M2). Surfaces FACTS and routes to Human attention — never a
 // Pass/Fail/Unverified/Blocked result, never a merge decision (ADR-0077 Decision 8 / AC-023). The
 // input is structural (the engine report's fields); colour comes from picocolors.
 export type RenderReviewReport = Readonly<{
@@ -139,7 +139,7 @@ export type RenderReviewReport = Readonly<{
         missingSections: readonly string[];
     }>;
     packetSize: Readonly<{ changedLoc: number; filesTouched: number }> | null;
-    // Spec-coverage drift (corpus-cli#1) — NEUTRAL INFO, surfaced dim like the size note, never a ⚠
+    // Spec-coverage drift (suspec-cli#1) — NEUTRAL INFO, surfaced dim like the size note, never a ⚠
     // finding (the engine keeps it out of the advisory level until measured + promoted). null = no drift.
     specCoverageDrift: Readonly<{
         specCount: number;
@@ -216,7 +216,7 @@ export function format_review_report(report: RenderReviewReport): string {
         bullet(`${color.bold('missing-section')}  the review packet has no "${section}" section`);
     }
     // Spec-coverage drift: dim NEUTRAL line (like the size note), never a ⚠ finding — the spec grew
-    // under the task and the reviewer decides whether the untracked ids belong in this run (corpus-cli#1).
+    // under the task and the reviewer decides whether the untracked ids belong in this run (suspec-cli#1).
     if (report.specCoverageDrift !== null) {
         lines.push(`  ${color.dim(`spec-coverage drift — ${report.specCoverageDrift.message}`)}`);
     }
@@ -235,7 +235,7 @@ export function format_review_report(report: RenderReviewReport): string {
 
 export function format_worktrees(worktrees: readonly { branch: string; path: string; dirty: boolean }[]): string {
     if (worktrees.length === 0) {
-        return color.dim('(no corpus worktrees)');
+        return color.dim('(no suspec worktrees)');
     }
     return worktrees
         .map(
@@ -281,7 +281,7 @@ export function format_update_report(report: {
     )}`;
     const tail = report.changelog !== null ? `\n\n${color.dim('CHANGELOG:')}\n${report.changelog}` : '';
     const note = color.dim(
-        '\n\nrun `corpus update --write` to apply, or re-copy / cherry-pick the changed kit rules by hand'
+        '\n\nrun `suspec update --write` to apply, or re-copy / cherry-pick the changed kit rules by hand'
     );
     return `${head}${tail}${note}`;
 }
@@ -302,13 +302,13 @@ export function format_apply_report(report: {
     }
     const line = (label: string, items: readonly string[], paint: (s: string) => string) =>
         items.length > 0 ? `  ${paint(label)}: ${items.join(', ')}` : null;
-    // A backed-up user file now lives at `<file>.corpus-bak` and the kit's version is in place — the
+    // A backed-up user file now lives at `<file>.suspec-bak` and the kit's version is in place — the
     // adopter reconciles by hand. Surface that as the closing note so a `--write` is never read as
     // "your edits are gone". (Backup takes precedence — a run mixing both reports the destructive-ish
     // case first.)
     const reconcile_note = (): string => {
         if (report.backedUp.length > 0) {
-            return color.dim('\n\nyour prior versions are saved as `*.corpus-bak` — reconcile and delete them');
+            return color.dim('\n\nyour prior versions are saved as `*.suspec-bak` — reconcile and delete them');
         }
         if (report.skipped.length > 0) {
             return color.dim(

@@ -12,7 +12,7 @@ let repo: string;
 const git = (args: string[]) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' });
 
 beforeEach(() => {
-    repo = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-wtflow-')));
+    repo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-wtflow-')));
     git(['init']);
     git(['config', 'user.email', 't@e.com']);
     git(['config', 'user.name', 'T']);
@@ -32,13 +32,13 @@ describe('run_worktree_flow', () => {
     it('creates a worktree from a slug', async () => {
         const p = create_mock_prompter({ select: ['create'], text: ['checkout'] });
         expect(await run_worktree_flow(p, { cwd: repo })).toBe(0);
-        expect(git(['worktree', 'list'])).toContain('corpus/checkout');
-        expect(p.calls.successes.some((s) => s.includes('corpus/checkout'))).toBe(true);
+        expect(git(['worktree', 'list'])).toContain('suspec/checkout');
+        expect(p.calls.successes.some((s) => s.includes('suspec/checkout'))).toBe(true);
     });
 
     it('shows the assigned runtime port when an isolation range is configured (AC-010/015)', async () => {
         writeFileSync(
-            join(repo, 'corpus.config.json'),
+            join(repo, 'suspec.config.json'),
             JSON.stringify({ runtimeIsolation: { portRangeStart: 6000, portRangeSize: 20 } })
         );
         const p = create_mock_prompter({ select: ['create'], text: ['checkout'] });
@@ -48,9 +48,9 @@ describe('run_worktree_flow', () => {
 
     it('removes a chosen worktree (force)', async () => {
         await run_worktree_flow(create_mock_prompter({ select: ['create'], text: ['checkout'] }), { cwd: repo });
-        const p = create_mock_prompter({ select: ['remove', 'corpus/checkout'], confirm: [true] });
+        const p = create_mock_prompter({ select: ['remove', 'suspec/checkout'], confirm: [true] });
         expect(await run_worktree_flow(p, { cwd: repo })).toBe(0);
-        expect(git(['worktree', 'list'])).not.toContain('corpus/checkout');
+        expect(git(['worktree', 'list'])).not.toContain('suspec/checkout');
     });
 
     it('reuses an existing worktree on a repeat create', async () => {
@@ -66,12 +66,12 @@ describe('run_worktree_flow', () => {
         expect(p.calls.successes.length).toBeGreaterThan(0);
     });
 
-    it('removes a per-task worktree (parses corpus/<spec>/<task>)', async () => {
+    it('removes a per-task worktree (parses suspec/<spec>/<task>)', async () => {
         const base = git(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
-        git(['worktree', 'add', '-b', 'corpus/feat/ac-1', join(repo, '.worktrees', 'feat-ac-1'), base]);
-        const p = create_mock_prompter({ select: ['remove', 'corpus/feat/ac-1'], confirm: [true] });
+        git(['worktree', 'add', '-b', 'suspec/feat/ac-1', join(repo, '.worktrees', 'feat-ac-1'), base]);
+        const p = create_mock_prompter({ select: ['remove', 'suspec/feat/ac-1'], confirm: [true] });
         expect(await run_worktree_flow(p, { cwd: repo })).toBe(0);
-        expect(git(['worktree', 'list'])).not.toContain('corpus/feat/ac-1');
+        expect(git(['worktree', 'list'])).not.toContain('suspec/feat/ac-1');
     });
 
     it('warns when removing with no worktrees', async () => {
@@ -92,7 +92,7 @@ describe('run_worktree_flow', () => {
         });
         expect(create).toBe(0);
         writeFileSync(join(repo, '.worktrees', 'dirtyspec', 'scratch.txt'), 'x');
-        const p = create_mock_prompter({ select: ['remove', 'corpus/dirtyspec'], confirm: [false] });
+        const p = create_mock_prompter({ select: ['remove', 'suspec/dirtyspec'], confirm: [false] });
         expect(await run_worktree_flow(p, { cwd: repo })).toBe(2);
         expect(p.calls.errors.length).toBeGreaterThan(0);
     });
@@ -105,14 +105,14 @@ describe('run_worktree_flow', () => {
         await run_worktree_flow(create_mock_prompter({ select: ['create'], text: ['x'] }), { cwd: repo });
         expect(await run_worktree_flow(create_mock_prompter({ select: ['remove', CANCEL] }), { cwd: repo })).toBe(1);
         expect(
-            await run_worktree_flow(create_mock_prompter({ select: ['remove', 'corpus/x'], confirm: [CANCEL] }), {
+            await run_worktree_flow(create_mock_prompter({ select: ['remove', 'suspec/x'], confirm: [CANCEL] }), {
                 cwd: repo,
             })
         ).toBe(1);
     });
 
     it('errors cleanly outside a git repo', async () => {
-        const notRepo = realpathSync(mkdtempSync(join(tmpdir(), 'corpus-norepo-')));
+        const notRepo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-norepo-')));
         try {
             const p = create_mock_prompter({});
             expect(await run_worktree_flow(p, { cwd: notRepo })).toBe(2);
