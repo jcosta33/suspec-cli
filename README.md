@@ -7,8 +7,8 @@ specs and reviews live in the family workspace, [corpus-works](https://github.co
 (the design of record is `corpus/docs/adrs/0077`).
 
 corpus-cli **prepares, checks, and reconciles** the work around the Corpus loop — it never runs the
-model loop itself. Every flow is available two ways: a **direct, scriptable command** and a
-**beautiful interactive TUI**.
+model loop itself. Every command is a **direct, scriptable command**; most also have a **beautiful
+interactive TUI** flow (`-i`).
 
 ## Requirements
 
@@ -41,20 +41,22 @@ corpus init                  # scaffold a Corpus workspace from the starter kit
 corpus check                 # lint every spec in the workspace
 corpus status                # the workspace board — specs, tasks, reviews, gaps
 corpus new task --from SPEC-001 --scope AC-001,AC-002   # SPEC-001 is an illustrative spec id
-corpus worktree create checkout
+corpus worktree create my-spec-slug   # an isolated worktree on corpus/my-spec-slug
 ```
 
-Run any command with `-i` for its interactive form (`corpus check -i`). The interactive surface
-**never engages** when output is piped or `--json` is set, so scripts and CI stay non-interactive.
+Most commands have an interactive form (`-i`): init, check, worktree, status, review, new
+(`corpus check -i`). The interactive surface **never engages** when output is piped or `--json` is
+set, so scripts and CI stay non-interactive.
 
 ## The two surfaces
 
-Each command is both a direct command and an interactive flow:
+Every command has a direct form; the reconcile-loop flows also have an interactive one:
 
 - **Direct** — `--json` machine output, exit codes (`0` clean · `1` warnings · `2` error),
   stdout-for-data / stderr-for-messages, `--no-workspace` degradation. Compose it in scripts and CI.
-- **Interactive** — `corpus` with no command opens a dashboard that reaches every flow; any command
-  takes `-i`. Prompts, live progress, and coloured, per-finding feedback.
+- **Interactive** — `corpus` with no command opens a dashboard for the daily reconcile-loop flows
+  (status, check, worktree, new); `init, check, worktree, status, review, new` also take `-i`.
+  Prompts, live progress, and coloured, per-finding feedback.
 
 ## Commands
 
@@ -62,7 +64,7 @@ Each command is both a direct command and an interactive flow:
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | `corpus init [dir]`                             | Scaffold a workspace from the corpus-starter-kit, conflict-safe                                  |
 | `corpus update [--check\|--write]`              | Check kit drift (read-only), or `--write` to refresh the kit-owned guidance conflict-safely      |
-| `corpus check [file]`                           | Lint one spec (positional), or the whole-workspace verdict (no arg); `--staleness` for spec drift |
+| `corpus check [file]`                           | Validate one artifact by its `type:` — spec, review, or change-plan (positional), or the whole-workspace verdict (no arg); `--staleness` for spec drift |
 | `corpus worktree <create\|list\|remove\|prune>` | Manage isolated task worktrees on `corpus/<spec-slug>` branches                                  |
 | `corpus status`                                 | A read-only derived board over specs ← tasks ← reviews                                           |
 | `corpus clean`                                  | Prune spent ephemeral artifacts (tasks/reviews) — dry run, or `--apply`                          |
@@ -75,6 +77,9 @@ Each command is both a direct command and an interactive flow:
 | `corpus show <task\|spec\|review\|checks>`      | Project a parsed artifact as JSON — read-only                                                    |
 | `corpus agents emit --codex`                    | Generate Codex `.codex/agents/*.toml` from the corpus-agents definitions (prose discipline only) |
 | `corpus help`                                   | This reference                                                                                   |
+
+The table is the full reference; the subsections below expand only the commands with non-obvious
+behaviour. Every command also documents itself via `corpus <cmd> --help`.
 
 ### `corpus init`
 
@@ -104,10 +109,11 @@ The network lives here, never in the hermetic `corpus check`.
 
 ### `corpus check`
 
-Runs the core checks of the contract (C001–C017) over the plain two-tier spec form. `corpus check
-<file>` lints one spec; bare `corpus check` aggregates every `specs/*/spec.md` into one
-`clean`/`blocking` verdict (the CI merge gate) and flags workspace-validity issues (a leftover
-`{{placeholder}}`, a missing `templates/`). `--json` emits the diagnostics; no file is written.
+Runs the core checks of the contract (C001–C017). `corpus check <file>` is type-aware by the file's
+frontmatter `type:` — it lints a spec, validates a review packet (C012/C013), or validates a change
+plan (C010/C011). Bare `corpus check` aggregates every `specs/*/spec.md` into one `clean`/`blocking`
+verdict (the CI merge gate) and flags workspace-validity issues (a leftover `{{placeholder}}`, a
+missing `templates/`). `--json` emits the diagnostics; no file is written.
 
 ### `corpus worktree`
 
@@ -133,6 +139,10 @@ corpus-cli is **reconcile-only**. `corpus run` can launch an external agent agai
 worktree, but the CLI never owns the model/reasoning loop, writes no code itself, owns no chat UI,
 and never issues a review verdict — it prepares inputs, checks artifacts, and reconciles state.
 The Pass/Fail verdict stays the human's, informed by an independent review.
+
+`corpus run` resolves its adapter from a `.corpus/config.yaml` in the target repo (an `agents:` block,
+optionally `agents.default`); without it the command errors. This is separate from the
+`corpus.config.json` runtime-isolation file the CLI reads in the repo it operates on.
 
 ## Further reading
 

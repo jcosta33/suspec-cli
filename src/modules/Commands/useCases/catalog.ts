@@ -31,11 +31,11 @@ export const COMMAND_CATALOG = [
     },
     {
         name: 'check',
-        description: 'Lint a spec, or render the whole-workspace verdict',
+        description: 'Validate one artifact by its type, or render the whole-workspace verdict',
         usage: [
             'corpus check [file]',
             '  (no file)                   aggregate every specs/*/spec.md into one workspace verdict',
-            '  <file>                      lint one spec; exit 0 clean · 1 warnings · 2 error',
+            '  <file>                      validate by frontmatter type: spec, review (C012/C013), or change-plan (C010/C011); exit 0 clean · 1 warnings · 2 error',
             '  --staleness                 advisory: which snapshotted specs drifted since their snapshot SHA',
             '  --json · -i                 machine output · interactive flow',
         ],

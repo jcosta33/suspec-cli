@@ -6,14 +6,18 @@ This guide defines coding conventions and patterns for clarity, consistency, and
 
 Agent-enforced rules for typing and tests — no `any` escapes, lazy assertions, or suppression comments without justification — are **canonical in `.agents/repo-conventions.md`** under *TypeScript conventions* (the **Soundness** bullet). Follow that section for implementation; this document does not repeat it.
 
-## Prefer explicit control flow
+## Control flow
 
-All control flow must be explicit. Use guard clauses for early returns and always use block statements (`{...}`) for conditionals. Avoid clever shortcuts like short-circuit invocations (`&&`) or collapsed `if` statements.
+All control flow is explicit. The rules, each stated once:
 
-- **Related Lint Rule**: [`curly`](https://eslint.org/docs/latest/rules/curly)
+- **Always block statements** (`{...}`) for every conditional, even single-line ones — never a collapsed `if`. ([`curly`](https://eslint.org/docs/latest/rules/curly))
+- **Guard clauses / early returns** over deep nesting or a single trailing return.
+- **No chained or nested ternaries** — branch with `if`/early returns instead.
+- **No short-circuit invocation** (`onClick && onClick();`) — write the explicit `if`.
+- **Keep logic framework-agnostic**: pure business functions, thin CLI wrappers over them.
 
 ```typescript
-// ✅ Good: Guard clauses and block conditionals
+// ✅ Good: Guard clauses, block conditionals, early returns
 export const validateWorkspace = (workspace: Workspace): void => {
     if (!workspace) {
         throw new Error('Missing workspace');
@@ -26,30 +30,12 @@ export const validateWorkspace = (workspace: Workspace): void => {
     processWorkspace(workspace.path);
 };
 
-// ❌ Bad: Short-circuit invocation and collapsed ifs
+// ❌ Bad: Short-circuit invocation, collapsed ifs, chained ternary
 export const validateWorkspace = (workspace: Workspace): void => {
     if (!workspace) throw new Error('Missing workspace');
     workspace && !workspace.isArchived && processWorkspace(workspace.path);
 };
-```
-
-### Avoid clever JavaScriptisms
-
-```typescript
-// ❌ Bad: Chained ternaries obscure intent
 const roleLabel = !user ? '—' : user.isAdmin ? 'Admin' : user.isEditor ? 'Editor' : 'User';
-
-// ✅ Good: Clear branches with early returns/blocks
-let roleLabel = '—';
-if (user) {
-    if (user.isAdmin) {
-        roleLabel = 'Admin';
-    } else if (user.isEditor) {
-        roleLabel = 'Editor';
-    } else {
-        roleLabel = 'User';
-    }
-}
 ```
 
 ### Keep logic framework-agnostic
@@ -68,6 +54,9 @@ console.log(`Created sandbox: ${slug}`);
 ```
 
 ## Naming conventions
+
+Canonical in `.agents/repo-conventions.md` (*TypeScript conventions*); the worked examples below are
+the human-facing illustration of those rules.
 
 ### File names
 
@@ -123,9 +112,12 @@ export type WorkspaceConfig = {
 
 ## Import patterns
 
+Module-boundary rules are canonical in `.agents/repo-conventions.md` (*Module architecture* +
+*TypeScript conventions*); the examples below illustrate them.
+
 ```typescript
 // ✅ Good: Import specific types / methods
-import { type WorkspaceConfig } from '../models/Config';
+import { type WorkspaceConfig } from '../models/Config.ts';
 import { execSync } from 'node:child_process';
 
 // ❌ Bad: Namespace imports
@@ -138,19 +130,18 @@ import * as path from 'node:path';
 - Organize imports in the following order, with newlines between groups and alphabetical sorting within groups:
     1.  Built-in (e.g., `node:fs`, `node:path`, ...)
     2.  External (e.g., `@clack/prompts`, `ora`)
-    3.  Internal (`#/modules/...` or `#/helpers/...`)
-    4.  Parent (`../`)
-    5.  Sibling (`./`)
-    6.  Index
+    3.  Parent (`../`)
+    4.  Sibling (`./`)
+    5.  Index
 
 ```typescript
 // ✅ Good
 import { execSync } from 'node:child_process';
 import { select } from '@clack/prompts';
-import { getWorkspace } from '#/modules/Workspace';
+import { getWorkspace } from '../../modules/Workspace/index.ts';
 
 // ❌ Bad: Mixed order and missing type-only imports
-import { getWorkspace } from '../../modules/Workspace';
+import { getWorkspace } from '../../modules/Workspace/index.ts';
 import { execSync } from 'node:child_process';
 ```
 
@@ -173,77 +164,16 @@ export default format_time;
 
 ### Import paths
 
-- Use absolute imports with the `#/` alias for cross-module paths.
-- Avoid deep relative imports like `../../../..`; prefer `#/modules/Domain/...` or `#/helpers/...`.
-
-## Control flow patterns
-
-### If statements
-
-- Always use block statements (`{...}`) for all conditionals, even single-line ones.
-
-```typescript
-// ✅ Good: Block statements always
-export const validateConfig = (config: Config): void => {
-    if (!config.name) {
-        throw new Error('Name is required');
-    }
-
-    if (config.timeout < 0) {
-        throw new Error('Timeout cannot be negative');
-    }
-};
-
-// ❌ Bad: Collapsed if statements
-export const validateConfig = (config: Config): void => {
-    if (!config.name) throw new Error('Name is required');
-    if (config.timeout < 0) throw new Error('Timeout cannot be negative');
-};
-```
-
-### Early returns over complex ternaries
-
-```typescript
-// ✅ Good: Early return pattern
-export const getStatusMessage = (status: Status): string => {
-    if (!status) {
-        return 'Unknown';
-    }
-
-    if (status.isError) {
-        return 'Error';
-    }
-
-    if (status.isPending) {
-        return 'Pending';
-    }
-
-    return 'Ready';
-};
-
-// ❌ Bad: Complex nested ternaries
-export const getStatusMessage = (status: Status): string => {
-    return !status ? 'Unknown' : status.isError ? 'Error' : status.isPending ? 'Pending' : 'Ready';
-};
-```
-
-### Event handler patterns
-
-```typescript
-// ✅ Good: Explicit conditional call
-export const handleClick = (onClick?: () => void): void => {
-    if (onClick) {
-        onClick();
-    }
-};
-
-// ❌ Bad: Short-circuit invocation
-export const handleClick = (onClick?: () => void): void => {
-    onClick && onClick();
-};
-```
+- Cross-module imports use **relative paths to the module's root `index.ts`** with an explicit `.ts`
+  extension (NodeNext resolution) — e.g. `import { resolve_repo_root } from '../../Workspace/useCases/index.ts';`.
+  Within a module, use relative paths (`../services/…`, `./useCases/…`); never import your own root barrel.
+- The `#/` alias is reserved for `src/infra` and is not used by module code today. No `src/` file imports
+  via `#/` — match that.
 
 ## Function patterns
+
+Canonical in `.agents/repo-conventions.md` (*TypeScript conventions*: single-object param,
+`FunctionNameInput`/`FunctionNameOutput`); the examples below illustrate them.
 
 ### Function declarations
 
@@ -316,9 +246,8 @@ export function create_sandbox(input: CreateSandboxInput): CreateSandboxOutput {
 
 ## Conventional programming patterns
 
-- Prefer conventional, explicit patterns over clever one-liners.
-- Use explicit blocks over terse conditionals; avoid short-circuit calls and chained ternaries.
-- Keep logic in pure functions and use cases; CLI handlers remain thin orchestration layers.
+Prefer conventional, explicit patterns over clever one-liners (the control-flow rules above). For
+runtime polymorphism, prefer a strategy map over a branchy switch:
 
 ```typescript
 // Strategy pattern (choose implementation at runtime)
@@ -354,18 +283,6 @@ function greet(name) {
 }
 // ✅ Good: Default parameters
 function greet(name = 'world') {}
-
-// ❌ Bad: Short-circuit invocation and nested ternaries
-onClick && onClick();
-const label = a ? (b ? 'x' : c ? 'y' : 'z') : 'w';
-// ✅ Good: Block conditionals and early returns
-if (onClick) {
-    onClick();
-}
-let label = 'w';
-if (a) {
-    label = b ? 'x' : c ? 'y' : 'z';
-}
 ```
 
 ## Lint-aligned conventions

@@ -43,7 +43,7 @@ Tests live in **`__tests__/`** subfolders **inside** the folder that owns the co
 
 **Module-wide** shared utilities (dummy factories, module-local mocks) live in **`src/modules/<Module>/__tests__/`** at the **module root** and are imported from deeper specs with relative paths.
 
-**Cross-module** test utilities live in **`src/helpers/__tests__/`**.
+**Cross-module** test utilities would live in **`src/helpers/__tests__/`** when added (no such directory exists yet).
 
 **Knip** excludes `**/*.spec.{ts,tsx}` from the project graph (`knip.json`) so specs are not analyzed as orphaned modules.
 

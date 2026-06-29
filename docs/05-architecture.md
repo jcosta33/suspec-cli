@@ -38,6 +38,9 @@ Commands     the thin direct-command wrappers
 Tui          the interactive flows + renderers (over an injected Prompter)
 ```
 
+(*Two-tier* spec form: a spec is a header tier of frontmatter + prose and a body tier of
+requirements; Sol parses that plain Markdown shape.)
+
 ---
 
 ## 2. Module anatomy
