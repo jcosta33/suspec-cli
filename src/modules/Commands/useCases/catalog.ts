@@ -157,7 +157,7 @@ export const COMMAND_CATALOG = [
             '  --from <dir>                the agent *.md defs (default: ./.claude/agents, else ../suspec-agents/agents)',
             '  --force                     overwrite existing generated .toml files (they regenerate)',
             '  --json                      machine output',
-            '  prose discipline only — tool-scoping + hooks are Claude-Code-only and do NOT travel (ADR-0098)',
+            '  prose discipline only — tool-scoping + hooks are Claude-Code-only and do NOT travel',
         ],
     },
     {

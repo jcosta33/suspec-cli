@@ -104,7 +104,7 @@ the kit-owned guidance** (`templates/`, `.agents/skills/`, `advanced/`, `hooks/`
 adopter's specs, board, decisions, or `AGENTS.md`. A customized kit file is handled by
 `--on-conflict backup` (default; the user's copy → `*.suspec-bak`, the kit's lands), `overwrite`, or
 `skip`; the pin re-stamps on a full apply (a `skip` leaves it behind so a later `--check` still flags
-drift). It is **not** a 3-way line-merge ([ADR-0091](https://github.com/jcosta33/suspec/blob/main/docs/adrs/0091-suspec-update-check.md)).
+drift). It is **not** a 3-way line merge.
 The network lives here, never in the hermetic `suspec check`.
 
 ### `suspec check`
