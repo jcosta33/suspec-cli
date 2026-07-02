@@ -109,6 +109,34 @@ Verify with: a test.
         expect(record.citations).toEqual(['GOOGLESA', 'MAST']);
     });
 
+    it('captures a letter-suffixed id-shaped heading as malformed, never as a requirement (C018)', () => {
+        const source = `---
+type: spec
+id: SPEC-suffix
+status: ready
+sources:
+  - a.md
+---
+
+## Requirements
+
+### AC-001 — real
+It must work.
+Verify with: a test.
+
+### AC-002a — split half
+It must also work.
+Verify with: another test.
+
+## Non-goals
+
+- none
+`;
+        const record = assertOk(parse_spec_record({ source, path: 'spec.md' }));
+        expect(record.requirements.map((r) => r.id)).toEqual(['AC-001']);
+        expect(record.malformedRequirementHeadings).toEqual([{ heading: 'AC-002a', line: 15 }]);
+    });
+
     it('a [[KEY]] or ](path) inside a fence or inline code is example text, never a live citation/link', () => {
         const source = `---
 type: spec

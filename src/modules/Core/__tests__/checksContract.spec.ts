@@ -18,6 +18,7 @@ import {
     check_sources_named,
     check_broken_source_link,
     check_citation_resolves,
+    check_malformed_requirement_heading,
     check_coverage,
     coverage_facts,
     spec_coverage_drift_facts,
@@ -61,6 +62,7 @@ function spec(
         bodyText: '',
         links: [],
         citations: [],
+        malformedRequirementHeadings: [],
         ...rest,
     };
 }
@@ -85,6 +87,7 @@ describe('severity_of', () => {
         expect(severity_of('C015')).toBe('warning');
         expect(severity_of('C016')).toBe('hard-error'); // the gate blocks an empty-Evidence Pass
         expect(severity_of('C017')).toBe('warning');
+        expect(severity_of('C018')).toBe('warning');
     });
 });
 
@@ -163,6 +166,27 @@ describe('C015 citation-resolves (ADR-0087)', () => {
 
     it('the admit-every-key resolver (the skip-when-nothing-to-check default) never fires', () => {
         expect(check_citation_resolves(spec({ citations: ['ANYTHING', 'ELSE'] }), () => true)).toEqual([]);
+    });
+});
+
+describe('C018 malformed-requirement-heading', () => {
+    it('warns per letter-suffixed id-shaped heading, citing the heading and its line', () => {
+        const diagnostics = check_malformed_requirement_heading(
+            spec({
+                malformedRequirementHeadings: [
+                    { heading: 'AC-004a', line: 12 },
+                    { heading: 'AC-009b', line: 30 },
+                ],
+            })
+        );
+        expect(codes(diagnostics)).toEqual(['C018', 'C018']);
+        expect(diagnostics.every((d) => d.severity === 'warning')).toBe(true);
+        expect(diagnostics[0].message).toContain('AC-004a');
+        expect(diagnostics[0].line).toBe(12);
+    });
+
+    it('a spec with none → no finding', () => {
+        expect(check_malformed_requirement_heading(spec())).toEqual([]);
     });
 });
 

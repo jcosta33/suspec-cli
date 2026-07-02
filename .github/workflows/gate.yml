@@ -1,0 +1,40 @@
+# The full verification gate: typecheck · lint · deps:validate · coverage · build — plus the canon
+# drift guards, which bite here because the suspec canon is checked out as a sibling (the contract
+# pin and the transformation-fixture oracle skip loudly without one).
+name: gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+          persist-credentials: false
+
+      # The canon sibling: the drift guards resolve it at ../suspec (or any canon-shaped sibling).
+      - uses: actions/checkout@v4
+        with:
+          repository: jcosta33/suspec
+          path: suspec
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Gate
+        working-directory: repo
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm gate

@@ -56,6 +56,9 @@ export type SpecRecord = Readonly<{
     // the markdown `](path)` links that also land in `links`. C015 keys on these — a `[[KEY]]` whose
     // key resolves to no `<a id="KEY">` anchor in the workspace's sources.md is a dangling citation.
     citations: readonly string[];
+    // Id-shaped `###` headings with a letter suffix (`AC-004a`) — NOT requirements (the grammar is
+    // digits-only), captured so C018 can warn instead of letting the heading vanish silently.
+    malformedRequirementHeadings: readonly { heading: string; line: number }[];
 }>;
 
 export type ParseSpecRecordInput = Readonly<{
@@ -69,6 +72,11 @@ export type ParseSpecRecordResult = Result<
 >;
 
 const REQUIREMENT_HEADING = /^###\s+([A-Z][A-Z0-9]*-\d+)\b/;
+// The near-miss the real heading regex silently drops: an id-shaped `###` heading whose number
+// carries a letter suffix (`AC-004a`). It parses as plain prose, so the requirement vanishes from
+// scope and coverage with no signal — C018 exists to make that disappearance visible. Requirement
+// ids are digits-only (ADR-0058); split requirements get their own numbers.
+const MALFORMED_REQUIREMENT_HEADING = /^###\s+([A-Z][A-Z0-9]*-\d+[A-Za-z][A-Za-z0-9]*)\b/;
 // A SOL (`format: sol`) requirement opens with `<KEYWORD> <ID>:` instead of a `### <ID>` markdown
 // heading. The verifiable obligation block types — REQ (AC-), CONSTRAINT (C-), INVARIANT (I-),
 // INTERFACE (IF-) — are all recognized so their ids parse and become scopeable + coverage-tracked
@@ -214,6 +222,7 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
 
     const requirements: SpecRecordRequirement[] = [];
     const sectionTitles: string[] = [];
+    const malformedRequirementHeadings: { heading: string; line: number }[] = [];
     let nonGoalsBody = '';
     let openQuestionsPresent = false;
 
@@ -252,6 +261,12 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
             in_non_goals = false;
             current_requirement = { id: requirement_match[1], line: source_line, bodyLines: [] };
             continue;
+        }
+
+        const malformed_match = MALFORMED_REQUIREMENT_HEADING.exec(line);
+        if (malformed_match !== null) {
+            malformedRequirementHeadings.push({ heading: malformed_match[1], line: source_line });
+            // fall through: the heading still closes any open requirement via the generic H3 branch
         }
 
         // SOL requirement opener (`REQ <ID>:`) — only for `format: sol`, so a stray `REQ` in a plain spec
@@ -304,5 +319,6 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
         bodyText: visible_text(scanned),
         links: extract_links(scanned, body_start_line),
         citations: extract_citations(scanned),
+        malformedRequirementHeadings,
     });
 }

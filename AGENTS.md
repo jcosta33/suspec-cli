@@ -20,7 +20,7 @@
   (+ `help`) — each a direct command, most also an interactive TUI flow (`-i`;
   `suspec` with no args opens the dashboard).
   `suspec init` clones the suspec-starter-kit (no vendored copy lives here). The
-  checks contract this CLI implements (C001–C017) lives in the suspec repo,
+  checks contract this CLI implements (C001–C018) lives in the suspec repo,
   `checks/checks.yaml` (that file's `version:` is the contract version of record —
   don't pin a copy of it here), reimplemented in code at
   `src/modules/Core/services/checksContract.ts` and drift-guarded against it whenever a sibling
