@@ -16,7 +16,7 @@ import type { OutcomeLevel } from '../useCases/unixOutcome.ts';
 import { strip_inline_code } from '../../../infra/markdownScan.ts';
 
 // Pinned to suspec/checks/checks.yaml `version:`; the drift-guard test fails if the sibling diverges.
-export const CONTRACT_VERSION = '0.10.0';
+export const CONTRACT_VERSION = '0.11.0';
 
 export type CheckSeverity = 'hard-error' | 'warning';
 
@@ -24,7 +24,7 @@ export type CheckSeverity = 'hard-error' | 'warning';
 export type CheckId =
     | 'C001' | 'C002' | 'C003' | 'C004' | 'C005' | 'C006'
     | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C012' | 'C013' | 'C014' | 'C015'
-    | 'C016' | 'C017' | 'C018';
+    | 'C016' | 'C017' | 'C019';
 
 // Severity per check, the single source inside suspec-cli; a total Record so the lookup needs no
 // fallback. The drift guard reconciles it against suspec/checks/checks.yaml.
@@ -50,7 +50,7 @@ const SEVERITY_BY_ID: Record<CheckId, CheckSeverity> = {
     // fact advisorily (ADR-0077 D8 never blocks); see ADR-0097.
     C016: 'hard-error',
     C017: 'warning',
-    C018: 'warning',
+    C019: 'warning',
 };
 
 export function severity_of(id: CheckId): CheckSeverity {
@@ -76,7 +76,7 @@ export const CORE_CHECKS: readonly { id: CheckId; name: string; severity: CheckS
     { id: 'C015', name: 'citation-resolves', severity: severity_of('C015') },
     { id: 'C016', name: 'pass-needs-evidence', severity: severity_of('C016') },
     { id: 'C017', name: 'orphaned-reference', severity: severity_of('C017') },
-    { id: 'C018', name: 'malformed-requirement-heading', severity: severity_of('C018') },
+    { id: 'C019', name: 'malformed-requirement-heading', severity: severity_of('C019') },
 ];
 
 // The five strength words (checks.yaml reconciliation note: 5; SOL form is the same words uppercase).
@@ -123,7 +123,7 @@ export type ParsedSpec = Readonly<{
     links: readonly SpecLink[];
     // The deduped inline `[[KEY]]` citation keys the parser marked distinctly from `links` (C015).
     citations: readonly string[];
-    // Id-shaped headings with a letter suffix (`AC-004a`) the parser refused as requirements (C018).
+    // Id-shaped headings with a lowercase split-suffix (`AC-004a`) the parser refused as requirements (C019).
     malformedRequirementHeadings: readonly { heading: string; line: number }[];
 }>;
 
@@ -339,15 +339,16 @@ export function check_citation_resolves(spec: ParsedSpec, anchor_resolves: (key:
     return diagnostics;
 }
 
-// --- C018 malformed-requirement-heading ----------------------------------------------------------
-// A `###` heading shaped like a requirement id but letter-suffixed (`AC-004a`) parses as plain
-// prose — the requirement silently vanishes from scope and coverage. The warning makes the
+// --- C019 malformed-requirement-heading ----------------------------------------------------------
+// A `###` heading shaped like a requirement id but with a lowercase split-suffix (`AC-004a`) parses
+// as plain prose — the requirement silently vanishes from scope and coverage. The warning makes the
 // disappearance visible; the fix is a digits-only id (split requirements get their own numbers).
+// (C018 stays reserved for the oversized-packet signal — ADR-0094/0097/0125.)
 export function check_malformed_requirement_heading(spec: ParsedSpec): Diagnostic[] {
     return spec.malformedRequirementHeadings.map((entry) =>
         diagnostic(
-            'C018',
-            `\`### ${entry.heading}\` looks like a requirement id but has a letter suffix — it parses as prose and is invisible to scope/coverage; use a digits-only id`,
+            'C019',
+            `\`### ${entry.heading}\` looks like a requirement id but has a lowercase split-suffix — it parses as prose and is invisible to scope/coverage; use a digits-only id`,
             entry.line
         )
     );

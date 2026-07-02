@@ -193,6 +193,9 @@ export function show_artifact(input: ShowArtifactInput): Result<ShowResult, AppE
                 })),
                 sectionTitles: record.sectionTitles,
                 openQuestionsPresent: record.openQuestionsPresent,
+                // Id-shaped headings the parser refused (C019) — surfaced so a structured consumer
+                // can see the vanished requirement, not just miss it.
+                malformedRequirementHeadings: record.malformedRequirementHeadings,
                 // The append-only `## Execution` run-record (ADR-0103/0104) — the durable history of each
                 // change cycle once tasks/reviews are ephemeral. Raw section text, or null when absent.
                 execution: section_body(specSource, 'Execution'),

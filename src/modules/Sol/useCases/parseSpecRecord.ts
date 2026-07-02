@@ -76,7 +76,10 @@ const REQUIREMENT_HEADING = /^###\s+([A-Z][A-Z0-9]*-\d+)\b/;
 // carries a letter suffix (`AC-004a`). It parses as plain prose, so the requirement vanishes from
 // scope and coverage with no signal — C018 exists to make that disappearance visible. Requirement
 // ids are digits-only (ADR-0058); split requirements get their own numbers.
-const MALFORMED_REQUIREMENT_HEADING = /^###\s+([A-Z][A-Z0-9]*-\d+[A-Za-z][A-Za-z0-9]*)\b/;
+// Lowercase split-suffix only (`AC-004a`): the uppercase-continuation shape is prose
+// (`### UTF-16LE handling`, `### C-3PO example`) and false-fires; the capture runs through
+// word characters so the diagnostic quotes the whole token (`AC-004a_note`). ADR-0125 D3.
+const MALFORMED_REQUIREMENT_HEADING = /^###\s+([A-Z][A-Z0-9]*-\d+[a-z][A-Za-z0-9_]*)/;
 // A SOL (`format: sol`) requirement opens with `<KEYWORD> <ID>:` instead of a `### <ID>` markdown
 // heading. The verifiable obligation block types — REQ (AC-), CONSTRAINT (C-), INVARIANT (I-),
 // INTERFACE (IF-) — are all recognized so their ids parse and become scopeable + coverage-tracked

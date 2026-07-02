@@ -50,7 +50,7 @@ export type ReconcileReviewInput = Readonly<{
     reviewPacketSource: string | null;
     // The worktree's net change against its base branch (committed + uncommitted), name-only.
     diffChangedFiles: readonly string[];
-    // Per-file LOC of the committed diff (the oversized-packet ADVISORY — deliberately not a C-code; the contract stops at C017). Optional: the size nudge is advisory,
+    // Per-file LOC of the committed diff (the oversized-packet ADVISORY — deliberately not a minted C-code; C018 is reserved for it (ADR-0094/0097)). Optional: the size nudge is advisory,
     // so a fixture reconcile (no git) or a numstat hiccup simply omits it — no size finding then.
     changedFileStats?: readonly ChangedFileStat[];
     // Context the COMMAND surfaces; the reconcile engine ignores both. `base` is the diff base used, and

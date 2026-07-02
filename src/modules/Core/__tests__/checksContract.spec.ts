@@ -87,7 +87,7 @@ describe('severity_of', () => {
         expect(severity_of('C015')).toBe('warning');
         expect(severity_of('C016')).toBe('hard-error'); // the gate blocks an empty-Evidence Pass
         expect(severity_of('C017')).toBe('warning');
-        expect(severity_of('C018')).toBe('warning');
+        expect(severity_of('C019')).toBe('warning');
     });
 });
 
@@ -169,7 +169,7 @@ describe('C015 citation-resolves (ADR-0087)', () => {
     });
 });
 
-describe('C018 malformed-requirement-heading', () => {
+describe('C019 malformed-requirement-heading', () => {
     it('warns per letter-suffixed id-shaped heading, citing the heading and its line', () => {
         const diagnostics = check_malformed_requirement_heading(
             spec({
@@ -179,7 +179,7 @@ describe('C018 malformed-requirement-heading', () => {
                 ],
             })
         );
-        expect(codes(diagnostics)).toEqual(['C018', 'C018']);
+        expect(codes(diagnostics)).toEqual(['C019', 'C019']);
         expect(diagnostics.every((d) => d.severity === 'warning')).toBe(true);
         expect(diagnostics[0].message).toContain('AC-004a');
         expect(diagnostics[0].line).toBe(12);
@@ -187,6 +187,16 @@ describe('C018 malformed-requirement-heading', () => {
 
     it('a spec with none → no finding', () => {
         expect(check_malformed_requirement_heading(spec())).toEqual([]);
+    });
+
+    it('surfaces through run_spec_checks, so unwiring the rule cannot pass silently', () => {
+        const diagnostics = run_spec_checks({
+            spec: spec({
+                malformedRequirementHeadings: [{ heading: 'AC-004a', line: 12 }],
+            }),
+            exists: () => true,
+        });
+        expect(diagnostics.filter((d) => d.code === 'C019')).toHaveLength(1);
     });
 });
 

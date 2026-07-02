@@ -109,7 +109,7 @@ Verify with: a test.
         expect(record.citations).toEqual(['GOOGLESA', 'MAST']);
     });
 
-    it('captures a letter-suffixed id-shaped heading as malformed, never as a requirement (C018)', () => {
+    it('captures a lowercase split-suffix heading as malformed, never as a requirement (C019)', () => {
         const source = `---
 type: spec
 id: SPEC-suffix
@@ -135,6 +135,66 @@ Verify with: another test.
         const record = assertOk(parse_spec_record({ source, path: 'spec.md' }));
         expect(record.requirements.map((r) => r.id)).toEqual(['AC-001']);
         expect(record.malformedRequirementHeadings).toEqual([{ heading: 'AC-002a', line: 15 }]);
+        // The malformed heading still closes AC-001 (the generic-H3 fall-through): the split half's
+        // body must not leak into the real requirement.
+        expect(record.requirements[0]?.body ?? '').not.toContain('also work');
+    });
+
+    it('uppercase-continuation prose headings and fenced examples never register as malformed (C019)', () => {
+        const source = `---
+type: spec
+id: SPEC-prose
+status: ready
+sources:
+  - a.md
+---
+
+## Requirements
+
+### AC-001 — real
+It must work.
+Verify with: a test.
+
+### UTF-16LE handling
+Prose about encodings, not a requirement id.
+
+### C-3PO example
+More prose.
+
+\`\`\`markdown
+### AC-004a — quoted example inside a fence
+\`\`\`
+
+## Non-goals
+
+- none
+`;
+        const record = assertOk(parse_spec_record({ source, path: 'spec.md' }));
+        expect(record.malformedRequirementHeadings).toEqual([]);
+        expect(record.requirements.map((r) => r.id)).toEqual(['AC-001']);
+    });
+
+    it('captures the whole malformed token, underscore continuation included (C019)', () => {
+        const source = `---
+type: spec
+id: SPEC-underscore
+status: ready
+sources:
+  - a.md
+---
+
+## Requirements
+
+### AC-004a_note — split half with a tail
+It must work.
+Verify with: a test.
+
+## Non-goals
+
+- none
+`;
+        const record = assertOk(parse_spec_record({ source, path: 'spec.md' }));
+        expect(record.malformedRequirementHeadings.map((m) => m.heading)).toEqual(['AC-004a_note']);
     });
 
     it('a [[KEY]] or ](path) inside a fence or inline code is example text, never a live citation/link', () => {
