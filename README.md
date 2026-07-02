@@ -108,7 +108,7 @@ The network lives here, never in the hermetic `suspec check`.
 
 ### `suspec check`
 
-Runs the core checks of the contract (C001–C017). `suspec check <file>` is type-aware by the file's
+Runs the contract's core checks. `suspec check <file>` is type-aware by the file's
 frontmatter `type:` — it lints a spec, validates a review packet (C012/C013), or validates a change
 plan (C010/C011). Bare `suspec check` aggregates every `specs/*/spec.md` into one `clean`/`blocking`
 verdict (the CI merge gate) and flags workspace-validity issues (a leftover `{{placeholder}}`, a

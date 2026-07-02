@@ -25,7 +25,8 @@
   don't pin a copy of it here), reimplemented in code at
   `src/modules/Core/services/checksContract.ts` and drift-guarded against it whenever a sibling
   canon checkout is present (SUSPEC_CANON / `../suspec` / any canon-shaped sibling — the guard
-  skips loudly otherwise; no CI runs it yet).
+  skips loudly otherwise; CI checks out the canon beside this repo in
+  `.github/workflows/gate.yml`, so the guard bites on every push/PR).
 
 ## Project facts
 
