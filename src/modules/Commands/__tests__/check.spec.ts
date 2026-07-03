@@ -172,6 +172,15 @@ describe('check command (direct surface, AC-001/005)', () => {
         expect(err).toContain('file not found');
     });
 
+    it('#93: checks multiple files in one invocation; exit code is the max across them', async () => {
+        const good = writeSpec('good', CONFORMANT);
+        const bad = writeSpec('badv', CONFORMANT.replace('Verify with: a test.', '')); // missing Verify → C003 hard-error
+        const { code, out } = await capture(() => run([good, bad]));
+        expect(code).toBe(2); // max(0 from good, 2 from bad)
+        expect(out).toContain('good.md'); // both reports render in the one run
+        expect(out).toContain('badv.md');
+    });
+
     it('a directory arg → exit 2 with a clean message, not an EISDIR crash', async () => {
         mkdirSync(join(dir, 'specs', 'feature'), { recursive: true });
         const { code, err } = await capture(() => run([join(dir, 'specs', 'feature')]));

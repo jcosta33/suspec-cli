@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-// `suspec check [file]` — the check engine's command surface (AC-005/006/008).
-//   suspec check <spec-file>   lint one spec
+// `suspec check [file...]` — the check engine's command surface (AC-005/006/008).
+//   suspec check <file>...     lint one or more specs/reviews/change-plans in one process (exit = max)
 //   suspec check               render the whole-workspace verdict (D-001)
 //   suspec check -i            the interactive flow (AC-015), TTY + not --json only
 // Direct output + exit codes flow through the shared unixOutcome contract (AC-001).
@@ -86,8 +86,9 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         });
     }
 
-    if (positional.length > 0) {
-        const file = positional[0];
+    // Check one named file: dispatch by artifact type (review / change-plan / spec) and render its
+    // report. Returns the file's exit code (the shared unixOutcome contract via `project`).
+    const check_one_file = (file: string): number => {
         if (!existsSync(file)) {
             return project({ result: err(usage_error(`file not found: ${file}`)), json, render: format_check_report });
         }
@@ -141,6 +142,20 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
             json,
             render: format_check_report,
         });
+    };
+
+    // #93: check EVERY named file in ONE process — the pre-commit hook batches the staged set here so
+    // the ~0.15s startup floor is paid once, not per file (measured 80s → flat 0.15s at 500 files). The
+    // exit code is the max across files (the shared unixOutcome ordering: 0 clean < 1 warning < 2 block).
+    if (positional.length > 0) {
+        let status = 0;
+        for (const file of positional) {
+            const code = check_one_file(file);
+            if (code > status) {
+                status = code;
+            }
+        }
+        return status;
     }
 
     return project({
