@@ -151,11 +151,13 @@ describe('check_review_file — C012 on a review packet (AC-028)', () => {
         expect(assertOk(check_review_file({ workspaceDir: dir, reviewPath: path })).diagnostics).toEqual([]);
     });
 
-    it('an unresolvable task (no tasks/<task>.md) cannot run C012 → clean', () => {
+    it('an unresolvable task ref (no tasks/<task>.md) → C020, not a silent clean pass (#89)', () => {
         rmSync(join(dir, 'tasks', 'TASK-feat.md'));
         const path = join(dir, 'review.md');
         writeFileSync(path, review('| AC-001 | Pass | p | no |'));
-        expect(assertOk(check_review_file({ workspaceDir: dir, reviewPath: path })).diagnostics).toEqual([]);
+        const report = assertOk(check_review_file({ workspaceDir: dir, reviewPath: path }));
+        expect(report.diagnostics.map((d) => d.code)).toEqual(['C020']);
+        expect(report.level).toBe('blocking'); // hard-error: the dangling ref blocks the gate
     });
 
     it('a review with no task: frontmatter cannot run C012 → clean', () => {
@@ -164,7 +166,7 @@ describe('check_review_file — C012 on a review packet (AC-028)', () => {
         expect(assertOk(check_review_file({ workspaceDir: dir, reviewPath: path })).diagnostics).toEqual([]);
     });
 
-    it('a task whose source spec is not in the workspace cannot run C012 → clean', () => {
+    it('a task whose source spec is not in the workspace → clean (cross-root, ADR-0100; not a typo we can prove)', () => {
         writeFileSync(join(dir, 'tasks', 'TASK-feat.md'), TASK.replace('- SPEC-feat', '- SPEC-absent'));
         const path = join(dir, 'review.md');
         writeFileSync(path, review('| AC-001 | Pass | p | no |'));
@@ -181,7 +183,7 @@ describe('check_review_file — C012 on a review packet (AC-028)', () => {
         expect(assertOk(check_review_file({ workspaceDir: dir, reviewPath: path })).diagnostics).toEqual([]);
     });
 
-    it('a spec file whose frontmatter id does not match the task source → not found → clean', () => {
+    it('a spec file whose frontmatter id does not match the task source → clean (unreachable spec, not a provable typo)', () => {
         writeFileSync(join(dir, 'specs', 'feat', 'spec.md'), 'no frontmatter fence here\n');
         const path = join(dir, 'review.md');
         writeFileSync(path, review('| AC-001 | Pass | p | no |'));

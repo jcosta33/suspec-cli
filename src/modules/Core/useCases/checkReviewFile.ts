@@ -7,9 +7,9 @@
 //
 // Resolution: the review's frontmatter `task:` → tasks/<task>.md (scope + source spec id) → the
 // specs/*/spec.md whose id matches (requirement ids + named verify commands + draft-guard status).
-// When the task or spec is not resolvable, neither C012 nor C013 can run; the engine returns a clean
-// report with a diagnostic-free level (the spec/workspace checks already cover a missing artifact —
-// this engine only adds C012/C013).
+// An unresolvable `task:` ref (no local task packet) is a hard C020 (ADR-0128, #89) — a dangling ref
+// must not silently pass the gate. An unreachable source SPEC stays clean (cross-root, ADR-0100 —
+// indistinguishable from a typo here). This engine adds C012/C013/C016/C020.
 
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
@@ -21,6 +21,7 @@ import {
     check_coverage,
     check_verify_binding,
     check_pass_evidence,
+    unresolvable_ref_diagnostic,
     verdict_for,
     type Diagnostic,
 } from '../services/checksContract.ts';
@@ -98,7 +99,9 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
     if (taskId !== undefined) {
         const taskSource = find_task_packet(input.workspaceDir, taskId);
         if (taskSource === null) {
-            return clean([]);
+            // #89: the review names a task id that resolves to no packet — a typo'd/renamed ref. Emit
+            // C020 instead of a silent clean pass (which would bypass C012/C013/C016 entirely).
+            return clean([unresolvable_ref_diagnostic(taskId)]);
         }
         const packet = parse_task_packet(taskSource);
         taskScope = packet.scope;
@@ -115,6 +118,10 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
                 status: 'active',
             };
         }
+        // If the task resolved but its named source spec did not (and no embedded slice), the spec may
+        // simply live in another repo (cross-root, ADR-0100) — indistinguishable from a typo here, so
+        // that path stays clean rather than false-firing C020. C020 fires only on the unambiguous case:
+        // the review's `task:` ref resolving to no local task packet (handled above).
     } else {
         // The task-less 1:1 review names its spec directly (`spec:`); with neither, nothing to reconcile.
         const specId = fm_scalar(reviewFrontmatter.spec);

@@ -16,7 +16,7 @@ import type { OutcomeLevel } from '../useCases/unixOutcome.ts';
 import { strip_inline_code } from '../../../infra/markdownScan.ts';
 
 // Pinned to suspec/checks/checks.yaml `version:`; the drift-guard test fails if the sibling diverges.
-export const CONTRACT_VERSION = '0.13.0';
+export const CONTRACT_VERSION = '0.14.0';
 
 export type CheckSeverity = 'hard-error' | 'warning';
 
@@ -24,7 +24,7 @@ export type CheckSeverity = 'hard-error' | 'warning';
 export type CheckId =
     | 'C001' | 'C002' | 'C003' | 'C004' | 'C005' | 'C006'
     | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C012' | 'C013' | 'C014' | 'C015'
-    | 'C016' | 'C017' | 'C019';
+    | 'C016' | 'C017' | 'C019' | 'C020';
 
 // Severity per check, the single source inside suspec-cli; a total Record so the lookup needs no
 // fallback. The drift guard reconciles it against suspec/checks/checks.yaml.
@@ -51,6 +51,11 @@ const SEVERITY_BY_ID: Record<CheckId, CheckSeverity> = {
     C016: 'hard-error',
     C017: 'warning',
     C019: 'warning',
+    // C020 unresolvable-ref (ADR-0128): a review names a task/spec ref that does not resolve, so the
+    // coverage/evidence checks cannot run. The GATE face (`suspec check <review>`) blocks — a review
+    // that can't be tied to its spec is structurally unverifiable, not a judgment call (mirrors C016);
+    // the reconcile face stays advisory (ADR-0077 D8).
+    C020: 'hard-error',
 };
 
 export function severity_of(id: CheckId): CheckSeverity {
@@ -77,7 +82,23 @@ export const CORE_CHECKS: readonly { id: CheckId; name: string; severity: CheckS
     { id: 'C016', name: 'pass-needs-evidence', severity: severity_of('C016') },
     { id: 'C017', name: 'orphaned-reference', severity: severity_of('C017') },
     { id: 'C019', name: 'malformed-requirement-heading', severity: severity_of('C019') },
+    { id: 'C020', name: 'unresolvable-ref', severity: severity_of('C020') },
 ];
+
+// --- C020 unresolvable-ref (ADR-0128) ------------------------------------------------------------
+// A `type: review` packet whose `task:` ref resolves to no local task packet. Without the task (and
+// its source spec), C012 (coverage) and C013 (verify-binding) cannot run, so the review would
+// otherwise gate CLEAN — a typo'd/renamed task id silently bypasses the honesty checks
+// (suspec-works #89). C020 makes the dangling task ref a hard error at the gate face. Deliberately
+// narrow to the task packet (always local, so unambiguous): an unreachable source SPEC may be
+// cross-root (ADR-0100) and stays clean.
+export function unresolvable_ref_diagnostic(taskRef: string): Diagnostic {
+    return diagnostic(
+        'C020',
+        `review names task \`${taskRef}\` which resolves to no task packet — coverage/evidence cannot be checked (unresolvable-ref)`,
+        null
+    );
+}
 
 // The five strength words (checks.yaml reconciliation note: 5; SOL form is the same words uppercase).
 // Ordered longest-first so `must not` / `should not` match before `must` / `should`.
