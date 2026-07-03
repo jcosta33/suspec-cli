@@ -167,10 +167,14 @@ function find_stale_candidates(workspaceDir: string, now: Date): { path: string;
         if (!/^status:\s*candidate\b/m.test(fm)) {
             continue;
         }
-        const dateValue =
-            /^reviewed:\s*(\d{4}-\d{2}-\d{2})/m.exec(fm)?.[1] ?? /^date:\s*(\d{4}-\d{2}-\d{2})/m.exec(fm)?.[1];
+        // reviewed: takes precedence when the KEY is present — even unparseable (a placeholder or
+        // malformed refresh date must not fall back to the older date: and fire a false-stale flag).
+        const reviewedKeyPresent = /^reviewed:/m.test(fm);
+        const dateValue = reviewedKeyPresent
+            ? /^reviewed:\s*(\d{4}-\d{2}-\d{2})/m.exec(fm)?.[1]
+            : /^date:\s*(\d{4}-\d{2}-\d{2})/m.exec(fm)?.[1];
         if (dateValue === undefined) {
-            continue; // no recorded date — never guess staleness
+            continue; // no parseable recorded date on the governing key — never guess staleness
         }
         const recorded = new Date(`${dateValue}T00:00:00Z`);
         if (Number.isNaN(recorded.getTime())) {

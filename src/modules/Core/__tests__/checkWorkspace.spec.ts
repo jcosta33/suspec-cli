@@ -479,6 +479,28 @@ preserves: [PG-001]
         expect(report.verdict).toBe('clean'); // advisory — never blocks
     });
 
+    it('is silent at exactly 30 days and fires at 31 (the boundary)', () => {
+        writeSpec('good', CONFORMANT);
+        withTemplates();
+        writeCandidate('at30.md', 'candidate', '2026-06-03'); // exactly 30 days before now
+        writeCandidate('at31.md', 'candidate', '2026-06-02'); // 31 days
+        const report = assertOk(check_workspace({ workspaceDir: ws, now: new Date('2026-07-03T00:00:00Z') }));
+        const stale = report.workspaceFindings.filter((f) => f.code === 'stale-candidate-finding');
+        expect(stale.map((f) => f.message)).toEqual([expect.stringContaining('findings/at31.md')]);
+    });
+
+    it('a present-but-unparseable reviewed: never falls back to date: (no false stale)', () => {
+        writeSpec('good', CONFORMANT);
+        withTemplates();
+        mkdirSync(join(ws, 'findings'), { recursive: true });
+        writeFileSync(
+            join(ws, 'findings', 'placeholder-reviewed.md'),
+            '---\ntype: finding\nid: F-p\nstatus: candidate\ndate: 2026-01-01\nreviewed: {{YYYY-MM-DD}}\n---\n\nA lesson.\n'
+        );
+        const report = assertOk(check_workspace({ workspaceDir: ws, now: new Date('2026-07-03T00:00:00Z') }));
+        expect(report.workspaceFindings.filter((f) => f.code === 'stale-candidate-finding')).toEqual([]);
+    });
+
     it('never flags a candidate with no recorded date (no guessing)', () => {
         writeSpec('good', CONFORMANT);
         withTemplates();
