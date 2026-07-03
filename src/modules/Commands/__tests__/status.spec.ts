@@ -67,4 +67,30 @@ describe('status command (direct surface, AC-011)', () => {
         expect(board.specs[0].id).toBe('SPEC-feat');
         expect(board.needsHuman).toEqual(['TASK-1']);
     });
+
+    it('--needs-review narrows the human board to specs with an actionable task; --json stays raw (#92)', async () => {
+        seed(); // SPEC-feat / TASK-1 (needs-human) — actionable
+        // a second spec whose task already passed review — NOT actionable
+        mkdirSync(join(ws, 'specs', 'done'), { recursive: true });
+        writeFileSync(join(ws, 'specs', 'done', 'spec.md'), '---\ntype: spec\nid: SPEC-done\nstatus: ready\n---\n');
+        writeFileSync(
+            join(ws, 'tasks', 't2.md'),
+            '---\ntype: task\nid: TASK-2\nsource: SPEC-done\nstatus: done\n---\n'
+        );
+        writeFileSync(
+            join(ws, 'reviews', 'r2.md'),
+            '---\ntype: review\nid: REV-2\ntask: TASK-2\nstatus: pass\n---\n'
+        );
+
+        const filtered = await capture(() => run(['--needs-review'], ws));
+        expect(filtered.code).toBe(0);
+        expect(filtered.out).toContain('SPEC-feat'); // has the needs-human task → shown
+        expect(filtered.out).not.toContain('SPEC-done'); // task passed → not actionable → hidden from the list
+        expect(filtered.out).toContain('Needs human: TASK-1'); // the summary line still renders in full
+
+        // --json is the raw escape hatch — unfiltered even with --needs-review
+        const raw = await capture(() => run(['--needs-review', '--json'], ws));
+        const board = JSON.parse(raw.out);
+        expect(board.specs.map((s: { id: string }) => s.id)).toContain('SPEC-done');
+    });
 });
