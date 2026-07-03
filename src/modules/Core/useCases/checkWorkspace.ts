@@ -30,6 +30,7 @@ export type WorkspaceFinding = Readonly<{
         | 'supersede-missing-pointer'
         | 'duplicate-content'
         | 'unpromoted-finding'
+        | 'stale-candidate-finding'
         | 'incomplete-execution-digest'
         | 'active-spec-no-execution'
         | 'nonactive-spec-with-execution';
@@ -63,6 +64,8 @@ export type CheckWorkspaceInput = Readonly<{
     // `--no-workspace`: lint the specs but skip workspace-validity (the AGENTS.md placeholder + the
     // missing-templates checks), for running against a bare specs/ tree without a full kit workspace.
     includeValidity?: boolean;
+    // Injectable clock for the stale-candidate window (tests pin it; production omits it).
+    now?: Date;
 }>;
 
 const PLACEHOLDER = /\{\{[^}]+\}\}/;
@@ -140,6 +143,45 @@ function find_duplicate_findings(workspaceDir: string): string[][] {
         byBody.set(body, [...(byBody.get(body) ?? []), `findings/${name}`]);
     }
     return [...byBody.values()].filter((paths) => paths.length > 1);
+}
+
+// Stale candidate findings (SPEC-findings-adjudication-gate AC-003): a findings/*.md whose
+// frontmatter reads `status: candidate` and whose newest recorded date (`reviewed:` if present,
+// else `date:`) is older than 30 days. Deterministic on the recorded dates — no date, no flag
+// (0-FP by construction); a fresh candidate never fires. Advisory warning: unadjudicated
+// accumulation is the measured self-degradation mode of durable memory (MEMDECAY/MEMP in the
+// canon ledger); the queue is meant to empty, not shelve.
+const STALE_CANDIDATE_DAYS = 30;
+function find_stale_candidates(workspaceDir: string, now: Date): { path: string; ageDays: number }[] {
+    const dir = join(workspaceDir, 'findings');
+    if (!existsSync(dir)) {
+        return [];
+    }
+    const out: { path: string; ageDays: number }[] = [];
+    for (const name of readdirSync(dir).sort()) {
+        if (!name.endsWith('.md') || name === 'README.md') {
+            continue;
+        }
+        const source = readFileSync(join(dir, name), 'utf8');
+        const fm = /^---\n([\s\S]*?)\n---/.exec(source)?.[1] ?? '';
+        if (!/^status:\s*candidate\b/m.test(fm)) {
+            continue;
+        }
+        const dateValue =
+            /^reviewed:\s*(\d{4}-\d{2}-\d{2})/m.exec(fm)?.[1] ?? /^date:\s*(\d{4}-\d{2}-\d{2})/m.exec(fm)?.[1];
+        if (dateValue === undefined) {
+            continue; // no recorded date — never guess staleness
+        }
+        const recorded = new Date(`${dateValue}T00:00:00Z`);
+        if (Number.isNaN(recorded.getTime())) {
+            continue;
+        }
+        const ageDays = Math.floor((now.getTime() - recorded.getTime()) / 86_400_000);
+        if (ageDays > STALE_CANDIDATE_DAYS) {
+            out.push({ path: `findings/${name}`, ageDays });
+        }
+    }
+    return out;
 }
 
 // The finding-candidate slugs a spec's `## Execution` declares (a `Finding candidates: slug-a, slug-b`
@@ -440,6 +482,16 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
                 });
             }
         }
+    }
+
+    // Stale-candidate-finding (SPEC-findings-adjudication-gate): adjudication is part of Close —
+    // a candidate sitting past the window is surfaced, never blocked on (warning, ADR-0063).
+    for (const { path, ageDays } of find_stale_candidates(input.workspaceDir, input.now ?? new Date())) {
+        findings.push({
+            code: 'stale-candidate-finding',
+            level: 'warning',
+            message: `${path} has sat at status: candidate for ${ageDays} days — adjudicate it (accept, reject with a reason, or supersede); the pending list is a queue, not a shelf`,
+        });
     }
 
     // Incomplete-execution-digest (ADR-0110): a `## Execution` entry that is half-stamped — one staleness

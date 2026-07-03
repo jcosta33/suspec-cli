@@ -452,6 +452,42 @@ preserves: [PG-001]
         expect(report.workspaceFindings.filter((f) => f.code === 'duplicate-content')).toEqual([]);
     });
 
+    // Stale-candidate-finding (SPEC-findings-adjudication-gate AC-003) — adjudication is part of
+    // Close; a candidate older than the 30-day window warns, advisory, never blocking.
+    const writeCandidate = (name: string, status: string, date: string, reviewed?: string): void => {
+        mkdirSync(join(ws, 'findings'), { recursive: true });
+        const rev = reviewed === undefined ? '' : `reviewed: ${reviewed}\n`;
+        writeFileSync(
+            join(ws, 'findings', name),
+            `---\ntype: finding\nid: F-${name}\nstatus: ${status}\ndate: ${date}\n${rev}---\n\nA lesson.\n`
+        );
+    };
+
+    it('warns on a candidate finding older than 30 days, keyed on reviewed: over date:', () => {
+        writeSpec('good', CONFORMANT);
+        withTemplates();
+        const now = new Date('2026-07-03T00:00:00Z');
+        writeCandidate('old.md', 'candidate', '2026-05-01'); // 63 days by date:
+        writeCandidate('refreshed.md', 'candidate', '2026-05-01', '2026-06-20'); // 13 days by reviewed:
+        writeCandidate('fresh.md', 'candidate', '2026-06-25'); // 8 days
+        writeCandidate('accepted-old.md', 'accepted', '2026-01-01'); // adjudicated — never flagged
+        const report = assertOk(check_workspace({ workspaceDir: ws, now }));
+        const stale = report.workspaceFindings.filter((f) => f.code === 'stale-candidate-finding');
+        expect(stale).toHaveLength(1);
+        expect(stale[0].level).toBe('warning');
+        expect(stale[0].message).toContain('findings/old.md');
+        expect(report.verdict).toBe('clean'); // advisory — never blocks
+    });
+
+    it('never flags a candidate with no recorded date (no guessing)', () => {
+        writeSpec('good', CONFORMANT);
+        withTemplates();
+        mkdirSync(join(ws, 'findings'), { recursive: true });
+        writeFileSync(join(ws, 'findings', 'undated.md'), '---\ntype: finding\nid: F-u\nstatus: candidate\n---\n\nA lesson.\n');
+        const report = assertOk(check_workspace({ workspaceDir: ws, now: new Date('2026-07-03T00:00:00Z') }));
+        expect(report.workspaceFindings.filter((f) => f.code === 'stale-candidate-finding')).toEqual([]);
+    });
+
     // promotion-or-die (ADR-0106 item 6) — a named finding candidate must land in findings/, advisory.
     it('flags a finding candidate named in ## Execution with no findings/<slug>.md', () => {
         writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- Finding candidates: cache-bug, retry-storm\n`);
