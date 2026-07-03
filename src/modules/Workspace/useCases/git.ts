@@ -199,7 +199,7 @@ export function worktree_create(
         // The flat-vs-task branch-scheme collision (suspec-works #91): a flat `suspec/<slug>` ref
         // blocks creating `suspec/<slug>/<task>` (a ref cannot be both a file and a directory).
         // Name the collision and the two ways out instead of surfacing the raw git fatal alone.
-        if (/cannot lock ref/.test(stderr) && branch.includes('/')) {
+        if (stderr.includes('cannot lock ref') && branch.includes('/')) {
             const parent = branch.slice(0, branch.lastIndexOf('/'));
             if (branch_exists(parent, repoRoot)) {
                 return err(
