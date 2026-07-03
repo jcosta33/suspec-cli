@@ -203,6 +203,18 @@ describe('review command — finished-run reconcile (AC-017/024)', () => {
         expect(out).toContain('already merged');
     });
 
+    it('REFUSES a truly merged branch upfront with the way out (SPEC-first-hour-qol AC-002)', async () => {
+        // Commit the worktree's work and merge the task branch into the base: the diff is now empty
+        // AND the branch is an ancestor of the base — reconciling would read every claim as
+        // claimed-not-changed. The guard stops with the cause and the --base way out.
+        buildRun({ reviewRows: '| AC-001 | Pass | pasted | no |', dirtyWorktree: false });
+        git(['merge', '--no-ff', 'suspec/feat/feat', '-m', 'merge feat']);
+        const { code, err } = await capture(() => run(['TASK-feat'], repo));
+        expect(code).toBe(2);
+        expect(err).toContain('already merged into');
+        expect(err).toContain('--base');
+    });
+
     it('--json emits a machine report that parses and carries the reconcile facts', async () => {
         buildRun({ reviewRows: '| AC-001 | Pass | pasted | no |' });
         const { code, out } = await capture(() => run(['TASK-feat', '--json'], repo));

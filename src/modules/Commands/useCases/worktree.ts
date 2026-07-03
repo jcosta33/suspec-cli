@@ -131,6 +131,12 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
                 if (report.baseAheadOfRemote !== null && report.baseAheadOfRemote > 0) {
                     out += `\n  advisory: base "${baseBranch}" is ${report.baseAheadOfRemote} commit(s) ahead of its remote — a PR from this worktree may carry unpushed base commits; push the base first.`;
                 }
+                if (!report.reused) {
+                    out +=
+                        '\n  note: dev tools do not read .gitignore — vitest/eslint/cargo will scan worktree copies' +
+                        '\n        unless excluded (vitest test.exclude, eslint ignores, …); a polluted run shows' +
+                        '\n        duplicated tests or phantom lint errors from these paths.';
+                }
                 return out;
             },
         });

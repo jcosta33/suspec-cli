@@ -28,6 +28,8 @@ export type CutPacketReport = Readonly<{
     path: string;
     taskId: string;
     scope: readonly string[];
+    // True when the default id collided and the reported taskId carries an auto-suffix (-2, -3, …).
+    autoSuffixed: boolean;
 }>;
 
 type SpecRequirement = Readonly<{ id: string; verifyCommand: string | null }>;
@@ -159,12 +161,29 @@ export function cut_packet(input: CutPacketInput): Result<CutPacketReport, AppEr
         );
     }
 
-    const taskId = input.taskId ?? default_task_id(input.specId);
+    let taskId = input.taskId ?? default_task_id(input.specId);
     // The task id becomes a filename (and derives from the spec's on-disk frontmatter id). Reject any
     // path-escaping id before it is joined into a write path (a malicious/cloned workspace otherwise
     // makes `new task` an arbitrary-location writer).
     if (!is_safe_segment(taskId)) {
         return err(usage_error(`invalid task id: "${taskId}" — letters, digits, '.', '_', '-' only (no '/' or '..')`));
+    }
+    // First-hour trap (suspec-works #87): the second task cut from one spec collides with the first's
+    // default id. Only the DEFAULT id auto-suffixes (-2, -3, …) — an explicit --id or --force keeps
+    // its exact meaning (collide → error / replace, respectively). The suffix is reported so nothing
+    // renames silently.
+    let autoSuffixed = false;
+    if (input.taskId === undefined && input.force !== true) {
+        let candidate = taskId;
+        let n = 2;
+        while (existsSync(join(input.workspaceDir, 'tasks', `${candidate}.md`))) {
+            candidate = `${taskId}-${String(n)}`;
+            n += 1;
+        }
+        if (candidate !== taskId) {
+            taskId = candidate;
+            autoSuffixed = true;
+        }
     }
     const taskPath = join(input.workspaceDir, 'tasks', `${taskId}.md`);
     if (existsSync(taskPath) && input.force !== true) {
@@ -193,5 +212,5 @@ export function cut_packet(input: CutPacketInput): Result<CutPacketReport, AppEr
     mkdirSync(dirname(taskPath), { recursive: true });
     writeFileSync(taskPath, content);
 
-    return ok({ level: 'clean', path: taskPath, taskId, scope });
+    return ok({ level: 'clean', path: taskPath, taskId, scope, autoSuffixed });
 }

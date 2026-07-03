@@ -77,7 +77,10 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
             }),
             json,
             render: (report) => {
-                const head = `cut ${report.taskId} (${String(report.scope.length)} scoped)\n  ${report.path}`;
+                let head = `cut ${report.taskId} (${String(report.scope.length)} scoped)\n  ${report.path}`;
+                if (report.autoSuffixed) {
+                    head += `\n  note: the default id was taken — auto-suffixed to ${report.taskId} (pass --id to name it yourself, or --force to replace the original packet).`;
+                }
                 // R4-ISS-09: an empty scope cuts an UNBOUNDED task — easy to skim past a terse "(0 scoped)".
                 // Say so loudly so a new hire doesn't ship a task with no requirement ids bounding it.
                 return report.scope.length === 0

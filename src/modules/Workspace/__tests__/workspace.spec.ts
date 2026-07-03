@@ -9,9 +9,11 @@ import {
     current_branch,
     commits_ahead_of_remote,
     worktree_list,
+    worktree_create,
     worktree_changed_files,
     worktree_changed_stats,
     is_worktree_dirty,
+    branch_merged_into,
 } from '../useCases/index.ts';
 import { assertOk } from '../../../infra/errors/testing/assertOk.ts';
 import { assertErr } from '../../../infra/errors/testing/assertErr.ts';
@@ -31,6 +33,31 @@ afterEach(() => {
 });
 
 describe('Workspace git', () => {
+    it('branch_merged_into: true only for a merged, non-tip branch (fresh = false, unmerged = false)', () => {
+        const base = current_branch(repo) ?? 'main';
+        const wt = join(repo, '.worktrees', 'm1');
+        git(['worktree', 'add', '-b', 'suspec/m1', wt, base]);
+        // fresh worktree at the base tip: NOT merged (no work yet)
+        expect(branch_merged_into(wt, base)).toBe(false);
+        // one commit on the branch, not merged: false
+        writeFileSync(join(wt, 'f.txt'), 'x');
+        execFileSync('git', ['add', '.'], { cwd: wt });
+        execFileSync('git', ['commit', '-m', 'work'], { cwd: wt });
+        expect(branch_merged_into(wt, base)).toBe(false);
+        // merge it into base: now true
+        git(['merge', '--no-ff', 'suspec/m1', '-m', 'merge m1']);
+        expect(branch_merged_into(wt, base)).toBe(true);
+    });
+
+    it('worktree_create names the flat-vs-task branch collision with the way out (#91)', () => {
+        const base = current_branch(repo) ?? 'main';
+        git(['branch', 'suspec/x']);
+        const res = worktree_create(join(repo, '.worktrees', 'x-y'), 'suspec/x/y', base, repo);
+        const error = assertErr(res);
+        expect(error.message).toContain('collides with the existing flat branch "suspec/x"');
+        expect(error.message).toContain('git branch -m suspec/x');
+    });
+
     it('resolve_repo_root returns the root inside a repo and Errs outside one', () => {
         expect(assertOk(resolve_repo_root(repo))).toBe(repo);
         const notRepo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-norepo-')));

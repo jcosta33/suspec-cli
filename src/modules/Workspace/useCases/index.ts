@@ -7,6 +7,7 @@ export {
     worktree_list,
     find_worktree_for_branch,
     worktree_create,
+    branch_merged_into,
     worktree_remove,
     worktree_prune,
     worktree_changed_files,

@@ -66,6 +66,8 @@ describe('worktree command (direct surface, AC-009/010/002)', () => {
         expect(created.code).toBe(0);
         expect(git(['worktree', 'list'])).toContain('suspec/checkout/real-name');
         expect(git(['worktree', 'list'])).not.toContain('suspec/checkout/alias');
+        // First-hour trap (suspec-works #87): a fresh create carries the dev-tool pollution notice.
+        expect(created.out).toContain('dev tools do not read .gitignore');
     });
 
     it('create --task that names no cut task fails early, listing the real tasks — never a silent mismatch (SW-005)', async () => {

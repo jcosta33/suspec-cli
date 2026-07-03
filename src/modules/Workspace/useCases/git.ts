@@ -196,6 +196,21 @@ export function worktree_create(
     /* v8 ignore stop */
     if (result.status !== 0) {
         const stderr = (result.stderr || '').trim() || `git worktree add exited with status ${String(result.status)}`;
+        // The flat-vs-task branch-scheme collision (suspec-works #91): a flat `suspec/<slug>` ref
+        // blocks creating `suspec/<slug>/<task>` (a ref cannot be both a file and a directory).
+        // Name the collision and the two ways out instead of surfacing the raw git fatal alone.
+        if (/cannot lock ref/.test(stderr) && branch.includes('/')) {
+            const parent = branch.slice(0, branch.lastIndexOf('/'));
+            if (branch_exists(parent, repoRoot)) {
+                return err(
+                    createAppError(
+                        'WorktreeCreateFailed',
+                        `branch "${branch}" collides with the existing flat branch "${parent}" — a ref cannot be both a file and a directory. Either remove/rename the flat branch (git branch -m ${parent} ${parent}-old) or use a different slug.`,
+                        { worktreePath, branch, baseBranch, stderr }
+                    )
+                );
+            }
+        }
         return err(
             createAppError(
                 'WorktreeCreateFailed',
@@ -282,6 +297,27 @@ function c_unquote(path: string): string {
 // NEVER C-quoted; a rename/copy entry (`R`/`C` in either status column) is followed by a SECOND NUL
 // field carrying the OLD path. We keep the new path and skip the old — so a filename that literally
 // contains ` -> ` can no longer be mis-split the way the newline `R old -> new` form was (#25 C4).
+/**
+ * True when the worktree's HEAD is fully merged into `base` — HEAD is an ancestor of base AND is
+ * not the base tip itself (a fresh worktree with no commits sits AT the tip; that is "no work
+ * yet", not "merged"). Any git failure reads as false: the guard must never block on ambiguity.
+ */
+export function branch_merged_into(worktreePath: string, base: string): boolean {
+    const ancestor = spawnSync('git', ['merge-base', '--is-ancestor', 'HEAD', base], {
+        cwd: worktreePath,
+        encoding: 'utf8',
+    });
+    if (ancestor.error || ancestor.status !== 0) {
+        return false;
+    }
+    const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: worktreePath, encoding: 'utf8' });
+    const tip = spawnSync('git', ['rev-parse', base], { cwd: worktreePath, encoding: 'utf8' });
+    if (head.error || tip.error || head.status !== 0 || tip.status !== 0) {
+        return false;
+    }
+    return head.stdout.trim() !== tip.stdout.trim();
+}
+
 function porcelain_paths(raw: string): string[] {
     const paths: string[] = [];
     const fields = raw.split('\0');

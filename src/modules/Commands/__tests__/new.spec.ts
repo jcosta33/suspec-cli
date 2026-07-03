@@ -88,6 +88,19 @@ describe('new command (direct surface, AC-013)', () => {
         expect(readFileSync(join(ws, 'tasks', 'TASK-x-part-three.md'), 'utf8')).toContain('id: TASK-x-part-three');
     });
 
+    it('a second default-id cut auto-suffixes and says so — never a silent collision (#87)', async () => {
+        const first = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-001'], ws));
+        expect(first.code).toBe(0);
+        const second = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-002'], ws));
+        expect(second.code).toBe(0);
+        expect(existsSync(join(ws, 'tasks', 'TASK-x.md'))).toBe(true);
+        expect(existsSync(join(ws, 'tasks', 'TASK-x-2.md'))).toBe(true);
+        expect(second.out).toContain('auto-suffixed to TASK-x-2');
+        // An explicit --id keeps exact-collision semantics: same id twice still errors.
+        const clash = await capture(() => run(['task', '--from', 'SPEC-x', '--id', 'x-2'], ws));
+        expect(clash.code).not.toBe(0);
+    });
+
     it('an empty --id is a usage error, not a TASK-.md packet', async () => {
         const { code, err } = await capture(() => run(['task', '--from', 'SPEC-x', '--id', ''], ws));
         expect(code).toBe(2);
@@ -95,13 +108,14 @@ describe('new command (direct surface, AC-013)', () => {
         expect(existsSync(join(ws, 'tasks', 'TASK-.md'))).toBe(false);
     });
 
-    it('--force re-cuts over an existing task packet — the empty-scope-stub recovery (R5-I08)', async () => {
-        // First cut with no --scope writes an unbounded stub; re-cutting with --scope is no-clobber...
+    it('--force re-cuts over an existing task packet — the empty-scope-stub recovery (R5-I08, updated for #87 auto-suffix)', async () => {
+        // First cut with no --scope writes an unbounded stub. A bare re-cut now auto-suffixes (the
+        // fan-out default, SPEC-first-hour-qol AC-004) and points at both ways out in its note...
         expect((await capture(() => run(['task', '--from', 'SPEC-x'], ws))).code).toBe(0);
-        const collide = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-001'], ws));
-        expect(collide.code).toBe(2);
-        expect(collide.err).toContain('--force');
-        // ...until --force replaces it with the now-scoped packet.
+        const second = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-001'], ws));
+        expect(second.code).toBe(0);
+        expect(second.out).toContain('--force to replace the original');
+        // ...and --force still replaces the ORIGINAL stub in place with the now-scoped packet.
         const forced = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-001', '--force'], ws));
         expect(forced.code).toBe(0);
         expect(readFileSync(join(ws, 'tasks', 'TASK-x.md'), 'utf8')).toContain('scope: [AC-001]');

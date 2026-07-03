@@ -9,7 +9,7 @@ import { join, relative } from 'path';
 
 import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
-import { current_branch, worktree_changed_files, worktree_changed_stats } from '../../Workspace/useCases/index.ts';
+import { current_branch, worktree_changed_files, worktree_changed_stats, branch_merged_into } from '../../Workspace/useCases/index.ts';
 import { frontmatter_value, find_source_spec, resolve_worktree, resolve_task } from './taskLocator.ts';
 import { task_slug } from '../services/worktreeNames.ts';
 import type { ReconcileReviewInput } from './reconcileReview.ts';
@@ -74,7 +74,10 @@ export function resolve_review_run(input: ResolveReviewRunInput): Result<Reconci
                     `\`suspec worktree create ${spec.slug} --task ${tail}\` first ` +
                     `(that makes the branch \`suspec/${spec.slug}/${tail}\` this review reconciles against). ` +
                     `If the code lives in a separate repo from this workspace, point the review at it with ` +
-                    `\`suspec review ${input.task} --repo <path-to-code-repo>\`.`
+                    `\`suspec review ${input.task} --repo <path-to-code-repo>\`. ` +
+                    `If the task already MERGED and its worktree was removed: staleness pins and the reconcile ` +
+                    `need the pre-merge diff — review before merging next time; the merged run cannot be ` +
+                    `reconstructed here.`
             )
         );
     }
@@ -112,6 +115,19 @@ export function resolve_review_run(input: ResolveReviewRunInput): Result<Reconci
     // the packet's own path so it is not mis-flagged as an outside-scope / changed-not-claimed code change
     // (SW-004; in split-repo the worktree has no packet, so this is a no-op).
     const diffChangedFiles = diff.value.filter((path) => path !== relTaskPath);
+
+    // First-hour trap guard (suspec-works #87/#91): an empty diff on a branch already MERGED into
+    // the base means every claim would read claimed-not-changed — reconciling that emptiness is
+    // noise dressed as review. Refuse upfront with the way out; a fresh worktree with no commits
+    // (HEAD at the base tip) is NOT refused — that is "no work yet", reconciled normally.
+    if (diffChangedFiles.length === 0 && branch_merged_into(worktree.path, base)) {
+        return err(
+            usage_error(
+                `branch "${worktree.branch ?? 'HEAD'}" is already merged into "${base}" — its diff is empty, so this reconcile would read every claim as claimed-not-changed. ` +
+                    `Review a branch BEFORE merging it; for an already-merged run, pass \`--base <the branch's fork point>\` to reconcile the pre-merge diff.`
+            )
+        );
+    }
 
     // C018 (oversized-packet): the per-file LOC of the committed diff. Same packet-path exclusion as
     // above. An Err here is non-fatal — the size nudge is advisory, so a numstat hiccup degrades to "no
