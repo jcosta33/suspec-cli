@@ -85,13 +85,13 @@ describe('run_new_flow', () => {
         expect(p.calls.errors.length).toBeGreaterThan(0);
     });
 
-    it('surfaces a packet conflict as exit 2', async () => {
+    it('a second default-id cut auto-suffixes instead of conflicting (SPEC-first-hour-qol AC-004)', async () => {
         await run_new_flow(create_mock_prompter({ select: ['task', 'SPEC-x'], multiselect: [['AC-001']] }), {
             workspaceDir: ws,
         });
         const p = create_mock_prompter({ select: ['task', 'SPEC-x'], multiselect: [['AC-002']] });
-        expect(await run_new_flow(p, { workspaceDir: ws })).toBe(2);
-        expect(p.calls.errors.length).toBeGreaterThan(0);
+        expect(await run_new_flow(p, { workspaceDir: ws })).toBe(0);
+        expect(existsSync(join(ws, 'tasks', 'TASK-x-2.md'))).toBe(true);
     });
 
     it('bails on cancel at each prompt', async () => {

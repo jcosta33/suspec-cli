@@ -47,6 +47,8 @@ describe('Workspace git', () => {
         // merge it into base: now true
         git(['merge', '--no-ff', 'suspec/m1', '-m', 'merge m1']);
         expect(branch_merged_into(wt, base)).toBe(true);
+        // an unresolvable base never blocks — the guard reads false on ambiguity
+        expect(branch_merged_into(wt, 'no-such-ref')).toBe(false);
     });
 
     it('worktree_create names the flat-vs-task branch collision with the way out (#91)', () => {
@@ -56,6 +58,17 @@ describe('Workspace git', () => {
         const error = assertErr(res);
         expect(error.message).toContain('collides with the existing flat branch "suspec/x"');
         expect(error.message).toContain('git branch -m suspec/x');
+    });
+
+    it('the reverse collision (directory blocks a leaf) falls through to the generic error', () => {
+        const base = current_branch(repo) ?? 'main';
+        git(['branch', 'suspec/a/b']);
+        // creating the LEAF "suspec/a" under an existing directory ref: cannot-lock fires, but the
+        // parent ("suspec") is no flat branch — the guard must fall through, not misattribute.
+        const res = worktree_create(join(repo, '.worktrees', 'a'), 'suspec/a', base, repo);
+        const error = assertErr(res);
+        expect(error.message).toContain('failed to create worktree');
+        expect(error.message).not.toContain('collides with the existing flat branch');
     });
 
     it('resolve_repo_root returns the root inside a repo and Errs outside one', () => {

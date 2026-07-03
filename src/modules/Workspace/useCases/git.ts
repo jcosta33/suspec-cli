@@ -312,9 +312,11 @@ export function branch_merged_into(worktreePath: string, base: string): boolean 
     }
     const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: worktreePath, encoding: 'utf8' });
     const tip = spawnSync('git', ['rev-parse', base], { cwd: worktreePath, encoding: 'utf8' });
+    /* v8 ignore start -- defensive: a ref that just passed --is-ancestor cannot fail rev-parse except on a race/git failure */
     if (head.error || tip.error || head.status !== 0 || tip.status !== 0) {
         return false;
     }
+    /* v8 ignore stop */
     return head.stdout.trim() !== tip.stdout.trim();
 }
 
