@@ -656,6 +656,17 @@ describe('C004 one-strength-word', () => {
         ).toEqual(['C004']);
     });
 
+    it('exempts SOL INTERFACE (IF-) blocks — a declaration has no strength-word slot (ADR-0127, #96)', () => {
+        // An INTERFACE with no strength word must NOT fire C004 (it binds on nothing by grammar)…
+        expect(
+            check_one_strength_word(spec({ requirements: [req('IF-001', '`refreshSession` RETURNS `Session`')] }))
+        ).toEqual([]);
+        // …while a REQ/CONSTRAINT/INVARIANT with no strength word still does.
+        expect(codes(check_one_strength_word(spec({ requirements: [req('I-001', 'A token is unique.')] })))).toEqual([
+            'C004',
+        ]);
+    });
+
     it('counts strength words only in the statement, not the Verify line', () => {
         // statement has one modal; the modal in the Verify line must not count → no C004
         expect(

@@ -16,7 +16,7 @@ import type { OutcomeLevel } from '../useCases/unixOutcome.ts';
 import { strip_inline_code } from '../../../infra/markdownScan.ts';
 
 // Pinned to suspec/checks/checks.yaml `version:`; the drift-guard test fails if the sibling diverges.
-export const CONTRACT_VERSION = '0.12.0';
+export const CONTRACT_VERSION = '0.13.0';
 
 export type CheckSeverity = 'hard-error' | 'warning';
 
@@ -241,6 +241,13 @@ export function check_one_strength_word(spec: ParsedSpec): Diagnostic[] {
     const diagnostics: Diagnostic[] = [];
     const isSol = spec.frontmatter.format === 'sol';
     for (const requirement of spec.requirements) {
+        // C004 exempts SOL INTERFACE blocks (IF-, suspec-works #96): an INTERFACE is a signature
+        // DECLARATION (`RETURNS`/`ACCEPTS`/`ERRORS`/`OWNED BY`, docs/reference/structured-requirements.md)
+        // with no strength-word slot by grammar — so "add the one word it binds on" is un-actionable.
+        // Only REQ/CONSTRAINT/INVARIANT bear an obligation; QUESTION (Q-) is already excluded at parse.
+        if (requirement.id.startsWith('IF-')) {
+            continue;
+        }
         const count = count_strength_words(response_clause(statement_text(requirement.body), isSol));
         if (count === 0) {
             diagnostics.push(
