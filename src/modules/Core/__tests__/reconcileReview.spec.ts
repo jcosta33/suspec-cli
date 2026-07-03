@@ -615,6 +615,38 @@ describe('reconcile_review — fast-track staleness (ADR-0107)', () => {
         expect(report.level).toBe('warning'); // warns + re-routes, never blocks
     });
 
+    it('#97: flips to Stale on CONTENT drift even when the digest MATCHES (a reviewed file changed since reviewed_sha)', () => {
+        const probe = ok({ ...base, reviewPacketSource: reviewMd(null) });
+        const report = ok({
+            ...base,
+            reviewPacketSource: reviewMd(probe.evidenceDigest), // digest matches — path set + evidence unchanged
+            pathsChangedSince: () => ['src/a.ts'], // but src/a.ts differs from reviewed_sha (content mutated)
+        });
+        expect(report.reviewStale).not.toBeNull();
+        expect(report.reviewStale?.reviewedSha).toBe('abc1234');
+        expect(report.level).toBe('warning');
+    });
+
+    it('#97: NOT stale when the changed paths do not intersect the review diff set (unrelated post-review commit)', () => {
+        const probe = ok({ ...base, reviewPacketSource: reviewMd(null) });
+        const report = ok({
+            ...base,
+            reviewPacketSource: reviewMd(probe.evidenceDigest),
+            pathsChangedSince: () => ['src/unrelated.ts'], // not in diffChangedFiles (['src/a.ts'])
+        });
+        expect(report.reviewStale).toBeNull();
+    });
+
+    it('#97: content-drift check degrades to digest-only when paths_changed_since returns null (sha unresolved, 0-FP)', () => {
+        const probe = ok({ ...base, reviewPacketSource: reviewMd(null) });
+        const report = ok({
+            ...base,
+            reviewPacketSource: reviewMd(probe.evidenceDigest),
+            pathsChangedSince: () => null,
+        });
+        expect(report.reviewStale).toBeNull();
+    });
+
     it('reads a list-valued evidence_hash (defensive — never a false negative)', () => {
         // a hash accidentally written as a YAML one-item list must still be read (not dropped to undefined)
         const listReview = `---\ntype: review\nid: REVIEW-feat\ntask: TASK-feat\nreviewed_sha: abc1234\nevidence_hash:\n  - 0000000000000000\nstatus: needs-human\n---\n\n## Requirement coverage\n\n| ID | Result | Evidence | Human attention |\n|---|---|---|---|\n| AC-001 | Pass | p | no |\n`;

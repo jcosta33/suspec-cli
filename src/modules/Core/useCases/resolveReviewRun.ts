@@ -9,7 +9,13 @@ import { join, relative } from 'path';
 
 import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
-import { current_branch, worktree_changed_files, worktree_changed_stats, branch_merged_into } from '../../Workspace/useCases/index.ts';
+import {
+    current_branch,
+    worktree_changed_files,
+    worktree_changed_stats,
+    branch_merged_into,
+    paths_changed_since,
+} from '../../Workspace/useCases/index.ts';
 import { frontmatter_value, find_source_spec, resolve_worktree, resolve_task } from './taskLocator.ts';
 import { task_slug } from '../services/worktreeNames.ts';
 import type { ReconcileReviewInput } from './reconcileReview.ts';
@@ -147,6 +153,9 @@ export function resolve_review_run(input: ResolveReviewRunInput): Result<Reconci
         reviewPacketSource: find_review_packet(input.workspaceDir, task.id),
         diffChangedFiles,
         changedFileStats,
+        // #97 (ADR-0107): let the reconcile detect post-review CONTENT drift the digest misses — the
+        // paths that differ between the review's `reviewed_sha` and this worktree.
+        pathsChangedSince: (sha: string) => paths_changed_since(worktree.path, sha),
         // Context the command surfaces (the reconcile engine ignores these). packetRef names WHERE the
         // self-report was read from (R5-I06 — the worktree branch under review, or the workspace checkout
         // in a split-repo layout), so a worker who edited the wrong copy sees why the reconcile differs.

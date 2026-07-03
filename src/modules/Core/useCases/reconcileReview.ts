@@ -58,6 +58,12 @@ export type ReconcileReviewInput = Readonly<{
     // reconcile tests need not set them.
     base?: string;
     packetRef?: string;
+    // #97 (ADR-0107): an injected git predicate — the paths that differ between a SHA and the worktree
+    // (`paths_changed_since`). Used to detect post-review CONTENT drift the evidence digest misses (the
+    // digest hashes the diff's path SET + evidence cells, not the diff content). Optional and injected
+    // (like C009's `exists` / C010's `spec_ref_resolves`) so the engine stays pure; when absent, staleness
+    // degrades to digest-only — the prior behavior.
+    pathsChangedSince?: (sha: string) => readonly string[] | null;
 }>;
 
 // A coverage finding: an in-scope id with no row (uncovered) or a row naming an id absent from the
@@ -286,7 +292,16 @@ export function reconcile_review(input: ReconcileReviewInput): Result<ReviewRepo
     // dropped to undefined (which would skip Stale detection — a false negative).
     const storedHash = fm_scalar(reviewFrontmatter?.evidence_hash);
     const reviewedSha = fm_scalar(reviewFrontmatter?.reviewed_sha) ?? null;
-    const reviewStale = storedHash !== undefined && storedHash !== evidenceDigest ? { reviewedSha } : null;
+    const digestDrifted = storedHash !== undefined && storedHash !== evidenceDigest;
+    // #97: the digest hashes the diff's path SET + the coverage rows' evidence, NOT the diff CONTENT —
+    // so a post-review content mutation of an already-reviewed file (same path set) leaves it unchanged
+    // and the digest never rotates. A reviewed file that now differs from its `reviewed_sha` state is
+    // content drift → also Stale. Precise (only the review's own diff paths count, never an unrelated
+    // post-review commit) and 0-FP (paths_changed_since returns null → skip when the sha does not resolve).
+    const changedSinceReview =
+        reviewedSha !== null && input.pathsChangedSince !== undefined ? input.pathsChangedSince(reviewedSha) : null;
+    const contentDrifted = changedSinceReview?.some((path) => input.diffChangedFiles.includes(path)) ?? false;
+    const reviewStale = digestDrifted || contentDrifted ? { reviewedSha } : null;
 
     const withoutLevel: Omit<ReviewReport, 'level'> = {
         task: input.task,
