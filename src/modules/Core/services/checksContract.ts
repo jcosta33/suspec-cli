@@ -16,7 +16,7 @@ import type { OutcomeLevel } from '../useCases/unixOutcome.ts';
 import { strip_inline_code } from '../../../infra/markdownScan.ts';
 
 // Pinned to suspec/checks/checks.yaml `version:`; the drift-guard test fails if the sibling diverges.
-export const CONTRACT_VERSION = '0.11.0';
+export const CONTRACT_VERSION = '0.12.0';
 
 export type CheckSeverity = 'hard-error' | 'warning';
 
@@ -233,22 +233,28 @@ export function check_verify_with(spec: ParsedSpec): Diagnostic[] {
 }
 
 // --- C004 one-strength-word ----------------------------------------------------------------------
+// ADR-0126 (contract 0.12.0): the requirement is AT LEAST one binding word — zero binds on nothing
+// (the defect); more than one is a split-candidate ADVISORY under the same id, advice-framed, never
+// "expected exactly one" (the exactly-one bar was the measured dominant authoring friction with no
+// measured benefit — suspec-works #87).
 export function check_one_strength_word(spec: ParsedSpec): Diagnostic[] {
     const diagnostics: Diagnostic[] = [];
     const isSol = spec.frontmatter.format === 'sol';
     for (const requirement of spec.requirements) {
         const count = count_strength_words(response_clause(statement_text(requirement.body), isSol));
-        if (count !== 1) {
-            // R5-I12: the message names the action, not just the count — builders praised the rule but had
-            // to map the bare count to "split bundled behaviors" / "add the missing MUST" themselves.
-            const remedy =
-                count > 1
-                    ? ' — split into one obligation per requirement'
-                    : ' — add the one strength word (MUST/SHOULD/…) this requirement binds on';
+        if (count === 0) {
             diagnostics.push(
                 diagnostic(
                     'C004',
-                    `requirement ${requirement.id} states ${count} strength words (expected exactly one)${remedy}`,
+                    `requirement ${requirement.id} states no strength word — it binds on nothing; add the one word (MUST/SHOULD/…) it binds on`,
+                    requirement.line
+                )
+            );
+        } else if (count > 1) {
+            diagnostics.push(
+                diagnostic(
+                    'C004',
+                    `requirement ${requirement.id} states ${count} strength words — several bindings often mean several requirements; consider a split (advice, not a format bar)`,
                     requirement.line
                 )
             );
