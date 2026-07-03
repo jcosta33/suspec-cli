@@ -59,10 +59,15 @@ export function launch_adapter(
     const args = startupInstruction.length > 0 ? [startupInstruction] : [];
     const result = spawnSync(command, args, { cwd: worktreePath, stdio: 'inherit' });
     if (result.error) {
+        // #91c: a multi-word command is the common mistake — spawnSync looks up the whole string as
+        // ONE executable, so `node --watch` fails ENOENT. The adapter command is a bare binary in PATH.
+        const shellStringHint = command.includes(' ')
+            ? ` — the adapter \`command\` is a single binary in PATH (e.g. \`claude\`), not a shell string; "${command}" was looked up as one executable`
+            : '';
         return err(
             createAppError(
                 'LaunchFailed',
-                `could not launch agent "${command}": ${result.error.message}`,
+                `could not launch agent "${command}": ${result.error.message}${shellStringHint}`,
                 { command, detail: result.error.message },
                 result.error
             )
