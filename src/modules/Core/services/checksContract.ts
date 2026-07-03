@@ -16,7 +16,7 @@ import type { OutcomeLevel } from '../useCases/unixOutcome.ts';
 import { strip_inline_code } from '../../../infra/markdownScan.ts';
 
 // Pinned to suspec/checks/checks.yaml `version:`; the drift-guard test fails if the sibling diverges.
-export const CONTRACT_VERSION = '0.14.0';
+export const CONTRACT_VERSION = '0.15.0';
 
 export type CheckSeverity = 'hard-error' | 'warning';
 
@@ -656,7 +656,15 @@ export function verify_binding_facts(input: VerifyBindingInput): VerifyBindingFi
 }
 
 export function check_verify_binding(input: VerifyBindingInput): Diagnostic[] {
-    return verify_binding_facts(input).map((finding) => diagnostic('C013', verify_binding_message(finding), null));
+    return verify_binding_facts(input).map((finding) => {
+        const base = diagnostic('C013', verify_binding_message(finding), null);
+        // #95 (ADR-0129 amends ADR-0083): at the GATE face (`suspec check <review>`) a cmd-mismatch
+        // BLOCKS — a recorded verify block whose cmd disagrees with the requirement's named Verify
+        // command is a structural contradiction (a fabricated/renamed command name), not a nudge, so
+        // ship it hard-error here. The other C013 kinds stay advisory (warning); the reconcile face
+        // (verify_binding_facts, used by `suspec review`) is unaffected and never blocks (ADR-0077 D8).
+        return finding.kind === 'cmd-mismatch' ? { ...base, severity: 'hard-error' as const } : base;
+    });
 }
 
 // --- C016 pass-needs-evidence (ADR-0097; the implemented pass-needs-evidence content_rule) --------

@@ -414,7 +414,9 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
                 verifyBlocks: [{ id: 'AC-001', cmd: 'npm test -- other.spec.ts', result: 'pass', malformed: false }],
             })
         );
+        // The reconcile face (verify_binding_facts) is unchanged — a plain fact, no severity, advisory.
         expect(facts).toEqual([{ id: 'AC-001', kind: 'cmd-mismatch' }]);
+        // The gate wrapper (check_verify_binding) promotes a cmd-mismatch to hard-error (#95, ADR-0129).
         expect(
             check_verify_binding(
                 base({
@@ -423,7 +425,7 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
                     ],
                 })
             )[0]
-        ).toMatchObject({ code: 'C013', severity: 'warning' });
+        ).toMatchObject({ code: 'C013', severity: 'hard-error' });
     });
 
     it('a result=fail under a Pass row → a result-fail fact', () => {

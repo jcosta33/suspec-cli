@@ -217,7 +217,9 @@ describe('check_review_file — C013 verify-evidence-binding on a review packet 
         const report = assertOk(check_review_file({ workspaceDir: dir, reviewPath: path }));
         expect(report.diagnostics.map((d) => d.code)).toEqual(['C013']);
         expect(report.diagnostics[0].message).toContain('does not match');
-        expect(report.level).toBe('warning');
+        // #95 (ADR-0129): a cmd-mismatch BLOCKS at the gate face (was advisory under ADR-0083).
+        expect(report.diagnostics[0].severity).toBe('hard-error');
+        expect(report.level).toBe('blocking');
     });
 
     it('reports C013 for a result=fail block under a Pass row', () => {
