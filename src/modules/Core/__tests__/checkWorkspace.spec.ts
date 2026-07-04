@@ -406,7 +406,10 @@ preserves: [PG-001]
     });
 
     it('flags a status: superseded spec that names no superseded_by replacement', () => {
-        writeSpec('old', CONFORMANT.replace('id: SPEC-good', 'id: SPEC-old').replace('status: ready', 'status: superseded'));
+        writeSpec(
+            'old',
+            CONFORMANT.replace('id: SPEC-good', 'id: SPEC-old').replace('status: ready', 'status: superseded')
+        );
         withTemplates();
         const report = assertOk(check_workspace({ workspaceDir: ws }));
         const finding = report.workspaceFindings.find((f) => f.code === 'supersede-missing-pointer');
@@ -505,7 +508,10 @@ preserves: [PG-001]
         writeSpec('good', CONFORMANT);
         withTemplates();
         mkdirSync(join(ws, 'findings'), { recursive: true });
-        writeFileSync(join(ws, 'findings', 'undated.md'), '---\ntype: finding\nid: F-u\nstatus: candidate\n---\n\nA lesson.\n');
+        writeFileSync(
+            join(ws, 'findings', 'undated.md'),
+            '---\ntype: finding\nid: F-u\nstatus: candidate\n---\n\nA lesson.\n'
+        );
         const report = assertOk(check_workspace({ workspaceDir: ws, now: new Date('2026-07-03T00:00:00Z') }));
         expect(report.workspaceFindings.filter((f) => f.code === 'stale-candidate-finding')).toEqual([]);
     });
@@ -516,7 +522,9 @@ preserves: [PG-001]
         withTemplates();
         const report = assertOk(check_workspace({ workspaceDir: ws }));
         const flagged = report.workspaceFindings.filter((f) => f.code === 'unpromoted-finding');
-        expect(flagged.map((f) => f.message.includes('cache-bug') || f.message.includes('retry-storm'))).toContain(true);
+        expect(flagged.map((f) => f.message.includes('cache-bug') || f.message.includes('retry-storm'))).toContain(
+            true
+        );
         expect(flagged.every((f) => f.level === 'warning')).toBe(true);
         expect(report.verdict).toBe('clean'); // advisory — never blocks the merge
     });
@@ -538,7 +546,10 @@ preserves: [PG-001]
     });
 
     it('does not flag an unfilled template placeholder Finding-candidates line', () => {
-        writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- Finding candidates: {{slugs of durable lessons — promote or omit}}\n`);
+        writeSpec(
+            'feat',
+            `${CONFORMANT}\n## Execution\n\n- Finding candidates: {{slugs of durable lessons — promote or omit}}\n`
+        );
         withTemplates();
         const report = assertOk(check_workspace({ workspaceDir: ws }));
         expect(report.workspaceFindings.filter((f) => f.code === 'unpromoted-finding')).toEqual([]);
@@ -569,24 +580,33 @@ preserves: [PG-001]
 
     // ADR-0110 — the incomplete-execution-digest advisory (0-FP: only a half-stamped entry flags).
     const digestFindings = (): string[] =>
-        assertOk(check_workspace({ workspaceDir: ws })).workspaceFindings
-            .filter((f) => f.code === 'incomplete-execution-digest')
+        assertOk(check_workspace({ workspaceDir: ws }))
+            .workspaceFindings.filter((f) => f.code === 'incomplete-execution-digest')
             .map((f) => f.message);
 
     it('does NOT flag an Execution entry with a COMPLETE digest (both pins filled)', () => {
-        writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- **2026-06-26 — shipped** (suspec-cli \`abc1234\`).\n  - reviewed-sha: \`abc1234\` · evidence-hash: \`deadbeefcafe0000\`\n`);
+        writeSpec(
+            'feat',
+            `${CONFORMANT}\n## Execution\n\n- **2026-06-26 — shipped** (suspec-cli \`abc1234\`).\n  - reviewed-sha: \`abc1234\` · evidence-hash: \`deadbeefcafe0000\`\n`
+        );
         withTemplates();
         expect(digestFindings()).toEqual([]);
     });
 
     it('does NOT flag a prose Execution entry with NO digest (legacy / simple 1:1 work)', () => {
-        writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- **2026-06-26 — shipped** (suspec-cli \`abc1234\`).\n  - Run summary: changed login.ts; ran the suite.\n`);
+        writeSpec(
+            'feat',
+            `${CONFORMANT}\n## Execution\n\n- **2026-06-26 — shipped** (suspec-cli \`abc1234\`).\n  - Run summary: changed login.ts; ran the suite.\n`
+        );
         withTemplates();
         expect(digestFindings()).toEqual([]);
     });
 
     it('FLAGS a half-stamped Execution entry (one pin, not the other) as a warning, never blocking', () => {
-        writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- **2026-06-26 — shipped** (suspec-cli \`abc1234\`).\n  - reviewed-sha: \`abc1234\`\n`);
+        writeSpec(
+            'feat',
+            `${CONFORMANT}\n## Execution\n\n- **2026-06-26 — shipped** (suspec-cli \`abc1234\`).\n  - reviewed-sha: \`abc1234\`\n`
+        );
         withTemplates();
         const report = assertOk(check_workspace({ workspaceDir: ws }));
         const finding = report.workspaceFindings.find((f) => f.code === 'incomplete-execution-digest');
@@ -596,7 +616,10 @@ preserves: [PG-001]
     });
 
     it('does NOT flag pins left as unfilled {{placeholders}} (a freshly-scaffolded spec)', () => {
-        writeSpec('feat', `${CONFORMANT}\n## Execution\n\n- **{{date}} — {{summary}}**\n  - reviewed-sha: {{code SHA reviewed}} · evidence-hash: {{written by suspec stamp}}\n`);
+        writeSpec(
+            'feat',
+            `${CONFORMANT}\n## Execution\n\n- **{{date}} — {{summary}}**\n  - reviewed-sha: {{code SHA reviewed}} · evidence-hash: {{written by suspec stamp}}\n`
+        );
         withTemplates();
         expect(digestFindings()).toEqual([]);
     });
@@ -713,5 +736,35 @@ preserves: [PG-001]
         writeSpec('new', CONFORMANT.replace('id: SPEC-good', 'id: SPEC-new')); // the live replacement
         withTemplates();
         expect(nonactiveExecutionFindings()).toEqual([]);
+    });
+});
+
+describe('check_workspace — required paths come from the kit manifest (ADR-0135 AC-003)', () => {
+    function manifest(body: string): void {
+        writeFileSync(join(ws, 'suspec-kit.yaml'), body);
+    }
+
+    it('blocks when a manifest-declared required path is missing', () => {
+        writeSpec('good', CONFORMANT);
+        withTemplates();
+        manifest('required:\n  - guides\n'); // requires guides/, which is absent
+        const report = assertOk(check_workspace({ workspaceDir: ws }));
+        expect(report.verdict).toBe('blocking');
+        const missing = report.workspaceFindings.find((f) => f.code === 'missing-template');
+        expect(missing?.message).toContain('guides');
+    });
+
+    it('passes the required check when every manifest-declared path is present (templates/ not required here)', () => {
+        writeSpec('good', CONFORMANT);
+        mkdirSync(join(ws, 'guides'), { recursive: true }); // the only required path; templates/ absent
+        manifest('required:\n  - guides\n');
+        const report = assertOk(check_workspace({ workspaceDir: ws }));
+        expect(report.workspaceFindings.some((f) => f.code === 'missing-template')).toBe(false);
+    });
+
+    it('no manifest → the default templates/ requirement still applies (AC-004)', () => {
+        writeSpec('good', CONFORMANT); // no manifest, no templates/ → default requirement fires
+        const report = assertOk(check_workspace({ workspaceDir: ws }));
+        expect(report.workspaceFindings.some((f) => f.code === 'missing-template')).toBe(true);
     });
 });

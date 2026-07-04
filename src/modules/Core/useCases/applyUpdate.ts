@@ -21,6 +21,7 @@ import { ok, isErr, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
 import { check_update } from './checkUpdate.ts';
 import { init_workspace, type ConflictPolicy } from './initWorkspace.ts';
+import { read_kit_manifest, DEFAULT_KIT_OWNED } from '../services/kitManifest.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
 export type ApplyUpdateInput = Readonly<{
@@ -55,16 +56,16 @@ export type ApplyUpdateReport = Readonly<{
 
 const NO_CHANGES = { written: [], skipped: [], merged: [], backedUp: [], overwritten: [] } as const;
 
-// The kit-owned guidance an update refreshes — the guides, templates, gate hooks, advanced cards.
+// A path is kit-owned when it matches one of the kit's declared prefixes (or, for a bare filename, that
+// exact file). The prefixes come from the kit manifest (ADR-0135); the default layout is the fallback.
+// The kit-owned guidance an update refreshes is the guides, templates, gate hooks, advanced cards.
 // Everything else the kit ships a SEED copy of (the board, README, CHANGELOG, VERSION, decisions/0001,
 // examples/, the flow-folder READMEs) is the adopter's once they have a lived-in workspace, so `--write`
 // leaves it untouched. The agent-tool skills symlinks (created at init) persist and need no refresh —
-// the guides they point INTO live under `.agents/skills/`, which IS refreshed. Matched by path prefix
-// (or exact, for a bare file). Mirrors ADOPTING.md's "re-copy templates/, .agents/skills/, hooks/".
-const KIT_OWNED_PREFIXES = ['templates/', '.agents/skills/', 'advanced/', 'hooks/'] as const;
-
-function is_kit_owned(rel: string): boolean {
-    return KIT_OWNED_PREFIXES.some((prefix) => rel === prefix.replace(/\/$/, '') || rel.startsWith(prefix));
+// the guides they point INTO live under `.agents/skills/`, which IS refreshed.
+function build_is_kit_owned(prefixes: readonly string[]): (rel: string) => boolean {
+    return (rel: string): boolean =>
+        prefixes.some((prefix) => rel === prefix.replace(/\/$/, '') || rel.startsWith(prefix));
 }
 
 export function apply_update(input: ApplyUpdateInput): Result<ApplyUpdateReport, AppError> {
@@ -87,12 +88,16 @@ export function apply_update(input: ApplyUpdateInput): Result<ApplyUpdateReport,
         });
     }
 
+    // The kit declares which paths it owns in its manifest (ADR-0135); read it from the incoming kit
+    // source so the updated kit's own layout drives the refresh. No manifest → the built-in default
+    // layout, so a pre-manifest kit refreshes exactly as before (AC-004).
+    const kitOwned = read_kit_manifest(input.kitSourceDir)?.kitOwned ?? DEFAULT_KIT_OWNED;
     const copied = init_workspace({
         sourceDir: input.kitSourceDir,
         targetDir: input.workspaceDir,
         policy: input.policy,
         mode: 'workspace',
-        pathFilter: is_kit_owned,
+        pathFilter: build_is_kit_owned(kitOwned),
     });
     /* v8 ignore next 3 -- unreachable in practice: check_update above already proved the kit source
        exists and carries VERSION, so init_workspace's source-missing arm can't fire here, and the only

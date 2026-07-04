@@ -17,6 +17,7 @@ import { check_change_plan } from './checkChangePlan.ts';
 import { build_spec_ref_resolver } from './resolveSpecRef.ts';
 import { build_anchor_resolver } from './buildAnchorResolver.ts';
 import { build_source_exists } from './resolveSourcePath.ts';
+import { read_kit_manifest, DEFAULT_REQUIRED } from '../services/kitManifest.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
 export type WorkspaceFinding = Readonly<{
@@ -295,12 +296,17 @@ function workspace_validity(workspaceDir: string): WorkspaceFinding[] {
             });
         }
     }
-    if (!existsSync(join(workspaceDir, 'templates'))) {
-        findings.push({
-            code: 'missing-template',
-            level: 'blocking',
-            message: 'no templates/ directory — the core templates are missing',
-        });
+    // A valid workspace must contain the paths the kit declares required (ADR-0135); no manifest → the
+    // built-in default (`templates/`), so a pre-manifest workspace checks exactly as before (AC-004).
+    const required = read_kit_manifest(workspaceDir)?.required ?? DEFAULT_REQUIRED;
+    for (const rel of required) {
+        if (!existsSync(join(workspaceDir, rel))) {
+            findings.push({
+                code: 'missing-template',
+                level: 'blocking',
+                message: `no ${rel}/ — a kit-required path is missing (the kit declares it in suspec-kit.yaml)`,
+            });
+        }
     }
     // AGENTS.md is the always-loaded context file; the convention is to keep it short (~100 lines) so
     // every task pays a small, fixed context cost (glossary: AGENTS.md). A file several times that is
@@ -400,9 +406,7 @@ export function check_workspace(input: CheckWorkspaceInput): Result<WorkspaceChe
         // examples excluded), so `## Execution` detection is the same parse the digest checks key on — no
         // new freeform parsing. 0-FP by construction: gated on the in-force `active` status alone, so a
         // draft/ready/in-flight spec (not yet shipped) and a superseded/legacy spec are never touched.
-        const hasExecutionSection = record.sectionTitles.some(
-            (title) => title.trim().toLowerCase() === 'execution'
-        );
+        const hasExecutionSection = record.sectionTitles.some((title) => title.trim().toLowerCase() === 'execution');
         if (record.frontmatter.status === 'active' && !hasExecutionSection) {
             activeSpecsWithoutExecution.push(specPath);
         }
