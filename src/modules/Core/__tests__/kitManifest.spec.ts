@@ -48,6 +48,18 @@ describe('read_kit_manifest (ADR-0135, pure)', () => {
         expect(m?.required).toEqual(['templates']);
     });
 
+    it('strips an inline `#` comment on a list item so the path never carries the comment', () => {
+        manifest('kit_owned:\n  - templates/  # the templates dir\n  - hooks/\t# tab before hash\nrequired:\n  - templates # required\n');
+        const m = read_kit_manifest(dir);
+        expect(m?.kitOwned).toEqual(['templates/', 'hooks/']);
+        expect(m?.required).toEqual(['templates']);
+    });
+
+    it('keeps a `#` that is not preceded by whitespace as part of the value (YAML rule)', () => {
+        manifest('kit_owned:\n  - templates/tag#1\nrequired:\n  - templates\n');
+        expect(read_kit_manifest(dir)?.kitOwned).toEqual(['templates/tag#1']);
+    });
+
     it('the defaults mirror the kit historical layout', () => {
         expect(DEFAULT_KIT_OWNED).toContain('templates/');
         expect(DEFAULT_REQUIRED).toContain('templates');

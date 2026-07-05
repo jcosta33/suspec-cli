@@ -13,7 +13,7 @@ export const MANIFEST_FILENAME = 'suspec-kit.yaml';
 
 // The built-in fallback, used when no manifest is present (a pre-ADR-0135 kit/workspace). These mirror
 // the layout the kit has always shipped, so behavior is unchanged until a manifest declares otherwise.
-export const DEFAULT_KIT_OWNED = ['templates/', '.agents/skills/', 'advanced/', 'hooks/'] as const;
+export const DEFAULT_KIT_OWNED = ['templates/', '.agents/skills/', 'hooks/'] as const;
 export const DEFAULT_REQUIRED = ['templates'] as const;
 
 export type KitManifest = Readonly<{
@@ -28,7 +28,8 @@ const LIST_ITEM = /^\s*-\s+(.+?)\s*$/; // `  - value`
 
 // Parse the manifest's block lists from raw text. Only `kit_owned:` and `required:` are read; any other
 // key is ignored. A key present with no items reads as an empty list (the kit's explicit choice); a key
-// entirely absent falls back to its default. Comments (`#`) and blank lines are skipped.
+// entirely absent falls back to its default. Blank lines and comments — whole-line and inline (a `#`
+// preceded by whitespace, YAML-style) — are skipped.
 function parse_manifest(text: string): KitManifest {
     const lists: Record<string, string[]> = {};
     let current: string | null = null;
@@ -36,13 +37,21 @@ function parse_manifest(text: string): KitManifest {
         if (line.trim() === '' || line.trimStart().startsWith('#')) {
             continue;
         }
-        const keyMatch = BLOCK_KEY.exec(line);
+        // Strip an inline comment before matching, so `- templates/  # the templates dir` reads as the
+        // path `templates/`, not the comment-laden string. A `#` not preceded by whitespace is not a
+        // comment (YAML), so it stays part of the value.
+        const commentAt = line.search(/\s#/);
+        const code = commentAt === -1 ? line : line.slice(0, commentAt);
+        if (code.trim() === '') {
+            continue;
+        }
+        const keyMatch = BLOCK_KEY.exec(code);
         if (keyMatch !== null) {
             current = keyMatch[1];
             lists[current] = [];
             continue;
         }
-        const itemMatch = LIST_ITEM.exec(line);
+        const itemMatch = LIST_ITEM.exec(code);
         if (itemMatch !== null && current !== null) {
             lists[current].push(itemMatch[1]);
             continue;
