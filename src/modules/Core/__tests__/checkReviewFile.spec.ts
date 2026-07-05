@@ -160,6 +160,24 @@ describe('check_review_file — C012 on a review packet (AC-028)', () => {
         expect(report.level).toBe('blocking'); // hard-error: the dangling ref blocks the gate
     });
 
+    it('a traversal `task:` ref is refused as unresolvable — never reads a task packet outside the workspace', () => {
+        // A VALID task packet planted one level ABOVE the workspace, reachable via tasks/../../<name>.md.
+        const evil = join(dir, '..', 'suspec-evil-task.md');
+        writeFileSync(evil, TASK);
+        try {
+            const path = join(dir, 'review.md');
+            writeFileSync(
+                path,
+                '---\ntype: review\nid: REVIEW-x\ntask: ../../suspec-evil-task\nstatus: needs-human\n---\n\n## Requirement coverage\n\n| ID | Result | Evidence | Human attention |\n|---|---|---|---|\n| AC-001 | Pass | p | no |\n'
+            );
+            // is_safe_segment rejects the traversal task: → treated as unresolvable (C020), never read from outside.
+            const report = assertOk(check_review_file({ workspaceDir: dir, reviewPath: path }));
+            expect(report.diagnostics.map((d) => d.code)).toContain('C020');
+        } finally {
+            rmSync(evil, { force: true });
+        }
+    });
+
     it('a review with no task: frontmatter cannot run C012 → clean', () => {
         const path = join(dir, 'review.md');
         writeFileSync(path, '---\ntype: review\nid: REVIEW-x\n---\n# r\n');
@@ -355,14 +373,20 @@ describe('check_review_file — spec-keyed (task-less 1:1 review, ADR-0103 revie
 
     it('reconciles nothing (clean) when a task-less review names no spec', () => {
         const path = join(dir, 'review.md');
-        writeFileSync(path, `---\ntype: review\nid: REVIEW-x\nstatus: needs-human\n---\n\n## Requirement coverage\n\n| ID | Result | Evidence | Human attention |\n|---|---|---|---|\n| AC-001 | Pass | p | no |\n`);
+        writeFileSync(
+            path,
+            `---\ntype: review\nid: REVIEW-x\nstatus: needs-human\n---\n\n## Requirement coverage\n\n| ID | Result | Evidence | Human attention |\n|---|---|---|---|\n| AC-001 | Pass | p | no |\n`
+        );
         const report = assertOk(check_review_file({ workspaceDir: dir, reviewPath: path }));
         expect(report.diagnostics).toEqual([]);
     });
 
     it('flags an orphan row against the spec even with no task', () => {
         const path = join(dir, 'review.md');
-        writeFileSync(path, specReview('| AC-001 | Pass | p | no |\n| AC-002 | Pass | p | no |\n| AC-099 | Unverified | p | no |'));
+        writeFileSync(
+            path,
+            specReview('| AC-001 | Pass | p | no |\n| AC-002 | Pass | p | no |\n| AC-099 | Unverified | p | no |')
+        );
         const report = assertOk(check_review_file({ workspaceDir: dir, reviewPath: path }));
         const c012 = report.diagnostics.filter((d) => d.code === 'C012');
         expect(c012.some((d) => d.message.includes('(orphan)') && d.message.includes('AC-099'))).toBe(true);

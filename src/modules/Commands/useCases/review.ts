@@ -27,6 +27,7 @@ import {
     reconcile_review,
     draft_review_packet,
     task_slug,
+    is_safe_segment,
 } from '../../Core/useCases/index.ts';
 import { resolve_repo_root, write_new_file } from '../../Workspace/useCases/index.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
@@ -63,6 +64,16 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     if (task === undefined) {
         return emit_error(
             usage_error('usage: suspec review <task> [--base <branch>] [--repo <code-repo>] [--json]'),
+            json
+        );
+    }
+
+    // A review target is a task id or spec slug, never a path — reject traversal at the boundary so the
+    // `reviews/<slug>.md` write below (slug = task_slug(task)) can never escape reviews/ even when a
+    // malicious spec's frontmatter `id:` string-equals the raw arg (defense-in-depth over the resolver guards).
+    if (!is_safe_segment(task)) {
+        return emit_error(
+            usage_error(`invalid review target "${task}": expected a task id or spec slug, not a path`),
             json
         );
     }

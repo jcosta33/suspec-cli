@@ -27,6 +27,7 @@ import {
 } from '../services/checksContract.ts';
 import { parse_review_packet } from '../services/parseReviewPacket.ts';
 import { read_frontmatter, fm_scalar } from '../services/readFrontmatter.ts';
+import { is_safe_segment } from '../services/safeSegment.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
 export type CheckReviewFileInput = Readonly<{
@@ -42,6 +43,11 @@ export type CheckReviewFileReport = Readonly<{
 
 // The task packet path for a review's `task:` id (tasks/<task>.md), or null when absent.
 function find_task_packet(workspaceDir: string, taskId: string): string | null {
+    // A `task:` id from review frontmatter is an id, never a path — reject traversal so the read below
+    // can never escape tasks/ (mirrors resolve_task / showArtifact confinement).
+    if (!is_safe_segment(taskId)) {
+        return null;
+    }
     const path = join(workspaceDir, 'tasks', `${taskId}.md`);
     return existsSync(path) ? readFileSync(path, 'utf8') : null;
 }
@@ -80,7 +86,11 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
     // and the source status (for the draft guard). It comes from the LIVE spec when resolvable, or —
     // when the live spec is in a SEPARATE repo (cross-root) — from the task's EMBEDDED snapshot
     // (`## Spec snapshot`, ADR-0100 / suspec-cli#2), so a cross-root review is still validated.
-    let specView: { requirementIds: readonly string[]; namedCommandById: Map<string, string | null>; status: string | null } | null = null;
+    let specView: {
+        requirementIds: readonly string[];
+        namedCommandById: Map<string, string | null>;
+        status: string | null;
+    } | null = null;
     let taskScope: readonly string[] | null = null;
 
     const viewFromSpec = (source: string): typeof specView => {
@@ -91,7 +101,9 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
         }
         return {
             requirementIds: parsed.value.requirements.map((requirement) => requirement.id),
-            namedCommandById: new Map(parsed.value.requirements.map((requirement) => [requirement.id, requirement.verifyCommand])),
+            namedCommandById: new Map(
+                parsed.value.requirements.map((requirement) => [requirement.id, requirement.verifyCommand])
+            ),
             status: parsed.value.frontmatter.status,
         };
     };
@@ -114,7 +126,9 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
             // The slice was cut from a non-draft spec, so treat it as non-draft (run the guarded checks).
             specView = {
                 requirementIds: packet.embeddedRequirements.map((requirement) => requirement.id),
-                namedCommandById: new Map(packet.embeddedRequirements.map((requirement) => [requirement.id, requirement.verifyCommand])),
+                namedCommandById: new Map(
+                    packet.embeddedRequirements.map((requirement) => [requirement.id, requirement.verifyCommand])
+                ),
                 status: 'active',
             };
         }
