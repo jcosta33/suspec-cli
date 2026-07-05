@@ -29,8 +29,12 @@ export type RunProvenance = Readonly<{
 // The launch run record (AC-004 / ADR-0088): the facts `suspec review` reads as the recorded start
 // point, plus the delegation-provenance block and the changed-files snapshot (ADR-0088 producer 1).
 // `changed_files` is the worktree diff after the agent exits (committed-since-base ∪ uncommitted);
-// `commands[]` (the agent's own commands) stays a deferred milestone (D1). Both new fields are additive
-// and optional, so a record written before them stays valid.
+// `commands[]` (the agent's own commands) stays a deferred milestone (D1). `task_id` holds the DRIVING
+// ARTIFACT id — a task id for `suspec run`, or a spec id for `suspec work` on a spec (record_stem is
+// artifact-id-agnostic); `driving_artifact` disambiguates which (SPEC-suspec-cli-work AC-006). `prompt`
+// is the provenance of the generated launch prompt `suspec work` wrote to scratch (path + sha256, never a
+// committed artifact — ADR-0077 D6). Every added field is additive and optional, so a record written
+// before them stays valid.
 export type RunRecord = Readonly<{
     task_id: string;
     adapter: string;
@@ -39,6 +43,8 @@ export type RunRecord = Readonly<{
     source: string | null;
     exit: number;
     changed_files?: readonly string[];
+    driving_artifact?: 'spec' | 'task';
+    prompt?: Readonly<{ path: string; sha256: string }>;
     provenance?: RunProvenance;
 }>;
 
@@ -102,5 +108,20 @@ export function write_run_record(repoRoot: string, record: RunRecord): { path: s
     const path = join(dir, `${record_stem(record.task_id)}.json`);
     mkdirSync(dir, { recursive: true });
     writeFileSync(path, `${JSON.stringify(record, null, 2)}\n`);
+    return { path };
+}
+
+/**
+ * Write the generated launch prompt to `<repoRoot>/.suspec/work/<artifact>.prompt.md` — the same
+ * gitignored scratch tree as the run record, keyed by the driving artifact id via the SAME `record_stem`
+ * sanitizer (so the write stays confined to `.suspec/work/`, SPEC-suspec-cli-work AC-004). Transient
+ * scratch the run record points at, never a committed Suspec artifact (ADR-0077 D6). Overwrite-by-design,
+ * like the run record.
+ */
+export function write_prompt_scratch(repoRoot: string, artifactId: string, prompt: string): { path: string } {
+    const dir = join(repoRoot, '.suspec', 'work');
+    const path = join(dir, `${record_stem(artifactId)}.prompt.md`);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path, prompt.endsWith('\n') ? prompt : `${prompt}\n`);
     return { path };
 }

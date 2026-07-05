@@ -9,7 +9,9 @@ export { project, emit_error, exit_code_for, no_workspace_error, usage_error } f
 export { is_safe_segment } from '../services/safeSegment.ts';
 // The canonical task-slug normalizer (the worktree branch tail) — shared so command surfaces derive the
 // same `reviews/<slug>.md` / branch tail the worktree producer + resolvers do, never a hand-rolled copy.
-export { task_slug } from '../services/worktreeNames.ts';
+export { task_slug, derive_worktree_names } from '../services/worktreeNames.ts';
+// The lean launch-prompt templater (pure) — `suspec work` writes its output to scratch (ADR-0136 D3).
+export { generate_prompt, type GeneratePromptInput } from '../services/generatePrompt.ts';
 
 // check engine (AC-005/006/007/008); review-file C012 (M2 AC-028); change-plan C010/C011 (W6)
 export { check_spec } from './checkSpec.ts';
@@ -28,6 +30,13 @@ export { remove_worktree } from './removeWorktree.ts';
 export { prune_worktrees } from './pruneWorktrees.ts';
 export { stamp_runtime_isolation } from './stampRuntimeIsolation.ts';
 export { resolve_launch, type LaunchPlan, type ResolveLaunchInput } from './resolveLaunch.ts';
+// spec-first launch resolution + setup commands — `suspec work` (SPEC-suspec-cli-work), task-optional
+export {
+    resolve_launch_by_spec,
+    type LaunchBySpecPlan,
+    type ResolveLaunchBySpecInput,
+} from './resolveLaunchBySpec.ts';
+export { read_setup_commands } from './readSetupCommands.ts';
 // Task resolution shared by the worktree/review/run surfaces — bidirectional id↔slug + the task list.
 export { resolve_task, list_task_ids } from './taskLocator.ts';
 

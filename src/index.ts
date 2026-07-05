@@ -23,6 +23,7 @@ import {
     run_pull,
     run_promote,
     run_run,
+    run_work,
     run_show,
     run_agents,
     print_help,
@@ -60,6 +61,7 @@ const COMMANDS: Record<string, CommandRun> = {
     pull: run_pull,
     promote: run_promote,
     run: run_run,
+    work: run_work,
     show: run_show,
     agents: run_agents,
 };

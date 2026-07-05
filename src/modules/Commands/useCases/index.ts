@@ -14,6 +14,7 @@ export { run as run_update } from './update.ts';
 export { run as run_pull } from './pull.ts';
 export { run as run_promote } from './promote.ts';
 export { run as run_run } from './run.ts';
+export { run as run_work } from './work.ts';
 export { run as run_show } from './show.ts';
 export { run as run_agents } from './agents.ts';
 export { print_help, print_command_help } from './help.ts';

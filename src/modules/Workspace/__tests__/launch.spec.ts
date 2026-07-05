@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { tmpdir } from 'os';
+import { mkdtempSync, rmSync, realpathSync, readFileSync, existsSync } from 'fs';
+import { join, basename } from 'path';
 
-import { launch_adapter } from '../useCases/launch.ts';
+import { launch_adapter, write_prompt_scratch } from '../useCases/launch.ts';
 import { isErr } from '../../../infra/errors/result.ts';
 
 describe('launch_adapter — LaunchFailed messaging (#91c)', () => {
@@ -19,6 +21,46 @@ describe('launch_adapter — LaunchFailed messaging (#91c)', () => {
         expect(isErr(result)).toBe(true);
         if (isErr(result)) {
             expect(result.error.message).not.toContain('single binary in PATH');
+        }
+    });
+});
+
+// SPEC-suspec-cli-work AC-004: the generated prompt is written to gitignored scratch beside the run
+// record, keyed by the driving artifact id via the same record_stem confinement.
+describe('write_prompt_scratch', () => {
+    let dir: string;
+    const setup = (): string => (dir = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-prompt-'))));
+    const teardown = (): void => rmSync(dir, { recursive: true, force: true });
+
+    it('writes the prompt to .suspec/work/<stem>.prompt.md, appending a trailing newline', () => {
+        setup();
+        try {
+            const { path } = write_prompt_scratch(dir, 'SPEC-feat', 'do the thing');
+            expect(path).toBe(join(dir, '.suspec', 'work', 'spec-feat.prompt.md'));
+            expect(readFileSync(path, 'utf8')).toBe('do the thing\n');
+        } finally {
+            teardown();
+        }
+    });
+
+    it('keeps a single trailing newline when the prompt already ends in one', () => {
+        setup();
+        try {
+            const { path } = write_prompt_scratch(dir, 'SPEC-feat', 'already\n');
+            expect(readFileSync(path, 'utf8')).toBe('already\n');
+        } finally {
+            teardown();
+        }
+    });
+
+    it('confines the filename via the shared record_stem sanitizer — no separator survives', () => {
+        setup();
+        try {
+            const { path } = write_prompt_scratch(dir, 'SPEC/../evil', 'x');
+            expect(basename(path)).toBe('spec-..-evil.prompt.md');
+            expect(existsSync(join(dir, '.suspec', 'work'))).toBe(true);
+        } finally {
+            teardown();
         }
     });
 });
