@@ -58,8 +58,9 @@ console.log(`Created sandbox: ${slug}`);
 
 ## Naming conventions
 
-Canonical in `.agents/repo-conventions.md` (_TypeScript conventions_); the worked examples below are
-the human-facing illustration of those rules.
+The snake_case / camelCase / PascalCase rules for this repo, illustrated with worked examples below.
+(`.agents/repo-conventions.md` carries the broader TypeScript conventions — type-over-interface,
+no namespace imports, guard clauses — that pair with these.)
 
 ### File names
 

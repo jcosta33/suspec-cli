@@ -82,7 +82,7 @@ function resolve_spec_path(workspaceDir: string, ref: string): string | null {
         return byId.path;
     }
     const bySlug = join(workspaceDir, 'specs', ref, 'spec.md');
-    if (existsSync(bySlug)) {
+    if (is_safe_segment(ref) && existsSync(bySlug)) {
         return bySlug;
     }
     if (is_confined(workspaceDir, ref)) {
@@ -167,8 +167,9 @@ export function show_artifact(input: ShowArtifactInput): Result<ShowResult, AppE
             return err(usage_error('usage: suspec show spec <id|path>'));
         }
         // Resolve by frontmatter id (`SPEC-x`), the bare slug, the dir-slug path, or a confined
-        // workspace-relative path — a `../` ref can never read outside the workspace (resolve_spec_path
-        // only returns paths inside it).
+        // workspace-relative path — a `../` or traversal ref can never read outside the workspace: the
+        // dir-slug branch requires `is_safe_segment(ref)` and the workspace-path branch requires
+        // `is_confined`, so resolve_spec_path only ever returns paths inside the workspace.
         const path = resolve_spec_path(workspaceDir, ref);
         if (path === null) {
             return err(usage_error(`cannot resolve spec: ${ref}`));

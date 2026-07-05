@@ -284,9 +284,16 @@ describe('show_artifact', () => {
         const r = show_artifact({ workspaceDir: ws, kind: 'review', ref: 'byspec' });
         expect(isErr(r)).toBe(false);
         if (!isErr(r)) {
-            const fm = (r.value.value as {
-                frontmatter: { spec: string | null; task: string | null; reviewedSha: string | null; evidenceHash: string | null };
-            }).frontmatter;
+            const fm = (
+                r.value.value as {
+                    frontmatter: {
+                        spec: string | null;
+                        task: string | null;
+                        reviewedSha: string | null;
+                        evidenceHash: string | null;
+                    };
+                }
+            ).frontmatter;
             expect(fm.spec).toBe('SPEC-feat');
             expect(fm.task).toBeNull();
             expect(fm.reviewedSha).toBe('abc1234');
@@ -316,6 +323,11 @@ describe('show_artifact', () => {
             expect(isErr(show_artifact({ workspaceDir: inner, kind: 'task', ref: '../evil' }))).toBe(true);
             expect(isErr(show_artifact({ workspaceDir: inner, kind: 'review', ref: '../../evil' }))).toBe(true);
             expect(isErr(show_artifact({ workspaceDir: inner, kind: 'spec', ref: '/etc/passwd' }))).toBe(true);
+            // The dir-slug branch (specs/<ref>/spec.md) must reject a traversal ref too, not only byPath:
+            // `../../evil-slug` makes `join(ws,'specs',ref,'spec.md')` escape to root/evil-slug/spec.md.
+            mkdirSync(join(root, 'evil-slug'), { recursive: true });
+            writeFileSync(join(root, 'evil-slug', 'spec.md'), SPEC); // a VALID spec reachable only via traversal
+            expect(isErr(show_artifact({ workspaceDir: inner, kind: 'spec', ref: '../../evil-slug' }))).toBe(true);
         } finally {
             rmSync(root, { recursive: true, force: true });
         }
