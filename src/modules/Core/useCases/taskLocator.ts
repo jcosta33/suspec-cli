@@ -9,6 +9,7 @@ import { join } from 'path';
 
 import { worktree_list } from '../../Workspace/useCases/index.ts';
 import { task_slug } from '../services/worktreeNames.ts';
+import { is_safe_segment } from '../services/safeSegment.ts';
 
 // A located worktree: its path and the branch it has checked out (null only if detached/unborn).
 export type ResolvedWorktree = Readonly<{ path: string; branch: string | null }>;
@@ -44,6 +45,11 @@ export function frontmatter_value(source: string, key: string): string | null {
 // (the canonical key reviews bind to and `suspec status` matches), and the source; null when neither
 // file exists.
 export function resolve_task(workspaceDir: string, arg: string): { path: string; id: string; source: string } | null {
+    // A task ref is an id/slug, never a path — reject traversal/separators so the `tasks/<stem>.md`
+    // reads below can never escape the workspace (mirrors showArtifact.ts / worktree.ts confinement).
+    if (!is_safe_segment(arg)) {
+        return null;
+    }
     // Bidirectional: whether the arg is the bare slug or the TASK- id, and whether the file on disk is
     // `TASK-<slug>.md` (what `suspec new task` writes) or the legacy bare `<slug>.md`, resolve to it.
     const slug = arg.replace(/^TASK-/i, '');

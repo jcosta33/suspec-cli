@@ -7,6 +7,7 @@ import { join } from 'path';
 import { assertOk } from '../../../infra/errors/testing/assertOk.ts';
 import { isOk } from '../../../infra/errors/result.ts';
 import { resolve_review_run_by_spec } from '../useCases/resolveReviewRunBySpec.ts';
+import { resolve_task } from '../useCases/taskLocator.ts';
 
 let repo: string;
 const git = (args: string[]): string => execFileSync('git', args, { cwd: repo, encoding: 'utf8' });
@@ -67,5 +68,28 @@ describe('resolve_review_run_by_spec (review-to-spec, ADR-0103)', () => {
     it('errors when neither a task nor a spec matches the ref', () => {
         const result = resolve_review_run_by_spec({ workspaceDir: repo, repoRoot: repo, spec: 'nonexistent' });
         expect(isOk(result)).toBe(false);
+    });
+
+    it('refuses a traversal spec ref — never resolves (or writes a packet from) a spec.md outside the workspace', () => {
+        // A VALID spec planted one level ABOVE the workspace, reachable via specs/../../<name>/spec.md.
+        const parent = realpathSync(join(repo, '..'));
+        const evil = join(parent, 'suspec-evil-spec');
+        mkdirSync(evil, { recursive: true });
+        writeFileSync(join(evil, 'spec.md'), SPEC);
+        try {
+            const result = resolve_review_run_by_spec({ workspaceDir: repo, repoRoot: repo, spec: '../../suspec-evil-spec' });
+            // is_safe_segment rejects the traversal ref → no read, no draft, no `review --write` outside reviews/.
+            expect(isOk(result)).toBe(false);
+        } finally {
+            rmSync(evil, { recursive: true, force: true });
+        }
+    });
+
+    it('resolve_task refuses a traversal arg — never reads a .md outside the workspace (suspec review/run <task>)', () => {
+        mkdirSync(join(repo, 'tasks'), { recursive: true });
+        writeFileSync(join(repo, 'tasks', 'TASK-feat.md'), '---\ntype: task\nid: TASK-feat\n---\n');
+        expect(resolve_task(repo, 'feat')?.id).toBe('TASK-feat'); // a legit slug still resolves
+        expect(resolve_task(repo, '../../../etc/hostname')).toBeNull(); // traversal → null (guarded)
+        expect(resolve_task(repo, '../evil')).toBeNull();
     });
 });

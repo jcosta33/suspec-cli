@@ -13,6 +13,7 @@ import { current_branch, worktree_changed_files, worktree_changed_stats } from '
 import { frontmatter_value, find_source_spec } from './taskLocator.ts';
 import type { ReconcileReviewInput } from './reconcileReview.ts';
 import { usage_error } from './unixOutcome.ts';
+import { is_safe_segment } from '../services/safeSegment.ts';
 
 export type ResolveReviewRunBySpecInput = Readonly<{
     workspaceDir: string;
@@ -29,7 +30,7 @@ function find_spec_by_ref(workspaceDir: string, ref: string): { id: string; sour
         return { id: ref, source: readFileSync(byId.path, 'utf8') };
     }
     const bySlug = join(workspaceDir, 'specs', ref, 'spec.md');
-    if (existsSync(bySlug)) {
+    if (is_safe_segment(ref) && existsSync(bySlug)) {
         const source = readFileSync(bySlug, 'utf8');
         return { id: frontmatter_value(source, 'id') ?? ref, source };
     }
