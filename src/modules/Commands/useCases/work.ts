@@ -17,8 +17,6 @@
 // non-zero (a soft signal); 2 only for suspec's own errors (no spec / outside a repo / unknown adapter /
 // the program could not be launched). Setup failures are advisory warnings, never suspec's exit.
 
-import { createHash } from 'node:crypto';
-
 import { isErr } from '../../../infra/errors/result.ts';
 import {
     project,
@@ -76,6 +74,12 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
             ),
             json
         );
+    }
+
+    // A flag-shaped --base would be passed to git as an option (`git worktree add … -x`) — reject it
+    // before it reaches git, mirroring the `suspec worktree`/`review` option-injection guard.
+    if (base?.startsWith('-') === true) {
+        return emit_error(usage_error(`invalid --base value: "${base}" — expected a branch or commit`), json);
     }
 
     // AC-009: outside a git repository is a usage error (exit 2), launching nothing.
@@ -164,21 +168,27 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
     }
     for (const result of run_setup(setupCommands, worktreePath)) {
         if (result.exit !== 0) {
-            notes.push(`warning: setup command failed (exit ${result.exit}) — ${result.command}`);
+            const hint =
+                result.exit === 127
+                    ? ' — the program is not on PATH, or the command uses shell syntax (setup runs a bare `binary arg arg`, no shell)'
+                    : '';
+            notes.push(`warning: setup command failed (exit ${result.exit}) — ${result.command}${hint}`);
         }
     }
 
-    // AC-004: write the transient prompt to scratch and record its provenance (path + sha256).
-    const promptScratch = write_prompt_scratch(repoRoot, taskId ?? specId, prompt);
-    const promptSha = createHash('sha256').update(prompt).digest('hex');
-
-    // AC-002/005: launch the adapter in the worktree with the generated prompt. suspec writes no code of
-    // its own; whatever lands in the worktree is the agent's. A failure to launch the program is exit 2.
+    // AC-002/005: launch the adapter in the worktree with the generated prompt (delivered inline as its
+    // first argument). suspec writes no code of its own; whatever lands in the worktree is the agent's. A
+    // failure to launch the program is exit 2.
     const launched = launch_adapter(adapter.command, prompt, worktreePath);
     if (isErr(launched)) {
         return emit_error(launched.error, json);
     }
     const { exit } = launched.value;
+
+    // AC-004: persist the prompt to gitignored scratch for provenance — only AFTER a successful launch,
+    // so a failed launch never leaves an orphaned prompt file with no run record. sha256 is over the exact
+    // bytes written (write_prompt_scratch), so the recorded hash always matches the file.
+    const promptScratch = write_prompt_scratch(repoRoot, taskId ?? specId, prompt);
 
     // changed_files (ADR-0088): the worktree diff after the agent exits, against the repo's current
     // branch. Defensive — a run record is never a gate, so a diff failure simply omits the field.
@@ -196,7 +206,7 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
         exit,
         changed_files,
         driving_artifact: taskId !== undefined ? 'task' : 'spec',
-        prompt: { path: promptScratch.path, sha256: promptSha },
+        prompt: { path: promptScratch.path, sha256: promptScratch.sha256 },
         provenance: {
             worker: adapter.name,
             reason: taskId ?? specId,
@@ -224,6 +234,7 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
                 spec: specId,
                 adapter: adapter.name,
                 worktree: worktreePath,
+                reused: created.value.reused,
                 exit,
                 record: written === null ? null : written.path,
                 prompt: promptScratch.path,
@@ -232,7 +243,7 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
         json,
         notes,
         render: (value) =>
-            `launched ${value.adapter} on ${value.spec} in ${value.worktree}  (agent exit ${value.exit})\n` +
+            `launched ${value.adapter} on ${value.spec} in ${value.worktree}${value.reused ? ' (reused worktree)' : ''}  (agent exit ${value.exit})\n` +
             `  run record: ${value.record ?? '(not written)'}\n` +
             `  prompt:     ${value.prompt}\n` +
             `  next: suspec review ${taskId ?? specId}`,

@@ -49,14 +49,24 @@ describe('resolve_launch_by_spec', () => {
         }
     });
 
-    it('errors on an unresolvable spec, a missing config, and an unknown adapter', () => {
+    it('errors on an unresolvable spec, a missing config, and an unknown adapter — each with its own message', () => {
         build();
-        expect(isErr(resolve_launch_by_spec({ workspaceDir: ws, repoRoot: ws, spec: 'SPEC-nope' }))).toBe(true);
-        expect(isErr(resolve_launch_by_spec({ workspaceDir: ws, repoRoot: ws, spec: 'SPEC-auth', agent: 'nope' }))).toBe(
-            true
-        );
+        const nope = resolve_launch_by_spec({ workspaceDir: ws, repoRoot: ws, spec: 'SPEC-nope' });
+        expect(isErr(nope)).toBe(true);
+        if (isErr(nope)) {
+            expect(nope.error.message).toMatch(/no spec with that id or slug/);
+        }
+        const badAgent = resolve_launch_by_spec({ workspaceDir: ws, repoRoot: ws, spec: 'SPEC-auth', agent: 'nope' });
+        expect(isErr(badAgent)).toBe(true);
+        if (isErr(badAgent)) {
+            expect(badAgent.error.message).toMatch(/unknown agent "nope"/);
+        }
         rmSync(join(ws, '.suspec'), { recursive: true, force: true });
-        expect(isErr(resolve_launch_by_spec({ workspaceDir: ws, repoRoot: ws, spec: 'SPEC-auth' }))).toBe(true);
+        const noConfig = resolve_launch_by_spec({ workspaceDir: ws, repoRoot: ws, spec: 'SPEC-auth' });
+        expect(isErr(noConfig)).toBe(true);
+        if (isErr(noConfig)) {
+            expect(noConfig.error.message).toMatch(/no \.suspec\/config\.yaml/);
+        }
     });
 
     it('resolves a spec by slug even when the spec.md has no frontmatter id (falls back to the slug)', () => {

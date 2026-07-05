@@ -73,6 +73,7 @@ Every command has a direct form; the reconcile-loop flows also have an interacti
 | `suspec pull <ref>`                             | Snapshot a ticket into `intake/` — verbatim, never a spec or the board                                                                                  |
 | `suspec promote <task>`                         | Scaffold a candidate finding from a finished task (no learning asserted)                                                                                |
 | `suspec run <task> --agent <name>`              | Launch a prepared task on an external agent in its worktree; records the launch (no verdict)                                                            |
+| `suspec work <SPEC>`                            | Work a spec directly (task optional): create/reuse its worktree, run setup, launch an agent with a fitted prompt — records the run (no verdict) |
 | `suspec show <task\|spec\|review\|checks>`      | Project a parsed artifact as JSON — read-only                                                                                                           |
 | `suspec agents emit --codex`                    | Generate Codex `.codex/agents/*.toml` from the suspec-agents definitions (prose discipline only)                                                        |
 | `suspec help`                                   | This reference                                                                                                                                          |
@@ -144,9 +145,10 @@ worktree, but the CLI never owns the model/reasoning loop, writes no code itself
 and never issues a review verdict — it prepares inputs, checks artifacts, and reconciles state.
 The Pass/Fail verdict stays the human's, informed by an independent review.
 
-`suspec run` resolves its adapter from a `.suspec/config.yaml` in the target repo (an `agents:` block,
-optionally `agents.default`); without it the command errors. This is separate from the
-`suspec.config.json` runtime-isolation file the CLI reads in the repo it operates on.
+`suspec run` and `suspec work` resolve their adapter from a `.suspec/config.yaml` in the target repo (an
+`agents:` block, optionally `agents.default`); without it the command errors. That is separate from the
+`suspec.config.json` file the CLI reads in the repo it operates on — the runtime-isolation port range,
+and (for `suspec work`) an optional `setup:` list of commands run in the fresh worktree before launch.
 
 ## Further reading
 

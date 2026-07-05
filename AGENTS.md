@@ -16,7 +16,7 @@
   `.agents/skills/implement-task/`.
 - suspec-cli is the **reconcile-only harness**: it prepares,
   checks, and reconciles the Suspec loop and never runs the model loop. Surface:
-  `init · update · check · worktree · status · clean · stamp · review · new · pull · promote · run · show · agents`
+  `init · update · check · worktree · status · clean · stamp · review · new · pull · promote · run · work · show · agents`
   (+ `help`) — each a direct command, most also an interactive TUI flow (`-i`;
   `suspec` with no args opens the dashboard).
   `suspec init` clones the suspec-starter-kit (no vendored copy lives here). The

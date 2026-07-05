@@ -6,6 +6,7 @@
 // headless-captured).
 
 import { spawnSync } from 'child_process';
+import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
@@ -118,10 +119,17 @@ export function write_run_record(repoRoot: string, record: RunRecord): { path: s
  * scratch the run record points at, never a committed Suspec artifact (ADR-0077 D6). Overwrite-by-design,
  * like the run record.
  */
-export function write_prompt_scratch(repoRoot: string, artifactId: string, prompt: string): { path: string } {
+export function write_prompt_scratch(
+    repoRoot: string,
+    artifactId: string,
+    prompt: string
+): { path: string; sha256: string } {
     const dir = join(repoRoot, '.suspec', 'work');
     const path = join(dir, `${record_stem(artifactId)}.prompt.md`);
     mkdirSync(dir, { recursive: true });
-    writeFileSync(path, prompt.endsWith('\n') ? prompt : `${prompt}\n`);
-    return { path };
+    const content = prompt.endsWith('\n') ? prompt : `${prompt}\n`;
+    writeFileSync(path, content);
+    // Hash the EXACT bytes written, so the run record's prompt.sha256 attests to the file on disk (not
+    // the pre-newline string) — the provenance hash and the artifact can never drift.
+    return { path, sha256: createHash('sha256').update(content).digest('hex') };
 }

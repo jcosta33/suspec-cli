@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { tmpdir } from 'os';
 import { mkdtempSync, rmSync, realpathSync, readFileSync, existsSync } from 'fs';
+import { createHash } from 'crypto';
 import { join, basename } from 'path';
 
 import { launch_adapter, write_prompt_scratch } from '../useCases/launch.ts';
@@ -35,9 +36,11 @@ describe('write_prompt_scratch', () => {
     it('writes the prompt to .suspec/work/<stem>.prompt.md, appending a trailing newline', () => {
         setup();
         try {
-            const { path } = write_prompt_scratch(dir, 'SPEC-feat', 'do the thing');
+            const { path, sha256 } = write_prompt_scratch(dir, 'SPEC-feat', 'do the thing');
             expect(path).toBe(join(dir, '.suspec', 'work', 'spec-feat.prompt.md'));
             expect(readFileSync(path, 'utf8')).toBe('do the thing\n');
+            // The returned sha256 attests to the exact bytes written (including the appended newline).
+            expect(sha256).toBe(createHash('sha256').update('do the thing\n').digest('hex'));
         } finally {
             teardown();
         }

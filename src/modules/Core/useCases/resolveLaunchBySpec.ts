@@ -18,7 +18,10 @@ export type LaunchBySpecPlan = Readonly<{
     spec: string; // the canonical spec id (frontmatter `id`)
     specSlug: string; // the specs/<slug> dir — the worktree branch's spec segment (ADR-0046)
     specPath: string; // the spec.md path — the launch prompt's pointer (never inlined)
-    source: string | null; // the driving artifact recorded in the run envelope (the spec id itself)
+    // The driving spec id, recorded in the run envelope. Spec-first by design: unlike resolve_launch
+    // (which derives `source` from a task packet's `source:` frontmatter), `suspec work` is anchored on
+    // the spec, so this is always the resolved spec id — even when a `--task` narrows the run.
+    source: string | null;
     adapter: Adapter;
 }>;
 

@@ -13,9 +13,11 @@ import {
 import { tmpdir } from 'os';
 import { join, relative } from 'path';
 import { execFileSync } from 'child_process';
+import { createHash } from 'crypto';
 
 import { run } from '../useCases/work.ts';
 import { COMMAND_CATALOG } from '../useCases/catalog.ts';
+import { generate_prompt } from '../../Core/useCases/index.ts';
 
 // SPEC-suspec-cli-work. `suspec work <SPEC>` works a spec directly (task optional): resolve → create/reuse
 // worktree → setup → lean prompt → launch → record. Verified end-to-end with a STUB adapter (a shell
@@ -177,12 +179,15 @@ describe('suspec work — spec-first launch (AC-001/002/005)', () => {
         expect(existsSync(join(repo, '.worktrees', 'feat', 'cwd.txt'))).toBe(true);
     });
 
-    it('creates the worktree once, reusing it on a second run (AC-002)', () => {
+    it('creates the worktree once, reusing it on a second run — the reused flag flips (AC-002)', () => {
         buildWork();
-        expect(capture(() => run(['SPEC-feat', '--agent', 'stub'], repo)).code).toBe(0);
-        const { code } = capture(() => run(['SPEC-feat', '--agent', 'stub'], repo));
-        expect(code).toBe(0);
-        // Still exactly one worktree dir for the spec — the second run reused it, did not duplicate/fail.
+        const first = capture(() => run(['SPEC-feat', '--agent', 'stub', '--json'], repo));
+        expect(first.code).toBe(0);
+        expect(JSON.parse(first.out).reused).toBe(false);
+        const second = capture(() => run(['SPEC-feat', '--agent', 'stub', '--json'], repo));
+        expect(second.code).toBe(0);
+        expect(JSON.parse(second.out).reused).toBe(true);
+        // Still exactly one worktree dir for the spec — reused, not duplicated.
         expect(readdirSync(join(repo, '.worktrees'))).toEqual(['feat']);
     });
 
@@ -216,18 +221,27 @@ describe('suspec work — spec-first launch (AC-001/002/005)', () => {
         expect(existsSync(join(repo, '.worktrees'))).toBe(false);
     });
 
-    it('a configured command that cannot be launched exits 2, recording nothing', () => {
+    it('a configured command that cannot be launched exits 2, leaving no run record and no orphaned prompt scratch', () => {
         buildWork({ command: '/nonexistent/suspec-agent-xyz' });
         const { code, err } = capture(() => run(['SPEC-feat', '--agent', 'stub'], repo));
         expect(code).toBe(2);
         expect(err).toMatch(/could not launch agent/);
         expect(existsSync(join(repo, '.suspec', 'work', 'spec-feat.json'))).toBe(false);
+        expect(existsSync(join(repo, '.suspec', 'work', 'spec-feat.prompt.md'))).toBe(false);
     });
 
     it('a create-worktree failure (a bad --base ref) exits 2', () => {
         buildWork();
         const { code } = capture(() => run(['SPEC-feat', '--agent', 'stub', '--base', 'no-such-ref-xyz'], repo));
         expect(code).toBe(2);
+    });
+
+    it('rejects a flag-shaped --base before it reaches git (no option injection)', () => {
+        buildWork();
+        const { code, err } = capture(() => run(['SPEC-feat', '--agent', 'stub', '--base', '--foo'], repo));
+        expect(code).toBe(2);
+        expect(err).toMatch(/invalid --base value/);
+        expect(existsSync(join(repo, '.worktrees'))).toBe(false); // rejected before create_worktree — no worktree made
     });
 });
 
@@ -240,18 +254,24 @@ describe('suspec work — the generated prompt (AC-004)', () => {
         expect(delivered).toMatch(/the spec at .*specs\/feat\/spec\.md/);
         // Lean pointer: the spec BODY is never inlined into the prompt.
         expect(delivered).not.toContain('The tool must do it');
+        // The delivered instruction is EXACTLY the generated prompt — no truncation, no extra text.
+        expect(delivered).toBe(
+            generate_prompt({ specId: 'SPEC-feat', specPath: join(repo, 'specs', 'feat', 'spec.md'), adapterName: 'stub' })
+        );
         // The prompt is persisted as transient scratch under .suspec/work/, referenced by the run record.
         const promptScratch = join(repo, '.suspec', 'work', 'spec-feat.prompt.md');
         expect(existsSync(promptScratch)).toBe(true);
         expect(readFileSync(promptScratch, 'utf8')).toContain('Suspec spec SPEC-feat');
     });
 
-    it('records the prompt provenance (path + sha256) in the run record', () => {
+    it('records the prompt provenance — sha256 matches the exact bytes of the scratch file', () => {
         buildWork();
         capture(() => run(['SPEC-feat', '--agent', 'stub'], repo));
         const record = JSON.parse(readFileSync(join(repo, '.suspec', 'work', 'spec-feat.json'), 'utf8'));
-        expect(record.prompt.path).toBe(join(repo, '.suspec', 'work', 'spec-feat.prompt.md'));
-        expect(record.prompt.sha256).toMatch(/^[a-f0-9]{64}$/);
+        const promptFile = join(repo, '.suspec', 'work', 'spec-feat.prompt.md');
+        expect(record.prompt.path).toBe(promptFile);
+        const fileSha = createHash('sha256').update(readFileSync(promptFile)).digest('hex');
+        expect(record.prompt.sha256).toBe(fileSha);
     });
 });
 
@@ -287,6 +307,20 @@ describe('suspec work — the run record, re-anchored on the spec (AC-006)', () 
         expect(record.task_id).toBe('TASK-feat');
         // The prompt points at the task packet too.
         expect(readFileSync(join(worktree, 'arg.txt'), 'utf8')).toMatch(/task packet TASK-feat/);
+    });
+
+    it('records source as the CLI spec id even when the task`s own source differs (spec-first)', () => {
+        buildWork({ withTask: true });
+        // Rewrite the task so its own `source:` names a DIFFERENT spec than the CLI positional arg.
+        writeFileSync(
+            join(repo, 'tasks', 'TASK-feat.md'),
+            `---\ntype: task\nid: TASK-feat\nsource:\n  - SPEC-other\nscope: [AC-001]\nstatus: ready\n---\n\n# Task\n`
+        );
+        capture(() => run(['SPEC-feat', '--task', 'TASK-feat', '--agent', 'stub'], repo));
+        const record = JSON.parse(readFileSync(join(repo, '.suspec', 'work', 'feat.json'), 'utf8'));
+        // Spec-first: the run is anchored on the CLI spec, not the task`s own `source:` frontmatter.
+        expect(record.source).toBe('SPEC-feat');
+        expect(record.driving_artifact).toBe('task');
     });
 });
 
@@ -351,6 +385,10 @@ describe('suspec work — verdict-free reporting (AC-007)', () => {
         const parsed = JSON.parse(out);
         expect(parsed.adapter).toBe('stub');
         expect(parsed.spec).toBe('SPEC-feat');
+        // AC-007: the launch facts are all present — worktree, run-record path, prompt path, exit.
+        expect(parsed.worktree).toBe(join(repo, '.worktrees', 'feat'));
+        expect(typeof parsed.record).toBe('string');
+        expect(typeof parsed.prompt).toBe('string');
         expect(typeof parsed.exit).toBe('number');
         for (const key of ['result', 'verdict', 'decision', 'suggestedDecision']) {
             expect(Object.keys(parsed)).not.toContain(key);
@@ -360,27 +398,33 @@ describe('suspec work — verdict-free reporting (AC-007)', () => {
 });
 
 describe('suspec work — guards (AC-009)', () => {
-    it('exits 2 with no spec arg, outside a repo, on an unresolvable spec, and on an unknown adapter', () => {
-        // no spec arg — and the usage message names the by-hand fallback (AC-010).
-        const noArg = capture(() => run([], repo));
-        expect(noArg.code).toBe(2);
-        expect(noArg.err).toMatch(/by hand/);
-        // outside a git repo
+    it('exits 2 with no spec arg, naming the by-hand fallback (AC-009/010)', () => {
+        const { code, err } = capture(() => run([], repo));
+        expect(code).toBe(2);
+        expect(err).toMatch(/by hand/);
+    });
+
+    it('exits 2 outside a git repository', () => {
         const notRepo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-norepo-')));
         try {
             expect(capture(() => run(['SPEC-feat', '--agent', 'stub'], notRepo)).code).toBe(2);
         } finally {
             rmSync(notRepo, { recursive: true, force: true });
         }
-        // a repo but no matching spec
+    });
+
+    it('exits 2 on an unresolvable spec', () => {
         buildWork();
-        const missing = capture(() => run(['SPEC-nope', '--agent', 'stub'], repo));
-        expect(missing.code).toBe(2);
-        expect(missing.err).toMatch(/no spec with that id or slug/);
-        // an unknown adapter — nothing launched, nothing written
-        const unknown = capture(() => run(['SPEC-feat', '--agent', 'nope'], repo));
-        expect(unknown.code).toBe(2);
-        expect(unknown.err).toMatch(/unknown agent "nope"/);
+        const { code, err } = capture(() => run(['SPEC-nope', '--agent', 'stub'], repo));
+        expect(code).toBe(2);
+        expect(err).toMatch(/no spec with that id or slug/);
+    });
+
+    it('exits 2 on an unknown adapter, launching nothing and writing nothing', () => {
+        buildWork();
+        const { code, err } = capture(() => run(['SPEC-feat', '--agent', 'nope'], repo));
+        expect(code).toBe(2);
+        expect(err).toMatch(/unknown agent "nope"/);
         expect(existsSync(join(repo, '.worktrees'))).toBe(false);
         expect(existsSync(join(repo, '.suspec', 'work'))).toBe(false);
     });
@@ -400,6 +444,9 @@ describe('suspec work — guards (AC-009)', () => {
         const { code, err } = capture(() => run(['SPEC-feat', '--agent', 'stub'], repo));
         expect(code).toBe(0); // the agent launched + exited 0; the failed record write is only a warning
         expect(err).toMatch(/could not write the run record/);
+        // A record-write failure is a rare degradation (EACCES/EISDIR), distinct from a launch failure:
+        // the launch succeeded, so the transient prompt scratch is written and harmlessly retained.
+        expect(existsSync(join(repo, '.suspec', 'work', 'spec-feat.prompt.md'))).toBe(true);
     });
 
     it('omits changed_files when the repo HEAD is detached (a diff base is unresolvable)', () => {
