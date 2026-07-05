@@ -16,6 +16,7 @@ import type { AppError } from '../../../infra/errors/createAppError.ts';
 import { parse_spec_record } from '../../Sol/useCases/index.ts';
 import { paths_changed_since } from '../../Workspace/useCases/index.ts';
 import { find_workspace_spec_files } from './findSpecFiles.ts';
+import { is_safe_segment } from '../services/safeSegment.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
 export type StaleSpec = Readonly<{
@@ -74,9 +75,14 @@ function resolve_area_repo(workspaceDir: string, repoRoot: string, area: string)
     const slash = area.indexOf('/');
     if (slash > 0) {
         const prefix = area.slice(0, slash);
-        const sibling = join(workspaceDir, '..', prefix);
-        if (existsSync(join(sibling, '.git'))) {
-            return { repo: sibling, areaInRepo: area.slice(slash + 1) };
+        // A sibling-repo prefix is a single dir name — reject traversal so the sibling probe below can
+        // never escape the workspace's parent (an Affected-areas string is workspace-file content, so
+        // untrusted; mirrors the other path-segment guards).
+        if (is_safe_segment(prefix)) {
+            const sibling = join(workspaceDir, '..', prefix);
+            if (existsSync(join(sibling, '.git'))) {
+                return { repo: sibling, areaInRepo: area.slice(slash + 1) };
+            }
         }
     }
     return { repo: repoRoot, areaInRepo: area };
