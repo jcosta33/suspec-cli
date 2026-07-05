@@ -99,7 +99,8 @@ suspec-starter-kit by default, or `--from <path|url>`). Reports whether you're b
 kit's `CHANGELOG` (what you'd gain) — exit `0` up to date, `1` behind, `2` error; **writes nothing**.
 
 `--write` (alias `--apply`) lands the newer kit content via the conflict-safe copy engine, **scoped to
-the kit-owned guidance** (`templates/`, `.agents/skills/`, `advanced/`, `hooks/`) — never the
+the kit-owned guidance the kit declares in its `suspec-kit.yaml` manifest** (a manifest-less kit falls
+back to the built-in default: `templates/`, `.agents/skills/`, `hooks/`) — never the
 adopter's specs, board, decisions, or `AGENTS.md`. A customized kit file is handled by
 `--on-conflict backup` (default; the user's copy → `*.suspec-bak`, the kit's lands), `overwrite`, or
 `skip`; the pin re-stamps on a full apply (a `skip` leaves it behind so a later `--check` still flags
