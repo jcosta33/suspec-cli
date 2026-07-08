@@ -75,6 +75,17 @@ export { check_update, type UpdateCheckReport, type CheckUpdateInput } from './c
 // drift apply — suspec update --write, reuses init_workspace's copy engine (SPEC-suspec-update AC-008)
 export { apply_update, type ApplyUpdateReport, type ApplyUpdateInput } from './applyUpdate.ts';
 
+// store engine — the personal-harness store foundation (SPEC-suspec-v2 AC-001/002/003)
+export {
+    resolve_store_dir,
+    type ResolveStoreDirInput,
+    type StoreDirResolution,
+    type StoreConfig,
+} from './resolveStoreDir.ts';
+export { write_store_artifact, type WriteStoreArtifactOptions } from './writeStoreArtifact.ts';
+export { archive_artifact } from './archiveArtifact.ts';
+export { migrate_store, type MigrateStoreInput, type MigrateStoreReport } from './migrateStore.ts';
+
 // prepare engine — init + new, no agent (AC-012/013/016); pull + promote, no board (W5 AC-001/002)
 export { init_workspace, type ConflictPolicy } from './initWorkspace.ts';
 export { cut_packet } from './cutPacket.ts';

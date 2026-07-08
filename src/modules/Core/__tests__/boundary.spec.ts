@@ -31,7 +31,11 @@ const FORBIDDEN_IMPORTS = [
     /infra\/events/,
     /infra\/store/,
 ];
-const AGENT_CLI_NAMES = /\b(?:claude|codex|gemini|kimi|droid|opencode|aider)\b/;
+// Dot-prefixed occurrences (`.claude`, `.codex`) are config/data DIRECTORY literals, not agent
+// invocations — the personal store defaults to `~/.claude/state` (SPEC-suspec-v2 AC-001), so Core
+// legitimately names that path. The lookbehind exempts exactly the dotdir form; a bare agent CLI
+// name anywhere in Core still fails this guard.
+const AGENT_CLI_NAMES = /(?<!\.)\b(?:claude|codex|gemini|kimi|droid|opencode|aider)\b/;
 
 describe('the reconcile-only Core boundary', () => {
     const files = core_source_files(coreDir);
