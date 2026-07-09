@@ -11,15 +11,16 @@ import { err, ok, type Result } from '../../../infra/errors/result.ts';
 
 export type GhFetchError = AppError<'GhFetchFailed', { ref: string; stderr: string }>;
 
-export type GhIssue = Readonly<{ title: string; body: string }>;
+export type GhIssue = Readonly<{ title: string; body: string; labels: readonly string[] }>;
 
-// Fetch one issue's title + body via `gh issue view <ref> --json title,body`. `<ref>` is whatever
-// `gh` accepts for an issue: a number, an `owner/repo#123`, or a full issue URL — `gh` resolves the
-// repo itself (from the URL, or the cwd's default remote). A missing `gh` (spawn error) or a
-// non-zero exit (no such issue, not authenticated, no repo) is an `Err`; the caller decides whether
-// to fall back to a paste placeholder.
+// Fetch one issue's title + body + labels via `gh issue view <ref> --json title,body,labels`.
+// `<ref>` is whatever `gh` accepts for an issue: a number, an `owner/repo#123`, or a full issue
+// URL — `gh` resolves the repo itself (from the URL, or the cwd's default remote). A missing `gh`
+// (spawn error) or a non-zero exit (no such issue, not authenticated, no repo) is an `Err`; the
+// caller decides whether to fall back to a paste placeholder. Labels feed `suspec fix #N`'s
+// provenance (AC-017); `pull` ignores them.
 export function fetch_gh_issue(ref: string, opts: { cwd?: string } = {}): Result<GhIssue, GhFetchError> {
-    const result = spawnSync('gh', ['issue', 'view', ref, '--json', 'title,body'], {
+    const result = spawnSync('gh', ['issue', 'view', ref, '--json', 'title,body,labels'], {
         cwd: opts.cwd,
         encoding: 'utf8',
     });
@@ -48,5 +49,15 @@ export function fetch_gh_issue(ref: string, opts: { cwd?: string } = {}): Result
     const record = parsed as Record<string, unknown>;
     const title = typeof record.title === 'string' ? record.title : '';
     const body = typeof record.body === 'string' ? record.body : '';
-    return ok({ title, body });
+    // gh reports labels as [{ name, … }]; anything else reads as no labels.
+    const labels = Array.isArray(record.labels)
+        ? record.labels
+              .map((label: unknown) =>
+                  typeof label === 'object' && label !== null && typeof (label as Record<string, unknown>).name === 'string'
+                      ? ((label as Record<string, unknown>).name as string)
+                      : null
+              )
+              .filter((name): name is string => name !== null)
+        : [];
+    return ok({ title, body, labels });
 }

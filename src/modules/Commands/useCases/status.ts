@@ -2,9 +2,13 @@
 
 // `suspec status` — the reconcile engine's command surface (AC-011): a read-only derived board over
 // the workspace artifacts (specs ← tasks ← reviews), the review-ready-without-review list, and the
-// needs-human list. Writes nothing. `-i` opens the framed interactive board.
+// needs-human list. Writes nothing. `-i` opens the framed interactive board. When the repo's store
+// holds decayed items (expired keeps, dead-heartbeat runs, past-retention archive), ONE stderr line
+// nudges toward `suspec store doctor` (SPEC-suspec-v2 AC-019) — the same shared hook `work` prints.
 
-import { project, derive_board } from '../../Core/useCases/index.ts';
+import { isErr } from '../../../infra/errors/result.ts';
+import { project, derive_board, store_decay_note } from '../../Core/useCases/index.ts';
+import { resolve_repo_root } from '../../Workspace/useCases/index.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import { format_board, run_status_flow, create_clack_prompter } from '../../Tui/useCases/index.ts';
 
@@ -35,9 +39,21 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
     }
     /* v8 ignore stop */
 
+    // AC-019: the ambient decay line — computed only when the cwd sits in a git repo that has a
+    // store; any miss (no repo, no store, nothing decayed) is silence, never an error.
+    const notes: string[] = [];
+    const rootResult = resolve_repo_root(cwd);
+    if (!isErr(rootResult)) {
+        const decayNote = store_decay_note(rootResult.value);
+        if (decayNote !== null) {
+            notes.push(decayNote);
+        }
+    }
+
     return project({
         result: derive_board({ workspaceDir: cwd }),
         json,
+        notes,
         render: (board) => format_board(needsReviewOnly ? actionable_only(board) : board),
     });
 }

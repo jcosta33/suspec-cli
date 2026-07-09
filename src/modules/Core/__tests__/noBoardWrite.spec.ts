@@ -7,7 +7,6 @@ import { fileURLToPath } from 'url';
 import { assertOk } from '../../../infra/errors/testing/assertOk.ts';
 import { ok } from '../../../infra/errors/result.ts';
 import { pull_intake, type GhFetcher } from '../useCases/pullIntake.ts';
-import { scaffold_finding } from '../useCases/scaffoldFinding.ts';
 
 // ADR-0084 D3 — THE LOAD-BEARING INVARIANT: no suspec-cli command writes `status.md` or any board
 // state; the board is hand-edited. The board-mutating close is PARKED (DECIDE #1.2). This boundary
@@ -93,7 +92,7 @@ describe('the no-board-write invariant (AC-003, ADR-0084 D3)', () => {
 
 describe('the prepare verbs leave the board byte-unchanged (AC-003)', () => {
     let ws: string;
-    const fetch_stub: GhFetcher = () => ok({ title: 'T', body: 'B' });
+    const fetch_stub: GhFetcher = () => ok({ title: 'T', body: 'B', labels: [] });
 
     beforeEach(() => {
         ws = mkdtempSync(join(tmpdir(), 'suspec-board-'));
@@ -102,20 +101,20 @@ describe('the prepare verbs leave the board byte-unchanged (AC-003)', () => {
         rmSync(ws, { recursive: true, force: true });
     });
 
-    it('`pull` then `promote` never touch a pre-existing status.md', () => {
+    it('`pull` never touches a pre-existing status.md', () => {
+        // (v1's `promote <task>` finding scaffold retired with the store-facing promote — Wave 4;
+        // the store-rooted verbs never see a workspace board at all.)
         const board = '# Board\n\n| spec | task | review |\n| --- | --- | --- |\n| SPEC-x | TASK-x | — |\n';
         const boardPath = join(ws, 'status.md');
         writeFileSync(boardPath, board);
         const mtimeBefore = statSync(boardPath).mtimeMs;
 
         assertOk(pull_intake({ workspaceDir: ws, ref: 'o/r#1', fetchGhIssue: fetch_stub }));
-        assertOk(scaffold_finding({ workspaceDir: ws, from: 'TASK-x' }));
 
         // Byte-unchanged AND untouched (mtime is preserved when the file is never written).
         expect(readFileSync(boardPath, 'utf8')).toBe(board);
         expect(statSync(boardPath).mtimeMs).toBe(mtimeBefore);
-        // The new files landed only under intake/ and findings/ — the board is not in the write-set.
+        // The new file landed only under intake/ — the board is not in the write-set.
         expect(readdirSync(join(ws, 'intake'))).toEqual(['o-r-1.md']);
-        expect(readdirSync(join(ws, 'findings'))).toEqual(['x.md']);
     });
 });

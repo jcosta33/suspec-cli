@@ -618,3 +618,91 @@ describe('suspec work — the by-hand fallback is documented', () => {
         expect(work?.usage.join('\n')).toMatch(/by hand.*create the worktree.*store spec/s);
     });
 });
+
+describe('suspec work — ambient decay (SPEC-suspec-v2 AC-019)', () => {
+    const DECAY_LINE = /1 stale — suspec store doctor/;
+
+    it('prints ONE decay line on stderr when the store holds a dead-heartbeat live run', () => {
+        buildWork();
+        writeFileSync(
+            join(store, 'run-other.md'),
+            '---\ntype: run\nstatus: live\npid: 1\nheartbeat: 2001-01-01T00:00:00Z\n---\n'
+        );
+        const { code, err } = capture(() => run(['SPEC-feat'], repo));
+        expect(code).toBe(0);
+        expect(err.match(/stale — suspec store doctor/g)).toHaveLength(1);
+        expect(err).toMatch(DECAY_LINE);
+    });
+
+    it('prints no decay line when nothing decayed', () => {
+        buildWork();
+        const { err } = capture(() => run(['SPEC-feat'], repo));
+        expect(err).not.toMatch(/stale — suspec store doctor/);
+    });
+});
+
+describe('suspec work — the WIP cap (SPEC-suspec-v2 AC-019)', () => {
+    function add_active_specs(count: number): void {
+        for (let n = 0; n < count; n += 1) {
+            writeFileSync(
+                join(store, `spec-busy-${n}.md`),
+                `---\ntype: spec\nid: SPEC-busy-${n}\nstatus: ready\n---\n`
+            );
+        }
+    }
+
+    it('the 4th active spec refuses under the default cap (3), launching nothing', () => {
+        buildWork();
+        add_active_specs(3); // + spec-feat = the 4th
+        const { code, out } = capture(() => run(['SPEC-feat'], repo));
+        expect(code).toBe(1);
+        expect(out).toContain('refusing to launch: 3 active spec(s) already fill the wip cap (3)');
+        expect(out).toContain('--anyway');
+        expect(existsSync(join(repo, '.worktrees'))).toBe(false);
+        expect(existsSync(join(store, 'run-feat.md'))).toBe(false);
+    });
+
+    it('--anyway overrides the cap', () => {
+        buildWork();
+        add_active_specs(3);
+        const { code } = capture(() => run(['SPEC-feat', '--anyway'], repo));
+        expect(code).toBe(0);
+        expect(existsSync(join(repo, '.worktrees', 'feat', 'cwd.txt'))).toBe(true);
+    });
+
+    it('the COUNT METHOD: relaunching an already-active spec occupies no new slot; drafts never count', () => {
+        buildWork();
+        add_active_specs(2); // feat + 2 others = exactly at the cap, feat itself excluded → 2 < 3
+        writeFileSync(join(store, 'spec-draft.md'), '---\ntype: spec\nid: SPEC-draft\nstatus: draft\n---\n');
+        const { code } = capture(() => run(['SPEC-feat'], repo));
+        expect(code).toBe(0);
+    });
+
+    it('wip_cap is config-overridable (suspec.config.json)', () => {
+        buildWork({ config: { wip_cap: 10 } });
+        add_active_specs(5);
+        const { code } = capture(() => run(['SPEC-feat'], repo));
+        expect(code).toBe(0);
+    });
+
+    it('--dry-run previews without tripping the cap (it launches nothing)', () => {
+        buildWork();
+        add_active_specs(3);
+        const { code, out } = capture(() => run(['SPEC-feat', '--dry-run'], repo));
+        expect(code).toBe(0);
+        expect(out).toContain('dry run');
+    });
+
+    it('the refusal is machine-readable under --json', () => {
+        buildWork();
+        add_active_specs(3);
+        const { code, out } = capture(() => run(['SPEC-feat', '--json'], repo));
+        expect(code).toBe(1);
+        expect(JSON.parse(out)).toMatchObject({
+            level: 'warning',
+            refused: 'wip-cap',
+            wip_cap: 3,
+            active: ['SPEC-busy-0', 'SPEC-busy-1', 'SPEC-busy-2'],
+        });
+    });
+});

@@ -24,18 +24,28 @@ describe('fetch_gh_issue — the gh CLI read (the pull floor)', () => {
             stderr: '',
         });
         const issue = assertOk(fetch_gh_issue('o/r#42'));
-        expect(issue).toEqual({ title: 'Wire the gate', body: 'The gate must stay green.' });
-        // It calls `gh issue view <ref> --json title,body` — read-only, never a write.
+        expect(issue).toEqual({ title: 'Wire the gate', body: 'The gate must stay green.', labels: [] });
+        // It calls `gh issue view <ref> --json title,body,labels` — read-only, never a write.
         expect(spawnSync).toHaveBeenCalledWith(
             'gh',
-            ['issue', 'view', 'o/r#42', '--json', 'title,body'],
+            ['issue', 'view', 'o/r#42', '--json', 'title,body,labels'],
             expect.objectContaining({ encoding: 'utf8' })
         );
     });
 
-    it('coerces missing title/body fields to empty strings', () => {
+    it('coerces missing title/body/labels fields to empty values', () => {
         spawnSync.mockReturnValue({ error: undefined, status: 0, stdout: '{}', stderr: '' });
-        expect(assertOk(fetch_gh_issue('5'))).toEqual({ title: '', body: '' });
+        expect(assertOk(fetch_gh_issue('5'))).toEqual({ title: '', body: '', labels: [] });
+    });
+
+    it('lifts label names from gh’s [{ name }] shape, dropping malformed entries', () => {
+        spawnSync.mockReturnValue({
+            error: undefined,
+            status: 0,
+            stdout: JSON.stringify({ title: 't', body: 'b', labels: [{ name: 'bug' }, { nope: 1 }, 'raw'] }),
+            stderr: '',
+        });
+        expect(assertOk(fetch_gh_issue('5')).labels).toEqual(['bug']);
     });
 
     it('is an Err when gh is not installed (spawn error)', () => {

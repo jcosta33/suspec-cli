@@ -299,6 +299,55 @@ function c_unquote(path: string): string {
 // field carrying the OLD path. We keep the new path and skip the old — so a filename that literally
 // contains ` -> ` can no longer be mis-split the way the newline `R old -> new` form was (#25 C4).
 /**
+ * The repo's default branch — the base `store doctor` reconciles terminal states against
+ * (SPEC-suspec-v2 AC-018). Resolution: the remote's recorded HEAD (`refs/remotes/origin/HEAD`),
+ * else a local `main`/`master`, else the current branch, else the literal 'main'. Read-only.
+ */
+export function default_branch(repoRoot: string): string {
+    const originHead = spawnSync('git', ['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD'], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+    });
+    if (originHead.status === 0) {
+        const name = (originHead.stdout || '').trim().split('/').pop();
+        if (name !== undefined && name.length > 0) {
+            return name;
+        }
+    }
+    for (const candidate of ['main', 'master']) {
+        if (branch_exists(candidate, repoRoot)) {
+            return candidate;
+        }
+    }
+    return current_branch(repoRoot) ?? 'main';
+}
+
+/**
+ * True when a LOCAL BRANCH's tip is fully merged into `base` — an ancestor of base and not the
+ * base tip itself (a branch sitting AT the tip carries no work; that reads "nothing merged", the
+ * same rule as branch_merged_into below, keyed on a branch name instead of a worktree so `store
+ * doctor` can reconcile a run whose worktree is already gone). Any git failure reads false:
+ * reconciliation must never archive on ambiguity.
+ */
+export function branch_merged(branch: string, base: string, repoRoot: string): boolean {
+    const ancestor = spawnSync('git', ['merge-base', '--is-ancestor', `refs/heads/${branch}`, base], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+    });
+    if (ancestor.error || ancestor.status !== 0) {
+        return false;
+    }
+    const tip = spawnSync('git', ['rev-parse', `refs/heads/${branch}`], { cwd: repoRoot, encoding: 'utf8' });
+    const baseTip = spawnSync('git', ['rev-parse', base], { cwd: repoRoot, encoding: 'utf8' });
+    /* v8 ignore start -- defensive: refs that just passed --is-ancestor cannot fail rev-parse except on a race/git failure */
+    if (tip.error || baseTip.error || tip.status !== 0 || baseTip.status !== 0) {
+        return false;
+    }
+    /* v8 ignore stop */
+    return tip.stdout.trim() !== baseTip.stdout.trim();
+}
+
+/**
  * True when the worktree's HEAD is fully merged into `base` — HEAD is an ancestor of base AND is
  * not the base tip itself (a fresh worktree with no commits sits AT the tip; that is "no work
  * yet", not "merged"). Any git failure reads as false: the guard must never block on ambiguity.

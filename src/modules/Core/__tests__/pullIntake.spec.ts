@@ -16,7 +16,7 @@ let ws: string;
 const fetch_ok =
     (title: string, body: string): GhFetcher =>
     () =>
-        ok({ title, body });
+        ok({ title, body, labels: [] });
 // A fetcher that fails (no gh / no such issue) — the engine must fall back to the paste placeholder.
 const fetch_fail: GhFetcher = (ref) =>
     err(createAppError('GhFetchFailed', `could not fetch ${ref}`, { ref, stderr: '' }));
@@ -83,7 +83,7 @@ describe('pull_intake — verbatim intake snapshot, never a spec (AC-001)', () =
         let seen = '';
         const capture: GhFetcher = (ref) => {
             seen = ref;
-            return ok({ title: 'T', body: 'B' });
+            return ok({ title: 'T', body: 'B', labels: [] });
         };
         const report = assertOk(
             pull_intake({ workspaceDir: ws, ref: 'jcosta33/suspec-cli#42', fetchGhIssue: capture })
@@ -99,7 +99,7 @@ describe('pull_intake — verbatim intake snapshot, never a spec (AC-001)', () =
         let seen = '';
         const capture: GhFetcher = (ref) => {
             seen = ref;
-            return ok({ title: 'T', body: 'B' });
+            return ok({ title: 'T', body: 'B', labels: [] });
         };
         assertOk(pull_intake({ workspaceDir: ws, ref: '7', fetchGhIssue: capture }));
         expect(seen).toBe('7');

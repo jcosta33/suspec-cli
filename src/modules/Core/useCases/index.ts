@@ -131,4 +131,22 @@ export { cut_packet } from './cutPacket.ts';
 export { scaffold_spec } from './scaffoldSpec.ts';
 export { scaffold_change_plan } from './scaffoldChangePlan.ts';
 export { pull_intake, type PullIntakeInput, type PullIntakeReport, type GhFetcher } from './pullIntake.ts';
-export { scaffold_finding, type ScaffoldFindingInput, type ScaffoldFindingReport } from './scaffoldFinding.ts';
+
+// promotion + resumability + structural anti-rot (SPEC-suspec-v2 AC-016..020): the promote face's
+// finding lookup, the fix scaffold, and the store-maintenance sweep/list/gc/purge engines. The gh
+// edges stay injected (promote_finding's IssueCreator, store_doctor's PrStateProbe).
+export { find_store_finding, type StoreFinding } from './findStoreFinding.ts';
+export { scaffold_fix_spec, type ScaffoldFixSpecInput, type ScaffoldFixSpecReport } from './scaffoldFixSpec.ts';
+export { store_doctor, type StoreDoctorInput, type StoreDoctorReport, type DoctorRow, type PrStateProbe } from './storeDoctor.ts';
+export { store_decay_summary, decay_line, type StoreDecaySummary } from './storeDecaySummary.ts';
+export { store_decay_note } from './storeDecayNote.ts';
+export { list_active_specs, type ActiveSpec } from './listActiveSpecs.ts';
+export {
+    read_store_settings,
+    DEFAULT_WIP_CAP,
+    DEFAULT_RETENTION_DAYS,
+    type StoreSettings,
+} from './readStoreSettings.ts';
+export { list_store_artifacts, type StoreListing, type StoreArtifactAge } from './listStoreArtifacts.ts';
+export { gc_store, type GcStoreInput, type GcStoreReport } from './gcStore.ts';
+export { purge_store } from './purgeStore.ts';

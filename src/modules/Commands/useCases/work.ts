@@ -14,7 +14,7 @@
 // the worktree: the store run file IS the record (ADR-0136 / ADR-0137 D1/D2/D4).
 //   suspec work <SPEC>                       launch the default runner on the store spec
 //   suspec work <SPEC> --runner <name>       pick the runner (built-ins: claude, codex)
-//   suspec work <SPEC> --anyway              launch despite recorded spec staleness
+//   suspec work <SPEC> --anyway              launch despite recorded spec staleness / the wip cap
 //   suspec work <SPEC> --attach              a live run: print the runner's native attach hint
 //   suspec work <SPEC> --second-worktree     a live run: launch in a suffixed worktree + run file
 //   suspec work <SPEC> --base <branch>       the worktree base (else the current branch)
@@ -40,6 +40,9 @@ import {
     resolve_launch_from_store,
     resolve_setup_plan,
     check_store_spec_staleness,
+    store_decay_note,
+    read_store_settings,
+    list_active_specs,
     read_run_state,
     spec_requires_runtime,
     build_run_content,
@@ -143,6 +146,14 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
     }
     const { spec: specId, specSlug, specPath, specSource, runner } = plan.value;
 
+    // AC-019: the ambient decay line — one stderr note when the store holds decayed items; the
+    // shared hook (`store_decay_note`) is the same one `status` (and Wave 5's `next`) print.
+    const notes: string[] = [];
+    const decayNote = store_decay_note(repoRoot);
+    if (decayNote !== null) {
+        notes.push(decayNote);
+    }
+
     // AC-007: staleness at launch — the spec's recorded base_sha/affected_areas vs the repo's
     // current state. Stale refuses (exit 1) printing the drifted files, unless --anyway.
     const staleness = check_store_spec_staleness({ repoRoot, specSource });
@@ -159,6 +170,7 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
                 },
             },
             json,
+            notes,
             render: (v) =>
                 [
                     `refusing to launch: ${v.spec} is stale — files under its affected areas drifted since base_sha ${v.base_sha ?? 'unknown'}`,
@@ -167,11 +179,40 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
                 ].join('\n'),
         });
     }
-    const notes: string[] = [];
     if (staleness.stale && anyway) {
         notes.push(
             `note: launching anyway — ${staleness.driftedFiles.length} file(s) drifted under the spec's affected areas since ${staleness.baseSha ?? 'unknown'}`
         );
+    }
+
+    // AC-019: the WIP cap — a real launch refuses when the OTHER active (status ready/live) store
+    // specs already fill `wip_cap` (suspec.config.json, default 3). Relaunching one of the active
+    // specs occupies no new slot; --anyway overrides; --dry-run launches nothing, so it passes.
+    if (!dryRun && !anyway) {
+        const wipCap = read_store_settings(repoRoot).wipCap;
+        const otherActive = list_active_specs(storeDir).filter((active) => active.slug !== specSlug);
+        if (otherActive.length >= wipCap) {
+            return project({
+                result: {
+                    ok: true,
+                    value: {
+                        level: 'warning' as const,
+                        refused: 'wip-cap' as const,
+                        spec: specId,
+                        wip_cap: wipCap,
+                        active: otherActive.map((active) => active.id),
+                    },
+                },
+                json,
+                notes,
+                render: (v) =>
+                    [
+                        `refusing to launch: ${v.active.length} active spec(s) already fill the wip cap (${v.wip_cap})`,
+                        ...v.active.map((id) => `  active: ${id}`),
+                        '  finish or archive one (suspec store doctor), raise wip_cap in suspec.config.json, or relaunch with --anyway',
+                    ].join('\n'),
+            });
+        }
     }
 
     // AC-008: the run lock. The spec's primary run file carries status + pid + heartbeat; a FRESH

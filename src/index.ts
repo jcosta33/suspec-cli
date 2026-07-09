@@ -28,6 +28,8 @@ import {
     run_done,
     run_show,
     run_agents,
+    run_fix,
+    run_store,
     print_help,
     print_command_help,
 } from './modules/Commands/useCases/index.ts';
@@ -66,6 +68,8 @@ const COMMANDS: Record<string, CommandRun> = {
     work: run_work,
     evidence: run_evidence,
     done: run_done,
+    fix: run_fix,
+    store: run_store,
     show: run_show,
     agents: run_agents,
 };

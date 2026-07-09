@@ -8,6 +8,9 @@ export {
     find_worktree_for_branch,
     worktree_create,
     branch_merged_into,
+    branch_merged,
+    branch_exists,
+    default_branch,
     worktree_remove,
     worktree_prune,
     worktree_changed_files,
@@ -29,6 +32,8 @@ export { capture_command, type CapturedCommand } from './captureCommand.ts';
 export { find_open_pr, type OpenPrProbe } from './ghOpenPr.ts';
 export { upsert_pr_comment, type UpsertPrCommentInput, type UpsertPrCommentReport } from './ghPrComment.ts';
 export { create_gh_issue, type CreatedIssue } from './ghCreateIssue.ts';
+// store doctor (SPEC-suspec-v2 AC-018): the PR-state probe the reconcile sweep injects
+export { probe_pr_state, type PrStateProbeResult } from './ghPrState.ts';
 export { launch_adapter, write_run_record, write_prompt_scratch, type RunRecord, type LaunchError } from './launch.ts';
 // setup executor — `suspec work`: run project-declared setup in the fresh worktree (advisory, no gate)
 export { run_setup, type SetupResult } from './runSetup.ts';

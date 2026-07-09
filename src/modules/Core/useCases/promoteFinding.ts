@@ -1,6 +1,6 @@
-// Promote one store finding to a GitHub issue (SPEC-suspec-v2 AC-015's `promote` triage arm —
-// the full `suspec promote <FIND>` command is a later wave; this is the shared engine it will
-// wrap). The gh write is INJECTED (the Workspace edge), so Core never names the gh CLI: create
+// Promote one store finding to a GitHub issue (SPEC-suspec-v2 AC-015's `promote` triage arm and
+// the engine under the `suspec promote <FIND>` command face, AC-016).
+// The gh write is INJECTED (the Workspace edge), so Core never names the gh CLI: create
 // the issue from the finding's title + body, record the issue ref back into the frontmatter, and
 // archive the finding — promotion is the durability hand-off (ADR-0137), so the transient copy
 // retires. Any gh failure leaves the finding in place, untouched.
@@ -24,6 +24,9 @@ export type PromoteFindingInput = Readonly<{
     storeDir: string;
     filename: string; // the flat store basename (listed by list_open_findings — never a raw path)
     createIssue: IssueCreator;
+    // Appended to the ISSUE body only (never the archived file): the `suspec promote` face sends
+    // the evidence digest + provenance label here (AC-016); `done`'s triage arm sends none.
+    bodyFooter?: string;
 }>;
 
 export type PromoteFindingReport = Readonly<{
@@ -43,7 +46,8 @@ export function promote_finding(input: PromoteFindingInput): Result<PromoteFindi
     const heading = /^#\s+(.+)$/m.exec(source);
     const title = heading !== null ? heading[1].trim() : input.filename.replace(/\.md$/, '');
 
-    const created = input.createIssue({ title, body: source });
+    const body = input.bodyFooter !== undefined ? `${source.trimEnd()}\n\n${input.bodyFooter}\n` : source;
+    const created = input.createIssue({ title, body });
     if (isErr(created)) {
         return err(created.error);
     }
