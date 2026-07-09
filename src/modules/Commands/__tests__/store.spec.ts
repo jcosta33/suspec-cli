@@ -346,12 +346,24 @@ describe('store list / gc / purge (AC-020)', () => {
 
     it('every subcommand is a clean no-op when the repo has no store yet (probe never creates one)', async () => {
         rmSync(store, { recursive: true, force: true });
-        for (const sub of ['doctor', 'list', 'gc', 'purge']) {
+        for (const sub of ['doctor', 'list', 'gc', 'purge', 'migrate']) {
             const { code, out } = await capture(() => run([sub], repo));
             expect(code).toBe(0);
             expect(out).toContain(`no store for this repo yet — nothing to ${sub}`);
             expect(existsSync(store)).toBe(false);
         }
+    });
+
+    it('migrate stamps a pre-versioned artifact and leaves a current one byte-untouched (AC-003)', async () => {
+        writeFileSync(join(store, 'spec-old.md'), '---\ntype: spec\nid: SPEC-old\n---\n\nbody\n');
+        const current = '---\ntype: spec\nid: SPEC-new\ngrammar_version: 1\n---\n\nbody\n';
+        writeFileSync(join(store, 'spec-new.md'), current);
+        const { code, out } = await capture(() => run(['migrate'], repo));
+        expect(code).toBe(0);
+        expect(out).toContain('upgraded: 1');
+        expect(out).toContain('already current: 1');
+        expect(readFileSync(join(store, 'spec-old.md'), 'utf8')).toContain('grammar_version: 1');
+        expect(readFileSync(join(store, 'spec-new.md'), 'utf8')).toBe(current);
     });
 
     it('usage errors exit 2: no subcommand / an unknown one / outside a git repo', async () => {

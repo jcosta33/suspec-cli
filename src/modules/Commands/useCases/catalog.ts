@@ -155,14 +155,15 @@ export const COMMAND_CATALOG = [
     },
     {
         name: 'store',
-        description: 'Store maintenance — doctor (reconcile), list, gc (retention), purge (whole store)',
+        description: 'Store maintenance — doctor (reconcile), list, gc (retention), purge (whole store), migrate',
         usage: [
-            'suspec store <doctor|list|gc|purge>',
+            'suspec store <doctor|list|gc|purge|migrate>',
             '  doctor                      archive spec/run artifacts whose branch merged, worktree vanished,',
             '                              or PR closed (git/GitHub truth; never deletes; orphans listed; exit 0)',
             '  list                        active + archived artifacts with per-artifact age',
             '  gc                          delete ONLY archive/ items past retention_days (default 30)',
             '  purge [--force]             delete the repo’s whole store — type the repo name, or --force',
+            '  migrate                     upgrade artifacts to the current grammar_version (never downgrades)',
             '  --json                      machine output',
         ],
     },

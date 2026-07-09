@@ -10,8 +10,11 @@
 //            suspec.config.json, default 30) — prints what died.
 //   purge    delete the repo's WHOLE store dir — requires typing the repo name at the prompt, or
 //            --force; refuses outside a TTY without --force.
+//   migrate  upgrade every artifact's grammar_version to current via the transform table (AC-003)
+//            — the only command that rewrites artifacts it did not just create; newer grammars are
+//            reported, never downgraded.
 //   suspec store <sub> [--json] · purge [--force]
-// Exits: doctor/list/gc 0 (plus 2 on a hard I/O error) · purge 0 done / 2 refused.
+// Exits: doctor/list/gc/migrate 0 (plus 2 on a hard I/O error) · purge 0 done / 2 refused.
 
 import { basename } from 'path';
 
@@ -26,14 +29,15 @@ import {
     list_store_artifacts,
     gc_store,
     purge_store,
+    migrate_store,
 } from '../../Core/useCases/index.ts';
 import { resolve_repo_root, probe_pr_state } from '../../Workspace/useCases/index.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import { create_clack_prompter, is_cancelled, type Prompter } from '../../Tui/useCases/index.ts';
 
-const USAGE = 'usage: suspec store <doctor|list|gc|purge> [--json] · purge also takes --force';
+const USAGE = 'usage: suspec store <doctor|list|gc|purge|migrate> [--json] · purge also takes --force';
 
-const SUBCOMMANDS = new Set(['doctor', 'list', 'gc', 'purge']);
+const SUBCOMMANDS = new Set(['doctor', 'list', 'gc', 'purge', 'migrate']);
 
 export async function run(argv: string[], cwd: string = process.cwd(), prompter?: Prompter): Promise<number> {
     const { positional, flags } = parse_flags(argv, { booleans: ['--json', '--force'], strings: [] });
@@ -132,6 +136,36 @@ export async function run(argv: string[], cwd: string = process.cwd(), prompter?
                           `store gc — deleted ${v.deleted.length} archived artifact(s) past the ${v.retention_days}d retention:`,
                           ...v.deleted.map((d) => `  archive/${d.filename}  (${d.ageDays}d old)`),
                       ].join('\n'),
+        });
+    }
+
+    if (sub === 'migrate') {
+        const report = migrate_store({ storeDir });
+        if (isErr(report)) {
+            return emit_error(report.error, json);
+        }
+        return project({
+            result: {
+                ok: true,
+                value: {
+                    level: 'clean' as const,
+                    store: storeDir,
+                    upgraded: report.value.upgraded,
+                    current: report.value.current,
+                    newer: report.value.newer,
+                },
+            },
+            json,
+            render: (v) =>
+                [
+                    `store migrate — ${v.store}`,
+                    `  upgraded: ${v.upgraded.length}`,
+                    ...v.upgraded.map((p) => `    ${p}`),
+                    `  already current: ${v.current.length}`,
+                    ...(v.newer.length > 0
+                        ? [`  newer than this CLI (left alone): ${v.newer.length}`, ...v.newer.map((p) => `    ${p}`)]
+                        : []),
+                ].join('\n'),
         });
     }
 
