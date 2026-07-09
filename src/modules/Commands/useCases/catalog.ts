@@ -153,6 +153,31 @@ export const COMMAND_CATALOG = [
         ],
     },
     {
+        name: 'evidence',
+        description: 'Capture cli-verified evidence: run a verify command in the run worktree, record it in the store',
+        usage: [
+            'suspec evidence add <RUN> --ac <AC-id> -- <command…>',
+            '  add <RUN>                   the store run the evidence belongs to (run-<RUN>.md)',
+            '  --ac <AC-id>                the acceptance criterion the evidence maps to (e.g. AC-003)',
+            '  -- <command…>               the command to run (in the run worktree; bare binary + args, no shell)',
+            '  --json                      machine output',
+            '  exit mirrors the command (0/1) — the record is written either way; raw output stays in the store',
+        ],
+    },
+    {
+        name: 'done',
+        description: 'The strict gate: lint the run artifacts, gate every AC on cli-verified evidence, digest + triage',
+        usage: [
+            'suspec done <RUN>',
+            '  <RUN>                       the store run to close (run-<RUN>.md)',
+            '  --accept-failing "<why>"    accept gate gaps explicitly — the reason lands in the digest + run file',
+            '  --allow-agent-evidence      let provenance: agent evidence count (labeled in the digest)',
+            '  --discard-critical <id>     allow triage to discard the named critical finding',
+            '  --json                      machine output (defers findings triage with an expiry stamp)',
+            '  exit 0 gate satisfied/accepted · 1 gate blocked (gaps listed) · 2 usage / lint hard-error',
+        ],
+    },
+    {
         name: 'show',
         description: 'Project a parsed artifact as JSON — task, spec, review, or the checks contract (read-only)',
         usage: [

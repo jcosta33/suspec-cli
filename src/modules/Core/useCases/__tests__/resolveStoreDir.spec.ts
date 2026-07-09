@@ -162,3 +162,39 @@ describe('resolve_store_dir — same-basename collisions (AC-001)', () => {
         expect(existsSync(join(stateRoot, 'proj-101'))).toBe(false);
     });
 });
+
+describe('resolve_store_dir — probe mode (the read-only faces)', () => {
+    it('finds an existing store without touching it, and never creates one', () => {
+        const stateRoot = join(root, 'state');
+        const repo = make_repo('proj');
+        const claimed = assertOk(resolve_store_dir({ repoRoot: repo, env: { SUSPEC_STATE_DIR: stateRoot }, config: null }));
+
+        const probed = assertOk(
+            resolve_store_dir({ repoRoot: repo, env: { SUSPEC_STATE_DIR: stateRoot }, config: null, probe: true })
+        );
+        expect(probed.storeDir).toBe(claimed.storeDir);
+        expect(probed.created).toBe(false);
+    });
+
+    it('errs store_dir_not_found for a repo that never resolved — no dir, no marker appears', () => {
+        const stateRoot = join(root, 'state');
+        const repo = make_repo('proj');
+        const error = assertErr(
+            resolve_store_dir({ repoRoot: repo, env: { SUSPEC_STATE_DIR: stateRoot }, config: null, probe: true })
+        );
+        expect(error._tag).toBe('store_dir_not_found');
+        expect(existsSync(join(stateRoot, 'proj'))).toBe(false);
+    });
+
+    it('probes past a same-basename dir owned by another repo without adopting it', () => {
+        const stateRoot = join(root, 'state');
+        mkdirSync(join(stateRoot, 'proj'), { recursive: true });
+        writeFileSync(join(stateRoot, 'proj', REPO_PATH_MARKER), '/somewhere/else/proj\n', 'utf8');
+        const repo = make_repo('proj');
+        const error = assertErr(
+            resolve_store_dir({ repoRoot: repo, env: { SUSPEC_STATE_DIR: stateRoot }, config: null, probe: true })
+        );
+        expect(error._tag).toBe('store_dir_not_found');
+        expect(existsSync(join(stateRoot, 'proj-2'))).toBe(false);
+    });
+});

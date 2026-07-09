@@ -16,6 +16,7 @@
 // reconcile and writes exactly that one file, no-clobber (AC-004 — an existing packet needs `--force`).
 
 import { isErr } from '../../../infra/errors/result.ts';
+import { existsSync } from 'fs';
 import { join, resolve } from 'path';
 import {
     project,
@@ -28,6 +29,9 @@ import {
     draft_review_packet,
     task_slug,
     is_safe_segment,
+    resolve_store_dir,
+    run_filename,
+    lint_run_artifacts,
 } from '../../Core/useCases/index.ts';
 import { resolve_repo_root, write_new_file } from '../../Workspace/useCases/index.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
@@ -76,6 +80,40 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
             usage_error(`invalid review target "${task}": expected a task id or spec slug, not a path`),
             json
         );
+    }
+
+    // AC-013 (SPEC-suspec-v2): a ref that resolves to a STORE RUN takes the artifact-lint face —
+    // the deterministic checks re-aimed at the run's store artifacts, per-artifact facts, exit per
+    // check severity, NO workspace verdict. The store is PROBED (never created) so a repo that
+    // never launched a store run falls through to the legacy workspace reconcile untouched.
+    const cwdRepo = resolve_repo_root(cwd);
+    if (!isErr(cwdRepo)) {
+        const probed = resolve_store_dir({ repoRoot: cwdRepo.value, probe: true });
+        if (!isErr(probed) && existsSync(join(probed.value.storeDir, run_filename(task)))) {
+            return project({
+                result: lint_run_artifacts({
+                    storeDir: probed.value.storeDir,
+                    repoRoot: cwdRepo.value,
+                    runSlug: task,
+                }),
+                json,
+                render: (value) =>
+                    [
+                        `artifact lint — run ${value.runSlug} · spec ${value.specId ?? 'unknown'} (facts, no verdict)`,
+                        ...value.artifacts.flatMap((artifact) =>
+                            artifact.diagnostics.length > 0
+                                ? [
+                                      `  ${artifact.path}`,
+                                      ...artifact.diagnostics.map(
+                                          (diagnostic) =>
+                                              `    ${diagnostic.check} ${diagnostic.severity}: ${diagnostic.message}`
+                                      ),
+                                  ]
+                                : [`  ${artifact.path} — clean`]
+                        ),
+                    ].join('\n'),
+            });
+        }
     }
 
     // The git repo whose worktree + diff this run lives in. Defaults to the workspace's own repo (the

@@ -24,6 +24,8 @@ import {
     run_promote,
     run_run,
     run_work,
+    run_evidence,
+    run_done,
     run_show,
     run_agents,
     print_help,
@@ -62,6 +64,8 @@ const COMMANDS: Record<string, CommandRun> = {
     promote: run_promote,
     run: run_run,
     work: run_work,
+    evidence: run_evidence,
+    done: run_done,
     show: run_show,
     agents: run_agents,
 };

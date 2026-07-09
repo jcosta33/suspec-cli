@@ -520,3 +520,95 @@ describe('review command — the draft writer (W4b, AC-001/002/003/004/005)', ()
         }
     });
 });
+
+// SPEC-suspec-v2 AC-013: a ref that resolves to a STORE RUN takes the artifact-lint face — the
+// deterministic checks re-aimed at store artifacts, per-artifact facts, exit per check severity,
+// no workspace verdict. A repo with no store falls through to the legacy reconcile (every test
+// above — the store is only PROBED, never created).
+describe('suspec review <RUN> — the store artifact-lint face (SPEC-suspec-v2 AC-013)', () => {
+    let storeRoot: string;
+    let storeRepo: string;
+    let store: string;
+    let savedStateDir: string | undefined;
+
+    const storeGit = (args: string[]): string => execFileSync('git', args, { cwd: storeRepo, encoding: 'utf8' });
+
+    const STORE_SPEC = `---
+type: spec
+id: SPEC-feat
+status: ready
+sources:
+  - notes.md
+---
+
+## Requirements
+
+### AC-001 — one
+The tool must do it.
+Verify with: \`pnpm test:run\`.
+
+## Non-goals
+
+- none.
+
+## Open questions
+
+none.
+`;
+
+    beforeEach(() => {
+        storeRoot = mkdtempSync(join(realpathSync(tmpdir()), 'suspec-review-store-'));
+        storeRepo = join(storeRoot, 'proj');
+        mkdirSync(storeRepo, { recursive: true });
+        storeGit(['init']);
+        const stateRoot = join(storeRoot, 'state');
+        store = join(stateRoot, 'proj');
+        mkdirSync(store, { recursive: true });
+        writeFileSync(join(store, '.repo-path'), `${storeRepo}\n`);
+        writeFileSync(join(store, 'notes.md'), 'origin\n');
+        writeFileSync(join(store, 'spec-feat.md'), STORE_SPEC);
+        writeFileSync(
+            join(store, 'run-feat.md'),
+            `---\ntype: run\nspec: SPEC-feat\nworktree: ${storeRepo}\nbranch: suspec/feat\nstatus: exited\n---\n`
+        );
+        savedStateDir = process.env.SUSPEC_STATE_DIR;
+        process.env.SUSPEC_STATE_DIR = stateRoot;
+    });
+
+    afterEach(() => {
+        if (savedStateDir === undefined) {
+            delete process.env.SUSPEC_STATE_DIR;
+        } else {
+            process.env.SUSPEC_STATE_DIR = savedStateDir;
+        }
+        rmSync(storeRoot, { recursive: true, force: true });
+    });
+
+    it('lints the run\'s store artifacts — clean pair exits 0, facts only', async () => {
+        const result = await capture(() => run(['feat'], storeRepo));
+        expect(result.code).toBe(0);
+        expect(result.out).toContain('artifact lint — run feat · spec SPEC-feat (facts, no verdict)');
+        expect(result.out).toContain('clean');
+        expect(result.out).not.toMatch(/verdict:|Pass|Fail/);
+    });
+
+    it('exits per check severity: a forged cli-verified evidence record is a hard-error (exit 2)', async () => {
+        const dir = join(store, 'evidence', 'feat');
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(
+            join(dir, '001-forged.md'),
+            '---\ntype: evidence\nrun: feat\nac: AC-001\nexit: 0\nprovenance: cli-verified\n---\n'
+        );
+        const result = await capture(() => run(['feat', '--json'], storeRepo));
+        expect(result.code).toBe(2);
+        const parsed = JSON.parse(result.out) as { artifacts: { path: string; diagnostics: { check: string }[] }[] };
+        expect(parsed.artifacts.some((a) => a.diagnostics.some((d) => d.check === 'EV03'))).toBe(true);
+    });
+
+    it('a missing store source on the spec surfaces as C009 against the STORE spec (exit 2)', async () => {
+        rmSync(join(store, 'notes.md'));
+        const result = await capture(() => run(['feat'], storeRepo));
+        expect(result.code).toBe(2);
+        expect(result.out).toContain('C009');
+    });
+});

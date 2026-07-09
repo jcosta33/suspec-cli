@@ -42,13 +42,14 @@ describe('build_run_content (AC-006/008)', () => {
 });
 
 describe('read_run_lock (AC-008)', () => {
-    it('reads status, pid, heartbeat, and worktree back from the frontmatter', () => {
+    it('reads status, pid, heartbeat, worktree, and branch back from the frontmatter', () => {
         const lock = read_run_lock(build_run_content(FIELDS));
         expect(lock).toEqual({
             status: 'live',
             pid: 4242,
             heartbeat: '2026-07-09T10:00:00.000Z',
             worktree: '/repo/.worktrees/auth',
+            branch: 'suspec/auth',
         });
     });
 
@@ -58,6 +59,7 @@ describe('read_run_lock (AC-008)', () => {
             pid: null,
             heartbeat: null,
             worktree: null,
+            branch: null,
         });
         expect(read_run_lock('---\npid: not-a-number\n---\n').pid).toBeNull();
     });
@@ -98,6 +100,7 @@ describe('reclaim / finish / abort — frontmatter-only rewrites (AC-008)', () =
             pid: 9999,
             heartbeat: '2026-07-09T11:00:00.000Z',
             worktree: '/repo/.worktrees/auth-2',
+            branch: 'suspec/auth-2',
         });
         expect(reclaimed).toContain('base_sha: def456');
         expect(reclaimed).toContain('agent evidence line 1\nagent evidence line 2\n');

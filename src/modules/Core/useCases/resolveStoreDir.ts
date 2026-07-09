@@ -31,6 +31,10 @@ export type ResolveStoreDirInput = Readonly<{
     config?: StoreConfig;
     // Injectable home for tests; defaults to os.homedir() (never the string '~').
     home?: () => string;
+    // Probe-only resolution: NEVER create a dir or marker — err `store_dir_not_found` when this
+    // repo has no store yet. The read-only faces (`suspec review`'s store-run lint) use it so a
+    // repo that never launched a run is left byte-untouched.
+    probe?: boolean;
 }>;
 
 export type StoreDirResolution = Readonly<{ storeDir: string; created: boolean }>;
@@ -82,6 +86,13 @@ export function resolve_store_dir(input: ResolveStoreDirInput): Result<StoreDirR
         const dir = join(stateRoot, n === 1 ? base : `${base}-${n}`);
         const marker = join(dir, REPO_PATH_MARKER);
         if (!existsSync(dir)) {
+            // A free slot: claiming always takes the FIRST free slot, so a repo that ever resolved
+            // sits at or before this index — a probe can stop here with certainty.
+            if (input.probe === true) {
+                return err(
+                    createAppError('store_dir_not_found', `No store dir recorded for ${repoPath}`, { repoPath })
+                );
+            }
             // Fresh slot: claim it — create the dir and record the owning repo path.
             try {
                 mkdirSync(dir, { recursive: true });

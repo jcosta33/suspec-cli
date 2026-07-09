@@ -52,6 +52,7 @@ export type RunLock = Readonly<{
     pid: number | null;
     heartbeat: string | null;
     worktree: string | null;
+    branch: string | null; // the launch-recorded branch — `done`'s PR probe (AC-014) keys on it
 }>;
 
 export function read_run_lock(content: string): RunLock {
@@ -63,6 +64,7 @@ export function read_run_lock(content: string): RunLock {
         pid: Number.isNaN(pid) ? null : pid,
         heartbeat: fm_scalar(fm.heartbeat) ?? null,
         worktree: fm_scalar(fm.worktree) ?? null,
+        branch: fm_scalar(fm.branch) ?? null,
     };
 }
 
@@ -105,4 +107,13 @@ export function finish_run_content(content: string, exit: number): string {
 // live lock blocking the next `work` (the command still exits 2).
 export function abort_run_content(content: string): string {
     return upsert_frontmatter(content, { status: 'aborted' });
+}
+
+// The gate passed (or was explicitly accepted): mark the run done (SPEC-suspec-v2 AC-011). An
+// acceptance stamps its reason beside the status — the waiver is a recorded fact, never silent.
+export function done_run_content(content: string, acceptedFailing: string | null): string {
+    return upsert_frontmatter(content, {
+        status: 'done',
+        ...(acceptedFailing !== null ? { accepted_failing: acceptedFailing } : {}),
+    });
 }

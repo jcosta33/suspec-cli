@@ -6,17 +6,16 @@
 // missing spec is a usage error (exit 2) NAMING the store path searched; an unknown runner is a
 // usage error listing the known ones. The worktree is created by the command, not here.
 
-import { existsSync, readFileSync, readdirSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 
 import { err, ok, isErr, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
 import { parse_runner_config, resolve_runner, type Runner } from '../../Workspace/useCases/index.ts';
-import { fm_scalar, read_frontmatter } from '../services/readFrontmatter.ts';
+import { find_store_spec } from './findStoreSpec.ts';
 import { usage_error } from './unixOutcome.ts';
 
 const CONFIG_FILENAME = 'suspec.config.json';
-const SPEC_FILE = /^spec-(.+)\.md$/;
 
 export type LaunchFromStorePlan = Readonly<{
     spec: string; // the canonical spec id (frontmatter `id`, else the slug)
@@ -33,45 +32,8 @@ export type ResolveLaunchFromStoreInput = Readonly<{
     runner?: string; // explicit --runner <name>; else runners.default, else the reference built-in
 }>;
 
-type FoundSpec = Readonly<{ id: string; slug: string; path: string; source: string }>;
-
-// Scan the store's flat spec-*.md files for the ref: a frontmatter-id match wins; a slug
-// (filename-tail) match is the fallback. The scan never joins the raw ref into a path — it only
-// compares against names readdir returned — so a traversal-shaped ref can never escape the store.
-function find_store_spec(storeDir: string, ref: string): FoundSpec | null {
-    if (!existsSync(storeDir)) {
-        return null;
-    }
-    let names: string[];
-    try {
-        names = readdirSync(storeDir).sort();
-    } catch {
-        return null;
-    }
-    let bySlug: FoundSpec | null = null;
-    for (const name of names) {
-        const match = SPEC_FILE.exec(name);
-        if (match === null) {
-            continue;
-        }
-        const path = join(storeDir, name);
-        let source: string;
-        try {
-            source = readFileSync(path, 'utf8');
-        } catch {
-            continue; // a dir masquerading as spec-*.md — not an artifact, skip
-        }
-        const slug = match[1];
-        const id = fm_scalar(read_frontmatter(source).id) ?? slug;
-        if (id === ref) {
-            return { id, slug, path, source };
-        }
-        if (slug === ref && bySlug === null) {
-            bySlug = { id, slug, path, source };
-        }
-    }
-    return bySlug;
-}
+// The spec lookup itself lives in findStoreSpec.ts (shared with the `done` gate, which resolves
+// the run's driving spec by its recorded id).
 
 // The parsed consumer-side config, or null when absent/unreadable/malformed — the runner
 // resolution then falls back to the built-ins (a config-less repo still launches).

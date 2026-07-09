@@ -1,4 +1,5 @@
 import { spawnSync } from 'child_process';
+import { createHash } from 'crypto';
 import { existsSync } from 'fs';
 
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
@@ -519,4 +520,24 @@ export function path_is_tracked(repoRoot: string, relPath: string): boolean {
 export function head_sha(repoRoot: string): string | null {
     const result = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' });
     return result.status === 0 ? result.stdout.trim() : null;
+}
+
+/**
+ * The evidence-staleness digest of a worktree's current state (SPEC-suspec-v2 AC-012): a sha256
+ * over `git status --porcelain` + `git diff` + the HEAD sha. `evidence add` records it at capture;
+ * `done` recomputes it — any drift (an edit, a stage, a commit: a commit empties the diff but
+ * moves HEAD, which is why HEAD is folded in) reads the evidence stale. Null when the worktree is
+ * gone or not a git checkout — evidence whose worktree cannot be re-hashed can never prove
+ * freshness.
+ */
+export function worktree_diff_digest(worktreePath: string): string | null {
+    const status = spawnSync('git', ['status', '--porcelain'], { cwd: worktreePath, encoding: 'utf8' });
+    const diff = spawnSync('git', ['diff'], { cwd: worktreePath, encoding: 'utf8' });
+    if (status.status !== 0 || diff.status !== 0) {
+        return null;
+    }
+    const head = head_sha(worktreePath) ?? 'no-head';
+    return createHash('sha256')
+        .update(JSON.stringify({ status: status.stdout, diff: diff.stdout, head }))
+        .digest('hex');
 }

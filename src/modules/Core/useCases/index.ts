@@ -105,6 +105,26 @@ export {
 } from '../services/runArtifact.ts';
 export { run_filename } from '../services/storeLayout.ts';
 
+// evidence + the strict gate (SPEC-suspec-v2 AC-010..015): capture, lint, gate, digest, triage.
+// The impure spawn/git/gh edges come in injected from Workspace; the digest renderers are pure
+// services surfaced here (the run-file stamp precedent above).
+export { add_evidence, type AddEvidenceInput, type AddEvidenceReport, type EvidenceCapture } from './addEvidence.ts';
+export { list_evidence_records } from './listEvidenceRecords.ts';
+export { verify_evidence_capture } from './verifyEvidenceCapture.ts';
+export { gate_evidence, type GateEvidenceInput, type GateReport, type GateRequirement } from './gateEvidence.ts';
+export {
+    lint_run_artifacts,
+    type LintRunArtifactsInput,
+    type LintRunArtifactsReport,
+    type StoreLintArtifact,
+    type StoreLintDiagnostic,
+} from './lintRunArtifacts.ts';
+export { list_open_findings, type OpenFinding } from './listOpenFindings.ts';
+export { stamp_finding_expiry, type StampFindingExpiryInput, FINDING_EXPIRY_DAYS } from './stampFindingExpiry.ts';
+export { promote_finding, type PromoteFindingInput, type PromoteFindingReport, type IssueCreator } from './promoteFinding.ts';
+export { done_run_content } from '../services/runArtifact.ts';
+export { render_digest, digest_markers, build_digest_comment_body, type Digest, type DigestRow } from '../services/doneDigest.ts';
+
 // prepare engine — init + new, no agent (AC-012/013/016); pull + promote, no board (W5 AC-001/002)
 export { init_workspace, type ConflictPolicy } from './initWorkspace.ts';
 export { cut_packet } from './cutPacket.ts';

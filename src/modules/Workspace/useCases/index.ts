@@ -16,12 +16,19 @@ export {
     paths_changed_since,
     path_is_tracked,
     head_sha,
+    worktree_diff_digest,
 } from './git.ts';
 export { write_new_file, type FileExistsError } from './files.ts';
 // emit engine — `suspec agents emit --codex`: projects agent defs to Codex TOML (ADR-0098). A runner
 // adapter (like `launch`), so it names a runner — which is why it is a Workspace leaf, not Core.
 export { emit_agents, type EmitAgentsInput, type EmitAgentsReport } from './emitAgents.ts';
 export { fetch_gh_issue, type GhIssue, type GhFetchError } from './gh.ts';
+// evidence + the gate (SPEC-suspec-v2 AC-010..015): the capture spawn, the PR-comment gh edges,
+// and the issue-create gh edge — all injected into (or wired beside) the Core engines.
+export { capture_command, type CapturedCommand } from './captureCommand.ts';
+export { find_open_pr, type OpenPrProbe } from './ghOpenPr.ts';
+export { upsert_pr_comment, type UpsertPrCommentInput, type UpsertPrCommentReport } from './ghPrComment.ts';
+export { create_gh_issue, type CreatedIssue } from './ghCreateIssue.ts';
 export { launch_adapter, write_run_record, write_prompt_scratch, type RunRecord, type LaunchError } from './launch.ts';
 // setup executor — `suspec work`: run project-declared setup in the fresh worktree (advisory, no gate)
 export { run_setup, type SetupResult } from './runSetup.ts';
