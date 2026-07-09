@@ -1,6 +1,7 @@
 // Workspace module barrel — the git worktree/path operations the launch + reconcile engines wrap.
 export {
     resolve_repo_root,
+    main_repo_root,
     current_branch,
     commits_ahead_of_remote,
     repo_has_commits,

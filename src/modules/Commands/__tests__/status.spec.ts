@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, realpathSync, writeFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { basename, join } from 'path';
+import { execFileSync } from 'child_process';
 
 import { run } from '../useCases/status.ts';
 
@@ -84,6 +85,22 @@ describe('status command — the store summary (ADR-0137)', () => {
         };
         expect(parsed.active.map((a) => a.filename)).toEqual(['run-old.md', 'spec-feat.md']);
         expect(parsed.next.some((item) => item.kind === 'spec' && item.ref === 'SPEC-feat')).toBe(true);
+    });
+
+    it('run from INSIDE a task worktree reads the MAIN repo store — the session `work` launches', async () => {
+        seed_store();
+        const git = (args: string[], cwd = repo) => execFileSync('git', args, { cwd, encoding: 'utf8' });
+        git(['init', '-b', 'main']);
+        git(['config', 'user.email', 't@e.com']);
+        git(['config', 'user.name', 'T']);
+        git(['commit', '--allow-empty', '-m', 'init']);
+        const worktree = join(repo, '.worktrees', 't');
+        git(['worktree', 'add', '-b', 'suspec/t', worktree, 'main']);
+
+        const { code, out } = await capture(() => run([], worktree));
+        expect(code).toBe(0);
+        expect(out).toContain('2 active artifact(s)'); // the MAIN store's artifacts, not "no store"
+        expect(out).toContain('spec-feat.md');
     });
 
     it('a store with only archived artifacts reads calm — no attention items', async () => {

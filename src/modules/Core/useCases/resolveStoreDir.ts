@@ -1,4 +1,7 @@
-// Store resolution (SPEC-suspec-v2 AC-001): the store for a repo is `<state-root>/<repo-name>/`.
+// Store resolution (SPEC-suspec-v2 AC-001): the store for a repo is `<state-root>/<repo-name>/`,
+// keyed on the MAIN repo root — a `repoRoot` that is a linked worktree (an agent mid-session in a
+// `work`-launched `.worktrees/<slug>` checkout) re-roots to the main checkout first, so every
+// store-reading face sees the same store the main-root session sees.
 // state-root precedence: env `SUSPEC_STATE_DIR` > `state_root` in the consumer-side
 // suspec.config.json > `~/.claude/state`. `<repo-name>` is the repo directory's basename; when two
 // different repo paths share a basename, the later one takes a stable `-2`/`-3` suffix. Every store
@@ -18,6 +21,7 @@ import { basename, isAbsolute, join, resolve } from 'path';
 
 import { ok, err, type Result } from '../../../infra/errors/result.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
+import { main_repo_root } from '../../Workspace/useCases/index.ts';
 
 export const REPO_PATH_MARKER = '.repo-path';
 
@@ -99,7 +103,13 @@ export function resolve_store_dir(input: ResolveStoreDirInput): Result<StoreDirR
     const home = input.home ?? homedir;
     const env = input.env ?? process.env;
     const fs = input.fs ?? { mkdirSync, writeFileSync };
-    const config = input.config !== undefined ? input.config : read_store_config(input.repoRoot);
+    // Store resolution keys on the MAIN repo root. Inside a `work`-launched task worktree the
+    // resolved toplevel is the WORKTREE (`.worktrees/<slug>`) — keying there would resolve no
+    // store (probe faces silently no-op) or, worse, mint a bogus store named after the worktree.
+    // ONLY store resolution re-roots; worktree operations keep the toplevel the caller resolved.
+    // Outside a linked worktree main_repo_root degrades to the given root — behavior unchanged.
+    const repoRoot = main_repo_root(input.repoRoot);
+    const config = input.config !== undefined ? input.config : read_store_config(repoRoot);
 
     const envRoot = env.SUSPEC_STATE_DIR;
     const configured = envRoot !== undefined && envRoot.length > 0 ? envRoot : config?.state_root;
@@ -118,7 +128,7 @@ export function resolve_store_dir(input: ResolveStoreDirInput): Result<StoreDirR
         );
     }
 
-    const repoPath = resolve(input.repoRoot);
+    const repoPath = resolve(repoRoot);
     const repoCanonical = canonical_path(repoPath);
     const base = basename(repoPath);
 

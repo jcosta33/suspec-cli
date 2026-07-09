@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, realpathSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, rmSync, realpathSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { execFileSync } from 'child_process';
 
 import {
     resolve_repo_root,
+    main_repo_root,
     current_branch,
     commits_ahead_of_remote,
     worktree_list,
@@ -69,6 +70,37 @@ describe('Workspace git', () => {
         const error = assertErr(res);
         expect(error.message).toContain('failed to create worktree');
         expect(error.message).not.toContain('collides with the existing flat branch');
+    });
+
+    it('main_repo_root re-roots a linked worktree to the MAIN checkout; a plain toplevel stands', () => {
+        const base = current_branch(repo) ?? 'main';
+        // a normal repo at its toplevel: the common dir is the relative `.git` — the root stands
+        expect(main_repo_root(repo)).toBe(repo);
+        // inside a `work`-shaped task worktree: the common dir is the MAIN repo's absolute .git
+        const wt = join(repo, '.worktrees', 't');
+        git(['worktree', 'add', '-b', 'suspec/t', wt, base]);
+        expect(main_repo_root(wt)).toBe(repo);
+        // a non-worktree SUBDIR of the main repo (relative `../.git` answer) resolves the toplevel
+        const sub = join(repo, 'src', 'deep');
+        mkdirSync(sub, { recursive: true });
+        expect(main_repo_root(sub)).toBe(repo);
+    });
+
+    it('main_repo_root degrades fail-safe: non-repo and bare repo both return the given path', () => {
+        const notRepo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-norepo-')));
+        try {
+            expect(main_repo_root(notRepo)).toBe(notRepo);
+        } finally {
+            rmSync(notRepo, { recursive: true, force: true });
+        }
+        // a bare repo answers `.` for the common dir — basename is not `.git`, so it stands as-is
+        const bare = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-bare-')));
+        try {
+            execFileSync('git', ['init', '--bare'], { cwd: bare, encoding: 'utf8' });
+            expect(main_repo_root(bare)).toBe(bare);
+        } finally {
+            rmSync(bare, { recursive: true, force: true });
+        }
     });
 
     it('resolve_repo_root returns the root inside a repo and Errs outside one', () => {

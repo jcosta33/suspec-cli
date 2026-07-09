@@ -1,7 +1,7 @@
 import { spawnSync } from 'child_process';
 import { createHash } from 'crypto';
 import { existsSync, readFileSync, statSync } from 'fs';
-import { join } from 'path';
+import { basename, dirname, isAbsolute, join, resolve } from 'path';
 
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { err, ok, type Result } from '../../../infra/errors/result.ts';
@@ -59,6 +59,47 @@ export function resolve_repo_root(cwd: string = process.cwd()): Result<string, N
         return err(createAppError('NoGitRepo', 'not inside a git repository', { cwd }));
     }
     return ok((result.stdout || '').trim());
+}
+
+/**
+ * The MAIN repository root for a path that may sit inside a LINKED WORKTREE. `git rev-parse
+ * --git-common-dir` names the shared `.git`: in a linked worktree that is the main checkout's
+ * `.git` DIRECTORY elsewhere (its dirname is the main root); in a normal repo it is the
+ * toplevel's own `.git` (the given root stands). git may print the common dir relative to `cwd`
+ * (`.git` at a toplevel, `../.git` from a subdir), so a relative answer is resolved against
+ * `repoRoot` first. Any ambiguity — not a git repo, a bare repo (`.`), a submodule-shaped gitdir
+ * (`…/modules/<name>`), a missing dir — degrades to the given `repoRoot`, fail-safe to the
+ * plain-toplevel behavior.
+ */
+export function main_repo_root(repoRoot: string): string {
+    const result = spawnSync('git', ['rev-parse', '--git-common-dir'], { cwd: repoRoot, encoding: 'utf8' });
+    if (result.error || result.status !== 0) {
+        return repoRoot; // not a repo (or no git) — nothing to re-root
+    }
+    const raw = (result.stdout || '').trim();
+    /* v8 ignore next 3 -- defensive: a zero-status rev-parse never prints an empty common dir */
+    if (raw.length === 0) {
+        return repoRoot;
+    }
+    const commonDir = isAbsolute(raw) ? raw : resolve(repoRoot, raw);
+    if (commonDir === resolve(repoRoot, '.git')) {
+        return repoRoot; // a normal repo: the common dir is the toplevel's own .git
+    }
+    if (basename(commonDir) !== '.git') {
+        return repoRoot; // bare (`.`) / submodule gitdir / anything unrecognized — fail-safe
+    }
+    /* v8 ignore start -- defensive: git just reported this dir as the common dir; it existing as a non-directory needs a same-instant race */
+    let isDir: boolean;
+    try {
+        isDir = statSync(commonDir).isDirectory();
+    } catch {
+        return repoRoot;
+    }
+    if (!isDir) {
+        return repoRoot;
+    }
+    /* v8 ignore stop */
+    return dirname(commonDir);
 }
 
 /**

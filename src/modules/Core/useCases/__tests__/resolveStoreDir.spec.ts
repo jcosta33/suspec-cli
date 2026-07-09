@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync, realpathSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
+import { execFileSync } from 'child_process';
 
 import { assertOk } from '../../../../infra/errors/testing/assertOk.ts';
 import { assertErr } from '../../../../infra/errors/testing/assertErr.ts';
@@ -359,6 +360,57 @@ describe('resolve_store_dir — state-root validation', () => {
             })
         );
         expect(envWins.storeDir).toBe(join(root, 'env-state', 'proj'));
+    });
+});
+
+describe('resolve_store_dir — main-root normalization (a session inside a task worktree)', () => {
+    // A real git fixture: `work` launches agents INTO `.worktrees/<slug>` checkouts, where
+    // `git rev-parse --show-toplevel` names the WORKTREE — store resolution must re-root to the
+    // MAIN repo or every store face no-ops (probe) or mints a bogus worktree-named store (claim).
+    const make_git_repo_with_worktree = (): { repo: string; worktree: string } => {
+        const repo = make_repo('proj');
+        const git = (args: string[], cwd = repo) => execFileSync('git', args, { cwd, encoding: 'utf8' });
+        git(['init', '-b', 'main']);
+        git(['config', 'user.email', 't@e.com']);
+        git(['config', 'user.name', 'T']);
+        git(['commit', '--allow-empty', '-m', 'init']);
+        const worktree = join(repo, '.worktrees', 't');
+        git(['worktree', 'add', '-b', 't', worktree, 'main']);
+        return { repo, worktree };
+    };
+
+    it('claims the MAIN repo store from inside a worktree — marker records the MAIN root, no `t` slot', () => {
+        const stateRoot = join(root, 'state');
+        const env = { SUSPEC_STATE_DIR: stateRoot };
+        const { repo, worktree } = make_git_repo_with_worktree();
+
+        const fromWorktree = assertOk(resolve_store_dir({ repoRoot: worktree, env, config: null }));
+        expect(fromWorktree.storeDir).toBe(join(stateRoot, 'proj'));
+        expect(readFileSync(join(fromWorktree.storeDir, REPO_PATH_MARKER), 'utf8')).toBe(`${repo}\n`);
+        expect(existsSync(join(stateRoot, 't'))).toBe(false); // never a worktree-basename store
+
+        // The main-root session resolves the SAME store — one store per repo, worktree or not.
+        const fromMain = assertOk(resolve_store_dir({ repoRoot: repo, env, config: null }));
+        expect(fromMain).toEqual({ storeDir: fromWorktree.storeDir, created: false });
+    });
+
+    it('probes from inside a worktree find the store the main-root session created', () => {
+        const stateRoot = join(root, 'state');
+        const env = { SUSPEC_STATE_DIR: stateRoot };
+        const { repo, worktree } = make_git_repo_with_worktree();
+        const claimed = assertOk(resolve_store_dir({ repoRoot: repo, env, config: null }));
+
+        const probed = assertOk(resolve_store_dir({ repoRoot: worktree, env, config: null, probe: true }));
+        expect(probed).toEqual({ storeDir: claimed.storeDir, created: false });
+    });
+
+    it('a plain git repo (no worktree) resolves exactly as before — the toplevel stands', () => {
+        const stateRoot = join(root, 'state');
+        const { repo } = make_git_repo_with_worktree();
+        const env = { SUSPEC_STATE_DIR: stateRoot };
+        const resolved = assertOk(resolve_store_dir({ repoRoot: repo, env, config: null }));
+        expect(resolved.storeDir).toBe(join(stateRoot, 'proj'));
+        expect(readFileSync(join(resolved.storeDir, REPO_PATH_MARKER), 'utf8')).toBe(`${repo}\n`);
     });
 });
 

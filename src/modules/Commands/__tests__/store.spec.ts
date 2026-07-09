@@ -297,6 +297,28 @@ describe('store path — the non-probe resolver an agent asks mid-session', () =
         expect(code).toBe(0);
         expect(JSON.parse(out)).toMatchObject({ level: 'clean', store });
     });
+
+    it('from INSIDE a task worktree, resolves/creates the MAIN repo store — never a worktree-keyed one', async () => {
+        // The exact session `work` launches: cwd is `.worktrees/<slug>`, whose git toplevel is the
+        // WORKTREE — store resolution must re-root to the main repo.
+        rmSync(store, { recursive: true, force: true });
+        const worktree = join(repo, '.worktrees', 't');
+        git(['worktree', 'add', '-b', 'suspec/t', worktree, 'main']);
+
+        const { code, out } = await capture(() => run(['path'], worktree));
+        expect(code).toBe(0);
+        expect(out.trim()).toBe(store); // the MAIN repo's store, not <stateRoot>/t
+        expect(readFileSync(join(store, '.repo-path'), 'utf8').trim()).toBe(repo);
+        expect(existsSync(join(stateRoot, 't'))).toBe(false);
+
+        // `store list` from inside the worktree reads the SAME store a main-root session sees.
+        writeFileSync(join(store, 'spec-feat.md'), '---\ntype: spec\nid: SPEC-feat\nstatus: ready\n---\n');
+        const listed = await capture(() => run(['list', '--json'], worktree));
+        expect(listed.code).toBe(0);
+        const parsed = JSON.parse(listed.out) as { store: string; active: { filename: string }[] };
+        expect(parsed.store).toBe(store);
+        expect(parsed.active.map((a) => a.filename)).toContain('spec-feat.md');
+    });
 });
 
 describe('store list / gc / purge (AC-020)', () => {
