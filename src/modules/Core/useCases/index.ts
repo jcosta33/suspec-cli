@@ -121,9 +121,20 @@ export {
 } from './lintRunArtifacts.ts';
 export { list_open_findings, type OpenFinding } from './listOpenFindings.ts';
 export { stamp_finding_expiry, type StampFindingExpiryInput, FINDING_EXPIRY_DAYS } from './stampFindingExpiry.ts';
-export { promote_finding, type PromoteFindingInput, type PromoteFindingReport, type IssueCreator } from './promoteFinding.ts';
+export {
+    promote_finding,
+    type PromoteFindingInput,
+    type PromoteFindingReport,
+    type IssueCreator,
+} from './promoteFinding.ts';
 export { done_run_content } from '../services/runArtifact.ts';
-export { render_digest, digest_markers, build_digest_comment_body, type Digest, type DigestRow } from '../services/doneDigest.ts';
+export {
+    render_digest,
+    digest_markers,
+    build_digest_comment_body,
+    type Digest,
+    type DigestRow,
+} from '../services/doneDigest.ts';
 
 // prepare engine — init + new, no agent (AC-012/013/016); pull + promote, no board (W5 AC-001/002)
 export { init_workspace, type ConflictPolicy } from './initWorkspace.ts';
@@ -137,7 +148,13 @@ export { pull_intake, type PullIntakeInput, type PullIntakeReport, type GhFetche
 // edges stay injected (promote_finding's IssueCreator, store_doctor's PrStateProbe).
 export { find_store_finding, type StoreFinding } from './findStoreFinding.ts';
 export { scaffold_fix_spec, type ScaffoldFixSpecInput, type ScaffoldFixSpecReport } from './scaffoldFixSpec.ts';
-export { store_doctor, type StoreDoctorInput, type StoreDoctorReport, type DoctorRow, type PrStateProbe } from './storeDoctor.ts';
+export {
+    store_doctor,
+    type StoreDoctorInput,
+    type StoreDoctorReport,
+    type DoctorRow,
+    type PrStateProbe,
+} from './storeDoctor.ts';
 export { store_decay_summary, decay_line, type StoreDecaySummary } from './storeDecaySummary.ts';
 export { store_decay_note } from './storeDecayNote.ts';
 export { list_active_specs, type ActiveSpec } from './listActiveSpecs.ts';
@@ -150,3 +167,16 @@ export {
 export { list_store_artifacts, type StoreListing, type StoreArtifactAge } from './listStoreArtifacts.ts';
 export { gc_store, type GcStoreInput, type GcStoreReport } from './gcStore.ts';
 export { purge_store } from './purgeStore.ts';
+
+// the middle tier + thin launchers (SPEC-suspec-v2 AC-021..023): check-my-work's gate face
+// (declared verify commands + the saved check run), the shared risk-path nudge, the spec-less
+// runner resolution, the store-spec scaffold, the `next` ranking, and the two dispatch prompts
+// (pure services, surfaced here like generate_prompt).
+export { read_verify_commands } from './readVerifyCommands.ts';
+export { risk_path_nudge } from './riskPathNudge.ts';
+export { resolve_runner_from_config } from './resolveRunnerFromConfig.ts';
+export { scaffold_store_spec, type ScaffoldStoreSpecInput, type ScaffoldStoreSpecReport } from './scaffoldStoreSpec.ts';
+export { next_action, type NextItem, type NextActionInput } from './nextAction.ts';
+export { build_check_run_content } from '../services/runArtifact.ts';
+export { generate_review_prompt, type GenerateReviewPromptInput } from '../services/reviewPrompt.ts';
+export { generate_spec_author_prompt, type GenerateSpecAuthorPromptInput } from '../services/specAuthorPrompt.ts';

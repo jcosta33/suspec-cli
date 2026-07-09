@@ -46,6 +46,44 @@ export function build_run_content(fields: RunRecordFields): string {
     return [...frontmatter, ...body].join('\n');
 }
 
+// A check-my-work run file (SPEC-suspec-v2 AC-021, written only under `--save`): the same run
+// grammar, keyed on the stated INTENT instead of a driving spec — check-my-work reviews the
+// current repo diff, so there is no `spec:` to record. The worktree is the repo itself; the lock
+// fields (status/pid/heartbeat) are stamped like any run so a crash mid-gate reads reclaimable,
+// and the command releases them with finish_run_content when the gate completes.
+export type CheckRunFields = Readonly<{
+    intent: string; // whitespace-collapsed by the command — frontmatter stays one line
+    worktree: string; // the repo root — check-my-work runs where the developer works
+    branch: string | null;
+    baseSha: string | null;
+    pid: number;
+    heartbeat: string; // ISO timestamp
+}>;
+
+export function build_check_run_content(fields: CheckRunFields): string {
+    const frontmatter = [
+        '---',
+        'type: run',
+        `intent: ${fields.intent}`,
+        `worktree: ${fields.worktree}`,
+        ...(fields.branch !== null ? [`branch: ${fields.branch}`] : []),
+        ...(fields.baseSha !== null ? [`base_sha: ${fields.baseSha}`] : []),
+        'status: live',
+        `pid: ${fields.pid}`,
+        `heartbeat: ${fields.heartbeat}`,
+        '---',
+    ];
+    const body = [
+        '',
+        `# Check-my-work — ${fields.intent}`,
+        '',
+        'Saved by `suspec check-my-work --save`: the gate captures below are the record of the',
+        'verify commands run against the working tree at this point.',
+        '',
+    ];
+    return [...frontmatter, ...body].join('\n');
+}
+
 // The lock fields a second `suspec work` reads to decide refuse / reclaim (AC-008).
 export type RunLock = Readonly<{
     status: string | null;

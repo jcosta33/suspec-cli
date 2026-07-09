@@ -73,7 +73,7 @@ Every command has a direct form; the reconcile-loop flows also have an interacti
 | `suspec pull <ref>`                             | Snapshot a ticket into `intake/` — verbatim, never a spec or the board                                                                                  |
 | `suspec promote <task>`                         | Scaffold a candidate finding from a finished task (no learning asserted)                                                                                |
 | `suspec run <task> --agent <name>`              | Launch a prepared task on an external agent in its worktree; records the launch (no verdict)                                                            |
-| `suspec work <SPEC>`                            | Work a spec directly (task optional): create/reuse its worktree, run setup, launch an agent with a fitted prompt — records the run (no verdict) |
+| `suspec work <SPEC>`                            | Work a spec directly (task optional): create/reuse its worktree, run setup, launch an agent with a fitted prompt — records the run (no verdict)         |
 | `suspec show <task\|spec\|review\|checks>`      | Project a parsed artifact as JSON — read-only                                                                                                           |
 | `suspec agents emit --codex`                    | Generate Codex `.codex/agents/*.toml` from the suspec-agents definitions (prose discipline only)                                                        |
 | `suspec help`                                   | This reference                                                                                                                                          |
@@ -136,7 +136,8 @@ stays hand-edited).
 
 `new task --from <SPEC-id> [--scope AC-001,AC-002]` cuts a task packet whose Scope is copied from the
 named requirement ids — a scope id that isn't a requirement of the spec is rejected, and an empty
-scope stays empty (never invented). `new spec <slug>` scaffolds a fresh draft spec.
+scope stays empty (never invented). `new spec` is retired — scaffold specs with
+`suspec write spec "<one-line intent>"` (a draft STORE spec; `--launch` dispatches the spec author).
 
 ## The boundary
 

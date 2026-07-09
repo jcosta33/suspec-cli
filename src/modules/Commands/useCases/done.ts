@@ -22,6 +22,7 @@
 // Exits: 0 gate satisfied (or accepted) · 1 gate blocked (gaps listed) · 2 usage / no such run /
 // lint hard-error (a forged or structurally broken artifact set has no honest gate to run).
 
+import { existsSync } from 'fs';
 import { join } from 'path';
 
 import { isErr } from '../../../infra/errors/result.ts';
@@ -46,10 +47,13 @@ import {
     stamp_finding_expiry,
     promote_finding,
     archive_artifact,
+    risk_path_nudge,
 } from '../../Core/useCases/index.ts';
 import {
     resolve_repo_root,
     worktree_diff_digest,
+    worktree_changed_files,
+    default_branch,
     find_open_pr,
     upsert_pr_comment,
     create_gh_issue,
@@ -109,6 +113,20 @@ function apply_triage(
           };
 }
 
+// AC-022: the risk-path nudge — one advisory line when the run's worktree diff touches a
+// `risk_paths` glob. Advisory by construction: a gone worktree or an undiffable base is silence,
+// never a block and never an error.
+function risk_nudge_for_run(repoRoot: string, worktree: string | null): string | null {
+    if (worktree === null || !existsSync(worktree)) {
+        return null;
+    }
+    const changed = worktree_changed_files(worktree, default_branch(repoRoot));
+    if (isErr(changed)) {
+        return null;
+    }
+    return risk_path_nudge(repoRoot, changed.value);
+}
+
 export async function run(argv: string[], cwd: string = process.cwd(), prompter?: Prompter): Promise<number> {
     const { positional, flags } = parse_flags(argv, {
         booleans: ['--json', '--allow-agent-evidence'],
@@ -120,9 +138,7 @@ export async function run(argv: string[], cwd: string = process.cwd(), prompter?
     // Whitespace-collapsed: the reason lands on a single frontmatter line in the run file — a
     // newline inside it would otherwise inject arbitrary frontmatter keys.
     const acceptReason =
-        typeof acceptFlag === 'string' && acceptFlag.trim().length > 0
-            ? acceptFlag.trim().replace(/\s+/g, ' ')
-            : null;
+        typeof acceptFlag === 'string' && acceptFlag.trim().length > 0 ? acceptFlag.trim().replace(/\s+/g, ' ') : null;
     const discardFlag = flags.get('discard-critical');
     const discardCritical = typeof discardFlag === 'string' ? discardFlag : undefined;
     const runRef = positional[0];
@@ -168,7 +184,8 @@ export async function run(argv: string[], cwd: string = process.cwd(), prompter?
         return project({
             result: { ok: true, value: { level: 'blocking' as const, run: runRef, lint: lint.value.artifacts } },
             json,
-            render: () => ['artifact lint blocked — fix the artifacts, then re-run `suspec done`:', ...lintLines].join('\n'),
+            render: () =>
+                ['artifact lint blocked — fix the artifacts, then re-run `suspec done`:', ...lintLines].join('\n'),
         });
     }
 
@@ -198,6 +215,10 @@ export async function run(argv: string[], cwd: string = process.cwd(), prompter?
     };
     const digestText = render_digest(digest);
     const notes: string[] = [];
+    const nudge = risk_nudge_for_run(repoRoot, runState.lock.worktree);
+    if (nudge !== null) {
+        notes.push(nudge);
+    }
 
     // 3a. Mark the run done — pass or explicit acceptance (AC-011); the reason is stamped in.
     if (passed || accepted) {
@@ -250,7 +271,9 @@ export async function run(argv: string[], cwd: string = process.cwd(), prompter?
                 );
             } else {
                 decisions = findings.map((finding) => ({ filename: finding.filename, action: 'defer' }));
-                notes.push(`note: ${findings.length} untriaged finding(s) deferred with an expiry stamp (non-interactive)`);
+                notes.push(
+                    `note: ${findings.length} untriaged finding(s) deferred with an expiry stamp (non-interactive)`
+                );
             }
             for (const decision of decisions) {
                 const finding = findings.find((entry) => entry.filename === decision.filename);

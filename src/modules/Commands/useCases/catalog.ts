@@ -92,15 +92,28 @@ export const COMMAND_CATALOG = [
     },
     {
         name: 'new',
-        description: 'Cut a task packet from a spec, or scaffold a new spec / change plan',
+        description: 'Cut a task packet from a spec, or scaffold a change plan',
         usage: [
-            'suspec new <task|spec|change-plan>',
+            'suspec new <task|change-plan>',
             '  task --from <SPEC-id> [--scope AC-001,AC-002] [--id <TASK-id>]   cut a task (scope never invented)',
-            '  spec <slug>                                     scaffold a fresh draft spec',
             '  change-plan <slug>                              scaffold a draft change plan (migrations/rewrites)',
             '  --id <TASK-id>                                  name a 2nd+ task from one spec (else TASK-<spec-slug>)',
             '  --force                                         re-cut over an existing task packet (e.g. to add --scope)',
             '  --json · -i                                     machine output · interactive flow',
+            '  specs scaffold via `suspec write spec "<intent>"` (the store scaffold; `new spec` is retired)',
+        ],
+    },
+    {
+        name: 'write',
+        description: 'Scaffold a draft store spec from a one-line intent — optionally dispatch the spec author',
+        usage: [
+            'suspec write spec "<one-line intent>"',
+            '  "<intent>"                  seeds spec-<slug>.md in the store: status draft, base_sha = repo HEAD,',
+            '                              one empty AC + a Verify placeholder — the CLI authors NO requirements',
+            '  --launch                    dispatch the spec-author prompt (a pointer at the store spec) to the runner',
+            '  --runner <name>             the runner from suspec.config.json runners (built-ins: claude, codex)',
+            '  --json                      machine output',
+            '  then: suspec work <SPEC-id>',
         ],
     },
     {
@@ -164,7 +177,8 @@ export const COMMAND_CATALOG = [
     },
     {
         name: 'work',
-        description: 'Work a store spec: create/reuse its worktree, set up, launch a runner pointed at the store (no verdict)',
+        description:
+            'Work a store spec: create/reuse its worktree, set up, launch a runner pointed at the store (no verdict)',
         usage: [
             'suspec work <SPEC>',
             '  <SPEC>                      a spec id/slug, resolved against the store (spec-*.md)',
@@ -201,6 +215,31 @@ export const COMMAND_CATALOG = [
             '  --discard-critical <id>     allow triage to discard the named critical finding',
             '  --json                      machine output (defers findings triage with an expiry stamp)',
             '  exit 0 gate satisfied/accepted · 1 gate blocked (gaps listed) · 2 usage / lint hard-error',
+        ],
+    },
+    {
+        name: 'check-my-work',
+        description:
+            'The middle tier: gate the current repo diff (config `verify`) + dispatch one adversarial reviewer',
+        usage: [
+            'suspec check-my-work "<one-line intent>"',
+            '  "<intent>"                  what the reviewer reviews the current diff against',
+            '  (diff base)                 merge-base with the default branch; staged+unstaged when already on it',
+            '  --save                      record a check run + evidence records in the store (else artifact-free)',
+            '  --no-review                 gate only — no reviewer dispatched',
+            '  --dry-run                   print the plan + reviewer prompt; run nothing, write nothing',
+            '  --runner <name>             the reviewer runner (else runners.default) · --json',
+            '  exit mirrors the gate: 0 verify passed/none declared · 1 a verify command failed · 2 usage/launch failure',
+        ],
+    },
+    {
+        name: 'next',
+        description: 'The single most actionable store item — live runs, gate gaps, triage debt, ready specs',
+        usage: [
+            'suspec next',
+            '  (no flag)                   print THE top item (+ the ambient decay line)',
+            '  --json                      the full ranking, machine-readable',
+            '  reads only the store + local git state — zero network, zero gh; writes nothing',
         ],
     },
     {

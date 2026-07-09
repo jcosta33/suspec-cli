@@ -135,26 +135,12 @@ describe('new command (direct surface, AC-013)', () => {
         expect((await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-099'], ws))).code).toBe(2);
     });
 
-    it('scaffolds a spec; refuses to clobber on a repeat', async () => {
-        const first = await capture(() => run(['spec', 'checkout', '--title', 'Checkout'], ws));
-        expect(first.code).toBe(0);
-        expect(existsSync(join(ws, 'specs', 'checkout', 'spec.md'))).toBe(true);
-        expect((await capture(() => run(['spec', 'checkout'], ws))).code).toBe(2);
-    });
-
-    it('spec with no slug → usage error', async () => {
-        expect((await capture(() => run(['spec'], ws))).code).toBe(2);
-    });
-
-    it('warns (exit 1) and notes the next free ordinal on a duplicate leading ordinal (#47)', async () => {
-        mkdirSync(join(ws, 'specs', '011-foo'), { recursive: true });
-        writeFileSync(join(ws, 'specs', '011-foo', 'spec.md'), 'existing\n');
-        const { code, out } = await capture(() => run(['spec', '011-bar'], ws));
-        expect(code).toBe(1); // warning level → exit 1
-        expect(out).toContain('scaffolded SPEC-011-bar');
-        expect(out).toContain('ordinal 011 already used by "011-foo"');
-        expect(out).toContain('next free is 012');
-        expect(existsSync(join(ws, 'specs', '011-bar', 'spec.md'))).toBe(true); // still created
+    it('`new spec` is RETIRED (SPEC-suspec-v2 AC-023) — fails loudly pointing at `write spec`, writes nothing', async () => {
+        const { code, err } = await capture(() => run(['spec', 'checkout', '--title', 'Checkout'], ws));
+        expect(code).toBe(2);
+        expect(err).toContain('retired');
+        expect(err).toContain('suspec write spec');
+        expect(existsSync(join(ws, 'specs', 'checkout'))).toBe(false); // no workspace scaffold anymore
     });
 
     it('scaffolds a change plan; refuses to clobber on a repeat (R4-ISS-06)', async () => {

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import {
     build_run_content,
+    build_check_run_content,
     read_run_lock,
     is_heartbeat_fresh,
     reclaim_run_content,
@@ -38,6 +39,33 @@ describe('build_run_content (AC-006/008)', () => {
 
     it('omits base_sha in a repo with no commits (null), rather than writing an empty scalar', () => {
         expect(build_run_content({ ...FIELDS, baseSha: null })).not.toContain('base_sha');
+    });
+});
+
+describe('build_check_run_content (AC-021)', () => {
+    const CHECK = {
+        intent: 'tighten the parser',
+        worktree: '/repo',
+        branch: 'feat/x',
+        baseSha: 'abc123',
+        pid: 4242,
+        heartbeat: '2026-07-09T10:00:00.000Z',
+    };
+
+    it('records type run keyed on the INTENT (no spec:), plus the lock fields', () => {
+        const content = build_check_run_content(CHECK);
+        expect(content).toMatch(/^---\ntype: run\nintent: tighten the parser\n/);
+        expect(content).not.toContain('spec:');
+        expect(content).toContain('worktree: /repo');
+        expect(content).toContain('branch: feat/x');
+        expect(content).toContain('base_sha: abc123');
+        expect(read_run_lock(content)).toMatchObject({ status: 'live', pid: 4242, worktree: '/repo' });
+    });
+
+    it('omits branch (detached) and base_sha (no commits) when null', () => {
+        const content = build_check_run_content({ ...CHECK, branch: null, baseSha: null });
+        expect(content).not.toContain('branch:');
+        expect(content).not.toContain('base_sha:');
     });
 });
 

@@ -2,21 +2,17 @@
 
 // `suspec new <type> …` — the prepare engine's command surface (AC-013, D-004):
 //   suspec new task --from <SPEC-id> [--scope AC-001,AC-002]   SPLIT a spec into a slice (scope copied, never invented)
-//   suspec new spec <slug> [--title <t>] [--owner <o>]          scaffold a fresh draft spec
+//   suspec new change-plan <slug> [--title <t>] [--owner <o>]   scaffold a draft change plan
 //   suspec new                                                  the interactive flow (TTY)
 //
 // `new task` is the SPLIT tool (ADR-0103): summon it when one spec fans out into N parallel slices, not
 // as a default station. 1:1 work needs no task — implement against the spec and record the run in its
 // append-only `## Execution` section. The spec is the unit; the task is an on-demand subdivision.
+// `new spec` is RETIRED (SPEC-suspec-v2 AC-023): spec scaffolding is store-rooted now — one
+// scaffold, `suspec write spec "<intent>"` — so the workspace scaffold fails loudly with the
+// pointer instead of leaving two divergent skeletons on the catalog.
 
-import {
-    project,
-    emit_error,
-    usage_error,
-    cut_packet,
-    scaffold_spec,
-    scaffold_change_plan,
-} from '../../Core/useCases/index.ts';
+import { project, emit_error, usage_error, cut_packet, scaffold_change_plan } from '../../Core/useCases/index.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import { run_new_flow, create_clack_prompter } from '../../Tui/useCases/index.ts';
 
@@ -91,29 +87,14 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     }
 
     if (type === 'spec') {
-        const slug = positional[1];
-        if (slug === undefined) {
-            return emit_error(usage_error('usage: suspec new spec <slug> [--title <t>] [--owner <o>]'), json);
-        }
-        const titleFlag = flags.get('title');
-        const ownerFlag = flags.get('owner');
-        return project({
-            result: scaffold_spec({
-                workspaceDir: cwd,
-                slug,
-                title: typeof titleFlag === 'string' ? titleFlag : undefined,
-                owner: typeof ownerFlag === 'string' ? ownerFlag : undefined,
-            }),
-            json,
-            render: (report) => {
-                const head = `scaffolded ${report.specId}\n  ${report.path}`;
-                if (report.ordinalClash === undefined) {
-                    return head;
-                }
-                const { ordinal, existingSlug, nextFree } = report.ordinalClash;
-                return `${head}\n  note: ordinal ${ordinal} already used by "${existingSlug}" — duplicate ordinal; next free is ${nextFree}`;
-            },
-        });
+        // Retired, loudly (AC-023): the store scaffold is the ONE spec scaffold — never two
+        // divergent skeletons (the same fail-loudly treatment as work's retired --agent/--task).
+        return emit_error(
+            usage_error(
+                '`suspec new spec` is retired — specs are store artifacts now; scaffold with `suspec write spec "<one-line intent>"` (add --launch to dispatch the spec author)'
+            ),
+            json
+        );
     }
 
     if (type === 'change-plan') {
@@ -138,10 +119,13 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     if (type === undefined) {
         return emit_error(
             usage_error(
-                'usage: suspec new <task|spec|change-plan> — `new task --from <SPEC-id> [--scope …]` SPLITS a spec into a slice (1:1 work needs no task — record the run in the spec\'s `## Execution`), `new spec <slug>`, or `new change-plan <slug>`'
+                'usage: suspec new <task|change-plan> — `new task --from <SPEC-id> [--scope …]` SPLITS a spec into a slice (1:1 work needs no task — record the run in the spec\'s `## Execution`), or `new change-plan <slug>`; specs scaffold via `suspec write spec "<intent>"`'
             ),
             json
         );
     }
-    return emit_error(usage_error(`unknown new type: ${type} — use task | spec | change-plan`), json);
+    return emit_error(
+        usage_error(`unknown new type: ${type} — use task | change-plan (specs: \`suspec write spec "<intent>"\`)`),
+        json
+    );
 }

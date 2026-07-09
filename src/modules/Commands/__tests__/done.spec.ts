@@ -384,7 +384,9 @@ describe('findings triage (AC-015)', () => {
         const finding = readFileSync(join(store, 'finding-001.md'), 'utf8');
         expect(finding).toMatch(/expires: \d{4}-\d{2}-\d{2}/);
         const value = JSON.parse(result.out) as { triage: { action: string }[] };
-        expect(value.triage).toEqual([{ finding: 'finding-001.md', action: 'deferred', detail: expect.stringContaining('expires') }]);
+        expect(value.triage).toEqual([
+            { finding: 'finding-001.md', action: 'deferred', detail: expect.stringContaining('expires') },
+        ]);
     });
 
     it('applies interactive choices: promote → gh issue + archive; keep → expiry; discard → archive', async () => {
@@ -441,5 +443,49 @@ describe('findings triage (AC-015)', () => {
         const result = await capture(() => run_done(['feat', '--json'], repo));
         expect(result.code).toBe(1);
         expect(readFileSync(join(store, 'finding-001.md'), 'utf8')).not.toContain('expires:');
+    });
+});
+
+describe('the risk-path nudge (AC-022)', () => {
+    it('nudges when the run worktree diff touches a risk_paths glob — advisory, exit unchanged', async () => {
+        writeFileSync(join(repo, 'suspec.config.json'), JSON.stringify({ risk_paths: ['risky/**'] }));
+        mkdirSync(join(repo, 'risky'), { recursive: true });
+        writeFileSync(join(repo, 'risky', 'thing.ts'), 'x\n');
+        git(['add', 'risky/thing.ts']); // staged — porcelain collapses an untracked DIR to `dir/`
+        const result = await capture(() => run_done(['feat', '--json'], repo));
+        expect(result.code).toBe(1); // gate still blocked (no evidence) — the nudge never blocks or unblocks
+        expect(result.err).toContain('risk path');
+        expect(result.err).toContain('risky/thing.ts');
+    });
+
+    it('stays silent when nothing under risk_paths changed, and without any risk_paths config', async () => {
+        writeFileSync(join(repo, 'suspec.config.json'), JSON.stringify({ risk_paths: ['risky/**'] }));
+        const declared = await capture(() => run_done(['feat', '--json'], repo));
+        expect(declared.err).not.toContain('risk path');
+
+        rmSync(join(repo, 'suspec.config.json'), { force: true });
+        const bare = await capture(() => run_done(['feat', '--json'], repo));
+        expect(bare.err).not.toContain('risk path');
+    });
+
+    it('degrades to silence when the run worktree is gone, or is not a git checkout', async () => {
+        writeFileSync(join(repo, 'suspec.config.json'), JSON.stringify({ risk_paths: ['risky/**'] }));
+        // worktree gone
+        writeFileSync(
+            join(store, 'run-feat.md'),
+            `---\ntype: run\nspec: SPEC-feat\nworktree: ${join(root, 'vanished')}\nbranch: suspec/feat\nstatus: exited\n---\n`
+        );
+        const gone = await capture(() => run_done(['feat', '--json'], repo));
+        expect(gone.err).not.toContain('risk path');
+        // worktree exists but is no git checkout — the diff errs, the nudge stays silent
+        const plain = join(root, 'plain-dir');
+        mkdirSync(join(plain, 'risky'), { recursive: true });
+        writeFileSync(join(plain, 'risky', 'thing.ts'), 'x\n');
+        writeFileSync(
+            join(store, 'run-feat.md'),
+            `---\ntype: run\nspec: SPEC-feat\nworktree: ${plain}\nbranch: suspec/feat\nstatus: exited\n---\n`
+        );
+        const nonGit = await capture(() => run_done(['feat', '--json'], repo));
+        expect(nonGit.err).not.toContain('risk path');
     });
 });
