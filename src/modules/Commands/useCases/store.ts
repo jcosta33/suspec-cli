@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 
-// `suspec store <doctor|list|gc|purge|migrate>` — structural anti-rot (SPEC-suspec-v2 AC-018/AC-020)
-// plus the grammar upgrader (AC-003).
+// `suspec store <path|doctor|list|gc|purge|migrate>` — structural anti-rot (SPEC-suspec-v2
+// AC-018/AC-020) plus the grammar upgrader (AC-003) and the store-path resolver.
+//   path     print the repo's resolved store directory (absolute, one line; --json: {store}).
+//            The ONE subcommand that resolves NON-probe: it creates the dir + `.repo-path` marker
+//            when absent — its purpose is letting an agent mid-session resolve where to write
+//            store artifacts without guessing the collision suffix.
 //   doctor   reconcile-only sweep: terminal states derive from git/GitHub truth — a spec/run whose
 //            branch is merged, whose worktree is gone, or whose PR is closed is ARCHIVED (moved,
 //            never deleted); orphans (branch/worktree never existed) are listed. Exit 0 always —
@@ -36,9 +40,9 @@ import { resolve_repo_root, probe_pr_state } from '../../Workspace/useCases/inde
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import { create_clack_prompter, is_cancelled, type Prompter } from '../../Tui/useCases/index.ts';
 
-const USAGE = 'usage: suspec store <doctor|list|gc|purge|migrate> [--json] · purge also takes --force';
+const USAGE = 'usage: suspec store <path|doctor|list|gc|purge|migrate> [--json] · purge also takes --force';
 
-const SUBCOMMANDS = new Set(['doctor', 'list', 'gc', 'purge', 'migrate']);
+const SUBCOMMANDS = new Set(['path', 'doctor', 'list', 'gc', 'purge', 'migrate']);
 
 export async function run(argv: string[], cwd: string = process.cwd(), prompter?: Prompter): Promise<number> {
     const { positional, flags } = parse_flags(argv, { booleans: ['--json', '--force'], strings: [] });
@@ -56,7 +60,22 @@ export async function run(argv: string[], cwd: string = process.cwd(), prompter?
     }
     const repoRoot = rootResult.value;
 
-    // Probe-only for every subcommand: maintenance never creates the store it maintains.
+    // `path` resolves NON-probe — the one write-capable face here: a fresh repo gets its store dir
+    // + `.repo-path` marker created right now, so an agent mid-session learns the real (possibly
+    // collision-suffixed) directory to write artifacts into instead of guessing the basename slot.
+    if (sub === 'path') {
+        const resolved = resolve_store_dir({ repoRoot });
+        if (isErr(resolved)) {
+            return emit_error(resolved.error, json);
+        }
+        return project({
+            result: { ok: true, value: { level: 'clean' as const, store: resolved.value.storeDir } },
+            json,
+            render: (v) => v.store,
+        });
+    }
+
+    // Probe-only for every maintenance subcommand: maintenance never creates the store it maintains.
     const store = resolve_store_dir({ repoRoot, probe: true });
     if (isErr(store)) {
         return project({

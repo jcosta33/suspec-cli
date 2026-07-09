@@ -265,6 +265,40 @@ describe('store doctor — terminal signals from git truth (AC-018)', () => {
     });
 });
 
+describe('store path — the non-probe resolver an agent asks mid-session', () => {
+    it('a fresh repo: prints the absolute store dir AND creates it (dir + .repo-path marker)', async () => {
+        // Undo the fixture store so this repo genuinely has none yet.
+        rmSync(store, { recursive: true, force: true });
+        const { code, out } = await capture(() => run(['path'], repo));
+        expect(code).toBe(0);
+        expect(out.trim()).toBe(store);
+        expect(existsSync(store)).toBe(true);
+        expect(readFileSync(join(store, '.repo-path'), 'utf8').trim()).toBe(repo);
+    });
+
+    it('a collision-suffixed store: prints the suffixed dir recorded for THIS repo, never the basename guess', async () => {
+        // The basename slot belongs to a DIFFERENT repo; this repo's store sits at `<base>-2`.
+        rmSync(store, { recursive: true, force: true });
+        const otherRepo = join(root, 'elsewhere', basename(repo));
+        mkdirSync(otherRepo, { recursive: true });
+        mkdirSync(store, { recursive: true });
+        writeFileSync(join(store, '.repo-path'), `${otherRepo}\n`);
+        const suffixed = `${store}-2`;
+        mkdirSync(suffixed, { recursive: true });
+        writeFileSync(join(suffixed, '.repo-path'), `${repo}\n`);
+
+        const { code, out } = await capture(() => run(['path'], repo));
+        expect(code).toBe(0);
+        expect(out.trim()).toBe(suffixed);
+    });
+
+    it('--json carries { store } machine output', async () => {
+        const { code, out } = await capture(() => run(['path', '--json'], repo));
+        expect(code).toBe(0);
+        expect(JSON.parse(out)).toMatchObject({ level: 'clean', store });
+    });
+});
+
 describe('store list / gc / purge (AC-020)', () => {
     it('list shows active + archived counts with per-artifact ages; --json is the stable face', async () => {
         writeFileSync(join(store, 'spec-feat.md'), '---\ntype: spec\n---\n');

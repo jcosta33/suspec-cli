@@ -97,7 +97,7 @@ export const COMMAND_CATALOG = [
         usage: [
             'suspec new <task|change-plan>',
             '  task --from <SPEC> [--scope AC-001,AC-002] [--id <TASK-id>]   cut a slice into the store (scope never invented)',
-            '  change-plan <slug>                              scaffold a draft change plan (migrations/rewrites)',
+            '  change-plan <slug> [--title <t>] [--owner <o>]  scaffold a draft change plan (migrations/rewrites)',
             '  --id <TASK-id>                                  name a 2nd+ task from one spec (else TASK-<spec-slug>)',
             '  --force                                         re-cut over an existing task slice (e.g. to add --scope)',
             '  --json · -i                                     machine output · interactive flow',
@@ -155,9 +155,11 @@ export const COMMAND_CATALOG = [
     },
     {
         name: 'store',
-        description: 'Store maintenance — doctor (reconcile), list, gc (retention), purge (whole store), migrate',
+        description: 'Store maintenance — path (resolve), doctor (reconcile), list, gc (retention), purge, migrate',
         usage: [
-            'suspec store <doctor|list|gc|purge|migrate>',
+            'suspec store <path|doctor|list|gc|purge|migrate>',
+            "  path                        print this repo's resolved store dir (absolute; created with its",
+            '                              .repo-path marker when absent — never guess the collision suffix)',
             '  doctor                      archive spec/run artifacts whose branch merged, worktree vanished,',
             '                              or PR closed (git/GitHub truth; never deletes; orphans listed; exit 0)',
             '  list                        active + archived artifacts with per-artifact age',

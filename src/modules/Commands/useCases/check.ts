@@ -131,6 +131,21 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
                 render: format_check_report,
             });
         }
+        // An artifact whose `type:` has NO single-file check face (task, finding, adr, intake,
+        // inventory, run, evidence, …) must not fall through to the SPEC checks — that only emits
+        // category-error warnings ("no Requirements section" against a finding). Say so cleanly and
+        // exit 0: nothing to validate is not a defect. A `type: spec` file and a type-less file
+        // (the legacy shape the spec parser owns rejecting) still take the spec path below.
+        const typeMatch = /^type:\s*(.+?)\s*$/m.exec(head);
+        const artifactType = typeMatch !== null ? typeMatch[1] : null;
+        if (artifactType !== null && artifactType !== 'spec') {
+            return project({
+                result: ok({ level: 'clean' as const, path: file, type: artifactType, checked: false }),
+                json,
+                render: () =>
+                    `${file} — no checks for type ${artifactType} (single-file check faces: spec, review, change-plan); nothing to validate`,
+            });
+        }
         // C009 resolves a source ref relative to the spec dir OR the workspace root (so a root-level
         // `intake/x.md` sourced from `specs/<feature>/spec.md` resolves, not only a co-located ref).
         const exists = build_source_exists(file, infer_workspace_root(file, cwd));

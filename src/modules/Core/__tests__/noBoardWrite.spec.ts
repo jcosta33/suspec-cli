@@ -11,23 +11,26 @@ import { fileURLToPath } from 'url';
 // the board's retirement, NO use-case may even name a `status.md` path.
 //
 // Match (gap narrowed, not fully closed): a static scan reads source text, so it cannot resolve a
-// path assembled at runtime from variables. It DOES catch `status.md` whether written as a quoted
-// literal (`'status.md'`), a bare segment passed to `join(...)`, or a word token near a write call
-// — the realistic ways a board write would be spelled.
+// path assembled at runtime from variables (or a name built by string concatenation). It DOES
+// catch `status.md` whether written as a quoted literal (`'status.md'`), a bare segment passed to
+// `join(...)`, or a word token near a write call — the realistic ways a board write would be
+// spelled.
 
-// The five layers that hold use-cases (one function per file). The scan must cover every layer a
-// write could be wired into, not Core alone.
-const layerDirs = (['Commands', 'Sol', 'Core', 'Workspace', 'Tui'] as const).map((layer) =>
-    fileURLToPath(new URL(`../../${layer}/useCases`, import.meta.url))
-);
+// The scan covers EVERY production source under src/ — all six modules (useCases AND their private
+// services/models/repositories dirs), src/index.ts, and src/infra — not the useCases layers alone:
+// a board write wired into a service (or the dispatcher itself) must fail this just as loudly.
+const srcRoot = fileURLToPath(new URL('../../..', import.meta.url));
+const EXCLUDED_DIRS = new Set(['__tests__', 'testing']);
 
-function use_case_files(dir: string): string[] {
+function source_files(dir: string): string[] {
     const out: string[] = [];
     for (const entry of readdirSync(dir)) {
         const full = join(dir, entry);
         if (statSync(full).isDirectory()) {
-            out.push(...use_case_files(full));
-        } else if (entry.endsWith('.ts') && entry !== 'index.ts') {
+            if (!EXCLUDED_DIRS.has(entry)) {
+                out.push(...source_files(full));
+            }
+        } else if (entry.endsWith('.ts')) {
             out.push(full);
         }
     }
@@ -39,17 +42,24 @@ function use_case_files(dir: string): string[] {
 const STATUS_MD = /\bstatus\.md\b/;
 
 describe('the no-board invariant (ADR-0084 D3, retired board — ADR-0137)', () => {
-    const filesByDir = layerDirs.map((dir) => ({ dir, files: use_case_files(dir) }));
-    const files = filesByDir.flatMap(({ files }) => files);
+    const files = source_files(srcRoot);
 
-    it('finds the use-case source files across all five layers to check', () => {
-        for (const { dir, files } of filesByDir) {
-            expect(files.length, `${dir} must contribute use-case files to the scan`).toBeGreaterThan(0);
+    it('finds the production sources across every module, the dispatcher, and infra', () => {
+        // Every surface a write could be wired into must contribute files — the six modules
+        // (Terminal and the services dirs included), the dispatcher, and infra.
+        for (const layer of ['Commands', 'Sol', 'Core', 'Workspace', 'Tui', 'Terminal'] as const) {
+            expect(
+                files.some((file) => file.includes(join('modules', layer))),
+                `modules/${layer} must contribute source files to the scan`
+            ).toBe(true);
         }
-        expect(files.length).toBeGreaterThan(20);
+        expect(files.some((file) => file.endsWith(join('src', 'index.ts')))).toBe(true);
+        expect(files.some((file) => file.includes(join('src', 'infra')))).toBe(true);
+        expect(files.some((file) => file.includes('/services/'))).toBe(true);
+        expect(files.length).toBeGreaterThan(100);
     });
 
-    it('NO use-case in any layer names a `status.md` path — the board is gone, not merely unwritten', () => {
+    it('NO production source names a `status.md` path — the board is gone, not merely unwritten', () => {
         for (const file of files) {
             const text = readFileSync(file, 'utf8');
             expect(STATUS_MD.test(text), `${file} must not reference a status.md board path`).toBe(false);

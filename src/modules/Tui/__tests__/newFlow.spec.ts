@@ -91,7 +91,7 @@ describe('run_new_flow — store spec scaffold + store task slices (ADR-0137)', 
         rmSync(join(store, 'spec-x.md'));
         const p = create_mock_prompter({ select: ['task'] });
         expect(await run_new_flow(p, { cwd: repo })).toBe(1);
-        expect(p.calls.warns.length).toBeGreaterThan(0);
+        expect(p.calls.warns.some((w) => w.includes('No specs in the store'))).toBe(true);
     });
 
     it('re-running the spec scaffold reuses the existing namesake (no clobber, exit 0)', async () => {
@@ -104,7 +104,7 @@ describe('run_new_flow — store spec scaffold + store task slices (ADR-0137)', 
     it('an intent with no slug-able characters errors (exit 2)', async () => {
         const p = create_mock_prompter({ select: ['spec'], text: ['###'] });
         expect(await run_new_flow(p, { cwd: repo })).toBe(2);
-        expect(p.calls.errors.length).toBeGreaterThan(0);
+        expect(p.calls.errors.some((e) => e.includes('cannot derive a spec slug from "###"'))).toBe(true);
     });
 
     it('a second default-id cut auto-suffixes instead of conflicting', async () => {

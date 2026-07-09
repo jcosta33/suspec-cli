@@ -5,6 +5,7 @@ import { join } from 'path';
 
 import { assertOk } from '../../../infra/errors/testing/assertOk.ts';
 import { assertErr } from '../../../infra/errors/testing/assertErr.ts';
+import { check_spec } from '../useCases/checkSpec.ts';
 import { scaffold_fix_spec } from '../useCases/scaffoldFixSpec.ts';
 
 // SPEC-suspec-v2 AC-017: the fix-spec scaffold — a store spec cut from a finding/issue, carrying
@@ -38,7 +39,7 @@ describe('scaffold_fix_spec', () => {
         expect(content).toContain('status: ready');
         expect(content).toContain('base_sha: abc123');
         expect(content).toContain('affected_areas:\n  - src/auth');
-        expect(content).toContain('source: FIND-007');
+        expect(content).toContain('sources:\n  - FIND-007'); // the LIST form the parser + C008 read
         expect(content).toContain('It races.\n\nSteps: run twice.');
         expect(content).toContain('### AC-001'); // a real spec shape — work can launch it
         expect(content).toContain('grammar_version:'); // the atomic store write stamped it (AC-003)
@@ -57,6 +58,34 @@ describe('scaffold_fix_spec', () => {
     it('records gh labels when present', () => {
         assertOk(scaffold_fix_spec({ storeDir: store, ...BASE, affectedAreas: [], labels: ['bug', 'p1'] }));
         expect(readFileSync(join(store, 'spec-fix-find-007.md'), 'utf8')).toContain('labels: bug, p1');
+    });
+
+    it('a scaffolded fix spec lints without C008 — provenance lands in the sources: list the checks read', () => {
+        const report = assertOk(scaffold_fix_spec({ storeDir: store, ...BASE, affectedAreas: [] }));
+        const content = readFileSync(report.path, 'utf8');
+        const checked = assertOk(check_spec({ source: content, path: report.path, exists: () => true }));
+        expect(checked.diagnostics.map((d) => d.code)).not.toContain('C008');
+    });
+
+    it('YAML-quotes a hostile external title and labels — the frontmatter survives `:` `#` quotes and newlines', () => {
+        const report = assertOk(
+            scaffold_fix_spec({
+                storeDir: store,
+                ...BASE,
+                affectedAreas: [],
+                title: 'crash: parser dies on "quoted" input\nsecond line # not a comment',
+                labels: ['prio: high', 'needs "triage"'],
+            })
+        );
+        const content = readFileSync(report.path, 'utf8');
+        // One quoted single-line title scalar — newlines collapsed, inner quotes escaped.
+        expect(content).toContain(
+            'title: "Fix FIND-007 — crash: parser dies on \\"quoted\\" input second line # not a comment"'
+        );
+        expect(content).toContain('labels: "prio: high", "needs \\"triage\\""');
+        // The hostile strings never broke the frontmatter fence: the file still parses as a spec.
+        const checked = assertOk(check_spec({ source: content, path: report.path, exists: () => true }));
+        expect(checked.diagnostics.map((d) => d.code)).not.toContain('C008');
     });
 
     it('REUSES an existing namesake byte-untouched (created: false)', () => {

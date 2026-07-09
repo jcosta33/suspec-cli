@@ -14,11 +14,12 @@ import { run as run_pull } from '../useCases/pull.ts';
 import { run as run_check_my_work } from '../useCases/checkMyWork.ts';
 import { run as run_promote } from '../useCases/promote.ts';
 
-// SPEC-suspec-v2 AC-025 — graceful no-config degradation: every command works with NO
-// suspec.config.json (defaults: store root, runner claude, no setup, no risk paths, default
-// caps). Absence of config is never an error; a missing runtime dependency (gh for promotion)
-// errors only on the command that needs it, naming it. This spec drives the loop in a CONFIG-LESS
-// fixture repo end to end.
+// SPEC-suspec-v2 AC-025 — graceful no-config degradation (defaults: store root, runner claude, no
+// setup, no risk paths, default caps). Absence of config is never an error; a missing runtime
+// dependency (gh for promotion) errors only on the command that needs it, naming it. This spec
+// drives the commands below — write spec, work --dry-run, next, store list, check (no args),
+// new task, pull, check-my-work --no-review, and promote — in a CONFIG-LESS fixture repo; it does
+// NOT exercise the rest of the surface, whose no-config behavior is each command's own spec's job.
 
 let root: string;
 let repo: string;

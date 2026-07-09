@@ -203,7 +203,8 @@ describe('suspec fix #issue — scaffold from GitHub (AC-017)', () => {
         expect(code).toBe(0);
         const content = readFileSync(join(store, 'spec-fix-issue-123.md'), 'utf8');
         expect(content).toContain('id: SPEC-fix-issue-123');
-        expect(content).toContain('title: Fix #123 — Crash on save');
+        // Quoted: ` #` after a space would open a YAML comment, so the emitter double-quotes it.
+        expect(content).toContain('title: "Fix #123 — Crash on save"');
         expect(content).toContain('It crashes when saving twice.');
         expect(content).toContain('labels: bug');
         // gh was asked exactly for title,body,labels (the AC-017 fetch shape).

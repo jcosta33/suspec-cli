@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import { mkdtempSync, rmSync } from 'fs';
+import { mkdtempSync, readdirSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { dispatch, COMMAND_NAMES, is_main_module } from '../index.ts';
 import { COMMAND_CATALOG } from '../modules/Commands/useCases/catalog.ts';
@@ -46,6 +46,19 @@ describe('is_main_module (the process-entry guard)', () => {
 describe('dispatch (AC-004/014)', () => {
     it('advertised commands equal the dispatchable set (no command resolves to Unknown)', () => {
         expect(new Set(COMMAND_CATALOG.map((c) => c.name))).toEqual(new Set([...COMMAND_NAMES, 'help']));
+    });
+
+    it('the Commands/useCases files equal the catalog (a command file cannot exist unadvertised)', () => {
+        // The third parity leg: catalog↔dispatcher above is only half the invariant — a run() file
+        // sitting in Commands/useCases that neither names covers would ship dead (or worse,
+        // reachable-but-unadvertised) code. Every file except the known non-commands must map
+        // 1:1 onto a catalog name (camelCase file → kebab-case command, e.g. checkMyWork).
+        const NON_COMMANDS = new Set(['catalog.ts', 'index.ts']); // the catalog itself + the barrel
+        const useCasesDir = fileURLToPath(new URL('../modules/Commands/useCases', import.meta.url));
+        const fromFiles = readdirSync(useCasesDir)
+            .filter((entry) => entry.endsWith('.ts') && !NON_COMMANDS.has(entry))
+            .map((entry) => entry.replace(/\.ts$/, '').replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`));
+        expect(new Set(fromFiles)).toEqual(new Set(COMMAND_CATALOG.map((c) => c.name)));
     });
 
     it('--help and help print the reference, exit 0', async () => {

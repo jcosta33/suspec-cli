@@ -99,6 +99,24 @@ describe('next_action', () => {
         expect(items[0].action).toContain('suspec evidence add feat');
     });
 
+    it('an ABORTED run ranks as a rank-1 reclaim/relaunch — never gate-gaps advice for a run that never executed', () => {
+        spec('feat', 'live', ['AC-001', 'AC-002']); // ACs with zero evidence — gate-gaps bait
+        run_file('feat', { spec: 'SPEC-feat', worktree: store, status: 'aborted' });
+        const items = next_action({ storeDir: store, now: NOW });
+        expect(items[0]).toMatchObject({ rank: 1, kind: 'reclaim-run', ref: 'feat' });
+        expect(items[0].detail).toContain('aborted at launch');
+        expect(items[0].action).toContain('suspec work SPEC-feat');
+        expect(items.some((item) => item.kind === 'gate-gaps')).toBe(false);
+    });
+
+    it('a spec-less aborted run points at store doctor', () => {
+        run_file('check-x', { intent: 'x', worktree: store, status: 'aborted' });
+        const items = next_action({ storeDir: store, now: NOW });
+        expect(items[0]).toMatchObject({ rank: 1, kind: 'reclaim-run', ref: 'check-x' });
+        expect(items[0].action).toContain('store doctor');
+        expect(items[0].action).not.toContain('suspec work');
+    });
+
     it('a run marked done never ranks, and a fully-evidenced run has no gaps item', () => {
         spec('done-one', 'live');
         run_file('done-one', { spec: 'SPEC-done-one', worktree: store, status: 'done' });

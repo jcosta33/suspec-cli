@@ -12,6 +12,7 @@ import { join } from 'path';
 
 import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
+import { emit_scalar } from '../../../infra/yamlScalar.ts';
 import { is_safe_segment } from '../services/safeSegment.ts';
 import { spec_filename } from '../services/storeLayout.ts';
 import { usage_error } from './unixOutcome.ts';
@@ -36,18 +37,26 @@ export type ScaffoldFixSpecReport = Readonly<{
 }>;
 
 function render_fix_spec(input: ScaffoldFixSpecInput): string {
+    // The title and labels are EXTERNAL strings (a gh issue title, gh labels) — emit_scalar quotes
+    // anything YAML would misread (`:`, `#`, quotes, indicator leads) and collapses newlines, so a
+    // hostile issue title can never corrupt the frontmatter. The provenance lands as the LIST-form
+    // `sources:` the parser and C008 (sources-named) actually read — a scalar `source:` key is
+    // invisible to them and every fix spec would lint with a C008 warning.
     const frontmatter = [
         '---',
         'type: spec',
         `id: SPEC-${input.slug}`,
-        `title: Fix ${input.sourceRef} — ${input.title}`,
+        `title: ${emit_scalar(`Fix ${input.sourceRef} — ${input.title}`)}`,
         'status: ready',
-        `source: ${input.sourceRef}`,
+        'sources:',
+        `  - ${input.sourceRef}`,
         ...(input.baseSha !== null ? [`base_sha: ${input.baseSha}`] : []),
         ...(input.affectedAreas.length > 0
             ? ['affected_areas:', ...input.affectedAreas.map((area) => `  - ${area}`)]
             : []),
-        ...(input.labels !== undefined && input.labels.length > 0 ? [`labels: ${input.labels.join(', ')}`] : []),
+        ...(input.labels !== undefined && input.labels.length > 0
+            ? [`labels: ${input.labels.map((label) => emit_scalar(label)).join(', ')}`]
+            : []),
         '---',
     ];
     const body = [

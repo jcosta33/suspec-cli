@@ -41,3 +41,22 @@ function strip_quotes(value: string): string {
 export function normalize_scalar(raw: string): string {
     return strip_quotes(strip_inline_comment(raw).trim());
 }
+
+// The EMIT-side counterpart of normalize_scalar: render an external string (a gh issue title, a
+// label — anything not under this repo's control) as one safe single-line YAML scalar. Newlines
+// collapse to spaces (a frontmatter value must never break the fence structure), and a value that
+// would be misread as YAML syntax — a `:`/`#` opening a mapping or comment, quotes, a leading
+// indicator character — is double-quoted with `\` and `"` escaped, exactly the form
+// strip_quotes/strip_inline_comment read back. A plain value stays unquoted, byte-identical.
+export function emit_scalar(raw: string): string {
+    const value = raw.replace(/\s+/g, ' ').trim();
+    const needsQuoting =
+        value.length === 0 ||
+        /[:#"'\\]/.test(value) || // a mapping/comment opener or a quote the line-scanners would misread
+        /^[\s\-?[\]{}&*!|>%@`]/.test(value) || // a YAML indicator character in value-lead position
+        /\s$/.test(value);
+    if (!needsQuoting) {
+        return value;
+    }
+    return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}

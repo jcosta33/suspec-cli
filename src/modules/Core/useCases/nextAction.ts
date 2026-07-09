@@ -1,7 +1,9 @@
 // `suspec next`'s ranking engine (SPEC-suspec-v2 AC-023): read ONLY the store (plus the local
 // filesystem for worktree existence) and rank what deserves attention, most actionable first —
 // ZERO network, zero gh, by construction (nothing here spawns anything). The ranking:
-//   1. a `status: live` run whose heartbeat is DEAD          → reclaim / attach
+//   1. a `status: live` run whose heartbeat is DEAD, or a    → reclaim / relaunch / attach
+//      `status: aborted` run (the launch failed — it never
+//      executed, so gate advice would be nonsense)
 //   2. a `status: live` run whose heartbeat is fresh         → attach or wait
 //   3. a finished-but-not-done run whose spec has ACs        → add evidence / done
 //      lacking an exit-0 evidence record
@@ -116,6 +118,22 @@ export function next_action(input: NextActionInput): NextItem[] {
                             : 'reclaim it: suspec store doctor',
                 });
             }
+            continue;
+        }
+        // An ABORTED run never executed (the launch itself failed) — "add evidence" advice would be
+        // nonsense for it. It ranks WITH the dead-heartbeat reclaims: the actionable move is to
+        // relaunch the spec (or sweep the wreck via store doctor when no spec resolves).
+        if (lock.status === 'aborted') {
+            items.push({
+                rank: 1,
+                kind: 'reclaim-run',
+                ref: runSlug,
+                detail: `run ${runSlug} aborted at launch — the runner never started`,
+                action:
+                    specId !== null
+                        ? `relaunch it: suspec work ${specId} — or sweep it: suspec store doctor`
+                        : 'sweep it: suspec store doctor',
+            });
             continue;
         }
         if (lock.status !== 'done') {

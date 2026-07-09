@@ -152,6 +152,36 @@ describe('check command — change-plan routing (C010/C011, AC-001/002)', () => 
     });
 });
 
+describe('check command — artifact types with no single-file check face', () => {
+    it.each(['task', 'finding', 'adr', 'intake', 'inventory'])(
+        'a type: %s file gets a clean "no checks for type" note (exit 0), never spec-check category errors',
+        async (artifactType) => {
+            const file = writeSpec(
+                `a-${artifactType}`,
+                `---\ntype: ${artifactType}\nid: X-001\n---\n\n# A ${artifactType}\n\nbody\n`
+            );
+            const { code, out } = await capture(() => run([file], dir));
+            expect(code).toBe(0);
+            expect(out).toContain(`no checks for type ${artifactType}`);
+            expect(out).not.toContain('C00'); // no spec-check diagnostics leaked through
+        }
+    );
+
+    it('--json carries the machine form of the no-checks note', async () => {
+        const file = writeSpec('a-task', '---\ntype: task\nid: TASK-x\n---\n\n# t\n');
+        const { code, out } = await capture(() => run([file, '--json'], dir));
+        expect(code).toBe(0);
+        expect(JSON.parse(out)).toMatchObject({ level: 'clean', type: 'task', checked: false });
+    });
+
+    it('the max-across-files exit still reflects a real defect beside a no-face artifact', async () => {
+        const task = writeSpec('b-task', '---\ntype: task\nid: TASK-y\n---\n\n# t\n');
+        const bad = writeSpec('badnf', CONFORMANT.replace('Verify with: a test.', ''));
+        const { code } = await capture(() => run([task, bad], dir));
+        expect(code).toBe(2);
+    });
+});
+
 describe('check command (direct surface, AC-001/005)', () => {
     it('lints a conformant spec file → exit 0', async () => {
         const file = writeSpec('ok', CONFORMANT);
