@@ -1,8 +1,8 @@
 // C009 (`broken-source-link`) resolution base. A spec's `sources:`/requirement ref is checked against
 // the filesystem to decide whether it resolves. The doc-recommended layout (docs/03-where-files-live)
 // puts shared artifacts at the WORKSPACE ROOT — `intake/x.md` (what `suspec pull` writes), `decisions/`,
-// `inventory/` — while a spec lives at `specs/<feature>/spec.md`; the kit's worked example instead
-// co-locates its `ticket.md` BESIDE the spec. Both are legitimate, so a ref resolves when it exists
+// `inventory/` — while a spec lives at `specs/<feature>/spec.md`; a worked example may instead
+// co-locate its `ticket.md` BESIDE the spec. Both are legitimate, so a ref resolves when it exists
 // relative to EITHER the spec's own directory OR the workspace root — only a ref under neither is a
 // broken C009 link. (Before this, C009 resolved spec-dir-only, so a root-level `intake/x.md` sourced
 // from `specs/<feature>/spec.md` false-failed unless written as `../../intake/x.md`, which no doc named.)

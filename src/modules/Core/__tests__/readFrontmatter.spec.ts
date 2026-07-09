@@ -26,7 +26,7 @@ describe('read_frontmatter', () => {
     });
 
     it('handles a single-item block list and resumes scalar parsing after it', () => {
-        // The kit task template: a `# - CHANGE` comment line is not a list item and ends the list.
+        // The task-packet shape: a `# - CHANGE` comment line is not a list item and ends the list.
         const source = '---\nsource:\n  - SPEC-x\n  # - CHANGE-x (when a change-plan applies)\nstatus: ready\n---\n';
         expect(read_frontmatter(source)).toEqual({ source: ['SPEC-x'], status: 'ready' });
     });

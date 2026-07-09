@@ -47,12 +47,6 @@ export {
 } from './scanSpecStaleness.ts';
 export { stamp_artifact, type StampReport, type StampArtifactInput } from './stampArtifact.ts';
 
-// drift engine — suspec update --check, no agent, no write (SPEC-suspec-update, ADR-0091)
-export { check_update, type UpdateCheckReport, type CheckUpdateInput } from './checkUpdate.ts';
-// drift apply — suspec update --write, the manifest-scoped conflict-safe kit copy
-export { apply_update, type ApplyUpdateReport, type ApplyUpdateInput } from './applyUpdate.ts';
-export { type ConflictPolicy } from './copyKitTree.ts';
-
 // store engine — the personal-harness store foundation (SPEC-suspec-v2 AC-001/002/003)
 export {
     resolve_store_dir,

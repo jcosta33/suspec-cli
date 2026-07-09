@@ -17,20 +17,6 @@ export const COMMAND_CATALOG = [
         ],
     },
     {
-        name: 'update',
-        description: 'Check kit drift, or refresh kit-managed templates (conflict-safe)',
-        usage: [
-            'suspec update [--check | --write]',
-            '  --check (default)           compare .agents/.suspec-version to the kit VERSION; writes nothing',
-            '  --write | --apply           refresh the kit-owned templates (per the kit manifest) + re-stamp the pin',
-            '  --on-conflict backup|overwrite|skip   handle a customized kit file (default: backup → *.suspec-bak)',
-            '  --from <path|url>           kit source (default: the suspec-starter-kit on GitHub)',
-            '  --json                      machine output',
-            '  --check: exit 0 up-to-date · 1 behind · 2 error · --write: 1 if files need reconciling',
-            '  skills are not refreshed here — they install globally (npx skills add jcosta33/suspec-skills -g)',
-        ],
-    },
-    {
         name: 'check',
         description: "Validate one artifact by its type, or lint the store's artifacts for this repo",
         usage: [

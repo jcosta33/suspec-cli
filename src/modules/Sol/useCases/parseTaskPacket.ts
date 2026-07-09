@@ -140,7 +140,7 @@ function section_lines(source: string, heading: RegExp): string[] {
 // `{{placeholder}}` is template guidance, skipped.
 //
 // EVERY backtick token is captured (not only a leading one): a `## Do not change` / `## Affected areas`
-// entry is also the kit's prose-with-path form (`- The support email pipeline (\`src/email/\`)`). A
+// entry also comes in the prose-with-path form (`- The support email pipeline (\`src/email/\`)`). A
 // narrowing to leading-backtick-only was tried and REVERTED — a declared path and an incidentally-
 // mentioned one share the same syntax, so the narrowing dropped genuinely-protected paths (a C014 false
 // NEGATIVE — worse than the false positive it removed, because the protected-file touch then goes

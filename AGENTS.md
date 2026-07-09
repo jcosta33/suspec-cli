@@ -20,14 +20,15 @@
   `.agents/skills/implement-task/`.
 - suspec-cli is the **reconcile-only harness**: it prepares,
   checks, and reconciles the Suspec loop and never runs the model loop. Surface:
-  `init · update · check · worktree · status · clean · stamp · review · new · write · pull · promote · fix · store · work · evidence · done · check-my-work · next · show · agents`
+  `init · check · worktree · status · clean · stamp · review · new · write · pull · promote · fix · store · work · evidence · done · check-my-work · next · show · agents`
   (+ `help`) — each a direct command; the daily reconcile flows
   (`init · check · worktree · status · review · new`) also take `-i`, and
   `suspec` with no args opens the dashboard.
   `suspec init` seeds the repo in place — `suspec.config.json`, `AGENTS.md` if
-  absent, the skills dirs — and never clones a workspace or touches the store;
-  `suspec update` refreshes the kit-owned templates (from the suspec-starter-kit
-  by default) conflict-safely. The
+  absent, the skills dirs — and never clones a workspace or touches the store.
+  Init seeds everything an adopter needs (the starter kit is retired): the
+  artifact shapes are built into the CLI's scaffolds and enforced by the checks
+  contract. The
   checks contract this CLI implements lives in the suspec repo,
   `checks/checks.yaml` (that file's `version:` is the contract version of record —
   don't pin a copy of it here), reimplemented in code at

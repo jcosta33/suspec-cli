@@ -22,5 +22,4 @@ Suspec surface:
 
 - ➡️ **[`AGENTS.md`](../AGENTS.md)** — the always-loaded bootloader (startup, project facts, command bindings).
 - ➡️ **[`.claude/skills/`](../.claude/skills/)** — the `implement-task` guide plus this repo's engineering skills, each carrying its procedure inline.
-- ➡️ **The kit** — [suspec-starter-kit](https://github.com/jcosta33/suspec-starter-kit), the source `suspec update` refreshes the kit-owned templates from.
 - ➡️ **Working artifacts** — specs, runs, reviews, evidence, and findings for changes to this repo live in the personal store (`~/.claude/state/<repo>/`), never committed; accepted decisions are canon in the suspec repo's `docs/adrs/`.

@@ -10,7 +10,6 @@ export { run as run_stamp } from './stamp.ts';
 export { run as run_review } from './review.ts';
 export { run as run_new } from './new.ts';
 export { run as run_init } from './init.ts';
-export { run as run_update } from './update.ts';
 export { run as run_pull } from './pull.ts';
 export { run as run_promote } from './promote.ts';
 export { run as run_work } from './work.ts';

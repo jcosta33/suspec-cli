@@ -8,8 +8,6 @@ export {
     format_store_status,
     format_worktrees,
     format_seed_report,
-    format_update_report,
-    format_apply_report,
 } from '../services/render.ts';
 export { create_clack_prompter, is_cancelled, CANCEL, type Prompter } from './prompter.ts';
 export { run_check_flow } from './checkFlow.ts';

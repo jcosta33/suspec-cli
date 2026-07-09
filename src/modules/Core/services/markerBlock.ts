@@ -1,8 +1,7 @@
 // Merge a Suspec-managed block into a user file without disturbing the user's other content
 // (AC-016). The block is delimited by start/end markers: if the file already has that block it is
-// replaced in place (so re-running init is idempotent); otherwise it is appended. Used for
-// .gitignore (the kit's required ignores) and AGENTS.md (the Suspec pointer) — the two files init
-// merges instead of skipping.
+// replaced in place (so a re-run is idempotent); otherwise it is appended. Used for the living PR
+// digest comment (doneDigest) — one marker-tagged block upserted in place across `suspec done` runs.
 
 export type MergeMarkerBlockInput = Readonly<{
     existing: string;

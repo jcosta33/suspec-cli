@@ -4,7 +4,7 @@ import { assertOk } from '../../../infra/errors/testing/assertOk.ts';
 import { assertErr } from '../../../infra/errors/testing/assertErr.ts';
 import { parse_change_plan } from '../useCases/parseChangePlan.ts';
 
-// A trimmed-but-faithful change plan in the canonical shape (kit templates/change-plan.md): the
+// A trimmed-but-faithful change plan in the canonical shape (`suspec new change-plan`'s scaffold): the
 // transformation fixture's structure — preserves[], a guarantees table (with a plan-local PG-NNN),
 // and waves that each name a green check.
 const PLAN = `---

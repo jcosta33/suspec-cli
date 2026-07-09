@@ -1,12 +1,12 @@
 // PrepareEngine.new — scaffold a fresh change plan (R4-ISS-06, re-aimed at the store by ADR-0137).
 // The change plan is the riskiest core artifact (migrations/rewrites/schema changes) yet was the
-// only one with no `suspec new` generator, so a new hire hand-copied templates/change-plan.md.
+// only one with no `suspec new` generator, so a new hire hand-copied a template.
 // The scaffold lands IN THE STORE as `change-plan-<slug>.md` — a transient working artifact like
 // every other, never a committed `change-plans/` repo tree — written atomically and grammar-stamped
 // via write_store_artifact (AC-003). Generates a draft conforming to the change-plan checks
 // (C010 preserves-refs-resolve, C011 waves-present): an empty `preserves:` (nothing to resolve) and a
 // default `kind: refactor` (waves not required) keep a fresh scaffold check-clean until the author fills
-// it. Mirrors the same section shape as the kit's frozen templates/change-plan.md. Never overwrites.
+// it. The canonical section shape is built in here, enforced by the checks contract. Never overwrites.
 
 import { existsSync } from 'fs';
 import { join } from 'path';

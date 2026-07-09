@@ -67,7 +67,6 @@ Every command has a direct form; the daily reconcile flows also have an interact
 | Command                                          | What it does                                                                                                   |
 | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
 | `suspec init`                                    | Seed this repo for the personal harness — config, `AGENTS.md`, skills dirs; never touches the store            |
-| `suspec update [--check\|--write]`               | Check kit drift (read-only), or `--write` to refresh the kit-owned templates conflict-safely                   |
 | `suspec check [file]`                            | Validate one artifact by its `type:` (spec, review, change-plan), or lint the store's artifacts (no arg)       |
 | `suspec worktree <create\|list\|remove\|prune>`  | Manage isolated task worktrees on `suspec/<spec-slug>` branches                                                |
 | `suspec status`                                  | The store summary — runs, specs, and what needs attention                                                      |
@@ -101,15 +100,9 @@ also links `CLAUDE.md → AGENTS.md`. Artifacts live in your personal store, out
 never touches the store. The universal Suspec skills install globally
 (`npx skills add jcosta33/suspec-skills -g`), not per repo.
 
-### `suspec update`
-
-`--check` (the default) reads `.agents/.suspec-version` and compares it to the latest kit's
-`VERSION`, resolved from the suspec-starter-kit by default or `--from <path|url>` — exit `0` up to
-date, `1` behind, `2` error; **writes nothing**. `--write` (alias `--apply`) refreshes the
-kit-owned templates (per the kit manifest) and re-stamps the pin. A customized kit file is handled
-by `--on-conflict backup` (default; your copy → `*.suspec-bak`), `overwrite`, or `skip`. It is
-**not** a 3-way line merge, and it never touches your `AGENTS.md` content or the store. Skills are
-not refreshed here — they install globally.
+Init seeds **everything** an adopter needs — there is no starter kit and no template refresh step:
+the artifact shapes (specs, tasks, change plans, runs, reviews) are built into the CLI's scaffolds
+and enforced by the checks contract.
 
 ### `suspec check`
 
@@ -165,4 +158,4 @@ the command that needs it, naming it.
 
 - [`AGENTS.md`](./AGENTS.md) — the bootloader for agents working on this repo
 - [`.agents/repo-conventions.md`](./.agents/repo-conventions.md) — the module architecture + soundness rules
-- The Suspec framework: [suspec](https://github.com/jcosta33/suspec) · the kit: [suspec-starter-kit](https://github.com/jcosta33/suspec-starter-kit)
+- The Suspec framework: [suspec](https://github.com/jcosta33/suspec)
