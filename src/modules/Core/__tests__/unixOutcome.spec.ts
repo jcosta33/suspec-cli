@@ -6,7 +6,6 @@ import {
     project,
     emit_error,
     exit_code_for,
-    no_workspace_error,
     usage_error,
     type OutputWriters,
     type OutcomeLevel,
@@ -127,13 +126,6 @@ describe('emit_error', () => {
 });
 
 describe('error constructors', () => {
-    it('no_workspace_error carries the capability and a clear message', () => {
-        const error = no_workspace_error('status');
-        expect(error._tag).toBe('NoWorkspace');
-        expect(error.message).toBe('needs a workspace for status');
-        expect(error.capability).toBe('status');
-    });
-
     it('usage_error carries the given message under the Usage tag', () => {
         const error = usage_error('unknown subcommand: frob');
         expect(error._tag).toBe('Usage');

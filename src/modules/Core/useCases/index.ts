@@ -4,7 +4,7 @@
 // no agent/model path; the boundary test in __tests__/boundary.spec.ts enforces it (AC-014).
 
 // The contract util (AC-001/002)
-export { project, emit_error, exit_code_for, no_workspace_error, usage_error } from './unixOutcome.ts';
+export { project, emit_error, exit_code_for, usage_error } from './unixOutcome.ts';
 // Path-segment guard (shared with scaffold/cut) — for command-surface positional slug validation.
 export { is_safe_segment } from '../services/safeSegment.ts';
 // The canonical task-slug normalizer (the worktree branch tail) — shared so command surfaces derive the
