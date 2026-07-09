@@ -13,9 +13,10 @@ export { task_slug, derive_worktree_names } from '../services/worktreeNames.ts';
 // The lean launch-prompt templater (pure) — `suspec work` writes its output to scratch (ADR-0136 D3).
 export { generate_prompt, type GeneratePromptInput } from '../services/generatePrompt.ts';
 
-// check engine (AC-005/006/007/008); review-file C012 (M2 AC-028); change-plan C010/C011 (W6)
+// check engine; review-file C012; change-plan C010/C011. The workspace verdict is gone
+// (ADR-0137) — `check` with no args lints the STORE's artifacts instead.
 export { check_spec } from './checkSpec.ts';
-export { check_workspace } from './checkWorkspace.ts';
+export { lint_store_artifacts, type LintStoreReport, type LintStoreArtifactsInput } from './lintStoreArtifacts.ts';
 export { check_review_file } from './checkReviewFile.ts';
 export { check_change_plan } from './checkChangePlan.ts';
 export { build_spec_ref_resolver } from './resolveSpecRef.ts';
@@ -39,37 +40,22 @@ export { resolve_task, list_task_ids } from './taskLocator.ts';
 // read-only artifact projection — the `suspec show` loader surface (the MCP adapts it; ADR-0085)
 export { show_artifact, type ShowResult, type ShowKind } from './showArtifact.ts';
 
-// reconcile engine — status, no agent (AC-011); review, no agent (M2 AC-018/019/020/021/023)
-export { derive_board } from './deriveBoard.ts';
-export {
-    scan_clean_candidates,
-    type CleanReport,
-    type CleanCandidate,
-    type CleanKind,
-    type ScanCleanInput,
-} from './scanCleanCandidates.ts';
-export { apply_clean, type CleanResult, type ApplyCleanInput } from './applyClean.ts';
+// reconcile engine — spec staleness (`check --staleness`) + the spec snapshot stamp. The
+// board and the workspace review reconcile are gone (ADR-0137); store runs reconcile via
+// `lint_run_artifacts` + `gate_evidence` (the `review` command wires them).
 export {
     scan_spec_staleness,
     type StalenessReport,
     type StaleSpec,
     type ScanStalenessInput,
 } from './scanSpecStaleness.ts';
-export {
-    reconcile_review,
-    type ReviewReport,
-    type CoverageFinding,
-    type ReconcileReviewInput,
-} from './reconcileReview.ts';
-export { resolve_review_run, type ResolveReviewRunInput } from './resolveReviewRun.ts';
-export { resolve_review_run_by_spec, type ResolveReviewRunBySpecInput } from './resolveReviewRunBySpec.ts';
 export { stamp_artifact, type StampReport, type StampArtifactInput } from './stampArtifact.ts';
-export { draft_review_packet, type DraftReviewPacketInput, type DraftReviewPacket } from './draftReviewPacket.ts';
 
 // drift engine — suspec update --check, no agent, no write (SPEC-suspec-update, ADR-0091)
 export { check_update, type UpdateCheckReport, type CheckUpdateInput } from './checkUpdate.ts';
-// drift apply — suspec update --write, reuses init_workspace's copy engine (SPEC-suspec-update AC-008)
+// drift apply — suspec update --write, the manifest-scoped conflict-safe kit copy
 export { apply_update, type ApplyUpdateReport, type ApplyUpdateInput } from './applyUpdate.ts';
+export { type ConflictPolicy } from './copyKitTree.ts';
 
 // store engine — the personal-harness store foundation (SPEC-suspec-v2 AC-001/002/003)
 export {
@@ -136,10 +122,10 @@ export {
     type DigestRow,
 } from '../services/doneDigest.ts';
 
-// prepare engine — init + new, no agent (AC-012/013/016); pull + promote, no board (W5 AC-001/002)
-export { init_workspace, type ConflictPolicy } from './initWorkspace.ts';
-export { cut_packet } from './cutPacket.ts';
-export { scaffold_spec } from './scaffoldSpec.ts';
+// prepare engine — the repo seed (AC-024), the store task split, the change-plan scaffold, and
+// the store intake capture (ADR-0137: all artifacts store-resident; init seeds, never scaffolds)
+export { seed_repo, type SeedRepoInput, type SeedRepoReport } from './seedRepo.ts';
+export { cut_task, type CutTaskInput, type CutTaskReport } from './cutTask.ts';
 export { scaffold_change_plan } from './scaffoldChangePlan.ts';
 export { pull_intake, type PullIntakeInput, type PullIntakeReport, type GhFetcher } from './pullIntake.ts';
 

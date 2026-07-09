@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -84,15 +84,20 @@ describe('dispatch (AC-004/014)', () => {
         expect(err).toContain('Unknown command');
     });
 
-    it('routes to a command (status over a workspace)', async () => {
+    it('routes to a command (status over a store-less repo)', async () => {
         const ws = mkdtempSync(join(tmpdir(), 'suspec-dispatch-'));
+        const savedStateDir = process.env.SUSPEC_STATE_DIR;
+        process.env.SUSPEC_STATE_DIR = join(ws, 'state');
         try {
-            mkdirSync(join(ws, 'specs', 'x'), { recursive: true });
-            writeFileSync(join(ws, 'specs', 'x', 'spec.md'), '---\ntype: spec\nid: SPEC-x\nstatus: ready\n---\n');
             const { code, out } = await capture(() => dispatch(['status'], ws));
             expect(code).toBe(0);
-            expect(out).toContain('SPEC-x');
+            expect(out).toContain('no store for this repo yet');
         } finally {
+            if (savedStateDir === undefined) {
+                delete process.env.SUSPEC_STATE_DIR;
+            } else {
+                process.env.SUSPEC_STATE_DIR = savedStateDir;
+            }
             rmSync(ws, { recursive: true, force: true });
         }
     });

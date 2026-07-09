@@ -21,6 +21,10 @@ export type RunnerConfig = Readonly<{
     templates: ReadonlyMap<string, string>;
 }>;
 
+// The reference runner a config-less repo falls back to (AC-025) — exported so the seed engine can
+// write the default into a fresh suspec.config.json without Core naming a runner CLI itself.
+export const DEFAULT_RUNNER_NAME = 'claude';
+
 // The built-in adapters. `{store}` renders to the repo's store dir POST-SPLIT (see
 // render_runner_command), so a store path with spaces stays one argv token; the Codex sandbox gets
 // the store as a writable root because the agent appends to the run file there directly (AC-006).
@@ -65,7 +69,7 @@ export function parse_runner_config(raw: unknown): RunnerConfig {
 // direction). A config template shadows a built-in of the same name; an unknown name is a usage
 // error (exit 2) listing every known runner.
 export function resolve_runner(config: RunnerConfig, requested?: string): Result<Runner, AppError> {
-    const name = requested ?? config.default ?? 'claude';
+    const name = requested ?? config.default ?? DEFAULT_RUNNER_NAME;
     const template = config.templates.get(name) ?? BUILTIN_TEMPLATES.get(name);
     if (template === undefined) {
         const known = [...new Set([...config.templates.keys(), ...BUILTIN_TEMPLATES.keys()])].sort();

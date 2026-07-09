@@ -76,7 +76,7 @@ export function check_update(input: CheckUpdateInput): Result<UpdateCheckReport,
         return err(
             createAppError(
                 'VersionPinMissing',
-                `no kit version pin at ${pinPath} — run from the workspace root, or this workspace predates \`suspec init\`'s pin (ADR-0081)`,
+                `no kit version pin at ${pinPath} — this dir carries no kit-managed content to check (the kit's templates stamp the pin when copied in)`,
                 { path: pinPath }
             )
         );

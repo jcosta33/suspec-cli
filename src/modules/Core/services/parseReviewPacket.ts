@@ -9,9 +9,36 @@
 // are real-looking; the engine only parses a packet a real run produced, and a row whose id is not a
 // requirement id is simply read as an orphan by C012 — no special-casing here.
 
-import type { CoverageRow, ReviewPacket, VerifyBlock } from './reconcileFacts.ts';
 import { normalize_scalar } from '../../../infra/yamlScalar.ts';
 import { scan_markdown, strip_inline_code } from '../../../infra/markdownScan.ts';
+
+// --- The review-packet shape the structural + coverage checks key on ----------------------------
+
+export type CoverageRow = Readonly<{
+    id: string;
+    result: string; // the raw Result cell value (Pass / Fail / … / a malformed value)
+    evidence: string; // the raw Evidence cell value (empty = unverified-when-Pass)
+}>;
+
+// A structured-evidence `verify` block (ADR-0083), parsed from a coverage row's optional fenced
+// sibling: the closed-value info-string only — `id` / `cmd` / `result` (`pass` | `fail`). The fenced
+// BODY is deliberately never captured here: it is verbatim, self-reported, and unparsed (C013 reads a
+// consistency fact off the info-string, never a verdict off the body). A block whose info-string does
+// not parse to all three closed-value fields is surfaced as `malformed` rather than silently dropped,
+// carrying whatever id it could read so the fact can be routed to a row.
+export type VerifyBlock = Readonly<{
+    id: string | null; // the keyed requirement id, or null when the info-string named none
+    cmd: string | null; // the recorded command, or null when absent/unquoted
+    result: 'pass' | 'fail' | null; // the closed-value pass signal, or null when absent/out-of-enum
+    malformed: boolean; // the info-string did not parse to a complete, well-formed binding
+}>;
+
+export type ReviewPacket = Readonly<{
+    status: string | null; // frontmatter status (or null when absent)
+    sectionTitles: readonly string[];
+    coverageRows: readonly CoverageRow[];
+    verifyBlocks: readonly VerifyBlock[]; // the structured-evidence blocks in the coverage section
+}>;
 
 const FRONTMATTER_FENCE = '---';
 const STATUS_KEY = /^status:\s*(.*)$/;

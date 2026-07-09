@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync, existsSync } from 'fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -9,7 +9,8 @@ import { ok, err } from '../../../infra/errors/result.ts';
 import { createAppError } from '../../../infra/errors/createAppError.ts';
 import { pull_intake, type GhFetcher } from '../useCases/pullIntake.ts';
 
-let ws: string;
+let store: string;
+let repo: string;
 
 // A fetcher stub that returns a fixed gh issue — the engine takes the fetcher injected, so no `gh`
 // process is spawned in unit tests.
@@ -25,58 +26,61 @@ const fetch_never: GhFetcher = () => {
     throw new Error('fetch must not be attempted for a non-gh ref');
 };
 
+const pull = (over: Partial<Parameters<typeof pull_intake>[0]>) =>
+    pull_intake({ storeDir: store, repoRoot: repo, ref: '1', fetchGhIssue: fetch_never, ...over });
+
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'suspec-pull-'));
+    store = mkdtempSync(join(tmpdir(), 'suspec-pullstore-'));
+    repo = mkdtempSync(join(tmpdir(), 'suspec-pullrepo-'));
 });
 afterEach(() => {
-    rmSync(ws, { recursive: true, force: true });
+    rmSync(store, { recursive: true, force: true });
+    rmSync(repo, { recursive: true, force: true });
 });
 
-describe('pull_intake — verbatim intake snapshot, never a spec (AC-001)', () => {
-    it('writes one intake/<slug>.md from a gh issue with the source/url/captured frontmatter and the verbatim body', () => {
+describe('pull_intake — verbatim STORE intake snapshot, never a spec (ADR-0137)', () => {
+    it('writes one intake-<slug>.md into the store from a gh issue, verbatim, grammar-stamped', () => {
         const report = assertOk(
-            pull_intake({
-                workspaceDir: ws,
+            pull({
                 ref: 'jcosta33/suspec-cli#42',
                 fetchGhIssue: fetch_ok('Wire the gate', 'The gate must stay green.\n\n- run vitest'),
             })
         );
         expect(report.slug).toBe('jcosta33-suspec-cli-42');
         expect(report.fetched).toBe(true);
-        expect(report.path).toBe(join(ws, 'intake', 'jcosta33-suspec-cli-42.md'));
+        expect(report.path).toBe(join(store, 'intake-jcosta33-suspec-cli-42.md'));
 
         const content = readFileSync(report.path, 'utf8');
         expect(content).toContain('type: intake');
         expect(content).toContain('source: gh-issue');
+        // The recorded url makes the snapshot re-pullable after a store wipe.
         expect(content).toContain('url: jcosta33/suspec-cli#42');
         expect(content).toMatch(/captured: \d{4}-\d{2}-\d{2}/);
         expect(content).toContain('# Intake: Wire the gate');
         // The upstream body is carried VERBATIM (un-normalized), markdown bullets and all.
         expect(content).toContain('The gate must stay green.\n\n- run vitest');
+        // The atomic store write stamps the grammar version.
+        expect(content).toContain('grammar_version:');
     });
 
-    it('writes NO spec — only the one intake file appears under the workspace', () => {
-        assertOk(pull_intake({ workspaceDir: ws, ref: '7', fetchGhIssue: fetch_ok('A title', 'A body') }));
-        expect(existsSync(join(ws, 'specs'))).toBe(false);
-        expect(readdirSync(join(ws, 'intake'))).toEqual(['issue-7.md']);
+    it('writes NO spec — only the one intake artifact lands in the store', () => {
+        assertOk(pull({ ref: '7', fetchGhIssue: fetch_ok('A title', 'A body') }));
+        expect(readdirSync(store)).toEqual(['intake-issue-7.md']);
     });
 
     it('falls back to a clearly-marked paste placeholder when a gh fetch fails', () => {
-        const report = assertOk(pull_intake({ workspaceDir: ws, ref: '#99', fetchGhIssue: fetch_fail }));
+        const report = assertOk(pull({ ref: '#99', fetchGhIssue: fetch_fail }));
         expect(report.fetched).toBe(false);
         const content = readFileSync(report.path, 'utf8');
         expect(content).toContain('Paste the upstream ticket/PR/page content verbatim here');
-        expect(content).toContain('could\nnot fetch this ref automatically');
-        // Frontmatter still carries the template placeholders + the ref as the url.
         expect(content).toContain('url: #99');
     });
 
     it('writes a paste placeholder for a non-gh ref and never attempts a fetch', () => {
-        const report = assertOk(pull_intake({ workspaceDir: ws, ref: 'JIRA-123', fetchGhIssue: fetch_never }));
+        const report = assertOk(pull({ ref: 'JIRA-123' }));
         expect(report.fetched).toBe(false);
         expect(report.slug).toBe('jira-123');
-        const content = readFileSync(report.path, 'utf8');
-        expect(content).toContain('Paste the upstream ticket/PR/page content verbatim here');
+        expect(readFileSync(report.path, 'utf8')).toContain('Paste the upstream ticket/PR/page content verbatim here');
     });
 
     it('translates an owner/repo#N ref into the issue URL gh accepts, but records the typed ref + slug', () => {
@@ -85,12 +89,8 @@ describe('pull_intake — verbatim intake snapshot, never a spec (AC-001)', () =
             seen = ref;
             return ok({ title: 'T', body: 'B', labels: [] });
         };
-        const report = assertOk(
-            pull_intake({ workspaceDir: ws, ref: 'jcosta33/suspec-cli#42', fetchGhIssue: capture })
-        );
-        // gh rejects the `owner/repo#N` shorthand, so the fetcher is handed the equivalent URL …
+        const report = assertOk(pull({ ref: 'jcosta33/suspec-cli#42', fetchGhIssue: capture }));
         expect(seen).toBe('https://github.com/jcosta33/suspec-cli/issues/42');
-        // … while the recorded url + the slug keep the ref the user typed.
         expect(report.slug).toBe('jcosta33-suspec-cli-42');
         expect(readFileSync(report.path, 'utf8')).toContain('url: jcosta33/suspec-cli#42');
     });
@@ -101,72 +101,50 @@ describe('pull_intake — verbatim intake snapshot, never a spec (AC-001)', () =
             seen = ref;
             return ok({ title: 'T', body: 'B', labels: [] });
         };
-        assertOk(pull_intake({ workspaceDir: ws, ref: '7', fetchGhIssue: capture }));
+        assertOk(pull({ ref: '7', fetchGhIssue: capture }));
         expect(seen).toBe('7');
-        assertOk(pull_intake({ workspaceDir: ws, ref: 'https://github.com/o/r/issues/9', fetchGhIssue: capture }));
+        assertOk(pull({ ref: 'https://github.com/o/r/issues/9', fetchGhIssue: capture }));
         expect(seen).toBe('https://github.com/o/r/issues/9');
     });
 
-    it('slugs a github issue URL by its path tail', () => {
-        const report = assertOk(
-            pull_intake({
-                workspaceDir: ws,
-                ref: 'https://github.com/o/r/issues/12',
-                fetchGhIssue: fetch_ok('T', 'B'),
-            })
-        );
-        expect(report.slug).toBe('o-r-issues-12');
-        expect(report.fetched).toBe(true);
-    });
-
-    it('an empty-bodied fetched issue still marks fetched, but writes the paste placeholder for the body, titled by the ref', () => {
-        const report = assertOk(pull_intake({ workspaceDir: ws, ref: '8', fetchGhIssue: fetch_ok('', '') }));
+    it('an empty-bodied fetched issue still marks fetched, writes the placeholder body, titled by the ref', () => {
+        const report = assertOk(pull({ ref: '8', fetchGhIssue: fetch_ok('', '') }));
         expect(report.fetched).toBe(true);
         const content = readFileSync(report.path, 'utf8');
         expect(content).toContain('source: gh-issue');
-        // Empty title → titled by the ref; empty body → the paste placeholder.
         expect(content).toContain('# Intake: 8');
         expect(content).toContain('Paste the upstream ticket/PR/page content verbatim here');
     });
 });
 
-describe('pull_intake — write-safety (AC-004)', () => {
+describe('pull_intake — write-safety', () => {
     it('refuses to overwrite an existing snapshot; only --force replaces it', () => {
-        assertOk(pull_intake({ workspaceDir: ws, ref: '5', fetchGhIssue: fetch_ok('one', 'first') }));
-        const before = readFileSync(join(ws, 'intake', 'issue-5.md'), 'utf8');
+        assertOk(pull({ ref: '5', fetchGhIssue: fetch_ok('one', 'first') }));
+        const path = join(store, 'intake-issue-5.md');
+        const before = readFileSync(path, 'utf8');
 
-        // Second pull over the same target errors, and the file is byte-unchanged.
-        expect(
-            assertErr(pull_intake({ workspaceDir: ws, ref: '5', fetchGhIssue: fetch_ok('two', 'second') }))._tag
-        ).toBe('FileExists');
-        expect(readFileSync(join(ws, 'intake', 'issue-5.md'), 'utf8')).toBe(before);
+        expect(assertErr(pull({ ref: '5', fetchGhIssue: fetch_ok('two', 'second') }))._tag).toBe('intake_exists');
+        expect(readFileSync(path, 'utf8')).toBe(before);
 
-        // --force replaces exactly that one file.
-        assertOk(pull_intake({ workspaceDir: ws, ref: '5', force: true, fetchGhIssue: fetch_ok('two', 'second') }));
-        expect(readFileSync(join(ws, 'intake', 'issue-5.md'), 'utf8')).toContain('second');
-        expect(readdirSync(join(ws, 'intake'))).toEqual(['issue-5.md']);
+        assertOk(pull({ ref: '5', force: true, fetchGhIssue: fetch_ok('two', 'second') }));
+        expect(readFileSync(path, 'utf8')).toContain('second');
+        expect(readdirSync(store)).toEqual(['intake-issue-5.md']);
     });
 
-    it('leaves an existing status.md byte-unchanged (the board is never touched, AC-003)', () => {
-        const board = '# Board\n\n| spec | task |\n| --- | --- |\n| SPEC-x | TASK-x |\n';
-        writeFileSync(join(ws, 'status.md'), board);
-        assertOk(pull_intake({ workspaceDir: ws, ref: '1', fetchGhIssue: fetch_ok('t', 'b') }));
-        expect(readFileSync(join(ws, 'status.md'), 'utf8')).toBe(board);
+    it('leaves every other store artifact byte-unchanged', () => {
+        const spec = '---\ntype: spec\nid: SPEC-x\n---\n\n# X\n';
+        writeFileSync(join(store, 'spec-x.md'), spec);
+        assertOk(pull({ ref: '1', fetchGhIssue: fetch_ok('t', 'b') }));
+        expect(readFileSync(join(store, 'spec-x.md'), 'utf8')).toBe(spec);
     });
 });
 
 describe('pull_intake — usage errors', () => {
     it('rejects an empty ref', () => {
-        expect(assertErr(pull_intake({ workspaceDir: ws, ref: '   ', fetchGhIssue: fetch_never }))._tag).toBe('Usage');
+        expect(assertErr(pull({ ref: '   ' }))._tag).toBe('Usage');
     });
 
     it('rejects a ref with no slug-able characters', () => {
-        expect(assertErr(pull_intake({ workspaceDir: ws, ref: '###', fetchGhIssue: fetch_never }))._tag).toBe('Usage');
-    });
-
-    it('does not create the intake dir when the ref is rejected', () => {
-        mkdirSync(join(ws, 'specs'), { recursive: true });
-        assertErr(pull_intake({ workspaceDir: ws, ref: '', fetchGhIssue: fetch_never }));
-        expect(existsSync(join(ws, 'intake'))).toBe(false);
+        expect(assertErr(pull({ ref: '###' }))._tag).toBe('Usage');
     });
 });

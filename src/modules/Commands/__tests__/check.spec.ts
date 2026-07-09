@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { execFileSync } from 'child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -207,28 +207,69 @@ describe('check command (direct surface, AC-001/005)', () => {
         const { code } = await capture(() => run([file]));
         expect(code).toBe(2);
     });
+});
 
-    it('--no-workspace lints the specs but skips workspace-validity (placeholder/templates)', async () => {
-        mkdirSync(join(dir, 'specs', 'x'), { recursive: true });
-        writeFileSync(join(dir, 'specs', 'x', 'spec.md'), CONFORMANT);
-        writeFileSync(join(dir, 'AGENTS.md'), 'guide with a {{placeholder}}\n'); // no templates/ dir either
-        // bare check is blocked by the workspace-validity findings…
-        expect((await capture(() => run([], dir))).code).toBe(2);
-        // …but --no-workspace skips them and lints the (clean) spec
-        const relaxed = await capture(() => run(['--no-workspace'], dir));
-        expect(relaxed.code).toBe(0);
+// ADR-0137: `check` with no args lints the STORE's artifacts — there is no workspace tree.
+describe('check with no args — the store lint face (ADR-0137)', () => {
+    let stateRoot: string;
+    let savedStateDir: string | undefined;
+    beforeEach(() => {
+        stateRoot = join(dir, 'state');
+        savedStateDir = process.env.SUSPEC_STATE_DIR;
+        process.env.SUSPEC_STATE_DIR = stateRoot;
+    });
+    afterEach(() => {
+        if (savedStateDir === undefined) {
+            delete process.env.SUSPEC_STATE_DIR;
+        } else {
+            process.env.SUSPEC_STATE_DIR = savedStateDir;
+        }
     });
 
-    it('bare check renders the workspace verdict over the cwd', async () => {
-        mkdirSync(join(dir, 'specs', 'x'), { recursive: true });
-        mkdirSync(join(dir, 'templates'), { recursive: true }); // a valid workspace (checks.md clause b)
-        writeFileSync(join(dir, 'specs', 'x', 'spec.md'), CONFORMANT);
-        const clean = await capture(() => run([], dir));
-        expect(clean.code).toBe(0);
+    function seed_store(): string {
+        const repo = join(dir, 'proj');
+        mkdirSync(repo, { recursive: true });
+        const store = join(stateRoot, 'proj');
+        mkdirSync(store, { recursive: true });
+        writeFileSync(join(store, '.repo-path'), `${repo}\n`);
+        return store;
+    }
 
-        writeFileSync(join(dir, 'specs', 'x', 'spec.md'), CONFORMANT.replace('Verify with: a test.', ''));
-        const blocking = await capture(() => run([], dir));
-        expect(blocking.code).toBe(2);
+    it('no store yet → clean exit 0 with a friendly note (the store is never created)', async () => {
+        const repo = join(dir, 'proj');
+        mkdirSync(repo, { recursive: true });
+        const { code, out } = await capture(() => run([], repo));
+        expect(code).toBe(0);
+        expect(out).toContain('no store for this repo yet');
+        expect(existsSync(stateRoot)).toBe(false);
+    });
+
+    it("lints the store's artifacts: a broken backlog spec blocks (exit 2)", async () => {
+        const store = seed_store();
+        writeFileSync(join(store, 'spec-broken.md'), 'no frontmatter at all');
+        const { code, out } = await capture(() => run([], join(dir, 'proj')));
+        expect(code).toBe(2);
+        expect(out).toContain('spec-broken.md');
+    });
+
+    it('a store whose artifacts lint clean exits 0 and lists them', async () => {
+        const store = seed_store();
+        writeFileSync(join(store, 'notes.md'), 'origin\n');
+        writeFileSync(
+            join(store, 'spec-ok.md'),
+            CONFORMANT.replace('  - ADR-0077', '  - notes.md').replace('id: SPEC-x', 'id: SPEC-ok')
+        );
+        const { code, out } = await capture(() => run([], join(dir, 'proj')));
+        expect(code).toBe(0);
+        expect(out).toContain('spec-ok.md');
+        expect(out).toContain('store lint');
+    });
+
+    it('--json emits the machine store-lint report', async () => {
+        seed_store();
+        const { code, out } = await capture(() => run(['--json'], join(dir, 'proj')));
+        expect(code).toBe(0);
+        expect(JSON.parse(out)).toMatchObject({ level: 'clean', artifacts: [] });
     });
 });
 

@@ -11,9 +11,10 @@ import { join } from 'node:path';
 
 export const MANIFEST_FILENAME = 'suspec-kit.yaml';
 
-// The built-in fallback, used when no manifest is present (a pre-ADR-0135 kit/workspace). These mirror
-// the layout the kit has always shipped, so behavior is unchanged until a manifest declares otherwise.
-export const DEFAULT_KIT_OWNED = ['templates/', '.agents/skills/', 'hooks/'] as const;
+// The built-in fallback, used when no manifest is present (a pre-ADR-0135 kit). The thin kit ships
+// templates only — the methodology skills install globally (ADR-0137), so no skill path is ever
+// kit-owned here.
+export const DEFAULT_KIT_OWNED = ['templates/'] as const;
 export const DEFAULT_REQUIRED = ['templates'] as const;
 
 export type KitManifest = Readonly<{

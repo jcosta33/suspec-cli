@@ -1,17 +1,25 @@
 #!/usr/bin/env node
 
-// `suspec update [--check | --write]` — the kit drift surface (SPEC-suspec-update, ADR-0091). Resolves
-// the kit (clone jcosta33/suspec-starter-kit by default; `--from <path|url>` overrides — the same
-// resolution as `suspec init`), then either:
-//   --check (default) reconcile-only: compares the workspace's `.agents/.suspec-version` pin to the
-//            kit's VERSION and reports drift, writing nothing. Exit 0 up-to-date · 1 behind · 2 error.
-//   --write / --apply: lands the newer kit content via the conflict-safe copy engine (default
-//            `--on-conflict backup`: a changed user file is preserved as `*.suspec-bak`, the kit's
-//            lands; `.gitignore` / `AGENTS.md` marker-merge; the pin re-stamps). Exit 0 applied-clean ·
-//            1 applied-with-files-to-reconcile / nothing-to-apply-but-already-current is 0 · 2 error.
+// `suspec update [--check | --write]` — the kit drift surface (SPEC-suspec-update, ADR-0091).
+// For a dir carrying kit-managed content (a `.agents/.suspec-version` pin + the manifest-declared
+// templates). Resolves the kit (clone jcosta33/suspec-starter-kit by default; `--from <path|url>`
+// overrides), then either:
+//   --check (default) reconcile-only: compares the `.agents/.suspec-version` pin to the kit's
+//            VERSION and reports drift, writing nothing. Exit 0 up-to-date · 1 behind · 2 error.
+//   --write / --apply: lands the newer kit-owned content (the manifest's `kit_owned` list —
+//            templates) via the conflict-safe copy engine (default `--on-conflict backup`: a
+//            changed file is preserved as `*.suspec-bak`, the kit's lands; the pin re-stamps).
+//            Exit 0 applied-clean · 1 applied-with-files-to-reconcile · 2 error.
+// The methodology skills are NOT refreshed here — they install globally
+// (npx skills add jcosta33/suspec-skills -g).
 
-import { isErr, type Result } from '../../../infra/errors/result.ts';
-import type { AppError } from '../../../infra/errors/createAppError.ts';
+import { mkdtempSync, existsSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
+
+import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
+import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import {
     project,
     emit_error,
@@ -22,10 +30,52 @@ import {
 } from '../../Core/useCases/index.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import { format_update_report, format_apply_report } from '../../Tui/useCases/index.ts';
-import { resolve_kit_source, type KitSource } from './init.ts';
+
+const DEFAULT_KIT = 'https://github.com/jcosta33/suspec-starter-kit';
+
+export type KitSource = Readonly<{ sourceDir: string; cleanup: () => void }>;
+
+// A kit source must not be flag-shaped or a transport-scheme URL: git's `ext::`/`fd::`/`ssh+ext::`
+// transports can execute arbitrary commands, and a leading `-` is parsed as a clone option.
+// DEFAULT_KIT (https) and normal URLs pass.
+function is_safe_clone_source(url: string): boolean {
+    return !url.startsWith('-') && !/^(?:ext|fd|ssh\+ext)::/i.test(url);
+}
+
+/* v8 ignore start -- network clone shell; tests resolve the kit via a local --from */
+function clone_kit(url: string): Result<KitSource, AppError> {
+    const temp = mkdtempSync(join(tmpdir(), 'suspec-kit-'));
+    const result = spawnSync('git', ['-c', 'protocol.ext.allow=never', 'clone', '--depth', '1', url, temp], {
+        encoding: 'utf8',
+    });
+    if (result.status !== 0) {
+        rmSync(temp, { recursive: true, force: true });
+        return err(createAppError('CloneFailed', `could not clone the kit from ${url}`, { url }));
+    }
+    return ok({ sourceDir: temp, cleanup: () => rmSync(temp, { recursive: true, force: true }) });
+}
+/* v8 ignore stop */
+
+export function resolve_kit_source(from: string | undefined): Result<KitSource, AppError> {
+    if (from !== undefined && existsSync(from)) {
+        return ok({ sourceDir: from, cleanup: () => undefined });
+    }
+    const url = from ?? DEFAULT_KIT;
+    if (!is_safe_clone_source(url)) {
+        return err(
+            createAppError(
+                'CloneFailed',
+                `refusing an unsafe kit source "${url}" — a transport-scheme or flag-shaped URL`,
+                { url }
+            )
+        );
+    }
+    /* v8 ignore next -- the clone path is the network shell; tests resolve the kit via a local --from */
+    return clone_kit(url);
+}
 
 // The kit resolver is injectable so a test can assert the cleanup contract (AC-007) without a network
-// clone; production uses the default — the same clone / `--from` resolution as `suspec init`.
+// clone; production uses the default clone / `--from` resolution above.
 type KitResolver = (from: string | undefined) => Result<KitSource, AppError>;
 
 export function run(argv: string[], cwd: string = process.cwd(), resolveKit: KitResolver = resolve_kit_source): number {

@@ -4,13 +4,12 @@
 // pure renderers (a service, surfaced here because the direct command path renders too).
 export {
     format_check_report,
-    format_workspace_report,
-    format_board,
+    format_store_lint,
+    format_store_status,
     format_worktrees,
-    format_init_report,
+    format_seed_report,
     format_update_report,
     format_apply_report,
-    format_review_report,
 } from '../services/render.ts';
 export { create_clack_prompter, is_cancelled, CANCEL, type Prompter } from './prompter.ts';
 export { run_check_flow } from './checkFlow.ts';

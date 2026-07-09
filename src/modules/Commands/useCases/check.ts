@@ -1,16 +1,15 @@
 #!/usr/bin/env node
 
-// `suspec check [file...]` — the check engine's command surface (AC-005/006/008).
+// `suspec check [file...]` — the check engine's command surface.
 //   suspec check <file>...     lint one or more specs/reviews/change-plans in one process (exit = max)
-//   suspec check               render the whole-workspace verdict (D-001)
-//   suspec check -i            the interactive flow (AC-015), TTY + not --json only
-// Direct output + exit codes flow through the shared unixOutcome contract (AC-001).
+//   suspec check               lint the STORE's artifacts for this repo (ADR-0137 — no workspace tree)
+//   suspec check -i            the interactive flow, TTY + not --json only
+// Direct output + exit codes flow through the shared unixOutcome contract.
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 
 import {
     check_spec,
-    check_workspace,
     check_review_file,
     check_change_plan,
     build_spec_ref_resolver,
@@ -20,6 +19,8 @@ import {
     find_workspace_spec_files,
     find_sibling_spec_files,
     scan_spec_staleness,
+    lint_store_artifacts,
+    resolve_store_dir,
     project,
     usage_error,
 } from '../../Core/useCases/index.ts';
@@ -28,24 +29,23 @@ import { ok, err, isErr } from '../../../infra/errors/result.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import {
     format_check_report,
-    format_workspace_report,
+    format_store_lint,
     run_check_flow,
     create_clack_prompter,
 } from '../../Tui/useCases/index.ts';
 
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
     const { positional, flags } = parse_flags(argv, {
-        booleans: ['--json', '-i', '--interactive', '--no-workspace', '--staleness'],
+        booleans: ['--json', '-i', '--interactive', '--staleness'],
         strings: [],
     });
     const json = flags.get('json') === true;
     const interactive = flags.get('i') === true || flags.get('interactive') === true;
-    const noWorkspace = flags.get('no-workspace') === true;
     const staleness = flags.get('staleness') === true;
 
     /* v8 ignore start -- interactive dispatch is the thin shell; the flow logic is tested via the mock Prompter (checkFlow.spec) */
     if (interactive && process.stdout.isTTY === true && !json) {
-        return run_check_flow(create_clack_prompter(), { workspaceDir: cwd });
+        return run_check_flow(create_clack_prompter(), { cwd });
     }
     /* v8 ignore stop */
 
@@ -158,9 +158,21 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         return status;
     }
 
+    // No file named: lint the STORE's artifacts for this repo (ADR-0137). The store is PROBED,
+    // never created — a repo with no store yet is clean (nothing to lint is not a defect).
+    const rootResult = resolve_repo_root(cwd);
+    const repoRoot = isErr(rootResult) ? cwd : rootResult.value;
+    const store = resolve_store_dir({ repoRoot, probe: true });
+    if (isErr(store)) {
+        return project({
+            result: ok({ level: 'clean' as const, runCount: 0, specCount: 0, artifacts: [] }),
+            json,
+            render: () => 'no store for this repo yet — nothing to lint (`suspec write spec "<intent>"` starts one)',
+        });
+    }
     return project({
-        result: check_workspace({ workspaceDir: cwd, includeValidity: !noWorkspace }),
+        result: lint_store_artifacts({ storeDir: store.value.storeDir, repoRoot }),
         json,
-        render: format_workspace_report,
+        render: format_store_lint,
     });
 }

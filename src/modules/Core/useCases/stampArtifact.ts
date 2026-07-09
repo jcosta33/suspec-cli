@@ -1,26 +1,22 @@
 // PrepareEngine — `suspec stamp <ref>` (ADR-0107/0108): write the provenance stamp that makes
-// staleness detection live. A SPEC gets `snapshot:` = the code repo's current HEAD (the state its text
-// was written against — snapshot-staleness compares against it). A REVIEW gets `reviewed_sha:` = HEAD +
-// `evidence_hash:` = the reconcile's evidence digest (fast-track re-validates against it). Both are an
-// in-place frontmatter upsert; the rest of the file is byte-preserved, and only those keys are touched
-// (never the board — the no-board-write invariant, ADR-0084 D3, holds).
+// staleness detection live. A SPEC gets `snapshot:` = the code repo's current HEAD (the state its
+// text was written against — `check --staleness` compares against it). An in-place frontmatter
+// upsert; the rest of the file is byte-preserved, and only that key is touched. Review stamping is
+// gone with the workspace review packets (ADR-0137) — store runs reconcile via `suspec review`.
 
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join, isAbsolute } from 'path';
 
-import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
+import { ok, err, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
 import { head_sha } from '../../Workspace/useCases/index.ts';
-import { read_frontmatter, upsert_frontmatter, fm_scalar } from '../services/readFrontmatter.ts';
+import { upsert_frontmatter } from '../services/readFrontmatter.ts';
 import { find_source_spec } from './taskLocator.ts';
-import { resolve_review_run } from './resolveReviewRun.ts';
-import { resolve_review_run_by_spec } from './resolveReviewRunBySpec.ts';
-import { reconcile_review } from './reconcileReview.ts';
 import { usage_error, type OutcomeLevel } from './unixOutcome.ts';
 
 export type StampReport = Readonly<{
     level: OutcomeLevel; // always 'clean' — stamping is a successful write, mapped to exit 0
-    kind: 'spec' | 'review';
+    kind: 'spec';
     path: string; // workspace-relative path of the stamped file
     stamped: Readonly<Record<string, string>>; // the keys + values written
 }>;
@@ -60,32 +56,11 @@ export function stamp_artifact(input: StampArtifactInput): Result<StampReport, A
         return ok({ level: 'clean', kind: 'spec', path: specPath, stamped });
     }
 
-    // REVIEW mode: reconcile (to compute the evidence digest), then stamp reviewed_sha + evidence_hash.
-    const reviewPath = join(input.workspaceDir, 'reviews', input.ref.endsWith('.md') ? input.ref : `${input.ref}.md`);
-    if (!existsSync(reviewPath)) {
-        return err(usage_error(`cannot stamp ${input.ref}: no spec (specs/${input.ref}/spec.md or matching id) and no reviews/${input.ref}.md`));
-    }
-    const reviewSource = readFileSync(reviewPath, 'utf8');
-    const frontmatter = read_frontmatter(reviewSource);
-    const taskId = fm_scalar(frontmatter.task);
-    const specId = fm_scalar(frontmatter.spec);
-    let resolved;
-    if (taskId !== undefined) {
-        resolved = resolve_review_run({ workspaceDir: input.workspaceDir, repoRoot: input.repoRoot, task: taskId });
-    } else if (specId !== undefined) {
-        resolved = resolve_review_run_by_spec({ workspaceDir: input.workspaceDir, repoRoot: input.repoRoot, spec: specId });
-    } else {
-        return err(usage_error(`cannot stamp ${input.ref}: the review names neither a task: nor a spec:`));
-    }
-    if (isErr(resolved)) {
-        return err(resolved.error);
-    }
-    const report = reconcile_review(resolved.value);
-    /* v8 ignore next 3 -- defensive: resolve already read the spec to find it, so its fence is intact; reconcile_review only errs on an unparseable spec */
-    if (isErr(report)) {
-        return err(report.error);
-    }
-    const stamped = { reviewed_sha: sha, evidence_hash: report.value.evidenceDigest };
-    writeFileSync(reviewPath, upsert_frontmatter(reviewSource, stamped));
-    return ok({ level: 'clean', kind: 'review', path: reviewPath, stamped });
+    // A ref that resolves to no spec: reviews are store artifacts now — point at the store loop
+    // instead of guessing at a reviews/ tree that no longer exists (ADR-0137).
+    return err(
+        usage_error(
+            `cannot stamp ${input.ref}: no spec (specs/${input.ref}/spec.md or matching id). Review packets live in the store — reconcile a run with \`suspec review <RUN>\`.`
+        )
+    );
 }

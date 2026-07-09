@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, realpathSync, existsSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { basename, join } from 'path';
 
 import { run } from '../useCases/new.ts';
 
@@ -22,14 +22,30 @@ The tool must do two.
 Verify with: a test.
 `;
 
-let ws: string;
+let root: string;
+let repo: string;
+let store: string;
+let savedStateDir: string | undefined;
+
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'suspec-new-cmd-'));
-    mkdirSync(join(ws, 'specs', 'x'), { recursive: true });
-    writeFileSync(join(ws, 'specs', 'x', 'spec.md'), SPEC_X);
+    root = mkdtempSync(join(realpathSync(tmpdir()), 'suspec-new-cmd-'));
+    repo = join(root, 'proj');
+    mkdirSync(repo, { recursive: true });
+    const stateRoot = join(root, 'state');
+    store = join(stateRoot, basename(repo));
+    mkdirSync(store, { recursive: true });
+    writeFileSync(join(store, '.repo-path'), `${repo}\n`);
+    writeFileSync(join(store, 'spec-x.md'), SPEC_X);
+    savedStateDir = process.env.SUSPEC_STATE_DIR;
+    process.env.SUSPEC_STATE_DIR = stateRoot;
 });
 afterEach(() => {
-    rmSync(ws, { recursive: true, force: true });
+    if (savedStateDir === undefined) {
+        delete process.env.SUSPEC_STATE_DIR;
+    } else {
+        process.env.SUSPEC_STATE_DIR = savedStateDir;
+    }
+    rmSync(root, { recursive: true, force: true });
 });
 
 async function capture(fn: () => Promise<number>): Promise<{ out: string; err: string; code: number }> {
@@ -52,128 +68,126 @@ async function capture(fn: () => Promise<number>): Promise<{ out: string; err: s
     }
 }
 
-describe('new command (direct surface, AC-013)', () => {
-    it('cuts a task packet with the named scope', async () => {
-        const { code } = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-001,AC-002'], ws));
+describe('new command — task slices land IN THE STORE (ADR-0137)', () => {
+    it('cuts a task slice with the named scope into the store, not the repo', async () => {
+        const { code } = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-001,AC-002'], repo));
         expect(code).toBe(0);
-        const packet = readFileSync(join(ws, 'tasks', 'TASK-x.md'), 'utf8');
-        expect(packet).toContain('scope: [AC-001, AC-002]');
-        expect(packet).toContain('- AC-001');
+        const slice = readFileSync(join(store, 'task-x.md'), 'utf8');
+        expect(slice).toContain('scope: [AC-001, AC-002]');
+        expect(slice).toContain('- AC-001');
+        // Nothing lands in the repo — the store is the packet's home.
+        expect(existsSync(join(repo, 'tasks'))).toBe(false);
     });
 
-    it('cuts an empty-scope packet without inventing ids', async () => {
-        const { code } = await capture(() => run(['task', '--from', 'SPEC-x'], ws));
+    it('cuts an empty-scope slice without inventing ids', async () => {
+        const { code } = await capture(() => run(['task', '--from', 'SPEC-x'], repo));
         expect(code).toBe(0);
-        expect(readFileSync(join(ws, 'tasks', 'TASK-x.md'), 'utf8')).toContain('scope: []');
+        expect(readFileSync(join(store, 'task-x.md'), 'utf8')).toContain('scope: []');
     });
 
-    it('--id cuts a distinctly-named second task from one spec (split-work), normalizing to TASK-<slug>', async () => {
-        // The default id is TASK-<spec-slug> (TASK-x), which collides on the second cut. --id lets one
-        // spec fan out to several tasks; a bare slug is normalized to the canonical TASK- prefix so it
-        // keys the same as the default everywhere downstream (status, the worktree branch, resolve_task).
-        const first = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-001'], ws));
+    it('--id cuts a distinctly-named second slice from one spec, normalizing to TASK-<slug>', async () => {
+        const first = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-001'], repo));
         expect(first.code).toBe(0);
         const second = await capture(() =>
-            run(['task', '--from', 'SPEC-x', '--scope', 'AC-002', '--id', 'x-part-two'], ws)
+            run(['task', '--from', 'SPEC-x', '--scope', 'AC-002', '--id', 'x-part-two'], repo)
         );
         expect(second.code).toBe(0);
-        expect(existsSync(join(ws, 'tasks', 'TASK-x.md'))).toBe(true);
-        const part2 = readFileSync(join(ws, 'tasks', 'TASK-x-part-two.md'), 'utf8');
+        expect(existsSync(join(store, 'task-x.md'))).toBe(true);
+        const part2 = readFileSync(join(store, 'task-x-part-two.md'), 'utf8');
         expect(part2).toContain('id: TASK-x-part-two');
         expect(part2).toContain('- AC-002');
 
         // A prefixed / mixed-case --id normalizes at the command surface to the canonical TASK-<lower>.
-        const third = await capture(() => run(['task', '--from', 'SPEC-x', '--id', 'TASK-X-Part-Three'], ws));
+        const third = await capture(() => run(['task', '--from', 'SPEC-x', '--id', 'TASK-X-Part-Three'], repo));
         expect(third.code).toBe(0);
-        expect(readFileSync(join(ws, 'tasks', 'TASK-x-part-three.md'), 'utf8')).toContain('id: TASK-x-part-three');
+        expect(readFileSync(join(store, 'task-x-part-three.md'), 'utf8')).toContain('id: TASK-x-part-three');
     });
 
-    it('a second default-id cut auto-suffixes and says so — never a silent collision (#87)', async () => {
-        const first = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-001'], ws));
+    it('a second default-id cut auto-suffixes and says so — never a silent collision', async () => {
+        const first = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-001'], repo));
         expect(first.code).toBe(0);
-        const second = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-002'], ws));
+        const second = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-002'], repo));
         expect(second.code).toBe(0);
-        expect(existsSync(join(ws, 'tasks', 'TASK-x.md'))).toBe(true);
-        expect(existsSync(join(ws, 'tasks', 'TASK-x-2.md'))).toBe(true);
+        expect(existsSync(join(store, 'task-x.md'))).toBe(true);
+        expect(existsSync(join(store, 'task-x-2.md'))).toBe(true);
         expect(second.out).toContain('auto-suffixed to TASK-x-2');
         // An explicit --id keeps exact-collision semantics: same id twice still errors.
-        const clash = await capture(() => run(['task', '--from', 'SPEC-x', '--id', 'x-2'], ws));
+        const clash = await capture(() => run(['task', '--from', 'SPEC-x', '--id', 'x-2'], repo));
         expect(clash.code).not.toBe(0);
     });
 
-    it('an empty --id is a usage error, not a TASK-.md packet', async () => {
-        const { code, err } = await capture(() => run(['task', '--from', 'SPEC-x', '--id', ''], ws));
+    it('an empty --id is a usage error, not a task-.md artifact', async () => {
+        const { code, err } = await capture(() => run(['task', '--from', 'SPEC-x', '--id', ''], repo));
         expect(code).toBe(2);
         expect(err).toContain('--id');
-        expect(existsSync(join(ws, 'tasks', 'TASK-.md'))).toBe(false);
+        expect(existsSync(join(store, 'task-.md'))).toBe(false);
     });
 
-    it('--force re-cuts over an existing task packet — the empty-scope-stub recovery (R5-I08, updated for #87 auto-suffix)', async () => {
-        // First cut with no --scope writes an unbounded stub. A bare re-cut now auto-suffixes (the
-        // fan-out default, SPEC-first-hour-qol AC-004) and points at both ways out in its note...
-        expect((await capture(() => run(['task', '--from', 'SPEC-x'], ws))).code).toBe(0);
-        const second = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-001'], ws));
+    it('--force re-cuts over an existing slice — the empty-scope-stub recovery', async () => {
+        expect((await capture(() => run(['task', '--from', 'SPEC-x'], repo))).code).toBe(0);
+        const second = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-001'], repo));
         expect(second.code).toBe(0);
         expect(second.out).toContain('--force to replace the original');
-        // ...and --force still replaces the ORIGINAL stub in place with the now-scoped packet.
-        const forced = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-001', '--force'], ws));
+        const forced = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-001', '--force'], repo));
         expect(forced.code).toBe(0);
-        expect(readFileSync(join(ws, 'tasks', 'TASK-x.md'), 'utf8')).toContain('scope: [AC-001]');
+        expect(readFileSync(join(store, 'task-x.md'), 'utf8')).toContain('scope: [AC-001]');
     });
 
     it('task with no --from → usage error', async () => {
-        const { code, err } = await capture(() => run(['task'], ws));
+        const { code, err } = await capture(() => run(['task'], repo));
         expect(code).toBe(2);
         expect(err).toContain('usage');
     });
 
-    it('task from a missing spec → exit 2', async () => {
-        expect((await capture(() => run(['task', '--from', 'SPEC-missing'], ws))).code).toBe(2);
+    it('task from a missing store spec → exit 2', async () => {
+        expect((await capture(() => run(['task', '--from', 'SPEC-missing'], repo))).code).toBe(2);
     });
 
     it('task with a scope id not in the spec → exit 2', async () => {
-        expect((await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-099'], ws))).code).toBe(2);
+        expect((await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-099'], repo))).code).toBe(2);
     });
 
-    it('`new spec` is RETIRED (SPEC-suspec-v2 AC-023) — fails loudly pointing at `write spec`, writes nothing', async () => {
-        const { code, err } = await capture(() => run(['spec', 'checkout', '--title', 'Checkout'], ws));
+    it('`new spec` points at `write spec` — one store scaffold, nothing written', async () => {
+        const { code, err } = await capture(() => run(['spec', 'checkout', '--title', 'Checkout'], repo));
         expect(code).toBe(2);
-        expect(err).toContain('retired');
         expect(err).toContain('suspec write spec');
-        expect(existsSync(join(ws, 'specs', 'checkout'))).toBe(false); // no workspace scaffold anymore
+        expect(existsSync(join(repo, 'specs'))).toBe(false);
+        expect(existsSync(join(store, 'spec-checkout.md'))).toBe(false);
     });
 
-    it('scaffolds a change plan; refuses to clobber on a repeat (R4-ISS-06)', async () => {
-        const first = await capture(() => run(['change-plan', 'db-migration', '--title', 'DB migration'], ws));
+    it('scaffolds a change plan; refuses to clobber on a repeat', async () => {
+        const first = await capture(() => run(['change-plan', 'db-migration', '--title', 'DB migration'], repo));
         expect(first.code).toBe(0);
-        const plan = readFileSync(join(ws, 'change-plans', 'db-migration.md'), 'utf8');
+        const plan = readFileSync(join(repo, 'change-plans', 'db-migration.md'), 'utf8');
         expect(plan).toContain('id: CHANGE-db-migration');
         expect(plan).toContain('## Behavioral preservation guarantees');
         expect(plan).toContain('## Transformation waves');
-        expect((await capture(() => run(['change-plan', 'db-migration'], ws))).code).toBe(2);
+        expect((await capture(() => run(['change-plan', 'db-migration'], repo))).code).toBe(2);
     });
 
     it('change-plan with no slug → usage error', async () => {
-        const { code, err } = await capture(() => run(['change-plan'], ws));
+        const { code, err } = await capture(() => run(['change-plan'], repo));
         expect(code).toBe(2);
         expect(err).toContain('usage');
     });
 
     it('an unknown type → exit 2', async () => {
-        const { code, err } = await capture(() => run(['frobnicate'], ws));
+        const { code, err } = await capture(() => run(['frobnicate'], repo));
         expect(code).toBe(2);
         expect(err).toContain('unknown new type');
     });
 
     it('no type (non-TTY) → prints usage, never the literal "undefined"', async () => {
-        const { code, err } = await capture(() => run([], ws));
+        const { code, err } = await capture(() => run([], repo));
         expect(code).toBe(2);
         expect(err).toContain('usage: suspec new');
         expect(err).not.toContain('undefined');
     });
 
     it('--json emits machine output', async () => {
-        const { code, out } = await capture(() => run(['task', '--from', 'SPEC-x', '--scope', 'AC-001', '--json'], ws));
+        const { code, out } = await capture(() =>
+            run(['task', '--from', 'SPEC-x', '--scope', 'AC-001', '--json'], repo)
+        );
         expect(code).toBe(0);
         expect(JSON.parse(out)).toMatchObject({ level: 'clean', taskId: 'TASK-x' });
     });

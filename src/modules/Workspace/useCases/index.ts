@@ -47,6 +47,7 @@ export {
     resolve_runner,
     render_runner_command,
     runner_attach_hint,
+    DEFAULT_RUNNER_NAME,
     type Runner,
     type RunnerConfig,
 } from './runnerAdapters.ts';

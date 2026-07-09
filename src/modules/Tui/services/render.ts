@@ -43,199 +43,62 @@ export function format_check_report(report: {
     return [head, '', ...report.diagnostics.map(format_diagnostic)].join('\n');
 }
 
-export function format_workspace_report(report: {
+// The store artifact lint (SPEC-suspec-v2 AC-013 / ADR-0137): per-artifact facts, no verdict
+// beyond the shared severity level. Shared by `suspec check` (no args), `suspec review <RUN>`,
+// and their interactive flows.
+export function format_store_lint(report: {
     level: RenderLevel;
-    specs: readonly { path: string; level: RenderLevel; diagnostics: readonly RenderDiagnostic[] }[];
-    changePlans?: readonly { path: string; level: RenderLevel; diagnostics: readonly RenderDiagnostic[] }[];
-    workspaceFindings: readonly { code: string; message: string; level?: string }[];
+    artifacts: readonly {
+        path: string;
+        diagnostics: readonly { check: string; severity: 'hard-error' | 'warning'; message: string }[];
+    }[];
 }): string {
-    const changePlans = report.changePlans ?? [];
-    // Render the 3-way severity (clean / warning / blocking), not the binary merge `verdict`, so a
-    // warnings-only workspace shows "⚠ warning" (exit 1) instead of a misleading "✓ clean".
+    const all = report.artifacts.flatMap((artifact) => artifact.diagnostics);
+    const errors = all.filter((diagnostic) => diagnostic.severity === 'hard-error').length;
     const lines = [
-        `Workspace verdict: ${format_verdict(report.level)}  ${color.dim(`${String(report.specs.length)} specs, ${String(changePlans.length)} change plans`)}`,
-        '',
+        `store lint  ${format_verdict(report.level)}  ${color.dim(`${String(report.artifacts.length)} artifact(s), ${String(errors)} errors, ${String(all.length - errors)} warnings`)}`,
     ];
-    for (const spec of report.specs) {
-        lines.push(`  ${format_verdict(spec.level)}  ${spec.path}`);
-        // Show each spec's diagnostics (which check failed, at which line) — the gate's human surface,
-        // matching the change-plan branch below and the --json envelope; otherwise a `✗ blocking spec`
-        // gives the reviewer no way to see the defect without re-running per file (#37).
-        for (const diagnostic of spec.diagnostics) {
-            lines.push(format_diagnostic(diagnostic));
+    for (const artifact of report.artifacts) {
+        if (artifact.diagnostics.length === 0) {
+            lines.push(`  ${color.green('✓')}  ${artifact.path}`);
+            continue;
+        }
+        lines.push(`  ${color.bold(artifact.path)}`);
+        for (const diagnostic of artifact.diagnostics) {
+            const icon = diagnostic.severity === 'hard-error' ? color.red('✗') : color.yellow('⚠');
+            lines.push(`    ${icon}  ${color.bold(diagnostic.check)}  ${diagnostic.message}`);
         }
     }
-    // Change plans (C010/C011) fold into the same verdict; show each plan's level and its findings so
-    // a blocking C010 is visible, not just reflected in the aggregate verdict.
-    for (const plan of changePlans) {
-        lines.push(`  ${format_verdict(plan.level)}  ${plan.path}`);
-        for (const diagnostic of plan.diagnostics) {
-            lines.push(format_diagnostic(diagnostic));
-        }
-    }
-    for (const finding of report.workspaceFindings) {
-        // A warning-level finding (an unfilled day-one AGENTS.md placeholder, SW-006) shows ⚠ not a red
-        // ✗ — it nudges the user to finish setup without failing the merge gate on the kit's boilerplate.
-        const icon = finding.level === 'warning' ? color.yellow('⚠') : color.red('✗');
-        lines.push(`  ${icon}  ${color.bold(finding.code)}  ${finding.message}`);
+    if (report.artifacts.length === 0) {
+        lines.push(color.dim('  (no lintable artifacts in the store)'));
     }
     return lines.join('\n');
 }
 
-export function format_board(board: {
-    specs: readonly {
-        id: string;
-        status: string;
-        tasks: readonly { id: string; status: string; hasReview: boolean; reviewStatus: string | null }[];
-    }[];
-    tasksWithoutReview: readonly string[];
-    needsHuman: readonly string[];
+// `suspec status` — the store summary (runs/specs + the `next` attention list). The board is gone
+// (ADR-0137): status reads the store, never a workspace tree.
+export function format_store_status(report: {
+    active: readonly { filename: string; kind: string; ageDays: number }[];
+    archived: readonly { filename: string; kind: string; ageDays: number }[];
+    next: readonly { rank: number; detail: string; action: string }[];
 }): string {
-    const lines: string[] = [];
-    for (const spec of board.specs) {
-        lines.push(`${color.bold(spec.id)}  ${color.dim(spec.status)}`);
-        for (const task of spec.tasks) {
-            // Green means a HUMAN result, not "a packet exists": pass/waived render green;
-            // draft/needs-human stay yellow (the same task appears under "Needs a human"); blocked is red.
-            const reviewStatus = task.reviewStatus ?? '';
-            let paint = color.yellow;
-            if (reviewStatus === 'pass' || reviewStatus === 'waived') {
-                paint = color.green;
-            } else if (reviewStatus === 'blocked') {
-                paint = color.red;
-            }
-            const review = task.hasReview ? paint(`review: ${reviewStatus}`) : color.yellow('no review');
-            lines.push(`  • ${task.id}  ${color.dim(task.status)}  ${review}`);
-        }
-    }
-    if (board.tasksWithoutReview.length > 0) {
-        lines.push('', color.yellow(`Awaiting review: ${board.tasksWithoutReview.join(', ')}`));
-    }
-    if (board.needsHuman.length > 0) {
-        lines.push(color.red(`Needs human: ${board.needsHuman.join(', ')}`));
-    }
-    return lines.length > 0 ? lines.join('\n') : color.dim('(no specs yet)');
-}
-
-// The `suspec review` reconcile report (M2). Surfaces FACTS and routes to Human attention — never a
-// Pass/Fail/Unverified/Blocked result, never a merge decision (ADR-0077 Decision 8 / AC-023). The
-// input is structural (the engine report's fields); colour comes from picocolors.
-export type RenderReviewReport = Readonly<{
-    level: RenderLevel;
-    task: string;
-    diffChangedFiles: readonly string[];
-    coverage: readonly { id: string; kind: 'uncovered' | 'orphan'; message: string }[];
-    verifyBinding: readonly {
-        id: string;
-        kind: 'cmd-mismatch' | 'result-fail' | 'malformed' | 'duplicate' | 'free-form-only';
-        message: string;
-    }[];
-    scopeDivergence: readonly string[];
-    selfReport: Readonly<{
-        claimedNotInDiff: readonly string[];
-        inDiffNotClaimed: readonly string[];
-        outsideScope: readonly string[];
-        runSummaryUnparsed: boolean;
-    }>;
-    doNotChangeTouched: readonly string[];
-    emptyEvidencePassRows: readonly string[];
-    packetStructural: Readonly<{
-        badResultCells: readonly string[];
-        badStatus: string | null;
-        statusPassContradicted: boolean;
-        missingSections: readonly string[];
-    }>;
-    packetSize: Readonly<{ changedLoc: number; filesTouched: number }> | null;
-    // Spec-coverage drift (suspec-cli#1) — NEUTRAL INFO, surfaced dim like the size note, never a ⚠
-    // finding (the engine keeps it out of the advisory level until measured + promoted). null = no drift.
-    specCoverageDrift: Readonly<{
-        specCount: number;
-        trackedCount: number;
-        untracked: readonly string[];
-        message: string;
-    }> | null;
-    // Fast-track staleness (ADR-0107): the current evidence digest (stamp it as `evidence_hash:`), and
-    // whether the packet is Stale (a stored hash that no longer matches → re-review).
-    evidenceDigest: string;
-    reviewStale: Readonly<{ reviewedSha: string | null }> | null;
-    hasReviewPacket: boolean;
-}>;
-
-export function format_review_report(report: RenderReviewReport): string {
-    // The diff size is NEUTRAL INFO (generated/vendored excluded) — surfaced so the reviewer can judge
-    // decomposition themselves; it is never a finding (the oversized band is specified-not-shipped,
-    // ADR-0097). Falls back to the name-only file count when no LOC stats were available.
-    const sizeNote = report.packetSize
-        ? `${String(report.packetSize.changedLoc)} LOC across ${String(report.packetSize.filesTouched)} files`
-        : `${String(report.diffChangedFiles.length)} changed files`;
     const lines: string[] = [
-        `${color.bold(`review ${report.task}`)}  ${format_verdict(report.level)}  ${color.dim(sizeNote)}  ${color.dim(`digest ${report.evidenceDigest}`)}`,
+        `store — ${String(report.active.length)} active artifact(s), ${String(report.archived.length)} archived`,
     ];
-
-    const bullet = (message: string) => lines.push(`  ${color.yellow('⚠')}  ${message}`);
-
-    if (!report.hasReviewPacket) {
-        lines.push(`  ${color.dim('no review packet yet — every in-scope requirement reads uncovered')}`);
-    }
-    for (const finding of report.coverage) {
-        bullet(`${color.bold(`C012 ${finding.kind}`)}  ${finding.message}`);
-    }
-    for (const finding of report.verifyBinding) {
-        bullet(`${color.bold(`C013 ${finding.kind}`)}  ${finding.message}`);
-    }
-    for (const id of report.scopeDivergence) {
-        bullet(`${color.bold('scope≠spec')}  scope id ${id} is not defined in the source spec`);
-    }
-    for (const path of report.selfReport.claimedNotInDiff) {
-        bullet(`${color.bold('claimed-not-changed')}  Run summary claims ${path} but the diff does not show it`);
-    }
-    for (const path of report.selfReport.inDiffNotClaimed) {
-        bullet(`${color.bold('changed-not-claimed')}  ${path} changed but the Run summary never mentions it`);
-    }
-    if (report.selfReport.runSummaryUnparsed) {
+    for (const artifact of report.active) {
         lines.push(
-            `  ${color.dim('run summary lists no machine-checkable file paths — selfReport reconcile skipped (list changed files as backticked paths to enable it)')}`
+            `  ${color.bold(artifact.kind.padEnd(7))} ${artifact.filename}  ${color.dim(`${String(artifact.ageDays)}d`)}`
         );
     }
-    for (const path of report.selfReport.outsideScope) {
-        bullet(`${color.bold('outside-scope')}  ${path} changed but is outside the declared Affected areas`);
+    if (report.active.length === 0) {
+        lines.push(color.dim('  (no active artifacts — `suspec write spec "<intent>"` starts one)'));
     }
-    for (const path of report.doNotChangeTouched) {
-        bullet(`${color.bold('do-not-change')}  ${path} changed but the task lists it under Do not change`);
-    }
-    for (const id of report.emptyEvidencePassRows) {
-        bullet(`${color.bold('empty-evidence')}  coverage row ${id} is Pass with empty Evidence — reads Unverified`);
-    }
-    for (const id of report.packetStructural.badResultCells) {
-        bullet(
-            `${color.bold('bad-result')}  coverage row ${id} has a Result outside {Pass, Fail, Unverified, Blocked}`
-        );
-    }
-    if (report.packetStructural.badStatus !== null) {
-        bullet(
-            `${color.bold('bad-status')}  frontmatter status "${report.packetStructural.badStatus}" is not a recognized review status`
-        );
-    }
-    if (report.packetStructural.statusPassContradicted) {
-        bullet(`${color.bold('status-contradicted')}  status: pass but a coverage row is not Pass`);
-    }
-    for (const section of report.packetStructural.missingSections) {
-        bullet(`${color.bold('missing-section')}  the review packet has no "${section}" section`);
-    }
-    // Spec-coverage drift: dim NEUTRAL line (like the size note), never a ⚠ finding — the spec grew
-    // under the task and the reviewer decides whether the untracked ids belong in this run (suspec-cli#1).
-    if (report.specCoverageDrift !== null) {
-        lines.push(`  ${color.dim(`spec-coverage drift — ${report.specCoverageDrift.message}`)}`);
-    }
-    // Fast-track staleness (ADR-0107): a ⚠ finding when the stored evidence_hash no longer matches —
-    // re-review. (The current digest itself is in the header, dim, so the reviewer can re-stamp it.)
-    if (report.reviewStale !== null) {
-        const since = report.reviewStale.reviewedSha !== null ? ` (reviewed at ${report.reviewStale.reviewedSha})` : '';
-        bullet(`${color.bold('Stale')}  the diff or cited evidence changed since this review${since} — re-review`);
-    }
-
-    if (lines.length === 1) {
-        lines.push(color.dim('  clean reconcile — no facts to route. A human still owns the review result.'));
+    if (report.next.length > 0) {
+        lines.push('', color.bold('attention:'));
+        for (const item of report.next) {
+            lines.push(`  ${color.yellow('⚠')}  ${item.detail}`);
+            lines.push(`     ${color.dim(`→ ${item.action}`)}`);
+        }
     }
     return lines.join('\n');
 }
@@ -252,23 +115,20 @@ export function format_worktrees(worktrees: readonly { branch: string; path: str
         .join('\n');
 }
 
-export function format_init_report(report: {
-    mode: string;
-    written: readonly string[];
-    skipped: readonly string[];
-    merged: readonly string[];
-    backedUp: readonly string[];
-    overwritten: readonly string[];
+// `suspec init`'s seed report (SPEC-suspec-v2 AC-024): what was created, what was extended, what
+// already existed and was left alone.
+export function format_seed_report(report: {
+    created: readonly string[];
+    updated: readonly string[];
+    kept: readonly string[];
 }): string {
     const line = (label: string, items: readonly string[], paint: (s: string) => string) =>
         items.length > 0 ? `  ${paint(label)}: ${items.join(', ')}` : null;
     return [
-        `init (${report.mode})`,
-        line('written', report.written, color.green),
-        line('merged', report.merged, color.cyan),
-        line('backed up', report.backedUp, color.cyan),
-        line('overwritten', report.overwritten, color.yellow),
-        line('skipped', report.skipped, color.yellow),
+        'seeded this repo for Suspec (artifacts live in your personal store, outside the repo)',
+        line('created', report.created, color.green),
+        line('updated', report.updated, color.cyan),
+        line('kept', report.kept, color.dim),
     ]
         .filter((entry): entry is string => entry !== null)
         .join('\n');

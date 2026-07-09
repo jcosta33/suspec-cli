@@ -3,9 +3,9 @@
 // adopter's own artifacts. It is built by reuse, not a fresh merge engine:
 //   1. `check_update` re-reads the pin vs the kit VERSION — apply is a no-op when not behind (so a
 //      `--write` on an up-to-date workspace is honest, never a churn of identical files).
-//   2. when behind, `init_workspace` (mode: workspace) replays the conflict-safe copy engine, but
-//      SCOPED by `pathFilter` to the kit-owned paths only — templates/, .agents/skills/, advanced/,
-//      hooks/. New kit files are written, a changed kit-owned file follows the policy (default
+//   2. when behind, `copy_kit_tree` replays the conflict-safe copy engine, but SCOPED by
+//      `pathFilter` to the kit-owned paths only — the manifest's `kit_owned` list (the thin kit
+//      declares templates/). New kit files are written, a changed kit-owned file follows the policy (default
 //      `backup`: the user's edited copy → `*.suspec-bak`, the kit's lands), identical files no-op,
 //      `.gitignore` marker-merges (additive), and `stamp_version` re-stamps the pin.
 // The scope is the whole point of the design (ADOPTING.md's upgrade contract): a lived-in workspace's
@@ -20,7 +20,7 @@ import { join } from 'node:path';
 import { ok, isErr, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
 import { check_update } from './checkUpdate.ts';
-import { init_workspace, type ConflictPolicy } from './initWorkspace.ts';
+import { copy_kit_tree, type ConflictPolicy } from './copyKitTree.ts';
 import { read_kit_manifest, DEFAULT_KIT_OWNED } from '../services/kitManifest.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
@@ -57,12 +57,9 @@ export type ApplyUpdateReport = Readonly<{
 const NO_CHANGES = { written: [], skipped: [], merged: [], backedUp: [], overwritten: [] } as const;
 
 // A path is kit-owned when it matches one of the kit's declared prefixes (or, for a bare filename, that
-// exact file). The prefixes come from the kit manifest (ADR-0135); the default layout is the fallback.
-// The kit-owned guidance an update refreshes is the guides, templates, gate hooks, advanced cards.
-// Everything else the kit ships a SEED copy of (the board, README, CHANGELOG, VERSION, decisions/0001,
-// examples/, the flow-folder READMEs) is the adopter's once they have a lived-in workspace, so `--write`
-// leaves it untouched. The agent-tool skills symlinks (created at init) persist and need no refresh —
-// the guides they point INTO live under `.agents/skills/`, which IS refreshed.
+// exact file). The prefixes come from the kit manifest (ADR-0135); the default layout (templates/)
+// is the fallback. Everything else in the target — the adopter's own files, AGENTS.md, config — is
+// theirs, so `--write` leaves it untouched. The kit no longer ships skills; those install globally.
 function build_is_kit_owned(prefixes: readonly string[]): (rel: string) => boolean {
     return (rel: string): boolean =>
         prefixes.some((prefix) => rel === prefix.replace(/\/$/, '') || rel.startsWith(prefix));
@@ -92,15 +89,14 @@ export function apply_update(input: ApplyUpdateInput): Result<ApplyUpdateReport,
     // source so the updated kit's own layout drives the refresh. No manifest → the built-in default
     // layout, so a pre-manifest kit refreshes exactly as before (AC-004).
     const kitOwned = read_kit_manifest(input.kitSourceDir)?.kitOwned ?? DEFAULT_KIT_OWNED;
-    const copied = init_workspace({
+    const copied = copy_kit_tree({
         sourceDir: input.kitSourceDir,
         targetDir: input.workspaceDir,
         policy: input.policy,
-        mode: 'workspace',
         pathFilter: build_is_kit_owned(kitOwned),
     });
     /* v8 ignore next 3 -- unreachable in practice: check_update above already proved the kit source
-       exists and carries VERSION, so init_workspace's source-missing arm can't fire here, and the only
+       exists and carries VERSION, so copy_kit_tree's source-missing arm can't fire here, and the only
        other Err (a write failure mid-copy) is environment-specific. Surfaced anyway so a real EACCES
        routes through the Result channel rather than escaping as a stack trace. */
     if (isErr(copied)) {

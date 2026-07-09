@@ -1,22 +1,28 @@
-// PrepareEngine.pull (AC-001, ADR-0084 D1) — snapshot a ticket into `intake/<slug>.md` and NOTHING
-// else. It writes exactly one new file: the kit intake template's frontmatter (`source`/`url`/
-// `captured`) followed by the upstream content *verbatim*. When `<ref>` is a `gh-issue`-style ref it
-// fetches the body via the `gh` CLI (injected, so the engine is testable without a network); for any
-// other ref it writes a clearly-marked verbatim-paste placeholder. It never normalizes the ticket
-// and NEVER writes a spec — turning a ticket into requirements is judgment work, not transcription.
-// No board is read, derived, or written.
+// `suspec pull <ref>` — snapshot a ticket into the STORE as `intake-<slug>.md` and NOTHING else
+// (ADR-0137: intake is a store artifact, transient working memory). It writes exactly one
+// artifact: intake frontmatter (`source`/`url`/`captured`) followed by the upstream content
+// *verbatim*. When `<ref>` is a `gh-issue`-style ref it fetches the body via the `gh` CLI
+// (injected, so the engine is testable without a network); for any other ref it writes a
+// clearly-marked verbatim-paste placeholder. It never normalizes the ticket and NEVER writes a
+// spec — turning a ticket into requirements is judgment work, not transcription. The frontmatter
+// keeps the original `url:`, so a wiped store re-captures with one command (wipe-survival).
 
+import { existsSync } from 'fs';
 import { join } from 'path';
 
-import { ok, err, isOk, type Result } from '../../../infra/errors/result.ts';
-import { type AppError } from '../../../infra/errors/createAppError.ts';
-import { write_new_file, type GhIssue, type GhFetchError } from '../../Workspace/useCases/index.ts';
+import { ok, err, isOk, isErr, type Result } from '../../../infra/errors/result.ts';
+import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
+import { type GhIssue, type GhFetchError } from '../../Workspace/useCases/index.ts';
+import { intake_filename } from '../services/storeLayout.ts';
 import { usage_error, type OutcomeLevel } from './unixOutcome.ts';
+import { write_store_artifact } from './writeStoreArtifact.ts';
 
 export type GhFetcher = (ref: string, opts: { cwd?: string }) => Result<GhIssue, GhFetchError>;
 
 export type PullIntakeInput = Readonly<{
-    workspaceDir: string;
+    storeDir: string;
+    // The repo the `gh` fetch resolves bare issue numbers against.
+    repoRoot: string;
     ref: string;
     force?: boolean;
     // Injected so the engine is exercised without spawning `gh` in tests. The command surface wires
@@ -88,8 +94,8 @@ ${input.body}
 
 const PASTE_PLACEHOLDER = `{{Paste the upstream ticket/PR/page content verbatim here. \`suspec pull\` could
 not fetch this ref automatically — only \`gh-issue\`-style refs are fetched via the
-\`gh\` CLI today (richer per-tracker connectors are deferred \`suspec-*\` plugins). Do
-not normalize it: the spec interprets, the intake preserves what was actually asked.}}`;
+\`gh\` CLI today. Do not normalize it: the spec interprets, the intake preserves
+what was actually asked.}}`;
 
 function today(): string {
     return new Date().toISOString().slice(0, 10);
@@ -110,10 +116,10 @@ export function pull_intake(input: PullIntakeInput): Result<PullIntakeReport, Ap
     // gh fetch that fails (no gh, no such issue, not authenticated) also falls back — never fatal.
     let title = ref;
     let body = PASTE_PLACEHOLDER;
-    let source = '{{JIRA-123 / linear-ticket / gh-issue / gh-pr / notion-page / email / DM}}';
+    let source = '{{gh-issue / JIRA-123 / linear-ticket / notion-page / email / DM}}';
     let fetched = false;
     if (is_gh_issue_ref(ref)) {
-        const issue = input.fetchGhIssue(gh_view_arg(ref), { cwd: input.workspaceDir });
+        const issue = input.fetchGhIssue(gh_view_arg(ref), { cwd: input.repoRoot });
         if (isOk(issue)) {
             title = issue.value.title.length > 0 ? issue.value.title : ref;
             body = issue.value.body.length > 0 ? issue.value.body : PASTE_PLACEHOLDER;
@@ -122,19 +128,18 @@ export function pull_intake(input: PullIntakeInput): Result<PullIntakeReport, Ap
         }
     }
 
-    const content = render_intake({
-        title,
-        source,
-        url: ref,
-        captured: today(),
-        body,
-    });
-
-    const path = join(input.workspaceDir, 'intake', `${slug}.md`);
-    // No-clobber (AC-004): an existing snapshot is an error unless `--force`, and exactly this one
-    // file is written — the workspace is otherwise byte-unchanged. NO spec is ever written.
-    const written = write_new_file(path, content, { overwrite: input.force === true });
-    if (!written.ok) {
+    const path = join(input.storeDir, intake_filename(slug));
+    // No-clobber: an existing snapshot is an error unless `--force`, and exactly this one artifact
+    // is written (atomic, grammar-stamped). NO spec is ever written.
+    if (existsSync(path) && input.force !== true) {
+        return err(
+            createAppError('intake_exists', `an intake snapshot already exists: ${path} (re-pull with --force)`, {
+                path,
+            })
+        );
+    }
+    const written = write_store_artifact(path, render_intake({ title, source, url: ref, captured: today(), body }));
+    if (isErr(written)) {
         return err(written.error);
     }
 

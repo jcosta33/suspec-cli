@@ -5,6 +5,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { assertOk } from '../../../infra/errors/testing/assertOk.ts';
+import { assertErr } from '../../../infra/errors/testing/assertErr.ts';
 import { isOk } from '../../../infra/errors/result.ts';
 import { stamp_artifact } from '../useCases/stampArtifact.ts';
 
@@ -55,30 +56,20 @@ describe('stamp_artifact (suspec stamp; ADR-0107/0108)', () => {
         expect(occurrences).toHaveLength(1);
     });
 
-    it('stamps a spec-keyed review with reviewed_sha + evidence_hash', () => {
-        mkdirSync(join(repo, 'reviews'), { recursive: true });
-        writeFileSync(
-            join(repo, 'reviews', 'r.md'),
-            `---\ntype: review\nid: REVIEW-x\nspec: SPEC-feat\nstatus: needs-human\n---\n\n## Requirement coverage\n\n| ID | Result | Evidence | Human attention |\n|---|---|---|---|\n| AC-001 | Pass | p | no |\n`
-        );
-        const report = assertOk(stamp_artifact({ workspaceDir: repo, repoRoot: repo, ref: 'r' }));
-        expect(report.kind).toBe('review');
-        expect(report.stamped.reviewed_sha).toBe(git(['rev-parse', 'HEAD']).trim());
-        expect(report.stamped.evidence_hash).toMatch(/^[0-9a-f]{16}$/);
-        const stampedFile = readFileSync(join(repo, 'reviews', 'r.md'), 'utf8');
-        expect(stampedFile).toContain('evidence_hash:');
-        expect(stampedFile).toContain('reviewed_sha:');
-    });
-
-    it('errors when the ref matches neither a spec nor a review', () => {
-        expect(isOk(stamp_artifact({ workspaceDir: repo, repoRoot: repo, ref: 'nonexistent' }))).toBe(false);
+    it('a ref that matches no spec errs, pointing at the store review loop (ADR-0137)', () => {
+        const failure = assertErr(stamp_artifact({ workspaceDir: repo, repoRoot: repo, ref: 'nonexistent' }));
+        expect(failure.message).toContain('suspec review <RUN>');
     });
 
     it('refuses a path-like ref (traversal defense — no write outside the workspace)', () => {
         const outside = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-stamp-outside-')));
         writeFileSync(join(outside, 'spec.md'), '---\nid: SPEC-victim\n---\n');
         // a traversal ref would resolve a spec.md outside the workspace; it must be refused before any write
-        const result = stamp_artifact({ workspaceDir: repo, repoRoot: repo, ref: `../${outside.split('/').pop() ?? 'x'}` });
+        const result = stamp_artifact({
+            workspaceDir: repo,
+            repoRoot: repo,
+            ref: `../${outside.split('/').pop() ?? 'x'}`,
+        });
         const untouched = readFileSync(join(outside, 'spec.md'), 'utf8');
         rmSync(outside, { recursive: true, force: true });
         expect(isOk(result)).toBe(false);
@@ -91,28 +82,5 @@ describe('stamp_artifact (suspec stamp; ADR-0107/0108)', () => {
         const result = stamp_artifact({ workspaceDir: fresh, repoRoot: fresh, ref: 'feat' });
         rmSync(fresh, { recursive: true, force: true });
         expect(isOk(result)).toBe(false);
-    });
-
-    it('errors when a task-keyed review cannot resolve its run (no task packet/worktree)', () => {
-        mkdirSync(join(repo, 'reviews'), { recursive: true });
-        writeFileSync(join(repo, 'reviews', 't.md'), '---\ntype: review\nid: R\ntask: TASK-missing\nstatus: needs-human\n---\n');
-        expect(isOk(stamp_artifact({ workspaceDir: repo, repoRoot: repo, ref: 't' }))).toBe(false);
-    });
-
-    it('errors when a review names neither a task: nor a spec:', () => {
-        mkdirSync(join(repo, 'reviews'), { recursive: true });
-        writeFileSync(join(repo, 'reviews', 'n.md'), '---\ntype: review\nid: R\nstatus: needs-human\n---\n');
-        expect(isOk(stamp_artifact({ workspaceDir: repo, repoRoot: repo, ref: 'n' }))).toBe(false);
-    });
-
-    it('reads a list-valued spec: key on a review (defensive — first item)', () => {
-        mkdirSync(join(repo, 'reviews'), { recursive: true });
-        writeFileSync(
-            join(repo, 'reviews', 'L.md'),
-            '---\ntype: review\nid: R\nspec:\n  - SPEC-feat\nstatus: needs-human\n---\n\n## Requirement coverage\n\n| ID | Result | Evidence | Human attention |\n|---|---|---|---|\n| AC-001 | Pass | p | no |\n'
-        );
-        const report = assertOk(stamp_artifact({ workspaceDir: repo, repoRoot: repo, ref: 'L' }));
-        expect(report.kind).toBe('review');
-        expect(report.stamped.evidence_hash).toMatch(/^[0-9a-f]{16}$/);
     });
 });

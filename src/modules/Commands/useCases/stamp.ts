@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
-// `suspec stamp <ref>` — write the provenance stamp that makes staleness detection live (ADR-0107/0108).
-// A SPEC gets `snapshot:` = the code repo's current HEAD; a REVIEW gets `reviewed_sha:` = HEAD +
-// `evidence_hash:` = the reconcile's evidence digest. In-place frontmatter upsert; nothing else touched.
+// `suspec stamp <ref>` — write the provenance stamp that makes staleness detection live
+// (ADR-0107/0108). A SPEC gets `snapshot:` = the code repo's current HEAD (`check --staleness`
+// compares against it). In-place frontmatter upsert; nothing else touched. Review packets live in
+// the store now — a store run reconciles via `suspec review <RUN>`, no stamp involved.
 //   suspec stamp <spec-id|slug>          stamp the spec's snapshot SHA
-//   suspec stamp <review-file|slug>      stamp the review's reviewed_sha + evidence_hash
-//   suspec stamp <ref> --repo <path>     stamp against a SEPARATE code repo (dedicated-workspace layout)
+//   suspec stamp <ref> --repo <path>     stamp against a SEPARATE code repo
 
 import { resolve } from 'path';
 
@@ -19,7 +19,7 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
     const json = flags.get('json') === true;
     const ref = positional[0];
     if (ref === undefined) {
-        return emit_error(usage_error('usage: suspec stamp <spec|review> [--repo <code-repo>]'), json);
+        return emit_error(usage_error('usage: suspec stamp <spec-id|slug> [--repo <code-repo>]'), json);
     }
 
     const repoFlag = flags.get('repo');

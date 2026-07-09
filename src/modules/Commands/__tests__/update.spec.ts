@@ -27,15 +27,17 @@ beforeAll(() => {
     applyKit = mkdtempSync(join(tmpdir(), 'suspec-updkit-apply-'));
     writeFileSync(join(applyKit, 'VERSION'), '2.0.0\n');
     writeFileSync(join(applyKit, 'CHANGELOG.md'), '# Changelog\n\n## 2.0.0\n- kit content\n');
-    // KIT-OWNED guidance — what `--write` refreshes: a changed template (conflict) + a new guide.
+    // KIT-OWNED content — what `--write` refreshes (default kit_owned = templates/ only, the thin
+    // kit): a changed template (conflict) + a new template file.
     mkdirSync(join(applyKit, 'templates'), { recursive: true });
     writeFileSync(join(applyKit, 'templates', 'spec.md'), '# Spec template (kit v2)\n');
+    writeFileSync(join(applyKit, 'templates', 'finding.md'), '# Finding template (kit v2)\n');
+    // NON-kit-owned files the kit also ships — `--write` must NOT copy or touch them: the kit no
+    // longer owns skills in-repo (they install globally, ADR-0137), and seed files are the user's.
     mkdirSync(join(applyKit, '.agents', 'skills', 'write-spec'), { recursive: true });
     writeFileSync(join(applyKit, '.agents', 'skills', 'write-spec', 'SKILL.md'), '# write-spec (kit v2)\n');
-    // NON-kit-owned seed files the kit also ships — `--write` must NOT touch a lived-in workspace's
-    // copies of these (the board, the README), even though the kit's versions differ.
     writeFileSync(join(applyKit, 'README.md'), 'kit README v2\n');
-    writeFileSync(join(applyKit, 'status.md'), '# kit board template v2\n');
+    writeFileSync(join(applyKit, 'board.md'), '# kit board template v2\n');
 });
 afterAll(() => {
     rmSync(kit, { recursive: true, force: true });
@@ -166,21 +168,21 @@ describe('update command (SPEC-suspec-update, direct surface)', () => {
         expect(existsSync(join(workspace, 'README.md.suspec-bak'))).toBe(false);
     }
 
-    it('AC-008: --write refreshes kit-owned guidance, backs up a customized guide, re-stamps — and never touches user artifacts', async () => {
+    it('AC-008: --write refreshes the kit-owned templates, backs up a customized one, re-stamps — and never touches user artifacts', async () => {
         livedInWorkspace();
         const { code, out } = await capture(() => run(['--write', '--from', applyKit], workspace));
-        // a backed-up customized guide → warning (exit 1), never a silent overwrite
+        // a backed-up customized template → warning (exit 1), never a silent overwrite
         expect(code).toBe(1);
         expect(out).toContain('updated');
-        // the user's customized guide is preserved as a backup, the kit's version is in place
+        // the user's customized template is preserved as a backup, the kit's version is in place
         expect(readFileSync(join(workspace, 'templates', 'spec.md.suspec-bak'), 'utf8')).toBe(
             '# my customized spec template\n'
         );
         expect(readFileSync(join(workspace, 'templates', 'spec.md'), 'utf8')).toContain('Spec template (kit v2)');
-        // a brand-new kit-owned guide landed
-        expect(readFileSync(join(workspace, '.agents', 'skills', 'write-spec', 'SKILL.md'), 'utf8')).toContain(
-            'write-spec (kit v2)'
-        );
+        // a brand-new kit-owned template landed
+        expect(readFileSync(join(workspace, 'templates', 'finding.md'), 'utf8')).toContain('Finding template (kit v2)');
+        // skills are NOT kit-owned anymore (they install globally) — nothing lands under .agents/skills
+        expect(existsSync(join(workspace, '.agents', 'skills'))).toBe(false);
         // the pin re-stamped to the kit version
         expect(readFileSync(join(workspace, '.agents', '.suspec-version'), 'utf8').trim()).toBe('2.0.0');
         // the load-bearing guarantee: the adopter's own files are untouched

@@ -1,82 +1,81 @@
-// The interactive `suspec review` flow (M2, AC-027): pick a finished run's task, resolve it, run the
-// SAME read-only reconcile engine the direct command uses (resolve_review_run → reconcile_review),
-// and show the coloured reconcile-facts report. Pure orchestration over the injected Prompter + the
-// Core engines, so it is testable with a mock Prompter (no terminal). It surfaces facts and routes —
-// it never issues a review result (ADR-0077 Decision 8 / AC-023).
+// The interactive `suspec review` flow (ADR-0137): pick a store run, then show the SAME read-only
+// artifact lint the direct command uses — per-artifact facts, no verdict. Pure orchestration over
+// the injected Prompter + the Core engines, so it is testable with a mock Prompter (no terminal).
 
-import { readdirSync, existsSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readdirSync } from 'fs';
 
-import { resolve_review_run, reconcile_review, exit_code_for } from '../../Core/useCases/index.ts';
+import { resolve_store_dir, lint_run_artifacts, exit_code_for } from '../../Core/useCases/index.ts';
 import { resolve_repo_root } from '../../Workspace/useCases/index.ts';
 import { isOk } from '../../../infra/errors/result.ts';
 import { type Prompter, is_cancelled } from './prompter.ts';
-import { format_review_report } from '../services/render.ts';
+import { format_store_lint } from '../services/render.ts';
 
-export type ReviewFlowDeps = Readonly<{ workspaceDir: string }>;
+export type ReviewFlowDeps = Readonly<{ cwd: string }>;
 
-// The task ids a run could exist for: the basenames of tasks/*.md.
-function list_tasks(workspaceDir: string): string[] {
-    const tasksDir = join(workspaceDir, 'tasks');
-    if (!existsSync(tasksDir)) {
+const RUN_FILE = /^run-(.+)\.md$/;
+
+// The run slugs in the store — what there is to review.
+function list_runs(storeDir: string): string[] {
+    if (!existsSync(storeDir)) {
         return [];
     }
-    return readdirSync(tasksDir)
-        .filter((name) => name.endsWith('.md') && name !== 'README.md')
-        .map((name) => name.replace(/\.md$/, ''))
+    return readdirSync(storeDir)
+        .map((name) => RUN_FILE.exec(name)?.[1])
+        .filter((slug): slug is string => slug !== undefined)
         .sort();
 }
 
 export async function run_review_flow(prompter: Prompter, deps: ReviewFlowDeps): Promise<number> {
     prompter.intro('suspec review');
 
-    const root = resolve_repo_root(deps.workspaceDir);
+    const root = resolve_repo_root(deps.cwd);
     if (!isOk(root)) {
         prompter.error(root.error.message);
         prompter.outro('✗ not a git repository');
         return 2;
     }
 
-    const tasks = list_tasks(deps.workspaceDir);
-    if (tasks.length === 0) {
-        prompter.warn('No task packets found under tasks/.');
+    // Probe-only: review never creates the store it reads.
+    const store = resolve_store_dir({ repoRoot: root.value, probe: true });
+    if (!isOk(store)) {
+        prompter.warn('No store for this repo yet — a run appears after `suspec work`.');
         prompter.outro('Nothing to review.');
         return 1;
     }
 
-    const task = await prompter.select({
-        message: 'Which finished run?',
-        options: tasks.map((id) => ({ value: id, label: id })),
+    const runs = list_runs(store.value.storeDir);
+    if (runs.length === 0) {
+        prompter.warn('No runs in the store.');
+        prompter.outro('Nothing to review.');
+        return 1;
+    }
+
+    const runSlug = await prompter.select({
+        message: 'Which run?',
+        options: runs.map((slug) => ({ value: slug, label: slug })),
     });
-    if (is_cancelled(task)) {
+    if (is_cancelled(runSlug)) {
         prompter.outro('Cancelled.');
         return 1;
     }
 
     const spin = prompter.spinner();
-    spin.start('Reconciling the run…');
-    const resolved = resolve_review_run({ workspaceDir: deps.workspaceDir, repoRoot: root.value, task });
-    if (!isOk(resolved)) {
-        spin.stop('Could not resolve the run.');
-        prompter.error(resolved.error.message);
-        prompter.outro('✗ unresolved');
-        return 2;
-    }
-    const report = reconcile_review(resolved.value);
-    spin.stop('Reconciled.');
-    /* v8 ignore start -- reconcile_review only errs on an unparseable spec; the resolver read it already */
-    if (!isOk(report)) {
-        prompter.error(report.error.message);
+    spin.start('Linting the run artifacts…');
+    const lint = lint_run_artifacts({ storeDir: store.value.storeDir, repoRoot: root.value, runSlug });
+    spin.stop('Linted.');
+    /* v8 ignore start -- lint_run_artifacts only errs when the picked run vanished mid-flow */
+    if (!isOk(lint)) {
+        prompter.error(lint.error.message);
         prompter.outro('✗ error');
         return 2;
     }
     /* v8 ignore stop */
 
-    prompter.note(format_review_report(report.value), 'Reconcile facts');
+    prompter.note(format_store_lint(lint.value), 'Artifact facts');
     prompter.outro(
-        report.value.level === 'clean'
-            ? '✓ clean reconcile — a human still owns the result'
+        lint.value.level === 'clean'
+            ? '✓ clean lint — a human still owns the result'
             : '⚠ facts to route — a human owns the result'
     );
-    return exit_code_for(report.value.level);
+    return exit_code_for(lint.value.level);
 }

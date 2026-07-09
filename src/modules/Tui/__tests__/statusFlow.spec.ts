@@ -1,37 +1,72 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { execFileSync } from 'child_process';
+import { mkdtempSync, mkdirSync, writeFileSync, realpathSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { basename, join } from 'path';
 
 import { create_mock_prompter } from '../testing/mockPrompter.ts';
 import { run_status_flow } from '../useCases/statusFlow.ts';
 
-let ws: string;
+let root: string;
+let repo: string;
+let store: string;
+let savedStateDir: string | undefined;
+
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'suspec-statusflow-'));
+    root = mkdtempSync(join(realpathSync(tmpdir()), 'suspec-statusflow-'));
+    repo = join(root, 'proj');
+    mkdirSync(repo, { recursive: true });
+    const stateRoot = join(root, 'state');
+    store = join(stateRoot, basename(repo));
+    savedStateDir = process.env.SUSPEC_STATE_DIR;
+    process.env.SUSPEC_STATE_DIR = stateRoot;
 });
 afterEach(() => {
-    rmSync(ws, { recursive: true, force: true });
+    if (savedStateDir === undefined) {
+        delete process.env.SUSPEC_STATE_DIR;
+    } else {
+        process.env.SUSPEC_STATE_DIR = savedStateDir;
+    }
+    rmSync(root, { recursive: true, force: true });
 });
 
-describe('run_status_flow', () => {
-    it('renders the board and reports all clear for an empty workspace', () => {
+describe('run_status_flow — the store summary view (ADR-0137)', () => {
+    it('a repo with no store reads calm, exit 0', () => {
         const p = create_mock_prompter();
-        expect(run_status_flow(p, { workspaceDir: ws })).toBe(0);
-        expect(p.calls.notes.some((n) => n.title === 'Board')).toBe(true);
-        expect(p.calls.outros[0]).toBe('all clear');
+        expect(run_status_flow(p, { cwd: repo })).toBe(0);
+        expect(p.calls.notes.some((n) => n.title === 'Store')).toBe(true);
+        expect(p.calls.outros[0]).toBe('nothing in flight');
     });
 
-    it('flags attention items in the outro', () => {
-        mkdirSync(join(ws, 'specs', 'feat'), { recursive: true });
-        writeFileSync(join(ws, 'specs', 'feat', 'spec.md'), '---\ntype: spec\nid: SPEC-feat\nstatus: ready\n---\n');
-        mkdirSync(join(ws, 'tasks'), { recursive: true });
-        writeFileSync(
-            join(ws, 'tasks', 't1.md'),
-            '---\ntype: task\nid: TASK-1\nsource: SPEC-feat\nstatus: review-ready\n---\n'
-        );
+    it('renders the store summary and flags attention items in the outro', () => {
+        mkdirSync(store, { recursive: true });
+        writeFileSync(join(store, '.repo-path'), `${repo}\n`);
+        writeFileSync(join(store, 'spec-feat.md'), '---\ntype: spec\nid: SPEC-feat\nstatus: ready\n---\n');
         const p = create_mock_prompter();
-        expect(run_status_flow(p, { workspaceDir: ws })).toBe(0);
+        expect(run_status_flow(p, { cwd: repo })).toBe(0);
+        const note = p.calls.notes.find((n) => n.title === 'Store');
+        expect(note?.message).toContain('spec-feat.md');
         expect(p.calls.outros[0]).toContain('need attention');
+    });
+
+    it('resolves the repo root through git from a subdir of a real repo', () => {
+        execFileSync('git', ['init'], { cwd: repo });
+        mkdirSync(store, { recursive: true });
+        writeFileSync(join(store, '.repo-path'), `${repo}\n`);
+        writeFileSync(join(store, 'spec-feat.md'), '---\ntype: spec\nid: SPEC-feat\nstatus: ready\n---\n');
+        const sub = join(repo, 'packages');
+        mkdirSync(sub, { recursive: true });
+        const p = create_mock_prompter();
+        expect(run_status_flow(p, { cwd: sub })).toBe(0);
+        expect(p.calls.notes.find((n) => n.title === 'Store')?.message).toContain('spec-feat.md');
+    });
+
+    it('a store with nothing actionable reads all clear', () => {
+        mkdirSync(store, { recursive: true });
+        writeFileSync(join(store, '.repo-path'), `${repo}\n`);
+        writeFileSync(join(store, 'run-done.md'), '---\ntype: run\nspec: SPEC-done\nstatus: done\n---\n');
+        const p = create_mock_prompter();
+        expect(run_status_flow(p, { cwd: repo })).toBe(0);
+        expect(p.calls.outros[0]).toBe('all clear');
     });
 });

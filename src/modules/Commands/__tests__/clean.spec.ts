@@ -1,112 +1,101 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { execFileSync } from 'child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, realpathSync } from 'fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, realpathSync, utimesSync } from 'fs';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { basename, join } from 'path';
 
 import { run } from '../useCases/clean.ts';
 
-let ws: string;
+// `suspec clean` is the short spelling of `suspec store gc` (ADR-0137): archive-only retention.
+
+let root: string;
+let repo: string;
+let store: string;
+let savedStateDir: string | undefined;
+
+const git = (args: string[]): string => execFileSync('git', args, { cwd: repo, encoding: 'utf8' });
+
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'suspec-clean-cmd-'));
+    root = mkdtempSync(join(realpathSync(tmpdir()), 'suspec-clean-cmd-'));
+    repo = join(root, 'proj');
+    mkdirSync(repo, { recursive: true });
+    git(['init']);
+    const stateRoot = join(root, 'state');
+    store = join(stateRoot, basename(repo));
+    mkdirSync(join(store, 'archive'), { recursive: true });
+    writeFileSync(join(store, '.repo-path'), `${repo}\n`);
+    savedStateDir = process.env.SUSPEC_STATE_DIR;
+    process.env.SUSPEC_STATE_DIR = stateRoot;
 });
 afterEach(() => {
-    rmSync(ws, { recursive: true, force: true });
+    if (savedStateDir === undefined) {
+        delete process.env.SUSPEC_STATE_DIR;
+    } else {
+        process.env.SUSPEC_STATE_DIR = savedStateDir;
+    }
+    rmSync(root, { recursive: true, force: true });
 });
 
-function writeArtifact(dir: string, name: string, status: string): void {
-    mkdirSync(join(ws, dir), { recursive: true });
-    writeFileSync(join(ws, dir, name), `---\ntype: ${dir === 'tasks' ? 'task' : 'review'}\nstatus: ${status}\n---\n`);
-}
-
-function capture(fn: () => number): { out: string; code: number } {
+async function capture(fn: () => number | Promise<number>): Promise<{ out: string; err: string; code: number }> {
     const out: string[] = [];
+    const errs: string[] = [];
     const o = vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
         out.push(String(chunk));
         return true;
     });
+    const e = vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
+        errs.push(String(chunk));
+        return true;
+    });
     try {
-        const code = fn();
-        return { out: out.join(''), code };
+        const code = await fn();
+        return { out: out.join(''), err: errs.join(''), code };
     } finally {
         o.mockRestore();
+        e.mockRestore();
     }
 }
 
-describe('clean command (SPEC-suspec-clean)', () => {
-    it('reports spent artifacts with counts and exits 0 (dry run)', () => {
-        writeArtifact('tasks', 'TASK-done.md', 'closed');
-        writeArtifact('reviews', 'r-live.md', 'draft');
-        const { out, code } = capture(() => run([], ws));
+function age_file(path: string, days: number): void {
+    const past = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    utimesSync(path, past, past);
+}
+
+describe('clean command — the store gc alias (ADR-0137)', () => {
+    it('deletes ONLY archived artifacts past retention; active + fresh archive stay', async () => {
+        writeFileSync(join(store, 'spec-live.md'), '---\ntype: spec\nid: SPEC-live\n---\n');
+        age_file(join(store, 'spec-live.md'), 90); // active — old, but never gc'd
+        writeFileSync(join(store, 'archive', 'spec-old.md'), 'old\n');
+        age_file(join(store, 'archive', 'spec-old.md'), 90);
+        writeFileSync(join(store, 'archive', 'spec-fresh.md'), 'fresh\n');
+
+        const { code, out } = await capture(() => run([], repo));
         expect(code).toBe(0);
-        expect(out).toContain('1 prunable, 1 kept');
-        expect(out).toContain('tasks/TASK-done.md');
-        expect(out).toContain('status: closed — spent');
+        expect(out).toContain('spec-old.md');
+        expect(existsSync(join(store, 'archive', 'spec-old.md'))).toBe(false);
+        expect(existsSync(join(store, 'archive', 'spec-fresh.md'))).toBe(true);
+        expect(existsSync(join(store, 'spec-live.md'))).toBe(true);
     });
 
-    it('says so when nothing is spent', () => {
-        writeArtifact('tasks', 'TASK-live.md', 'review-ready');
-        const { out } = capture(() => run([], ws));
-        expect(out).toContain('0 prunable, 1 kept');
-        expect(out).toContain('nothing spent');
-    });
-
-    it('--apply without a git repo errors clearly (cannot tell gitignored from committed)', () => {
-        writeArtifact('reviews', 'r-passed.md', 'pass'); // ws is a bare tmpdir, not a git repo
-        const { code } = capture(() => run(['--apply'], ws));
-        expect(code).not.toBe(0);
-    });
-
-    it('--json emits the structured report', () => {
-        writeArtifact('tasks', 'TASK-done.md', 'closed');
-        const { out } = capture(() => run(['--json'], ws));
-        const parsed = JSON.parse(out) as { candidates: { path: string }[]; keptCount: number };
-        expect(parsed.candidates[0].path).toBe('tasks/TASK-done.md');
-        expect(parsed.keptCount).toBe(0);
-    });
-
-    it('--apply prunes in a git repo: deletes a gitignored spent task, exits 0', () => {
-        const repo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-clean-apply-')));
-        execFileSync('git', ['init'], { cwd: repo });
-        execFileSync('git', ['config', 'user.email', 't@e.com'], { cwd: repo });
-        execFileSync('git', ['config', 'user.name', 'T'], { cwd: repo });
-        mkdirSync(join(repo, 'tasks'), { recursive: true });
-        writeFileSync(join(repo, '.gitignore'), 'tasks/\n');
-        writeFileSync(join(repo, 'tasks', 'TASK-done.md'), '---\ntype: task\nstatus: closed\n---\n');
-        const { out, code } = capture(() => run(['--apply'], repo));
-        const fileGone = !existsSync(join(repo, 'tasks', 'TASK-done.md'));
-        rmSync(repo, { recursive: true, force: true });
+    it('nothing past retention → a calm report, exit 0', async () => {
+        const { code, out } = await capture(() => run([], repo));
         expect(code).toBe(0);
-        expect(out).toContain('1 deleted, 0 archived');
-        expect(out).toContain('tasks/TASK-done.md');
-        expect(fileGone).toBe(true);
+        expect(out).toContain('nothing archived is past');
     });
 
-    it('--apply archives a committed spent review (kept in the tree under archive/)', () => {
-        const repo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-clean-arch-')));
-        execFileSync('git', ['init'], { cwd: repo });
-        execFileSync('git', ['config', 'user.email', 't@e.com'], { cwd: repo });
-        execFileSync('git', ['config', 'user.name', 'T'], { cwd: repo });
-        mkdirSync(join(repo, 'reviews'), { recursive: true });
-        writeFileSync(join(repo, 'reviews', 'r.md'), '---\ntype: review\nstatus: pass\n---\n');
-        execFileSync('git', ['add', '.'], { cwd: repo });
-        execFileSync('git', ['commit', '-m', 'review'], { cwd: repo });
-        const { out, code } = capture(() => run(['--apply'], repo));
-        const archived = existsSync(join(repo, 'archive', 'reviews', 'r.md'));
-        rmSync(repo, { recursive: true, force: true });
+    it('no store → a friendly note, exit 0', async () => {
+        rmSync(store, { recursive: true, force: true });
+        const { code, out } = await capture(() => run([], repo));
         expect(code).toBe(0);
-        expect(out).toContain('0 deleted, 1 archived');
-        expect(archived).toBe(true);
+        expect(out).toContain('no store');
     });
 
-    it('--apply in a clean repo with nothing spent says so', () => {
-        const repo = realpathSync(mkdtempSync(join(tmpdir(), 'suspec-clean-empty-')));
-        execFileSync('git', ['init'], { cwd: repo });
-        execFileSync('git', ['config', 'user.email', 't@e.com'], { cwd: repo });
-        execFileSync('git', ['config', 'user.name', 'T'], { cwd: repo });
-        const { out, code } = capture(() => run(['--apply'], repo));
-        rmSync(repo, { recursive: true, force: true });
+    it('--json emits machine output', async () => {
+        writeFileSync(join(store, 'archive', 'spec-old.md'), 'old\n');
+        age_file(join(store, 'archive', 'spec-old.md'), 90);
+        const { code, out } = await capture(() => run(['--json'], repo));
         expect(code).toBe(0);
-        expect(out).toContain('nothing spent');
+        const parsed = JSON.parse(out) as { deleted: { filename: string }[] };
+        expect(parsed.deleted.map((d) => d.filename)).toContain('spec-old.md');
     });
 });
