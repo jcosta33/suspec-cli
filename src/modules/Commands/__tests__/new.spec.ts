@@ -155,14 +155,31 @@ describe('new command — task slices land IN THE STORE (ADR-0137)', () => {
         expect(existsSync(join(store, 'spec-checkout.md'))).toBe(false);
     });
 
-    it('scaffolds a change plan; refuses to clobber on a repeat', async () => {
+    it('scaffolds a change plan INTO THE STORE (grammar-stamped); refuses to clobber on a repeat', async () => {
         const first = await capture(() => run(['change-plan', 'db-migration', '--title', 'DB migration'], repo));
         expect(first.code).toBe(0);
-        const plan = readFileSync(join(repo, 'change-plans', 'db-migration.md'), 'utf8');
+        const plan = readFileSync(join(store, 'change-plan-db-migration.md'), 'utf8');
         expect(plan).toContain('id: CHANGE-db-migration');
+        expect(plan).toContain('grammar_version: 1'); // AC-003: the store write stamps the grammar
         expect(plan).toContain('## Behavioral preservation guarantees');
         expect(plan).toContain('## Transformation waves');
+        // Nothing lands in the repo — no change-plans/ tree (ADR-0137).
+        expect(existsSync(join(repo, 'change-plans'))).toBe(false);
         expect((await capture(() => run(['change-plan', 'db-migration'], repo))).code).toBe(2);
+    });
+
+    it('a traversal-shaped change-plan slug is a usage error, nothing written', async () => {
+        const { code } = await capture(() => run(['change-plan', '../evil'], repo));
+        expect(code).toBe(2);
+        expect(existsSync(join(root, 'change-plan-evil.md'))).toBe(false);
+    });
+
+    it('exit 2 when the store cannot resolve (SUSPEC_STATE_DIR pointing at a file) — task and change-plan', async () => {
+        const asFile = join(root, 'state-as-file');
+        writeFileSync(asFile, 'not a dir');
+        process.env.SUSPEC_STATE_DIR = asFile;
+        expect((await capture(() => run(['task', '--from', 'SPEC-x'], repo))).code).toBe(2);
+        expect((await capture(() => run(['change-plan', 'oops'], repo))).code).toBe(2);
     });
 
     it('change-plan with no slug → usage error', async () => {

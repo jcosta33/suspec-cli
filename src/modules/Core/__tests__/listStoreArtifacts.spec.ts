@@ -40,6 +40,20 @@ describe('list_store_artifacts', () => {
         expect(listing.archived).toEqual([{ filename: 'finding-001.md', kind: 'finding', ageDays: 10 }]);
     });
 
+    it('every storeLayout kind lists under its own name — task/intake/change-plan are never `other`', () => {
+        writeFileSync(join(store, 'spec-x.md'), 'x');
+        writeFileSync(join(store, 'task-x.md'), 'x');
+        writeFileSync(join(store, 'run-x.md'), 'x');
+        writeFileSync(join(store, 'review-x.md'), 'x');
+        writeFileSync(join(store, 'intake-x.md'), 'x');
+        writeFileSync(join(store, 'finding-001.md'), 'x');
+        writeFileSync(join(store, 'change-plan-x.md'), 'x');
+
+        const kinds = list_store_artifacts(store, NOW).active.map((a) => a.kind);
+        expect([...kinds].sort()).toEqual(['change-plan', 'finding', 'intake', 'review', 'run', 'spec', 'task'].sort());
+        expect(kinds).not.toContain('other');
+    });
+
     it('a missing store dir (or archive/) reads empty', () => {
         expect(list_store_artifacts(join(store, 'nope'), NOW)).toEqual({ active: [], archived: [] });
         writeFileSync(join(store, 'intake-x.md'), 'x');

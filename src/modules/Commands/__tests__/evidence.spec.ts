@@ -108,6 +108,44 @@ describe('suspec evidence add (AC-010/AC-012)', () => {
         expect(readdirSync(dir).some((name) => name.endsWith('.md'))).toBe(true);
     });
 
+    it('parse boundary: suspec flags stop at the FIRST `--`; everything after is command argv verbatim', () => {
+        // `--json` BEFORE the `--` is suspec's own flag → machine output; the command never sees it.
+        const jsonMode = capture(() =>
+            run(
+                [
+                    'add',
+                    'feat',
+                    '--ac',
+                    'AC-001',
+                    '--json',
+                    '--',
+                    'node',
+                    '-e',
+                    'console.log(JSON.stringify(process.argv.slice(1)))',
+                ],
+                repo
+            )
+        );
+        expect(jsonMode.code).toBe(0);
+        const value = JSON.parse(jsonMode.out) as { level: string; ac: string }; // machine output = json mode held
+        expect(value.ac).toBe('AC-001');
+
+        // `--json` AFTER the `--` belongs to the CAPTURED COMMAND, not to suspec: the render stays
+        // HUMAN (non-JSON) and the spawned process receives --json as its own argv.
+        const human = capture(() => run(['add', 'feat', '--ac', 'AC-002', '--', 'echo', '--json'], repo));
+        expect(human.code).toBe(0);
+        expect(() => JSON.parse(human.out)).toThrow(); // human render, never machine output
+        expect(human.out).toContain('cli-verified');
+        // The raw capture proves the child process got `--json` as ITS argv: echo printed it back.
+        const dir = join(store, 'evidence', 'feat');
+        const recordName = readdirSync(dir).find(
+            (n) => n.endsWith('.md') && readFileSync(join(dir, n), 'utf8').includes('ac: AC-002')
+        );
+        expect(recordName).toBeDefined();
+        const raw = readFileSync(join(dir, recordName!.replace(/\.md$/, '.out')), 'utf8');
+        expect(raw).toContain('--json');
+    });
+
     it('runs the command IN the run worktree', () => {
         capture(() =>
             run(['add', 'feat', '--ac', 'AC-001', '--', 'node', '-e', 'console.log("cwd:" + process.cwd())'], repo)

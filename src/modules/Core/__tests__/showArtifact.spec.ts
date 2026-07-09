@@ -6,6 +6,10 @@ import { join } from 'path';
 import { show_artifact } from '../useCases/showArtifact.ts';
 import { isErr } from '../../../infra/errors/result.ts';
 
+// ADR-0137 / SPEC-suspec-v2: `show` resolves every kind by id-or-slug against the STORE's flat
+// `<kind>-*.md` files (archive/ as the fallback) — never the retired workspace tree. The one
+// repo-file face left is `show <path>` (kind omitted, confined to the repo dir).
+
 const SPEC = `---
 type: spec
 id: SPEC-feat
@@ -122,40 +126,67 @@ evidence_hash: deadbeefcafe0000
 |---|---|---|---|
 | AC-001 | Pass | pasted | no |
 `;
+const RUN = `---
+type: run
+spec: SPEC-feat
+worktree: /tmp/wt
+branch: suspec/feat
+status: exited
+---
 
-let ws: string;
+# Run — SPEC-feat
+
+agent notes
+`;
+const FINDING = `---
+type: finding
+id: FIND-007
+run: feat
+severity: major
+affected_areas:
+  - src/feat
+---
+
+# Flaky retry loop
+
+the close.
+`;
+const INTAKE = `---
+type: intake
+id: INTAKE-tick
+ref: '#42'
+---
+
+# Ticket 42
+
+snapshot body
+`;
+
+let root: string;
+let repo: string;
+let store: string;
 beforeEach(() => {
-    ws = mkdtempSync(join(tmpdir(), 'suspec-show-'));
-    mkdirSync(join(ws, 'specs', 'feat'), { recursive: true });
-    mkdirSync(join(ws, 'tasks'), { recursive: true });
-    mkdirSync(join(ws, 'reviews'), { recursive: true });
-    writeFileSync(join(ws, 'specs', 'feat', 'spec.md'), SPEC);
-    writeFileSync(join(ws, 'tasks', 'feat.md'), TASK);
-    writeFileSync(join(ws, 'tasks', 'xroot.md'), TASK_EMBEDDED);
-    writeFileSync(join(ws, 'reviews', 'feat.md'), REVIEW);
-    writeFileSync(join(ws, 'reviews', 'byspec.md'), REVIEW_SPEC_KEYED);
+    root = mkdtempSync(join(tmpdir(), 'suspec-show-'));
+    repo = join(root, 'repo');
+    store = join(root, 'state', 'repo');
+    mkdirSync(repo, { recursive: true });
+    mkdirSync(join(store, 'archive'), { recursive: true });
+    writeFileSync(join(store, 'spec-feat.md'), SPEC);
+    writeFileSync(join(store, 'task-feat.md'), TASK);
+    writeFileSync(join(store, 'task-xroot.md'), TASK_EMBEDDED);
+    writeFileSync(join(store, 'review-feat.md'), REVIEW);
+    writeFileSync(join(store, 'review-byspec.md'), REVIEW_SPEC_KEYED);
+    writeFileSync(join(store, 'run-feat.md'), RUN);
+    writeFileSync(join(store, 'finding-007.md'), FINDING);
+    writeFileSync(join(store, 'intake-tick.md'), INTAKE);
 });
-afterEach(() => rmSync(ws, { recursive: true, force: true }));
+afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-describe('show_artifact', () => {
-    it('accepts a file PATH with the kind omitted, inferring the kind from frontmatter type (R4-ISS-16)', () => {
-        // `suspec show specs/feat/spec.md` (no `spec` kind) must work like `suspec check <path>`.
-        const spec = show_artifact({ workspaceDir: ws, kind: 'specs/feat/spec.md' });
-        expect(isErr(spec)).toBe(false);
-        if (!isErr(spec)) {
-            expect(spec.value.kind).toBe('spec');
-            expect((spec.value.value as { requirements: unknown[] }).requirements).toHaveLength(1);
-        }
-        // ...and a task path infers the task kind (resolved via its basename stem).
-        const task = show_artifact({ workspaceDir: ws, kind: 'tasks/feat.md' });
-        expect(isErr(task)).toBe(false);
-        if (!isErr(task)) {
-            expect(task.value.kind).toBe('task');
-        }
-    });
+const show = (kind: string, ref?: string) => show_artifact({ storeDir: store, repoDir: repo, kind, ref });
 
+describe('show_artifact — store resolution (ADR-0137)', () => {
     it('checks — emits the contract version + the core checks (no file read)', () => {
-        const r = show_artifact({ workspaceDir: ws, kind: 'checks' });
+        const r = show('checks');
         expect(isErr(r)).toBe(false);
         if (!isErr(r)) {
             const value = r.value.value as { version: string; checks: unknown[] };
@@ -164,8 +195,8 @@ describe('show_artifact', () => {
         }
     });
 
-    it('task — parses scope, affected areas, do-not-change, and frontmatter id/source/status', () => {
-        const r = show_artifact({ workspaceDir: ws, kind: 'task', ref: 'feat' });
+    it('task — resolves the STORE task-<slug>.md and parses scope, areas, do-not-change, frontmatter', () => {
+        const r = show('task', 'feat');
         expect(isErr(r)).toBe(false);
         if (!isErr(r)) {
             const value = r.value.value as Record<string, unknown>;
@@ -182,7 +213,7 @@ describe('show_artifact', () => {
     });
 
     it('task — projects the cross-root embedded spec slice when present (ADR-0100 `## Spec snapshot`)', () => {
-        const r = show_artifact({ workspaceDir: ws, kind: 'task', ref: 'xroot' });
+        const r = show('task', 'xroot');
         expect(isErr(r)).toBe(false);
         if (!isErr(r)) {
             const value = r.value.value as {
@@ -194,8 +225,8 @@ describe('show_artifact', () => {
         }
     });
 
-    it('spec — resolves by frontmatter id and projects the requirements + verify commands', () => {
-        const r = show_artifact({ workspaceDir: ws, kind: 'spec', ref: 'SPEC-feat' });
+    it('spec — resolves from the store by frontmatter id and projects requirements + verify commands', () => {
+        const r = show('spec', 'SPEC-feat');
         expect(isErr(r)).toBe(false);
         if (!isErr(r)) {
             const value = r.value.value as {
@@ -209,7 +240,7 @@ describe('show_artifact', () => {
     });
 
     it('spec — surfaces the `## Execution` run-record, fence-aware, ending at the next H2 (ADR-0103/0104)', () => {
-        const r = show_artifact({ workspaceDir: ws, kind: 'spec', ref: 'SPEC-feat' });
+        const r = show('spec', 'SPEC-feat');
         expect(isErr(r)).toBe(false);
         if (!isErr(r)) {
             const execution = (r.value.value as { execution: string | null }).execution;
@@ -223,47 +254,37 @@ describe('show_artifact', () => {
 
     it('spec — execution is null when there is no `## Execution` section, or it is empty', () => {
         const noExec = `---\ntype: spec\nid: SPEC-noexec\nstatus: ready\nsources:\n  - self\n---\n\n## Requirements\n\n### AC-001 — one\nThe tool must do it.\nVerify with: a-test\n\n## Open questions\n\n- none.\n`;
-        writeFileSync(join(ws, 'specs', 'feat', 'spec.md'), noExec);
-        const a = show_artifact({ workspaceDir: ws, kind: 'spec', ref: 'SPEC-noexec' });
+        writeFileSync(join(store, 'spec-noexec.md'), noExec);
+        const a = show('spec', 'SPEC-noexec');
         expect(isErr(a)).toBe(false);
         if (!isErr(a)) {
             expect((a.value.value as { execution: string | null }).execution).toBeNull();
         }
         // An Execution heading with no body (immediately followed by the next H2) reads as null, not ''.
         const emptyExec = `${noExec}\n## Execution\n\n## Dropped from sources\n\n- none.\n`;
-        writeFileSync(join(ws, 'specs', 'feat', 'spec.md'), emptyExec);
-        const b = show_artifact({ workspaceDir: ws, kind: 'spec', ref: 'SPEC-noexec' });
+        writeFileSync(join(store, 'spec-noexec.md'), emptyExec);
+        const b = show('spec', 'SPEC-noexec');
         expect(isErr(b)).toBe(false);
         if (!isErr(b)) {
             expect((b.value.value as { execution: string | null }).execution).toBeNull();
         }
     });
 
-    it('spec — also resolves by workspace-relative path', () => {
-        const r = show_artifact({ workspaceDir: ws, kind: 'spec', ref: 'specs/feat/spec.md' });
-        expect(isErr(r)).toBe(false);
-        if (!isErr(r)) {
-            expect((r.value.value as { frontmatter: { id: string } }).frontmatter.id).toBe('SPEC-feat');
-        }
-    });
-
     it('task + spec resolve by EITHER the bare slug or the prefixed id (canonical-key, #blind-field-test)', () => {
-        // The fixture file is the legacy bare tasks/feat.md; the TASK- id form must resolve it too.
-        const t = show_artifact({ workspaceDir: ws, kind: 'task', ref: 'TASK-feat' });
+        const t = show('task', 'TASK-feat');
         expect(isErr(t)).toBe(false);
         if (!isErr(t)) {
             expect((t.value.value as { id: string }).id).toBe('TASK-feat');
         }
-        // The spec resolves by the bare slug, not only the SPEC- id (the MCP get_spec gap).
-        const s = show_artifact({ workspaceDir: ws, kind: 'spec', ref: 'feat' });
+        const s = show('spec', 'feat');
         expect(isErr(s)).toBe(false);
         if (!isErr(s)) {
             expect((s.value.value as { frontmatter: { id: string } }).frontmatter.id).toBe('SPEC-feat');
         }
     });
 
-    it('review — parses status, coverage rows, verify blocks, and the identity/staleness frontmatter', () => {
-        const r = show_artifact({ workspaceDir: ws, kind: 'review', ref: 'feat' });
+    it('review — parses status, coverage rows, and the identity/staleness frontmatter', () => {
+        const r = show('review', 'feat');
         expect(isErr(r)).toBe(false);
         if (!isErr(r)) {
             const value = r.value.value as {
@@ -273,7 +294,6 @@ describe('show_artifact', () => {
             };
             expect(value.status).toBe('needs-human');
             expect(value.coverageRows[0]).toMatchObject({ id: 'AC-001', result: 'Pass' });
-            // The new frontmatter projection: a task-keyed review names its task; no `spec:`.
             expect(value.frontmatter.status).toBe('needs-human');
             expect(value.frontmatter.task).toBe('TASK-feat');
             expect(value.frontmatter.spec).toBeNull();
@@ -281,7 +301,7 @@ describe('show_artifact', () => {
     });
 
     it('review — the task-less 1:1 review names its spec + carries the fast-track pins (ADR-0103/0107)', () => {
-        const r = show_artifact({ workspaceDir: ws, kind: 'review', ref: 'byspec' });
+        const r = show('review', 'REVIEW-byspec');
         expect(isErr(r)).toBe(false);
         if (!isErr(r)) {
             const fm = (
@@ -301,35 +321,208 @@ describe('show_artifact', () => {
         }
     });
 
-    it('errors (exit-2 path) on a missing task / unresolvable spec / unknown kind / missing ref', () => {
-        expect(isErr(show_artifact({ workspaceDir: ws, kind: 'task', ref: 'nope' }))).toBe(true);
-        expect(isErr(show_artifact({ workspaceDir: ws, kind: 'spec', ref: 'SPEC-nope' }))).toBe(true);
-        expect(isErr(show_artifact({ workspaceDir: ws, kind: 'review', ref: 'nope' }))).toBe(true);
-        expect(isErr(show_artifact({ workspaceDir: ws, kind: 'bogus' }))).toBe(true);
-        expect(isErr(show_artifact({ workspaceDir: ws, kind: 'task' }))).toBe(true); // no ref
-        expect(isErr(show_artifact({ workspaceDir: ws, kind: 'spec' }))).toBe(true);
-        expect(isErr(show_artifact({ workspaceDir: ws, kind: 'review' }))).toBe(true);
+    it('run — projects the run record: frontmatter (spec, status, branch) + the agent body', () => {
+        const r = show('run', 'feat');
+        expect(isErr(r)).toBe(false);
+        if (!isErr(r)) {
+            expect(r.value.kind).toBe('run');
+            const value = r.value.value as {
+                path: string;
+                archived: boolean;
+                frontmatter: Record<string, unknown>;
+                body: string;
+            };
+            expect(value.path).toBe(join(store, 'run-feat.md'));
+            expect(value.archived).toBe(false);
+            expect(value.frontmatter.spec).toBe('SPEC-feat');
+            expect(value.frontmatter.status).toBe('exited');
+            expect(value.body).toContain('agent notes');
+        }
     });
 
-    it('confines reads to the workspace — a valid spec OUTSIDE the workspace is refused, not read (#42)', () => {
-        const root = mkdtempSync(join(tmpdir(), 'suspec-show-root-'));
-        try {
-            const inner = join(root, 'ws');
-            mkdirSync(inner, { recursive: true });
-            writeFileSync(join(root, 'secret.md'), SPEC); // a VALID spec outside the workspace
-            // Without confinement, `../secret.md` would resolve + read + project the outside file.
-            expect(isErr(show_artifact({ workspaceDir: inner, kind: 'spec', ref: '../secret.md' }))).toBe(true);
-            // Defense-in-depth on the stem forms (a `/` or `..` is rejected before the read).
-            expect(isErr(show_artifact({ workspaceDir: inner, kind: 'task', ref: '../evil' }))).toBe(true);
-            expect(isErr(show_artifact({ workspaceDir: inner, kind: 'review', ref: '../../evil' }))).toBe(true);
-            expect(isErr(show_artifact({ workspaceDir: inner, kind: 'spec', ref: '/etc/passwd' }))).toBe(true);
-            // The dir-slug branch (specs/<ref>/spec.md) must reject a traversal ref too, not only byPath:
-            // `../../evil-slug` makes `join(ws,'specs',ref,'spec.md')` escape to root/evil-slug/spec.md.
-            mkdirSync(join(root, 'evil-slug'), { recursive: true });
-            writeFileSync(join(root, 'evil-slug', 'spec.md'), SPEC); // a VALID spec reachable only via traversal
-            expect(isErr(show_artifact({ workspaceDir: inner, kind: 'spec', ref: '../../evil-slug' }))).toBe(true);
-        } finally {
-            rmSync(root, { recursive: true, force: true });
+    it('finding — resolves by FIND id or filename and projects severity, run, areas, body', () => {
+        for (const ref of ['FIND-007', 'finding-007', 'finding-007.md']) {
+            const r = show('finding', ref);
+            expect(isErr(r)).toBe(false);
+            if (!isErr(r)) {
+                const value = r.value.value as Record<string, unknown>;
+                expect(value.id).toBe('FIND-007');
+                expect(value.title).toBe('Flaky retry loop');
+                expect(value.severity).toBe('major');
+                expect(value.run).toBe('feat');
+                expect(value.affectedAreas).toEqual(['src/feat']);
+                expect(value.body).toContain('the close.');
+                expect(value.archived).toBe(false);
+            }
         }
+    });
+
+    it('intake — projects the snapshot: frontmatter + body', () => {
+        const r = show('intake', 'tick');
+        expect(isErr(r)).toBe(false);
+        if (!isErr(r)) {
+            const value = r.value.value as { frontmatter: Record<string, unknown>; body: string };
+            expect(value.frontmatter.id).toBe('INTAKE-tick');
+            expect(value.body).toContain('snapshot body');
+        }
+    });
+
+    it('archive/ is the fallback: an archived artifact still resolves and reads archived:true', () => {
+        writeFileSync(join(store, 'archive', 'run-old.md'), RUN);
+        writeFileSync(join(store, 'archive', 'finding-042.md'), FINDING.replace('FIND-007', 'FIND-042'));
+        const run = show('run', 'old');
+        expect(isErr(run)).toBe(false);
+        if (!isErr(run)) {
+            expect((run.value.value as { archived: boolean }).archived).toBe(true);
+        }
+        const finding = show('finding', 'FIND-042');
+        expect(isErr(finding)).toBe(false);
+        if (!isErr(finding)) {
+            expect((finding.value.value as { archived: boolean }).archived).toBe(true);
+        }
+        // A spec resolves from archive/ too — the AC-004 resolver aimed at the archive dir.
+        rmSync(join(store, 'spec-feat.md'));
+        writeFileSync(join(store, 'archive', 'spec-feat.md'), SPEC);
+        expect(isErr(show('spec', 'SPEC-feat'))).toBe(false);
+    });
+
+    it('an open artifact wins over an archived namesake — the root is scanned first', () => {
+        writeFileSync(join(store, 'archive', 'run-feat.md'), RUN.replace('exited', 'live'));
+        const r = show('run', 'feat');
+        expect(isErr(r)).toBe(false);
+        if (!isErr(r)) {
+            const value = r.value.value as { archived: boolean; frontmatter: Record<string, unknown> };
+            expect(value.archived).toBe(false);
+            expect(value.frontmatter.status).toBe('exited');
+        }
+    });
+
+    it('accepts a repo file PATH with the kind omitted, inferring the kind from frontmatter type (R4-ISS-16)', () => {
+        // A promoted/committed spec in the repo stays reachable via the path face.
+        mkdirSync(join(repo, 'docs'), { recursive: true });
+        writeFileSync(join(repo, 'docs', 'feat.md'), SPEC);
+        const spec = show_artifact({ storeDir: store, repoDir: repo, kind: 'docs/feat.md' });
+        expect(isErr(spec)).toBe(false);
+        if (!isErr(spec)) {
+            expect(spec.value.kind).toBe('spec');
+            expect((spec.value.value as { requirements: unknown[] }).requirements).toHaveLength(1);
+        }
+        // …and a run file projects through the raw face.
+        writeFileSync(join(repo, 'docs', 'run.md'), RUN);
+        const run = show_artifact({ storeDir: store, repoDir: repo, kind: 'docs/run.md' });
+        expect(isErr(run)).toBe(false);
+        if (!isErr(run)) {
+            expect(run.value.kind).toBe('run');
+        }
+        // …and a finding file projects through the finding face.
+        writeFileSync(join(repo, 'docs', 'find.md'), FINDING);
+        const finding = show_artifact({ storeDir: store, repoDir: repo, kind: 'docs/find.md' });
+        expect(isErr(finding)).toBe(false);
+        if (!isErr(finding)) {
+            expect(finding.value.kind).toBe('finding');
+            expect((finding.value.value as { id: string }).id).toBe('FIND-007');
+        }
+    });
+
+    it('the path face works with NO store at all (storeDir null) — checks too', () => {
+        writeFileSync(join(repo, 'plan.md'), TASK);
+        const task = show_artifact({ storeDir: null, repoDir: repo, kind: 'plan.md' });
+        expect(isErr(task)).toBe(false);
+        if (!isErr(task)) {
+            expect(task.value.kind).toBe('task');
+            expect((task.value.value as { id: string }).id).toBe('TASK-feat');
+        }
+        expect(isErr(show_artifact({ storeDir: null, repoDir: repo, kind: 'checks' }))).toBe(false);
+    });
+
+    it('a store kind with NO store errors cleanly (exit-2 path), naming the miss', () => {
+        const r = show_artifact({ storeDir: null, repoDir: repo, kind: 'spec', ref: 'SPEC-feat' });
+        expect(isErr(r)).toBe(true);
+        if (isErr(r)) {
+            expect(r.error.message).toContain('no store');
+        }
+    });
+
+    it('errors (exit-2 path) on a missing artifact / unknown kind / missing ref — naming the store searched', () => {
+        const miss = show('task', 'nope');
+        expect(isErr(miss)).toBe(true);
+        if (isErr(miss)) {
+            expect(miss.error.message).toContain('task-*.md');
+            expect(miss.error.message).toContain(store);
+        }
+        expect(isErr(show('spec', 'SPEC-nope'))).toBe(true);
+        expect(isErr(show('review', 'nope'))).toBe(true);
+        expect(isErr(show('run', 'nope'))).toBe(true);
+        expect(isErr(show('finding', 'FIND-999'))).toBe(true);
+        expect(isErr(show('intake', 'nope'))).toBe(true);
+        expect(isErr(show('bogus'))).toBe(true);
+        for (const kind of ['spec', 'run', 'review', 'task', 'finding', 'intake']) {
+            expect(isErr(show(kind))).toBe(true); // no ref
+        }
+    });
+
+    it('refs are ids/slugs, never paths — traversal-shaped refs are refused before any read (#42)', () => {
+        writeFileSync(join(root, 'secret.md'), SPEC); // a VALID spec outside repo AND store
+        expect(isErr(show('spec', '../secret.md'))).toBe(true);
+        expect(isErr(show('task', '../evil'))).toBe(true);
+        expect(isErr(show('review', '../../evil'))).toBe(true);
+        expect(isErr(show('spec', '/etc/passwd'))).toBe(true);
+        // The path face never escapes the repo dir either — a confined check, not a join.
+        expect(isErr(show_artifact({ storeDir: store, repoDir: repo, kind: '../secret.md' }))).toBe(true);
+    });
+
+    it('a dir masquerading as an artifact file is skipped, not read', () => {
+        mkdirSync(join(store, 'run-dir.md'));
+        expect(isErr(show('run', 'dir'))).toBe(true);
+    });
+
+    it('a raw artifact with no (or an unterminated) frontmatter fence keeps its whole text as body', () => {
+        // No fence at all: still resolves by filename slug; the body is the whole trimmed text.
+        writeFileSync(join(store, 'run-bare.md'), 'just notes, no fence\n');
+        const bare = show('run', 'bare');
+        expect(isErr(bare)).toBe(false);
+        if (!isErr(bare)) {
+            expect((bare.value.value as { body: string }).body).toBe('just notes, no fence');
+        }
+        // An unterminated fence: keep everything rather than guess at a body split.
+        writeFileSync(join(store, 'run-torn.md'), '---\ntype: run\nnever closed\n');
+        const torn = show('run', 'torn');
+        expect(isErr(torn)).toBe(false);
+        if (!isErr(torn)) {
+            expect((torn.value.value as { body: string }).body).toContain('never closed');
+        }
+    });
+
+    it('a store spec the spec parser refuses surfaces the parse error (exit-2 path), not a crash', () => {
+        writeFileSync(join(store, 'spec-broken.md'), 'no frontmatter at all\n');
+        expect(isErr(show('spec', 'broken'))).toBe(true);
+    });
+
+    it('finding — a scalar affected_areas reads as a one-item list; absent fields read null', () => {
+        writeFileSync(
+            join(store, 'finding-008.md'),
+            '---\ntype: finding\naffected_areas: src/solo\n---\n\nno heading, no id\n'
+        );
+        const r = show('finding', 'finding-008');
+        expect(isErr(r)).toBe(false);
+        if (!isErr(r)) {
+            const value = r.value.value as Record<string, unknown>;
+            expect(value.affectedAreas).toEqual(['src/solo']);
+            expect(value.id).toBeNull();
+            expect(value.severity).toBeNull();
+            expect(value.run).toBeNull();
+            expect(value.title).toBe(join(store, 'finding-008.md')); // no `# ` heading → path fallback
+        }
+    });
+
+    it('the path face falls through to unknown-kind when the file is missing or not a Suspec artifact', () => {
+        // No such file: the .md-shaped arg never becomes a kind.
+        expect(isErr(show_artifact({ storeDir: store, repoDir: repo, kind: 'nope.md' }))).toBe(true);
+        // A frontmatter type outside the artifact kinds is not projected.
+        writeFileSync(join(repo, 'notes.md'), '---\ntype: memo\n---\n\nx\n');
+        expect(isErr(show_artifact({ storeDir: store, repoDir: repo, kind: 'notes.md' }))).toBe(true);
+        // No frontmatter type at all.
+        writeFileSync(join(repo, 'plain.md'), 'no frontmatter\n');
+        expect(isErr(show_artifact({ storeDir: store, repoDir: repo, kind: 'plain.md' }))).toBe(true);
     });
 });

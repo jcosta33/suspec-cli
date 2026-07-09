@@ -9,7 +9,9 @@ import { join } from 'path';
 import { archive_dir } from '../services/storeLayout.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const KIND = /^(spec|run|review|finding|intake)-/;
+// One alternative per storeLayout builder (spec-/task-/run-/review-/intake-/finding-/change-plan-)
+// so every artifact the store can legally contain lists under its own kind, never as `other`.
+const KIND = /^(spec|run|review|finding|intake|task|change-plan)-/;
 
 export type StoreArtifactAge = Readonly<{ filename: string; kind: string; ageDays: number }>;
 

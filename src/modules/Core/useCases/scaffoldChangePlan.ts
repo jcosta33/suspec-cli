@@ -1,20 +1,25 @@
-// PrepareEngine.new — scaffold a fresh change plan (R4-ISS-06). The change plan is the riskiest core
-// artifact (migrations/rewrites/schema changes) yet was the only one with no `suspec new` generator, so a
-// new hire hand-copied templates/change-plan.md. Generates a draft conforming to the change-plan checks
+// PrepareEngine.new — scaffold a fresh change plan (R4-ISS-06, re-aimed at the store by ADR-0137).
+// The change plan is the riskiest core artifact (migrations/rewrites/schema changes) yet was the
+// only one with no `suspec new` generator, so a new hire hand-copied templates/change-plan.md.
+// The scaffold lands IN THE STORE as `change-plan-<slug>.md` — a transient working artifact like
+// every other, never a committed `change-plans/` repo tree — written atomically and grammar-stamped
+// via write_store_artifact (AC-003). Generates a draft conforming to the change-plan checks
 // (C010 preserves-refs-resolve, C011 waves-present): an empty `preserves:` (nothing to resolve) and a
 // default `kind: refactor` (waves not required) keep a fresh scaffold check-clean until the author fills
 // it. Mirrors the same section shape as the kit's frozen templates/change-plan.md. Never overwrites.
 
-import { existsSync, writeFileSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
+import { existsSync } from 'fs';
+import { join } from 'path';
 
-import { ok, err, type Result } from '../../../infra/errors/result.ts';
+import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { is_safe_segment } from '../services/safeSegment.ts';
+import { change_plan_filename } from '../services/storeLayout.ts';
 import { usage_error, type OutcomeLevel } from './unixOutcome.ts';
+import { write_store_artifact } from './writeStoreArtifact.ts';
 
 export type ScaffoldChangePlanInput = Readonly<{
-    workspaceDir: string;
+    storeDir: string;
     slug: string;
     title?: string;
     owner?: string;
@@ -108,10 +113,11 @@ export function scaffold_change_plan(input: ScaffoldChangePlanInput): Result<Sca
             )
         );
     }
-    const planPath = join(input.workspaceDir, 'change-plans', `${input.slug}.md`);
+    const filename = change_plan_filename(input.slug);
+    const planPath = join(input.storeDir, filename);
     if (existsSync(planPath)) {
         return err(
-            createAppError('ChangePlanExists', `a change plan already exists: change-plans/${input.slug}.md`, {
+            createAppError('ChangePlanExists', `a change plan already exists in the store: ${filename}`, {
                 slug: input.slug,
             })
         );
@@ -121,7 +127,9 @@ export function scaffold_change_plan(input: ScaffoldChangePlanInput): Result<Sca
         title: input.title ?? input.slug,
         owner: input.owner ?? '{{team-or-person}}',
     });
-    mkdirSync(dirname(planPath), { recursive: true });
-    writeFileSync(planPath, content);
+    const written = write_store_artifact(planPath, content);
+    if (isErr(written)) {
+        return err(written.error);
+    }
     return ok({ level: 'clean', path: planPath, changePlanId: `CHANGE-${input.slug}` });
 }

@@ -4,6 +4,7 @@
 //   suspec new task --from <SPEC> [--scope AC-001,AC-002]   SPLIT a store spec into a STORE task
 //                                                           slice (scope copied, never invented)
 //   suspec new change-plan <slug> [--title <t>] [--owner <o>]   scaffold a draft change plan
+//                                                           into the STORE (change-plan-<slug>.md)
 //   suspec new                                              the interactive flow (TTY)
 //
 // `new task` is the SPLIT tool (ADR-0103/0137): summon it when one spec fans out into N parallel
@@ -120,9 +121,17 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
         }
         const titleFlag = flags.get('title');
         const ownerFlag = flags.get('owner');
+        // The plan lands in the store like every working artifact (ADR-0137) — resolve it
+        // (created on first use), never a repo `change-plans/` tree.
+        const rootResult = resolve_repo_root(cwd);
+        const repoRoot = isErr(rootResult) ? cwd : rootResult.value;
+        const store = resolve_store_dir({ repoRoot });
+        if (isErr(store)) {
+            return emit_error(store.error, json);
+        }
         return project({
             result: scaffold_change_plan({
-                workspaceDir: cwd,
+                storeDir: store.value.storeDir,
                 slug,
                 title: typeof titleFlag === 'string' ? titleFlag : undefined,
                 owner: typeof ownerFlag === 'string' ? ownerFlag : undefined,
