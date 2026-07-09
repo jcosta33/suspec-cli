@@ -21,16 +21,19 @@ import {
     next_evidence_seq,
 } from '../services/evidenceArtifact.ts';
 import { evidence_dir, run_filename } from '../services/storeLayout.ts';
+import { append_capture_ledger_line } from './appendCaptureLedgerLine.ts';
 import { read_run_state } from './readRunState.ts';
 import { write_store_artifact } from './writeStoreArtifact.ts';
 import { usage_error, type OutcomeLevel } from './unixOutcome.ts';
 
 // The Workspace spawn edge, injected so the engine is testable without a real process: run argv in
-// cwd, capture everything. An Err means the command could not execute at all (not a non-zero exit).
+// cwd, capture everything. Output travels as BUFFERS — the "byte-exact" store claim holds only if
+// no encode/decode round-trip sits between the child process and the .out file. An Err means the
+// command could not execute at all (not a non-zero exit).
 export type EvidenceCapture = (
     command: readonly string[],
     cwd: string
-) => Result<{ exit: number; stdout: string; stderr: string }, AppError>;
+) => Result<{ exit: number; stdout: Buffer; stderr: Buffer }, AppError>;
 
 export type AddEvidenceInput = Readonly<{
     storeDir: string;
@@ -78,7 +81,7 @@ export function add_evidence(input: AddEvidenceInput): Result<AddEvidenceReport,
         return err(captured.error);
     }
     const { exit, stdout, stderr } = captured.value;
-    const raw = stdout + stderr;
+    const raw = Buffer.concat([stdout, stderr]);
 
     const dir = evidence_dir(input.storeDir, input.runSlug);
     let existingNames: string[];
@@ -89,7 +92,8 @@ export function add_evidence(input: AddEvidenceInput): Result<AddEvidenceReport,
         // Something non-directory squats on the evidence path — an Err, never a crash.
         return err(createAppError('evidence_dir_unwritable', `could not open the evidence dir at ${dir}`, { dir }, cause));
     }
-    const stem = evidence_stem(next_evidence_seq(existingNames), evidence_slug(input.command));
+    const seq = next_evidence_seq(existingNames);
+    const stem = evidence_stem(seq, evidence_slug(input.command));
     const capturePath = join(dir, `${stem}.out`);
     const evidencePath = join(dir, `${stem}.md`);
 
@@ -109,7 +113,7 @@ export function add_evidence(input: AddEvidenceInput): Result<AddEvidenceReport,
         capturedAt: (input.now ?? (() => new Date()))().toISOString(),
         worktreeDiffSha: input.diffDigest(worktree) ?? 'uncomputable',
         captureFile: `${stem}.out`,
-        captureBytes: Buffer.byteLength(raw, 'utf8'),
+        captureBytes: raw.length,
         captureSha256: capture_sha256(raw),
     });
     const recordWritten = write_store_artifact(evidencePath, content);
@@ -127,6 +131,25 @@ export function add_evidence(input: AddEvidenceInput): Result<AddEvidenceReport,
     const runWritten = write_store_artifact(runPath, appended);
     if (isErr(runWritten)) {
         return err(runWritten.error);
+    }
+
+    // The CLI-owned capture ledger line — OUTSIDE the store dir, so a hand-forged (yet
+    // self-consistent) .md/.out pair inside the store has no matching ledger line and `done`
+    // refuses to count it as cli-verified. An unwritable ledger is an Err: evidence that cannot
+    // be ledgered would read forged at the gate, so failing loudly here is the honest outcome.
+    const ledgered = append_capture_ledger_line(input.storeDir, {
+        kind: 'capture',
+        run: input.runSlug,
+        seq,
+        file: `${stem}.out`,
+        sha256: capture_sha256(raw),
+        bytes: raw.length,
+        exit,
+        command: input.command.join(' ').replace(/\s+/g, ' '),
+        ts: (input.now ?? (() => new Date()))().toISOString(),
+    });
+    if (isErr(ledgered)) {
+        return err(ledgered.error);
     }
 
     return ok({

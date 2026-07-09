@@ -8,6 +8,7 @@ import {
     reclaim_run_content,
     finish_run_content,
     abort_run_content,
+    done_run_content,
     HEARTBEAT_FRESH_MS,
 } from '../services/runArtifact.ts';
 
@@ -149,5 +150,15 @@ describe('reclaim / finish / abort — frontmatter-only rewrites (AC-008)', () =
 
     it('abort releases the lock so a failed launch never blocks the next work', () => {
         expect(read_run_lock(abort_run_content(build_run_content(FIELDS))).status).toBe('aborted');
+    });
+
+    it('finish never downgrades a terminal status — done written mid-session survives the agent exit', () => {
+        const doneMidSession = done_run_content(build_run_content(FIELDS), null);
+        const finished = finish_run_content(doneMidSession, 0);
+        expect(read_run_lock(finished).status).toBe('done'); // NOT exited
+        expect(finished).toContain('exit: 0'); // the exit is still recorded as a fact
+
+        const abortedThenFinished = finish_run_content(abort_run_content(build_run_content(FIELDS)), 1);
+        expect(read_run_lock(abortedThenFinished).status).toBe('aborted');
     });
 });

@@ -1,14 +1,14 @@
 // The ambient decay scan (SPEC-suspec-v2 AC-019): how much of the repo's store has gone stale —
 // findings whose keep/defer `expires:` date passed, runs still claiming `status: live` on a dead
 // heartbeat, and archived artifacts past the gc retention window. The surfaces (`work`, `status`,
-// and Wave 5's `next`) print ONE line via decay_line when the total is nonzero; the fix is always
+// and `next`) print ONE line via decay_line when the total is nonzero; the fix is always
 // `suspec store doctor` / `store gc`, never automatic. Read-only.
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
 
 import { fm_scalar, read_frontmatter } from '../services/readFrontmatter.ts';
-import { is_heartbeat_fresh } from '../services/runArtifact.ts';
+import { is_heartbeat_fresh, read_run_lock } from '../services/runArtifact.ts';
 import { archive_dir } from '../services/storeLayout.ts';
 import { DEFAULT_RETENTION_DAYS } from './readStoreSettings.ts';
 
@@ -50,20 +50,21 @@ export function store_decay_summary(storeDir: string, opts: StoreDecayOptions = 
             } catch {
                 continue; // a dir masquerading as an artifact — skip
             }
-            const fm = read_frontmatter(source);
             if (isFinding) {
-                const expires = fm_scalar(fm.expires);
+                const expires = fm_scalar(read_frontmatter(source).expires);
                 if (expires !== undefined) {
                     const at = Date.parse(expires);
                     if (!Number.isNaN(at) && at < now.getTime()) {
                         expiredFindings += 1;
                     }
                 }
-            } else if (
-                fm_scalar(fm.status) === 'live' &&
-                !is_heartbeat_fresh(fm_scalar(fm.heartbeat) ?? null, now.getTime())
-            ) {
-                staleRuns += 1;
+            } else {
+                // The run lock read goes through the same reader `store doctor` uses — one
+                // parser for the lock fields, not two ad-hoc frontmatter reads.
+                const lock = read_run_lock(source);
+                if (lock.status === 'live' && !is_heartbeat_fresh(lock.heartbeat, now.getTime())) {
+                    staleRuns += 1;
+                }
             }
         }
     }

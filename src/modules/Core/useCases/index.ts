@@ -93,6 +93,7 @@ export { run_filename } from '../services/storeLayout.ts';
 export { add_evidence, type AddEvidenceInput, type AddEvidenceReport, type EvidenceCapture } from './addEvidence.ts';
 export { list_evidence_records } from './listEvidenceRecords.ts';
 export { verify_evidence_capture } from './verifyEvidenceCapture.ts';
+export { record_launch_ledger, type RecordLaunchLedgerInput } from './recordLaunchLedger.ts';
 export { gate_evidence, type GateEvidenceInput, type GateReport, type GateRequirement } from './gateEvidence.ts';
 export {
     lint_run_artifacts,

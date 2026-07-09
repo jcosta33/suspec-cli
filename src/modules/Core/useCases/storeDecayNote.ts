@@ -1,7 +1,7 @@
 // The shared decay hook the ambient surfaces wire in (SPEC-suspec-v2 AC-019): resolve the repo's
 // store WITHOUT creating it (probe), scan it, and return the one-line nudge — or null when the
-// repo has no store yet or nothing decayed. `work` and `status` call this today; Wave 5's `next`
-// wires the same call. Never an error: a surface's main job must not fail on a decay probe.
+// repo has no store yet or nothing decayed. `work`, `status`, and `next` call this.
+// Never an error: a surface's main job must not fail on a decay probe.
 
 import { isErr } from '../../../infra/errors/result.ts';
 import { read_store_settings } from './readStoreSettings.ts';

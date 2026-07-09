@@ -6,7 +6,7 @@
 // and gets the version stamped. Artifacts already at the current version are untouched (no-op);
 // newer-than-current versions are reported, never downgraded. Rewrites go through the atomic writer.
 
-import { existsSync, readdirSync, readFileSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, statSync, utimesSync } from 'fs';
 import { join } from 'path';
 
 import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
@@ -41,6 +41,32 @@ function list_artifacts(dir: string): string[] {
     return readdirSync(dir, { withFileTypes: true })
         .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
         .map((entry) => join(dir, entry.name));
+}
+
+// Rewrite an artifact but keep its timestamps: gc retention and the decay scan key on mtime, and
+// a grammar upgrade is a mechanical rewrite, not fresh activity — a migration must not reset
+// every archived artifact's retention clock. Timestamp restore is best-effort: the content
+// upgrade matters more than the clock.
+function rewrite_preserving_mtime(path: string, content: string): ReturnType<typeof write_store_artifact> {
+    let stamped: { atime: Date; mtime: Date } | null;
+    try {
+        const stat = statSync(path);
+        stamped = { atime: stat.atime, mtime: stat.mtime };
+        /* v8 ignore next 3 -- the file was just read by the caller; vanishing needs an outside actor mid-command */
+    } catch {
+        stamped = null;
+    }
+    const written = write_store_artifact(path, content);
+    if (isErr(written) || stamped === null) {
+        return written;
+    }
+    try {
+        utimesSync(path, stamped.atime, stamped.mtime);
+        /* v8 ignore next 3 -- utimes on a file just written fails only on exotic filesystems; the upgrade itself already landed */
+    } catch {
+        // best-effort
+    }
+    return written;
 }
 
 export function migrate_store(input: MigrateStoreInput): Result<MigrateStoreReport, AppError> {
@@ -86,7 +112,7 @@ export function migrate_store(input: MigrateStoreInput): Result<MigrateStoreRepo
             }
             migrated = transform(migrated);
         }
-        const written = write_store_artifact(path, stamp_grammar_version(migrated, currentVersion));
+        const written = rewrite_preserving_mtime(path, stamp_grammar_version(migrated, currentVersion));
         if (isErr(written)) {
             return err(written.error);
         }

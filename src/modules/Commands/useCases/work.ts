@@ -51,11 +51,13 @@ import {
     abort_run_content,
     is_heartbeat_fresh,
     run_filename,
+    record_launch_ledger,
 } from '../../Core/useCases/index.ts';
 import {
     resolve_repo_root,
     current_branch,
     head_sha,
+    is_pid_alive,
     is_worktree_dirty,
     run_setup,
     launch_runner,
@@ -70,6 +72,25 @@ function indent(text: string): string {
         .split('\n')
         .map((line) => `    ${line}`)
         .join('\n');
+}
+
+// Is a run lock LIVE? The OS pid probe outranks the heartbeat timestamp: a long agent session
+// (hours inside one `work`) never re-stamps the heartbeat, so a 15-minute decay rule alone would
+// let a second `work` reclaim INTO the same worktree under the live agent. pid alive → live
+// regardless of timestamp; pid dead → reclaimable regardless of timestamp; no recorded pid →
+// the heartbeat rule is all there is.
+function run_lock_live(lock: Readonly<{ status: string | null; pid: number | null; heartbeat: string | null }>): boolean {
+    if (lock.status !== 'live') {
+        return false;
+    }
+    if (lock.pid !== null) {
+        return is_pid_alive(lock.pid);
+    }
+    return is_heartbeat_fresh(lock.heartbeat, Date.now());
+}
+
+function is_terminal_status(status: string | null): boolean {
+    return status === 'done' || status === 'exited' || status === 'aborted';
 }
 
 export function run(argv: string[], cwd: string = process.cwd()): number {
@@ -147,7 +168,7 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
     const { spec: specId, specSlug, specPath, specSource, runner } = plan.value;
 
     // AC-019: the ambient decay line — one stderr note when the store holds decayed items; the
-    // shared hook (`store_decay_note`) is the same one `status` (and Wave 5's `next`) print.
+    // shared hook (`store_decay_note`) is the same one `status` and `next` print.
     const notes: string[] = [];
     const decayNote = store_decay_note(repoRoot);
     if (decayNote !== null) {
@@ -223,8 +244,7 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
     const primaryRun = read_run_state(primaryRunPath);
     const live =
         primaryRun !== null &&
-        primaryRun.lock.status === 'live' &&
-        is_heartbeat_fresh(primaryRun.lock.heartbeat, Date.now());
+        run_lock_live(primaryRun.lock);
     if (attach) {
         if (!live) {
             return emit_error(
@@ -254,7 +274,7 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
         let n = 2;
         for (;;) {
             const candidate = read_run_state(join(storeDir, run_filename(`${specSlug}-${n}`)));
-            if (candidate?.lock.status !== 'live' || !is_heartbeat_fresh(candidate.lock.heartbeat, Date.now())) {
+            if (candidate === null || !run_lock_live(candidate.lock)) {
                 break;
             }
             n += 1;
@@ -282,10 +302,14 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
         });
     } else if (primaryRun !== null && primaryRun.lock.status === 'live') {
         notes.push(
-            `note: ${run_filename(specSlug)} holds a stale lock (pid ${primaryRun.lock.pid ?? 'unknown'}, heartbeat ${
+            `note: ${run_filename(specSlug)} holds a dead lock (pid ${primaryRun.lock.pid ?? 'unknown'} not running, heartbeat ${
                 primaryRun.lock.heartbeat ?? 'none'
             }) — the run is reclaimable; relaunching`
         );
+    } else if (primaryRun !== null && is_terminal_status(primaryRun.lock.status)) {
+        // A finished run being relaunched deserves a heads-up, not silence — the record below is
+        // re-stamped live and the previous outcome is only in the frontmatter history the agent kept.
+        notes.push(`note: reopening a completed run (was ${primaryRun.lock.status ?? 'unknown'})`);
     }
     const runPath = join(storeDir, run_filename(runSlug));
 
@@ -410,6 +434,15 @@ export function run(argv: string[], cwd: string = process.cwd()): number {
     const runWritten = write_store_artifact(runPath, runContent);
     if (isErr(runWritten)) {
         return emit_error(runWritten.error, json);
+    }
+
+    // The launch line in the CLI-owned capture ledger: {run, spec_id, spec_sha256} — `done`
+    // cross-checks the run's `spec:` and the driving spec's content hash against it, so the run
+    // cannot be silently redirected to another (or a rewritten) spec after launch. A failed
+    // append degrades to a warning: old ledgerless runs already gate on the capture block alone.
+    const launchLedgered = record_launch_ledger({ storeDir, runSlug, specId, specSource });
+    if (isErr(launchLedgered)) {
+        notes.push(`warning: could not record the launch in the capture ledger — ${launchLedgered.error.message}`);
     }
 
     // AC-009: render the runner's command template ({prompt}/{cwd}/{store} substituted post-split)

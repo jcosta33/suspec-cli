@@ -5,8 +5,16 @@
 //   - the review packet (when `review-<run>.md` exists) → C012/C013/C016 keyed on the SPEC's full
 //     AC set (the spec is the unit — ADR-0103; the store has no task packets);
 //   - the run record → structural facts (a run must name its driving spec);
-//   - every evidence record → the provenance honesty check (AC-010): `provenance: cli-verified`
-//     without a consistent CLI capture block is FORGED (hard-error), and the enum + ac mapping.
+//   - every evidence record → the provenance honesty checks (AC-010): `provenance: cli-verified`
+//     without a consistent CLI capture block is FORGED (EV03, hard-error); a consistent block
+//     with NO matching line in the CLI-owned capture ledger is UNLEDGERED (EV04, hard-error) —
+//     the pair was written around the CLI (see services/captureLedger.ts for the honesty note);
+//     plus the enum + ac mapping. When no ledger file exists at all (pre-ledger history, a wiped
+//     state-root), EV04 is skipped — capture-block verification is the honest fallback, never a
+//     permanent wedge;
+//   - the run ↔ launch binding: when the ledger holds a launch line for this run, the run file's
+//     `spec:` and the driving spec's content hash must still match it (RUN03, hard-error) — a
+//     run redirected to another spec after launch has no honest gate to run.
 // Read-only. The level aggregates per-check severity (hard-error → blocking, warning → warning).
 
 import { existsSync, readFileSync } from 'fs';
@@ -25,8 +33,14 @@ import { EVIDENCE_PROVENANCES, type EvidenceRecord } from '../services/evidenceA
 import { parse_review_packet } from '../services/parseReviewPacket.ts';
 import { fm_scalar, read_frontmatter } from '../services/readFrontmatter.ts';
 import { evidence_dir, review_filename, run_filename } from '../services/storeLayout.ts';
+import {
+    latest_launch_line,
+    ledger_backs_record,
+    spec_content_sha256,
+} from '../services/captureLedger.ts';
 import { find_store_spec } from './findStoreSpec.ts';
 import { list_evidence_records } from './listEvidenceRecords.ts';
+import { read_capture_ledger, type CaptureLedgerView } from './readCaptureLedger.ts';
 import { verify_evidence_capture } from './verifyEvidenceCapture.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
@@ -47,6 +61,11 @@ export type LintRunArtifactsReport = Readonly<{
     // diagnostic above says why — there is no gate to run without it).
     requirements: readonly { id: string; verifyCommand: string | null }[] | null;
     artifacts: readonly StoreLintArtifact[];
+    // The capture-ledger view the gate shares: whether the CLI-owned ledger file exists (absent →
+    // the consumers degrade to capture-block verification with a note), and which cli-verified
+    // record filenames it does NOT back (EV04 above) — the gate refuses to count those too.
+    ledgerExists: boolean;
+    unledgered: readonly string[];
 }>;
 
 export type LintRunArtifactsInput = Readonly<{ storeDir: string; repoRoot: string; runSlug: string }>;
@@ -63,7 +82,8 @@ function level_for(artifacts: readonly StoreLintArtifact[]): OutcomeLevel {
 function lint_evidence_record(
     storeDir: string,
     runSlug: string,
-    record: EvidenceRecord
+    record: EvidenceRecord,
+    ledger: CaptureLedgerView
 ): StoreLintDiagnostic[] {
     const diagnostics: StoreLintDiagnostic[] = [];
     if (record.provenance === null || !(EVIDENCE_PROVENANCES as readonly string[]).includes(record.provenance)) {
@@ -84,7 +104,58 @@ function lint_evidence_record(
                 'claims provenance: cli-verified but its CLI capture block is absent or inconsistent with the stored raw output — only `suspec evidence add` writes cli-verified evidence',
         });
     }
+    // EV04: a SELF-CONSISTENT capture block is still forgeable — the whole .md/.out pair lives in
+    // the agent-writable store. Only when the CLI-owned ledger EXISTS is a missing line damning;
+    // no ledger file at all means pre-ledger history and degrades to the EV03 check alone.
+    if (
+        record.provenance === 'cli-verified' &&
+        ledger.exists &&
+        !ledger_backs_record(ledger.entries, runSlug, record)
+    ) {
+        diagnostics.push({
+            check: 'EV04',
+            severity: 'hard-error',
+            message:
+                'claims provenance: cli-verified but the CLI capture ledger has no matching line — the record/output pair was written around `suspec evidence add` (forged or unledgered)',
+        });
+    }
     return diagnostics;
+}
+
+// RUN03: the run ↔ launch binding. `work` ledgers {run, spec_id, spec_sha256} at launch; a run
+// whose `spec:` was redirected — or whose driving spec's CONTENT was rewritten — after launch
+// would gate against requirements the agent never worked. Only checked when a launch line exists
+// (old runs / by-hand runs degrade silently); a legitimate mid-run spec amendment is re-bound by
+// relaunching (`suspec work` appends a fresh launch line).
+function launch_binding_diagnostics(
+    ledger: CaptureLedgerView,
+    runSlug: string,
+    specId: string | null,
+    spec: Readonly<{ source: string }> | null
+): StoreLintDiagnostic[] {
+    const launch = latest_launch_line(ledger.entries, runSlug);
+    if (launch === null) {
+        return [];
+    }
+    if (specId !== launch.spec_id) {
+        return [
+            {
+                check: 'RUN03',
+                severity: 'hard-error',
+                message: `run/spec redirect: frontmatter \`spec: ${specId ?? '(none)'}\` differs from the spec recorded at launch (${launch.spec_id})`,
+            },
+        ];
+    }
+    if (spec !== null && spec_content_sha256(spec.source) !== launch.spec_sha256) {
+        return [
+            {
+                check: 'RUN03',
+                severity: 'hard-error',
+                message: `run/spec redirect: the driving spec's content changed since launch — relaunch \`suspec work ${launch.spec_id}\` to re-bind before gating`,
+            },
+        ];
+    }
+    return [];
 }
 
 export function lint_run_artifacts(input: LintRunArtifactsInput): Result<LintRunArtifactsReport, AppError> {
@@ -97,6 +168,7 @@ export function lint_run_artifacts(input: LintRunArtifactsInput): Result<LintRun
         );
     }
     const artifacts: StoreLintArtifact[] = [];
+    const ledger = read_capture_ledger(input.storeDir);
 
     // --- the run record: structural facts -------------------------------------------------------
     const runSource = readFileSync(runPath, 'utf8');
@@ -117,6 +189,7 @@ export function lint_run_artifacts(input: LintRunArtifactsInput): Result<LintRun
                     : `driving spec ${specId} resolves to no store spec-*.md`,
         });
     }
+    runDiagnostics.push(...launch_binding_diagnostics(ledger, input.runSlug, specId, spec));
     artifacts.push({ path: runPath, diagnostics: runDiagnostics });
 
     // --- the driving spec: the contract's spec checks, re-aimed at the store --------------------
@@ -188,13 +261,25 @@ export function lint_run_artifacts(input: LintRunArtifactsInput): Result<LintRun
         });
     }
 
-    // --- every evidence record: the provenance honesty check ------------------------------------
+    // --- every evidence record: the provenance honesty checks -----------------------------------
+    const unledgered: string[] = [];
     for (const record of list_evidence_records(input.storeDir, input.runSlug)) {
-        const diagnostics = lint_evidence_record(input.storeDir, input.runSlug, record);
+        const diagnostics = lint_evidence_record(input.storeDir, input.runSlug, record, ledger);
+        if (diagnostics.some((diagnostic) => diagnostic.check === 'EV04')) {
+            unledgered.push(record.filename);
+        }
         if (diagnostics.length > 0) {
             artifacts.push({ path: join(evidence_dir(input.storeDir, input.runSlug), record.filename), diagnostics });
         }
     }
 
-    return ok({ level: level_for(artifacts), runSlug: input.runSlug, specId, requirements, artifacts });
+    return ok({
+        level: level_for(artifacts),
+        runSlug: input.runSlug,
+        specId,
+        requirements,
+        artifacts,
+        ledgerExists: ledger.exists,
+        unledgered,
+    });
 }

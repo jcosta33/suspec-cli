@@ -6,7 +6,7 @@
 // miss means the cli-verified claim is unbacked — the lint flags it as forged and the gate
 // refuses to count it. Read-only.
 
-import { existsSync, readFileSync, statSync } from 'fs';
+import { readFileSync, statSync } from 'fs';
 import { join } from 'path';
 
 import { evidence_dir } from '../services/storeLayout.ts';
@@ -22,15 +22,17 @@ export function verify_evidence_capture(storeDir: string, runSlug: string, recor
         return false;
     }
     const rawPath = join(evidence_dir(storeDir, runSlug), record.captureFile);
-    if (!existsSync(rawPath) || !statSync(rawPath).isFile()) {
-        return false;
-    }
-    let raw: string;
+    // stat + read inside one try: the file can vanish between any two of these calls (TOCTOU) —
+    // an unreadable capture is an unbacked claim, never a crash.
+    let raw: Buffer;
     try {
-        raw = readFileSync(rawPath, 'utf8');
+        if (!statSync(rawPath).isFile()) {
+            return false;
+        }
+        // Raw BYTES — the capture is byte-exact, so the hash/length check must not decode.
+        raw = readFileSync(rawPath);
     } catch {
-        /* v8 ignore next 2 -- existsSync+isFile just passed; a read failure needs the file to vanish between the two calls */
         return false;
     }
-    return Buffer.byteLength(raw, 'utf8') === record.captureBytes && capture_sha256(raw) === record.captureSha256;
+    return raw.length === record.captureBytes && capture_sha256(raw) === record.captureSha256;
 }

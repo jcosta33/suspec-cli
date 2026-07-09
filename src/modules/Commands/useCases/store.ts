@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-// `suspec store <doctor|list|gc|purge>` — structural anti-rot (SPEC-suspec-v2 AC-018/AC-020).
+// `suspec store <doctor|list|gc|purge|migrate>` — structural anti-rot (SPEC-suspec-v2 AC-018/AC-020)
+// plus the grammar upgrader (AC-003).
 //   doctor   reconcile-only sweep: terminal states derive from git/GitHub truth — a spec/run whose
 //            branch is merged, whose worktree is gone, or whose PR is closed is ARCHIVED (moved,
 //            never deleted); orphans (branch/worktree never existed) are listed. Exit 0 always —
@@ -126,16 +127,22 @@ export async function run(argv: string[], cwd: string = process.cwd(), prompter?
                     store: storeDir,
                     retention_days: retentionDays,
                     deleted: swept.value.deleted,
+                    swept_tmp: swept.value.sweptTmp,
                 },
             },
             json,
             render: (v) =>
-                v.deleted.length === 0
-                    ? `store gc — nothing archived is past the ${v.retention_days}d retention`
-                    : [
-                          `store gc — deleted ${v.deleted.length} archived artifact(s) past the ${v.retention_days}d retention:`,
-                          ...v.deleted.map((d) => `  archive/${d.filename}  (${d.ageDays}d old)`),
-                      ].join('\n'),
+                [
+                    ...(v.deleted.length === 0
+                        ? [`store gc — nothing archived is past the ${v.retention_days}d retention`]
+                        : [
+                              `store gc — deleted ${v.deleted.length} archived artifact(s) past the ${v.retention_days}d retention:`,
+                              ...v.deleted.map((d) => `  archive/${d.filename}  (${d.ageDays}d old)`),
+                          ]),
+                    ...(v.swept_tmp.length > 0
+                        ? [`  swept ${v.swept_tmp.length} orphaned .tmp file(s): ${v.swept_tmp.join(', ')}`]
+                        : []),
+                ].join('\n'),
         });
     }
 
@@ -170,6 +177,12 @@ export async function run(argv: string[], cwd: string = process.cwd(), prompter?
     }
 
     // purge — the only whole-store delete, gated on an explicit human confirmation (AC-020).
+    // An explicit guard, not a fall-through: a subcommand added to SUBCOMMANDS but not handled
+    // above must land on the exhaustive usage error below, never silently purge.
+    if (sub !== 'purge') {
+        /* v8 ignore next 2 -- unreachable while SUBCOMMANDS mirrors the handled set; the guard exists for the day it doesn't */
+        return emit_error(usage_error(USAGE), json);
+    }
     const repoName = basename(repoRoot);
     if (!force) {
         /* v8 ignore next 2 -- the TTY default constructs the real clack prompter; tests inject the mock */

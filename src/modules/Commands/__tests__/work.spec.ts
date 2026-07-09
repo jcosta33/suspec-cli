@@ -12,7 +12,8 @@ import {
 } from 'fs';
 import { tmpdir } from 'os';
 import { basename, join, relative } from 'path';
-import { execFileSync } from 'child_process';
+import { execFileSync, spawnSync } from 'child_process';
+import { createHash } from 'crypto';
 
 import { run } from '../useCases/work.ts';
 import { COMMAND_CATALOG } from '../useCases/catalog.ts';
@@ -361,24 +362,58 @@ describe('suspec work — staleness at launch (AC-007)', () => {
     });
 });
 
-describe('suspec work — run lock + heartbeat (AC-008)', () => {
-    const liveRun = (slug: string, heartbeat: string, worktree = '/live/wt'): void => {
+describe('suspec work — run lock + pid liveness + heartbeat (AC-008)', () => {
+    // pid defaults to OUR OWN pid — provably alive, so "live" tests never depend on whether some
+    // arbitrary number happens to be a running process on the host.
+    const liveRun = (
+        slug: string,
+        heartbeat: string,
+        worktree = '/live/wt',
+        pid: number | 'none' = process.pid
+    ): void => {
+        const pidLine = pid === 'none' ? '' : `pid: ${pid}\n`;
         writeFileSync(
             join(store, `run-${slug}.md`),
-            `---\ntype: run\nspec: SPEC-feat\nworktree: ${worktree}\nbranch: suspec/feat\nstatus: live\npid: 4242\nheartbeat: ${heartbeat}\n---\n\nPREVIOUS BODY\n`
+            `---\ntype: run\nspec: SPEC-feat\nworktree: ${worktree}\nbranch: suspec/feat\nstatus: live\n${pidLine}heartbeat: ${heartbeat}\n---\n\nPREVIOUS BODY\n`
         );
     };
 
-    it('a second work on a live spec (fresh heartbeat) refuses, offering --attach and --second-worktree', () => {
+    // A pid that provably ran and exited: spawn a no-op child and wait for it.
+    const deadPid = (): number => {
+        const child = spawnSync('node', ['-e', '']);
+        return child.pid;
+    };
+
+    it('a second work on a live spec (alive pid, fresh heartbeat) refuses, offering --attach and --second-worktree', () => {
         buildWork();
         liveRun('feat', new Date().toISOString());
         const { code, out } = capture(() => run(['SPEC-feat'], repo));
         expect(code).toBe(1);
         expect(out).toMatch(/a live run already holds SPEC-feat/);
-        expect(out).toMatch(/pid 4242/);
+        expect(out).toMatch(new RegExp(`pid ${process.pid}`));
         expect(out).toMatch(/suspec work SPEC-feat --attach/);
         expect(out).toMatch(/suspec work SPEC-feat --second-worktree/);
         expect(existsSync(join(repo, '.worktrees'))).toBe(false); // dispatched nothing
+    });
+
+    it('an ALIVE pid outranks a decayed heartbeat — a long agent session is never hijacked', () => {
+        buildWork();
+        // The heartbeat decayed hours ago, but the recorded pid (our own) is alive: still LIVE.
+        liveRun('feat', new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString());
+        const { code, out } = capture(() => run(['SPEC-feat'], repo));
+        expect(code).toBe(1);
+        expect(out).toMatch(/a live run already holds SPEC-feat/);
+        expect(existsSync(join(repo, '.worktrees'))).toBe(false);
+    });
+
+    it('a DEAD pid outranks a fresh heartbeat — the crashed run is reclaimable immediately', () => {
+        buildWork();
+        liveRun('feat', new Date().toISOString(), '/live/wt', deadPid());
+        const { code, err } = capture(() => run(['SPEC-feat'], repo));
+        expect(code).toBe(0);
+        expect(err).toMatch(/dead lock/);
+        expect(err).toMatch(/reclaimable/);
+        expect(readFileSync(join(store, 'run-feat.md'), 'utf8')).toContain(`pid: ${process.pid}`); // re-stamped
     });
 
     it('--attach prints the runner-native attach hint and dispatches NOTHING (exit 0)', () => {
@@ -400,7 +435,8 @@ describe('suspec work — run lock + heartbeat (AC-008)', () => {
 
     it('--second-worktree launches beside the live run: suffixed worktree + separate run file', () => {
         buildWork();
-        liveRun('feat', new Date().toISOString());
+        const heartbeat = new Date().toISOString();
+        liveRun('feat', heartbeat);
         const { code } = capture(() => run(['SPEC-feat', '--second-worktree'], repo));
         expect(code).toBe(0);
         const worktree = join(repo, '.worktrees', 'feat-2');
@@ -409,7 +445,7 @@ describe('suspec work — run lock + heartbeat (AC-008)', () => {
         const second = readFileSync(join(store, 'run-feat-2.md'), 'utf8');
         expect(second).toContain(`worktree: ${worktree}`);
         // The primary run file is untouched — still the live sibling's record.
-        expect(readFileSync(join(store, 'run-feat.md'), 'utf8')).toContain('pid: 4242');
+        expect(readFileSync(join(store, 'run-feat.md'), 'utf8')).toContain(`heartbeat: ${heartbeat}`);
     });
 
     it('--second-worktree skips a live -2 sibling and lands on -3', () => {
@@ -421,17 +457,50 @@ describe('suspec work — run lock + heartbeat (AC-008)', () => {
         expect(existsSync(join(repo, '.worktrees', 'feat-3', 'cwd.txt'))).toBe(true);
     });
 
-    it('a dead heartbeat is reported reclaimable; the relaunch re-takes the lock, preserving the body', () => {
+    it('with NO recorded pid the heartbeat rule still governs: dead heartbeat → reclaimed, body preserved', () => {
         buildWork();
-        liveRun('feat', new Date(Date.now() - 16 * 60 * 1000).toISOString());
+        liveRun('feat', new Date(Date.now() - 16 * 60 * 1000).toISOString(), '/live/wt', 'none');
         const { code, err } = capture(() => run(['SPEC-feat'], repo));
         expect(code).toBe(0);
-        expect(err).toMatch(/stale lock \(pid 4242/);
         expect(err).toMatch(/reclaimable/);
         const runFile = readFileSync(join(store, 'run-feat.md'), 'utf8');
         expect(runFile).toContain(`pid: ${process.pid}`); // re-stamped
         expect(runFile).toContain('status: exited'); // …and released after the stub exited
         expect(runFile).toContain('PREVIOUS BODY'); // the agent-written body survived
+    });
+
+    it('appends a launch line to the capture ledger binding the run to the spec id + content hash', () => {
+        buildWork();
+        const { code } = capture(() => run(['SPEC-feat'], repo));
+        expect(code).toBe(0);
+        const ledgerPath = join(stateRoot, '.captures', `${basename(repo)}.jsonl`);
+        const entries = readFileSync(ledgerPath, 'utf8')
+            .trim()
+            .split('\n')
+            .map((line) => JSON.parse(line));
+        const launch = entries.find((entry) => entry.kind === 'launch');
+        expect(launch).toMatchObject({ run: 'feat', spec_id: 'SPEC-feat' });
+        expect(launch.spec_sha256).toBe(createHash('sha256').update(SPEC, 'utf8').digest('hex'));
+    });
+
+    it('a launch that cannot be ledgered degrades to a warning — the launch itself still happens', () => {
+        buildWork();
+        writeFileSync(join(stateRoot, '.captures'), 'a file squatting where the ledger dir must go');
+        const { code, err } = capture(() => run(['SPEC-feat'], repo));
+        expect(code).toBe(0); // launched fine
+        expect(err).toMatch(/warning: could not record the launch in the capture ledger/);
+    });
+
+    it('relaunching a TERMINAL run prints the reopening note (was done)', () => {
+        buildWork();
+        writeFileSync(
+            join(store, 'run-feat.md'),
+            `---\ntype: run\nspec: SPEC-feat\nworktree: /old/wt\nbranch: suspec/feat\nstatus: done\npid: 1\nheartbeat: 2026-01-01T00:00:00.000Z\n---\n\nFINISHED BODY\n`
+        );
+        const { code, err } = capture(() => run(['SPEC-feat'], repo));
+        expect(code).toBe(0);
+        expect(err).toMatch(/reopening a completed run \(was done\)/);
+        expect(readFileSync(join(store, 'run-feat.md'), 'utf8')).toContain('FINISHED BODY');
     });
 });
 

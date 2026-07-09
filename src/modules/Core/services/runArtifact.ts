@@ -136,8 +136,15 @@ export function reclaim_run_content(content: string, fields: RunRecordFields): s
     });
 }
 
-// The runner exited: release the lock and record the exit as a fact (never a verdict).
+// The runner exited: release the lock and record the exit as a fact (never a verdict). When the
+// run reached a TERMINAL status mid-session (`suspec done` marked it done, or an abort landed),
+// the post-run release must not downgrade it back to `exited` — the exit code is still recorded
+// (a harmless fact), the status is left standing.
 export function finish_run_content(content: string, exit: number): string {
+    const status = read_run_lock(content).status;
+    if (status === 'done' || status === 'aborted') {
+        return upsert_frontmatter(content, { exit: String(exit) });
+    }
     return upsert_frontmatter(content, { status: 'exited', exit: String(exit) });
 }
 

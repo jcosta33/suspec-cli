@@ -46,7 +46,7 @@ sources:
 
 ### AC-001 — one
 The tool must do it.
-Verify with: \`node -e "ok"\`.
+Verify with: \`node -e\`.
 
 ## Non-goals
 
@@ -60,7 +60,7 @@ none.
 // A second AC for the gap scenarios.
 const SPEC_TWO = SPEC_ONE.replace(
     '## Non-goals',
-    '### AC-002 — two\nThe tool should also log it.\nVerify with: `node -e "log"`.\n\n## Non-goals'
+    '### AC-002 — two\nThe tool should also log it.\nVerify with: `node --version`.\n\n## Non-goals'
 );
 
 // The gh stub: a node script on PATH answering `pr view`, `issue create`, and the `api`
@@ -284,6 +284,60 @@ describe('the gate (AC-011/AC-012)', () => {
         writeFileSync(asFile, 'not a dir');
         process.env.SUSPEC_STATE_DIR = asFile;
         expect((await capture(() => run_done(['feat'], repo))).code).toBe(2);
+    });
+
+    it('a no-op command tagged onto an AC with a named Verify command does NOT pass — command-mismatch', async () => {
+        writeFileSync(join(store, 'spec-feat.md'), SPEC_TWO);
+        await add_evidence_for('AC-001');
+        // AC-002's Verify names `node --version`; capture a real, passing, but UNRELATED command.
+        await add_evidence_for('AC-002', 'console.log("noop")'); // runs `node -e …`, not node --version
+        const result = await capture(() => run_done(['feat', '--json'], repo));
+        expect(result.code).toBe(1);
+        const value = JSON.parse(result.out) as { gaps: { ac: string; status: string }[] };
+        expect(value.gaps).toEqual([{ ac: 'AC-002', status: 'command-mismatch' }]);
+    });
+
+    it('a FORGED self-consistent record/output pair (no ledger line) fails — EV04 blocks before the gate', async () => {
+        await add_evidence_for('AC-001'); // real evidence → the ledger file now exists
+        // The forgery: a fully self-consistent .md/.out pair written around the CLI.
+        const dir = join(store, 'evidence', 'feat');
+        const raw = 'forged ok\n';
+        writeFileSync(join(dir, '009-forged.out'), raw);
+        const sha = execFileSync('node', ['-e',
+            `const{createHash}=require('crypto');process.stdout.write(createHash('sha256').update(process.argv[1],'utf8').digest('hex'))`,
+            raw,
+        ], { encoding: 'utf8' });
+        writeFileSync(
+            join(dir, '009-forged.md'),
+            `---\ntype: evidence\nrun: feat\nac: AC-001\ncommand: node -e forged\nexit: 0\nprovenance: cli-verified\nworktree: ${repo}\nworktree_diff_sha: x\ncapture_file: 009-forged.out\ncapture_bytes: ${Buffer.byteLength(raw, 'utf8')}\ncapture_sha256: ${sha}\n---\n`
+        );
+        const result = await capture(() => run_done(['feat'], repo));
+        expect(result.code).toBe(2); // lint hard-error: no honest gate to run
+        expect(result.out).toContain('EV04');
+        expect(readFileSync(join(store, 'run-feat.md'), 'utf8')).not.toContain('status: done');
+    });
+
+    it('with NO ledger file at all, capture-block verification still gates (pre-ledger runs) — with a note', async () => {
+        // A hand-placed but self-consistent pair, worktree pointing at a NON-git dir whose digest
+        // was uncomputable at capture: no ledger file exists, so EV04 is skipped (degrade, never
+        // wedge) and 'uncomputable' at re-hash matches 'uncomputable' recorded at capture.
+        const plain = join(root, 'plain');
+        mkdirSync(plain, { recursive: true });
+        const dir = join(store, 'evidence', 'feat');
+        mkdirSync(dir, { recursive: true });
+        const raw = 'ok\n';
+        const sha = execFileSync('node', ['-e',
+            `const{createHash}=require('crypto');process.stdout.write(createHash('sha256').update(process.argv[1],'utf8').digest('hex'))`,
+            raw,
+        ], { encoding: 'utf8' });
+        writeFileSync(join(dir, '001-cmd.out'), raw);
+        writeFileSync(
+            join(dir, '001-cmd.md'),
+            `---\ntype: evidence\nrun: feat\nac: AC-001\ncommand: node -e ok\nexit: 0\nprovenance: cli-verified\nworktree: ${plain}\nworktree_diff_sha: uncomputable\ncapture_file: 001-cmd.out\ncapture_bytes: ${Buffer.byteLength(raw, 'utf8')}\ncapture_sha256: ${sha}\n---\n`
+        );
+        const result = await capture(() => run_done(['feat'], repo));
+        expect(result.code).toBe(0); // uncomputable matches uncomputable — no permanent wedge
+        expect(result.err).toContain('no capture ledger');
     });
 
     it('evidence whose record lost its staleness digest can never prove freshness — stale', async () => {

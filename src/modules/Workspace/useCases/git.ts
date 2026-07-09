@@ -1,6 +1,7 @@
 import { spawnSync } from 'child_process';
 import { createHash } from 'crypto';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync, statSync } from 'fs';
+import { join } from 'path';
 
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { err, ok, type Result } from '../../../infra/errors/result.ts';
@@ -548,21 +549,6 @@ export function paths_changed_since(repoRoot: string, sha: string): string[] | n
 }
 
 /**
- * Whether a path is tracked by git — present in the index (committed OR staged), via
- * `git ls-files --error-unmatch` — vs gitignored/untracked. `suspec clean --apply` uses this to decide
- * delete (gitignored ephemeral — recoverable from the run) vs archive (committed-transitory — moved
- * under archive/, ADR-0096). Outside a git repo `git ls-files` is non-zero, so the path reads
- * untracked — callers that need the distinction resolve the repo first.
- */
-export function path_is_tracked(repoRoot: string, relPath: string): boolean {
-    const result = spawnSync('git', ['ls-files', '--error-unmatch', '--', relPath], {
-        cwd: repoRoot,
-        encoding: 'utf8',
-    });
-    return result.status === 0;
-}
-
-/**
  * The current HEAD commit SHA of a repo, or null outside a repo / with no commits. `suspec stamp` uses
  * it to record the code state a spec snapshot / review was taken against (ADR-0107/0108).
  */
@@ -571,22 +557,73 @@ export function head_sha(repoRoot: string): string | null {
     return result.status === 0 ? result.stdout.trim() : null;
 }
 
+// A >1 MiB diff (Node's spawnSync default maxBuffer) must not make the digest uncomputable —
+// an uncomputable digest at capture vs a computable one at `done` (or vice versa) would wedge the
+// evidence stale forever. 64 MiB matches the evidence capture buffer.
+const DIGEST_MAX_BUFFER = 64 * 1024 * 1024;
+
+// Untracked files bigger than this are digested by size+mtime instead of content — hashing a
+// multi-GB build artifact on every `evidence add`/`done` would be pathological.
+const UNTRACKED_HASH_CAP_BYTES = 10 * 1024 * 1024;
+
+// The per-file content digest of the UNTRACKED files `git status` lists. `git diff HEAD` covers
+// tracked content (staged and unstaged alike), but an untracked file appears in the status only
+// as a NAME — editing its content after capture would otherwise not move the digest at all.
+function untracked_content_lines(worktreePath: string, statusOutput: string): string[] {
+    const lines: string[] = [];
+    for (const line of statusOutput.split('\n')) {
+        if (!line.startsWith('?? ')) {
+            continue;
+        }
+        const relPath = line.slice(3);
+        const path = join(worktreePath, relPath);
+        try {
+            const stat = statSync(path);
+            if (!stat.isFile()) {
+                continue;
+            }
+            const fingerprint =
+                stat.size > UNTRACKED_HASH_CAP_BYTES
+                    ? `size:${stat.size}:mtime:${stat.mtimeMs}` // capped: size+mtime, not content
+                    : createHash('sha256').update(readFileSync(path)).digest('hex');
+            lines.push(`${relPath}\0${fingerprint}`);
+        } catch {
+            continue; // vanished between status and stat — the status line itself already moved the digest
+        }
+    }
+    return lines;
+}
+
 /**
- * The evidence-staleness digest of a worktree's current state (SPEC-suspec-v2 AC-012): a sha256
- * over `git status --porcelain` + `git diff` + the HEAD sha. `evidence add` records it at capture;
- * `done` recomputes it — any drift (an edit, a stage, a commit: a commit empties the diff but
- * moves HEAD, which is why HEAD is folded in) reads the evidence stale. Null when the worktree is
- * gone or not a git checkout — evidence whose worktree cannot be re-hashed can never prove
- * freshness.
+ * The evidence-staleness digest of a worktree's current state (SPEC-suspec-v2 AC-012, amended:
+ * the WHOLE worktree state): a sha256 over `git status --porcelain -uall` + `git diff HEAD` +
+ * the HEAD sha + a per-untracked-file content hash. `evidence add` records it at capture; `done`
+ * recomputes it — any drift (an edit, a stage, a STAGED-CONTENT swap — `diff HEAD` sees staged
+ * and unstaged content alike — a commit: it empties the diff but moves HEAD, which is why HEAD
+ * is folded in, or an edit to an UNTRACKED file, covered by the content lines) reads the
+ * evidence stale. Null when the worktree is gone or not a git checkout — evidence whose worktree
+ * cannot be re-hashed can never prove freshness.
  */
 export function worktree_diff_digest(worktreePath: string): string | null {
-    const status = spawnSync('git', ['status', '--porcelain'], { cwd: worktreePath, encoding: 'utf8' });
-    const diff = spawnSync('git', ['diff'], { cwd: worktreePath, encoding: 'utf8' });
+    // -uall lists every untracked FILE (not collapsed dirs); quotePath off keeps names literal.
+    const status = spawnSync('git', ['-c', 'core.quotePath=false', 'status', '--porcelain', '-uall'], {
+        cwd: worktreePath,
+        encoding: 'utf8',
+        maxBuffer: DIGEST_MAX_BUFFER,
+    });
+    // `diff HEAD` (not bare `diff`): a bare diff compares worktree↔index, so `git add`-ing a
+    // content swap and restoring the file would read identical — HEAD-relative sees through it.
+    const diff = spawnSync('git', ['diff', 'HEAD'], {
+        cwd: worktreePath,
+        encoding: 'utf8',
+        maxBuffer: DIGEST_MAX_BUFFER,
+    });
     if (status.status !== 0 || diff.status !== 0) {
         return null;
     }
     const head = head_sha(worktreePath) ?? 'no-head';
+    const untracked = untracked_content_lines(worktreePath, status.stdout);
     return createHash('sha256')
-        .update(JSON.stringify({ status: status.stdout, diff: diff.stdout, head }))
+        .update(JSON.stringify({ status: status.stdout, diff: diff.stdout, head, untracked }))
         .digest('hex');
 }

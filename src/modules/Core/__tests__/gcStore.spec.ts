@@ -55,4 +55,17 @@ describe('gc_store', () => {
         const error = assertErr(gc_store({ storeDir: store, retentionDays: 30, now: NOW }));
         expect(error._tag).toBe('store_gc_failed');
     });
+
+    it('sweeps day-old atomic-write crash turds (.<name>.tmp-*) from the root AND archive/, sparing fresh ones', () => {
+        aged(join(store, '.spec-x.md.tmp-123-abcd'), 2); // a crash turd in the root
+        aged(join(store, 'archive', '.finding-y.md.tmp-99-beef'), 3); // …and one in archive/
+        aged(join(store, '.run-z.md.tmp-4-feed'), 0); // fresh — may belong to a write in flight
+        aged(join(store, 'spec-real.md'), 90); // a REAL root artifact is never touched
+        const report = assertOk(gc_store({ storeDir: store, retentionDays: 30, now: NOW }));
+        expect([...report.sweptTmp].sort()).toEqual(['.finding-y.md.tmp-99-beef', '.spec-x.md.tmp-123-abcd']);
+        expect(existsSync(join(store, '.run-z.md.tmp-4-feed'))).toBe(true);
+        expect(existsSync(join(store, 'spec-real.md'))).toBe(true);
+        // Turds are not counted as retention deletions.
+        expect(report.deleted).toEqual([]);
+    });
 });

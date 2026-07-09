@@ -20,10 +20,13 @@ export type WriteStoreArtifactOptions = Readonly<{
 
 export function write_store_artifact(
     path: string,
-    content: string,
+    // Markdown artifacts arrive as strings; non-markdown payloads (evidence captures) may arrive
+    // as Buffers and pass through byte-identical — no encode/decode round-trip.
+    content: string | Buffer,
     options?: WriteStoreArtifactOptions
 ): Result<{ path: string }, AppError> {
-    const finalContent = path.endsWith('.md') ? ensure_grammar_version(content) : content;
+    const finalContent =
+        path.endsWith('.md') && typeof content === 'string' ? ensure_grammar_version(content) : content;
     // The temp lives in the target's own directory — rename() is only atomic within a filesystem.
     const temp = join(dirname(path), `.${basename(path)}.tmp-${process.pid}-${randomBytes(4).toString('hex')}`);
     const rename = options?.rename ?? renameSync;

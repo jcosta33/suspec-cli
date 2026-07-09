@@ -7,7 +7,14 @@
 import { merge_marker_block } from './markerBlock.ts';
 
 // The gate's per-AC reading (computed by gate_evidence; rendered here).
-export type DigestRowStatus = 'verified' | 'verified-agent' | 'stale' | 'failing' | 'agent-blocked' | 'missing';
+export type DigestRowStatus =
+    | 'verified'
+    | 'verified-agent'
+    | 'stale'
+    | 'failing'
+    | 'command-mismatch' // cli-verified evidence exists but none of it ran the AC's named Verify command
+    | 'agent-blocked'
+    | 'missing';
 
 export type DigestRow = Readonly<{
     ac: string;
@@ -27,7 +34,14 @@ export type Digest = Readonly<{
 }>;
 
 function cell(value: string | number | null): string {
-    return value === null ? '—' : String(value);
+    if (value === null) {
+        return '—';
+    }
+    // Cell text comes from evidence records (agent-influenceable: a recorded command string can
+    // contain anything). A crafted `<!-- /suspec:digest:… -->` inside a cell would terminate the
+    // living PR comment's marker block early and corrupt every re-run merge — break the comment
+    // opener of any marker-shaped sequence before it reaches the block.
+    return String(value).replace(/<!--(?=[\s\S]{0,20}suspec:digest)/g, '<!- -');
 }
 
 export function render_digest(digest: Digest): string {

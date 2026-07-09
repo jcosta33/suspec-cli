@@ -190,19 +190,36 @@ export async function run(argv: string[], cwd: string = process.cwd(), prompter?
     }
 
     // 2. The gate (AC-011/012). Staleness recomputes per record against the worktree it recorded.
+    const notes: string[] = [];
     const records = list_evidence_records(storeDir, runRef);
+    const unledgeredSet = new Set(lint.value.ledgerExists ? lint.value.unledgered : []);
     const gate = gate_evidence({
         requirements: lint.value.requirements,
         records,
         allowAgentEvidence: allowAgent,
-        captureVerified: (record) => verify_evidence_capture(storeDir, runRef, record),
+        // cli-verified in fact = a consistent capture block AND, when the CLI-owned capture
+        // ledger exists, a matching ledger line (the lint's EV04 view — belt and braces: EV04 is
+        // a lint hard-error, so an unledgered record already blocked above). No ledger file at
+        // all (pre-ledger history / a wiped state-root) degrades to the capture block alone —
+        // noted below, never a permanent wedge.
+        captureVerified: (record) =>
+            verify_evidence_capture(storeDir, runRef, record) && !unledgeredSet.has(record.filename),
         isStale: (record) => {
             if (record.worktreeDiffSha === null || record.worktree === null) {
                 return true;
             }
-            return worktree_diff_digest(record.worktree) !== record.worktreeDiffSha;
+            // Both sides fall back to the literal 'uncomputable' (recorded at capture when the
+            // digest could not be computed; recomputed the same way here) so an uncomputable
+            // digest matches itself instead of wedging the record stale FOREVER. Fail-open on
+            // digest-uncomputable is deliberate: the capture ledger still binds the capture.
+            return (worktree_diff_digest(record.worktree) ?? 'uncomputable') !== record.worktreeDiffSha;
         },
     });
+    if (!lint.value.ledgerExists && records.some((record) => record.provenance === 'cli-verified')) {
+        notes.push(
+            'note: no capture ledger for this store — cli-verified evidence checked by capture block only (pre-ledger runs)'
+        );
+    }
     const passed = gate.gaps.length === 0;
     const accepted = !passed && acceptReason !== null;
 
@@ -214,7 +231,6 @@ export async function run(argv: string[], cwd: string = process.cwd(), prompter?
         agentEvidenceAllowed: allowAgent,
     };
     const digestText = render_digest(digest);
-    const notes: string[] = [];
     const nudge = risk_nudge_for_run(repoRoot, runState.lock.worktree);
     if (nudge !== null) {
         notes.push(nudge);

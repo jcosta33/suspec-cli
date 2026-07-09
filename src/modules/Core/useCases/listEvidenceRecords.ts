@@ -4,7 +4,7 @@
 // hand edit) — absent fields read null so the consumers surface gaps instead of crashing. A
 // missing dir is an empty list (a run with no evidence yet), never an error.
 
-import { existsSync, readFileSync, readdirSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 
 import { evidence_dir } from '../services/storeLayout.ts';
@@ -12,11 +12,16 @@ import { read_evidence_record, type EvidenceRecord } from '../services/evidenceA
 
 export function list_evidence_records(storeDir: string, runSlug: string): EvidenceRecord[] {
     const dir = evidence_dir(storeDir, runSlug);
-    if (!existsSync(dir)) {
+    // readdir inside the try: the dir can vanish between an existence probe and the read (TOCTOU)
+    // — a run with no readable evidence dir simply has no records.
+    let names: string[];
+    try {
+        names = readdirSync(dir).sort();
+    } catch {
         return [];
     }
     const records: EvidenceRecord[] = [];
-    for (const name of readdirSync(dir).sort()) {
+    for (const name of names) {
         if (!name.endsWith('.md')) {
             continue;
         }

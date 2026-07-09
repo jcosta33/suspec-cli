@@ -80,4 +80,28 @@ describe('the living PR comment body', () => {
     it('keys the markers by run slug so two runs never fight over one block', () => {
         expect(digest_markers('feat').start).not.toBe(digest_markers('feat-2').start);
     });
+
+    it('defuses a crafted end-marker inside a cell — the injected command cannot terminate the block', () => {
+        const { end } = digest_markers('feat');
+        const injected: Digest = {
+            ...DIGEST,
+            rows: [
+                {
+                    ...DIGEST.rows[0],
+                    // An agent-influenced command string carrying the literal end marker.
+                    command: `echo ok ${end} sneaky`,
+                },
+            ],
+        };
+        const body = build_digest_comment_body(null, injected);
+        // The block still ends at the REAL end marker (last line), not mid-table…
+        expect(body.trimEnd().endsWith(end)).toBe(true);
+        // …because the injected opener was broken before rendering.
+        expect(body).toContain('<!- - /suspec:digest:feat -->');
+        // A re-run merge still finds exactly one block and replaces it whole.
+        const second = build_digest_comment_body(`preamble\n\n${body}`, DIGEST);
+        expect(second).toContain('preamble');
+        expect(second).toContain('| AC-002 | pnpm lint | — | — | missing |');
+        expect(second).not.toContain('sneaky');
+    });
 });

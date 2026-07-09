@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, realpathSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync, realpathSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 
@@ -160,6 +160,205 @@ describe('resolve_store_dir — same-basename collisions (AC-001)', () => {
         expect(error._tag).toBe('store_dir_exhausted');
         // Nothing was created or overwritten along the way.
         expect(existsSync(join(stateRoot, 'proj-101'))).toBe(false);
+    });
+});
+
+describe('resolve_store_dir — suffix-slot survival after a sibling purge', () => {
+    it('keeps resolving a suffixed repo to its own store after the base slot is purged', () => {
+        const stateRoot = join(root, 'state');
+        const env = { SUSPEC_STATE_DIR: stateRoot };
+        const repoA = make_repo('a', 'proj');
+        const repoB = make_repo('b', 'proj');
+        assertOk(resolve_store_dir({ repoRoot: repoA, env, config: null })); // claims proj
+        const b1 = assertOk(resolve_store_dir({ repoRoot: repoB, env, config: null })); // claims proj-2
+        expect(b1.storeDir).toBe(join(stateRoot, 'proj-2'));
+
+        // `store purge` of A deletes <base>/ — B's next resolve must NOT claim the freed base
+        // slot as a fresh store (that would strand its real proj-2 store forever).
+        rmSync(join(stateRoot, 'proj'), { recursive: true, force: true });
+        const b2 = assertOk(resolve_store_dir({ repoRoot: repoB, env, config: null }));
+        expect(b2).toEqual({ storeDir: join(stateRoot, 'proj-2'), created: false });
+        expect(existsSync(join(stateRoot, 'proj'))).toBe(false);
+    });
+
+    it('matches a marker through a symlinked repo path (realpath compare, not string compare)', () => {
+        const stateRoot = join(root, 'state');
+        const env = { SUSPEC_STATE_DIR: stateRoot };
+        const repoReal = make_repo('a', 'proj');
+        mkdirSync(join(root, 'other'), { recursive: true });
+        const repoLink = join(root, 'other', 'proj');
+        symlinkSync(repoReal, repoLink);
+
+        const first = assertOk(resolve_store_dir({ repoRoot: repoReal, env, config: null }));
+        const viaLink = assertOk(resolve_store_dir({ repoRoot: repoLink, env, config: null }));
+        expect(viaLink).toEqual({ storeDir: first.storeDir, created: false });
+        expect(existsSync(join(stateRoot, 'proj-2'))).toBe(false);
+    });
+});
+
+describe('resolve_store_dir — claim races (TOCTOU)', () => {
+    it('loses the dir race to a foreign repo and moves on to the next free slot', () => {
+        const stateRoot = join(root, 'state');
+        const repo = make_repo('proj');
+        // Between the existence probe and the claim, a competing process creates the slot for a
+        // DIFFERENT repo. Simulated via the injected fs: the first mkdir call pre-creates the
+        // dir + a foreign marker with the real fs, then delegates (non-recursive → EEXIST).
+        let raced = false;
+        const racingFs = {
+            mkdirSync: ((dir: string, options?: Parameters<typeof mkdirSync>[1]) => {
+                if (!raced && dir === join(stateRoot, 'proj')) {
+                    raced = true;
+                    mkdirSync(dir, { recursive: true });
+                    writeFileSync(join(dir, REPO_PATH_MARKER), '/somewhere/else/proj\n', 'utf8');
+                }
+                return mkdirSync(dir, options);
+            }) as typeof mkdirSync,
+            writeFileSync,
+        };
+        const resolved = assertOk(
+            resolve_store_dir({ repoRoot: repo, env: { SUSPEC_STATE_DIR: stateRoot }, config: null, fs: racingFs })
+        );
+        expect(raced).toBe(true);
+        expect(resolved.storeDir).toBe(join(stateRoot, 'proj-2'));
+        // The foreign winner's slot is untouched.
+        expect(readFileSync(join(stateRoot, 'proj', REPO_PATH_MARKER), 'utf8')).toBe('/somewhere/else/proj\n');
+    });
+
+    it('loses the dir race to a concurrent resolve of the SAME repo and adopts the winner slot', () => {
+        const stateRoot = join(root, 'state');
+        const repo = make_repo('proj');
+        let raced = false;
+        const racingFs = {
+            mkdirSync: ((dir: string, options?: Parameters<typeof mkdirSync>[1]) => {
+                if (!raced && dir === join(stateRoot, 'proj')) {
+                    raced = true;
+                    mkdirSync(dir, { recursive: true });
+                    writeFileSync(join(dir, REPO_PATH_MARKER), `${resolve(repo)}\n`, 'utf8');
+                }
+                return mkdirSync(dir, options);
+            }) as typeof mkdirSync,
+            writeFileSync,
+        };
+        const resolved = assertOk(
+            resolve_store_dir({ repoRoot: repo, env: { SUSPEC_STATE_DIR: stateRoot }, config: null, fs: racingFs })
+        );
+        expect(resolved).toEqual({ storeDir: join(stateRoot, 'proj'), created: false });
+    });
+
+    it('loses the marker race (dir created, marker landed first) and moves on to the next slot', () => {
+        const stateRoot = join(root, 'state');
+        const repo = make_repo('proj');
+        // The dir mkdir succeeds, but a competing process wins the marker write. The 'wx' flag
+        // makes our write EEXIST instead of silently clobbering the winner's marker.
+        let raced = false;
+        const racingFs = {
+            mkdirSync,
+            writeFileSync: ((file: string, data: Parameters<typeof writeFileSync>[1], options?: Parameters<typeof writeFileSync>[2]) => {
+                if (!raced && file === join(stateRoot, 'proj', REPO_PATH_MARKER)) {
+                    raced = true;
+                    writeFileSync(file, '/somewhere/else/proj\n', 'utf8');
+                }
+                return writeFileSync(file, data, options);
+            }) as typeof writeFileSync,
+        };
+        const resolved = assertOk(
+            resolve_store_dir({ repoRoot: repo, env: { SUSPEC_STATE_DIR: stateRoot }, config: null, fs: racingFs })
+        );
+        expect(raced).toBe(true);
+        expect(resolved.storeDir).toBe(join(stateRoot, 'proj-2'));
+        expect(readFileSync(join(stateRoot, 'proj', REPO_PATH_MARKER), 'utf8')).toBe('/somewhere/else/proj\n');
+    });
+});
+
+describe('resolve_store_dir — claim races (edges)', () => {
+    it('a dir race whose winner has not written its marker yet is settled by the marker write — first `wx` wins', () => {
+        const stateRoot = join(root, 'state');
+        const repo = make_repo('proj');
+        const racingFs = {
+            mkdirSync: ((dir: string, options?: Parameters<typeof mkdirSync>[1]) => {
+                if (dir === join(stateRoot, 'proj')) {
+                    mkdirSync(dir, { recursive: true }); // the competitor created the dir, no marker yet
+                }
+                return mkdirSync(dir, options);
+            }) as typeof mkdirSync,
+            writeFileSync,
+        };
+        // The dir mkdir is NOT the arbiter — the 'wx' marker write is: we land ours first, so the
+        // slot is ours; the competitor's own 'wx' will EEXIST and re-read OUR marker.
+        const resolved = assertOk(
+            resolve_store_dir({ repoRoot: repo, env: { SUSPEC_STATE_DIR: stateRoot }, config: null, fs: racingFs })
+        );
+        expect(resolved).toEqual({ storeDir: join(stateRoot, 'proj'), created: true });
+        expect(readFileSync(join(stateRoot, 'proj', REPO_PATH_MARKER), 'utf8')).toBe(`${resolve(repo)}\n`);
+    });
+
+    it('a non-EEXIST mkdir failure during the claim errs store_dir_create_failed', () => {
+        const stateRoot = join(root, 'state');
+        const repo = make_repo('proj');
+        const failingFs = {
+            mkdirSync: (() => {
+                const boom = new Error('EACCES: permission denied') as NodeJS.ErrnoException;
+                boom.code = 'EACCES';
+                throw boom;
+            }) as typeof mkdirSync,
+            writeFileSync,
+        };
+        mkdirSync(stateRoot, { recursive: true }); // the state root itself exists (real fs)
+        const error = assertErr(
+            resolve_store_dir({ repoRoot: repo, env: { SUSPEC_STATE_DIR: stateRoot }, config: null, fs: failingFs })
+        );
+        expect(error._tag).toBe('store_dir_create_failed');
+    });
+
+    it('a non-EEXIST marker-write failure errs store_dir_create_failed', () => {
+        const stateRoot = join(root, 'state');
+        const repo = make_repo('proj');
+        const failingFs = {
+            mkdirSync,
+            writeFileSync: (() => {
+                const boom = new Error('EACCES: permission denied') as NodeJS.ErrnoException;
+                boom.code = 'EACCES';
+                throw boom;
+            }) as typeof writeFileSync,
+        };
+        const error = assertErr(
+            resolve_store_dir({ repoRoot: repo, env: { SUSPEC_STATE_DIR: stateRoot }, config: null, fs: failingFs })
+        );
+        expect(error._tag).toBe('store_dir_create_failed');
+    });
+});
+
+describe('resolve_store_dir — state-root validation', () => {
+    it('rejects a relative config state_root with a usage error naming the key', () => {
+        const repo = make_repo('proj');
+        const error = assertErr(
+            resolve_store_dir({ repoRoot: repo, env: {}, config: { state_root: 'relative/state' }, home: () => join(root, 'home') })
+        );
+        expect(error._tag).toBe('state_root_not_absolute');
+        expect(error.message).toContain('state_root');
+        expect(error.message).toContain('relative/state');
+    });
+
+    it('rejects a relative SUSPEC_STATE_DIR with a usage error naming the env var', () => {
+        const repo = make_repo('proj');
+        const error = assertErr(
+            resolve_store_dir({ repoRoot: repo, env: { SUSPEC_STATE_DIR: './state' }, config: null, home: () => join(root, 'home') })
+        );
+        expect(error._tag).toBe('state_root_not_absolute');
+        expect(error.message).toContain('SUSPEC_STATE_DIR');
+    });
+
+    it('env > config precedence holds through validation — a valid env root wins over a bad config root', () => {
+        const repo = make_repo('proj');
+        const envWins = assertOk(
+            resolve_store_dir({
+                repoRoot: repo,
+                env: { SUSPEC_STATE_DIR: join(root, 'env-state') },
+                config: { state_root: 'relative/state' },
+                home: () => join(root, 'home'),
+            })
+        );
+        expect(envWins.storeDir).toBe(join(root, 'env-state', 'proj'));
     });
 });
 

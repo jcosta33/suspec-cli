@@ -47,8 +47,11 @@ export function next_evidence_seq(existingNames: readonly string[]): number {
     return max + 1;
 }
 
-export function capture_sha256(raw: string): string {
-    return createHash('sha256').update(raw, 'utf8').digest('hex');
+// Hash the capture RAW — a Buffer end to end on the capture path, so the "byte-exact" claim
+// holds with no encode/decode round-trip (a string input hashes its utf8 bytes, for callers
+// hashing markdown/JSON they built themselves).
+export function capture_sha256(raw: string | Buffer): string {
+    return createHash('sha256').update(typeof raw === 'string' ? Buffer.from(raw, 'utf8') : raw).digest('hex');
 }
 
 export type EvidenceFields = Readonly<{

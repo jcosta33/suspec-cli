@@ -4,6 +4,8 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { lint_run_artifacts } from '../lintRunArtifacts.ts';
+import { append_capture_ledger_line } from '../appendCaptureLedgerLine.ts';
+import { record_launch_ledger } from '../recordLaunchLedger.ts';
 import { capture_sha256 } from '../../services/evidenceArtifact.ts';
 import { assertOk } from '../../../../infra/errors/testing/assertOk.ts';
 import { assertErr } from '../../../../infra/errors/testing/assertErr.ts';
@@ -161,13 +163,21 @@ status: draft
     });
 
     it('accepts a genuine CLI capture block — no EV03', () => {
-        const dir = join(store, 'evidence', 'feat');
-        mkdirSync(dir, { recursive: true });
-        const raw = 'ok\n';
-        writeFileSync(join(dir, '001-cmd.out'), raw);
-        writeFileSync(
-            join(dir, '001-cmd.md'),
-            `---
+        write_consistent_pair();
+        const report = assertOk(lint());
+        expect(report.artifacts.some((artifact) => artifact.path.endsWith('001-cmd.md'))).toBe(false); // clean records are not listed
+        expect(report.level).toBe('clean');
+    });
+});
+
+// A SELF-CONSISTENT .md/.out pair — exactly what a forging agent can write into the store.
+function write_consistent_pair(raw = 'ok\n'): void {
+    const dir = join(store, 'evidence', 'feat');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, '001-cmd.out'), raw);
+    writeFileSync(
+        join(dir, '001-cmd.md'),
+        `---
 type: evidence
 ac: AC-001
 command: cmd
@@ -178,9 +188,83 @@ capture_bytes: ${Buffer.byteLength(raw, 'utf8')}
 capture_sha256: ${capture_sha256(raw)}
 ---
 `
+    );
+}
+
+describe('lint_run_artifacts — the capture ledger (EV04 + RUN03)', () => {
+    it('hard-errors a self-consistent pair the CLI ledger does not back (EV04) and lists it unledgered', () => {
+        write_consistent_pair();
+        // The ledger exists (another capture is recorded) but has NO line for this pair.
+        assertOk(
+            append_capture_ledger_line(store, {
+                kind: 'capture',
+                run: 'feat',
+                seq: 9,
+                file: '009-other.out',
+                sha256: 'x',
+                bytes: 1,
+                exit: 0,
+                command: 'other',
+                ts: '2026-07-09T00:00:00.000Z',
+            })
         );
         const report = assertOk(lint());
-        expect(report.artifacts.some((artifact) => artifact.path.endsWith('001-cmd.md'))).toBe(false); // clean records are not listed
+        expect(diagnostics_for(report, '001-cmd.md')[0]).toMatchObject({ check: 'EV04', severity: 'hard-error' });
+        expect(report.level).toBe('blocking');
+        expect(report.ledgerExists).toBe(true);
+        expect(report.unledgered).toEqual(['001-cmd.md']);
+    });
+
+    it('skips EV04 entirely when NO ledger file exists — pre-ledger stores degrade, never wedge', () => {
+        write_consistent_pair();
+        const report = assertOk(lint());
         expect(report.level).toBe('clean');
+        expect(report.ledgerExists).toBe(false);
+        expect(report.unledgered).toEqual([]);
+    });
+
+    it('passes a pair the ledger DOES back — happy path unchanged', () => {
+        const raw = 'ok\n';
+        write_consistent_pair(raw);
+        assertOk(
+            append_capture_ledger_line(store, {
+                kind: 'capture',
+                run: 'feat',
+                seq: 1,
+                file: '001-cmd.out',
+                sha256: capture_sha256(raw),
+                bytes: Buffer.byteLength(raw, 'utf8'),
+                exit: 0,
+                command: 'cmd',
+                ts: '2026-07-09T00:00:00.000Z',
+            })
+        );
+        const report = assertOk(lint());
+        expect(report.level).toBe('clean');
+        expect(report.unledgered).toEqual([]);
+    });
+
+    it('hard-errors a run/spec redirect (RUN03): the spec: changed after the launch line was written', () => {
+        assertOk(record_launch_ledger({ storeDir: store, runSlug: 'feat', specId: 'SPEC-original', specSource: 'body' }));
+        const report = assertOk(lint()); // run-feat.md says SPEC-feat, launch said SPEC-original
+        expect(diagnostics_for(report, 'run-feat.md')[0]).toMatchObject({ check: 'RUN03', severity: 'hard-error' });
+        expect(diagnostics_for(report, 'run-feat.md')[0].message).toContain('SPEC-original');
+        expect(report.level).toBe('blocking');
+    });
+
+    it('hard-errors RUN03 when the driving spec\'s CONTENT changed since launch, and passes when it matches', () => {
+        assertOk(record_launch_ledger({ storeDir: store, runSlug: 'feat', specId: 'SPEC-feat', specSource: CLEAN_SPEC }));
+        expect(assertOk(lint()).level).toBe('clean'); // exact content → bound
+
+        writeFileSync(join(store, 'spec-feat.md'), CLEAN_SPEC.replace('must do it', 'must do something else'));
+        const drifted = assertOk(lint());
+        expect(diagnostics_for(drifted, 'run-feat.md')[0]).toMatchObject({ check: 'RUN03', severity: 'hard-error' });
+        expect(drifted.level).toBe('blocking');
+    });
+
+    it('re-binds on relaunch — the LATEST launch line governs', () => {
+        assertOk(record_launch_ledger({ storeDir: store, runSlug: 'feat', specId: 'SPEC-feat', specSource: 'old body' }));
+        assertOk(record_launch_ledger({ storeDir: store, runSlug: 'feat', specId: 'SPEC-feat', specSource: CLEAN_SPEC }));
+        expect(assertOk(lint()).level).toBe('clean');
     });
 });

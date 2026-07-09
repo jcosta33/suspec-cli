@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, realpathSync, writeFileSync } from 'fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, realpathSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -56,5 +56,14 @@ describe('copy_setup_files (AC-005)', () => {
         const [result] = copy_setup_files(repo, worktree, ['config/local.json']);
         expect(result.ok).toBe(false);
         expect(result.reason).not.toBeNull();
+    });
+
+    it('refuses a symlinked source — the link could point outside the repo; nothing is copied', () => {
+        writeFileSync(join(root, 'outside-secret.txt'), 'OUTSIDE', 'utf8');
+        symlinkSync(join(root, 'outside-secret.txt'), join(repo, '.env.link'));
+        const [result] = copy_setup_files(repo, worktree, ['.env.link']);
+        expect(result.ok).toBe(false);
+        expect(result.reason).toMatch(/symlink refused/);
+        expect(existsSync(join(worktree, '.env.link'))).toBe(false);
     });
 });

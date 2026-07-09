@@ -104,4 +104,42 @@ describe('gate_evidence', () => {
         });
         expect(report.rows[0]).toMatchObject({ status: 'verified', evidenceRef: '002-cli.md' });
     });
+
+    it('refuses a no-op command tagged onto an AC with a named Verify command — command-mismatch, a gap', () => {
+        const report = gate([record({ command: 'true' })]);
+        expect(report.rows[0]).toMatchObject({ status: 'command-mismatch', evidenceRef: '001-cmd.md' });
+        expect(report.gaps).toHaveLength(1);
+    });
+
+    it('accepts normalized containment in either direction (verify commands are prose-extracted)', () => {
+        // Recorded command wraps the named one (env prefix + extra flag)…
+        const wrapped = gate([record({ command: 'CI=1 pnpm test:run --coverage' })]);
+        expect(wrapped.rows[0].status).toBe('verified');
+        // …and the named Verify text wraps the recorded command (prose around it).
+        const prose = gate_evidence({
+            requirements: [{ id: 'AC-001', verifyCommand: 'run pnpm   test:run in the worktree' }],
+            records: [record({ command: 'pnpm test:run' })],
+            allowAgentEvidence: false,
+            captureVerified: () => true,
+            isStale: () => false,
+        });
+        expect(prose.rows[0].status).toBe('verified');
+    });
+
+    it('keeps the old any-command behavior for an AC whose Verify text names no command', () => {
+        const report = gate_evidence({
+            requirements: [{ id: 'AC-001', verifyCommand: null }],
+            records: [record({ command: 'true' })],
+            allowAgentEvidence: false,
+            captureVerified: () => true,
+            isStale: () => false,
+        });
+        expect(report.rows[0].status).toBe('verified');
+        expect(report.gaps).toEqual([]);
+    });
+
+    it('prefers a matching record\'s real status over a mismatch row when both exist', () => {
+        const report = gate([record({ command: 'true', filename: '001-true.md' }), record({ filename: '002-real.md' })]);
+        expect(report.rows[0]).toMatchObject({ status: 'verified', evidenceRef: '002-real.md' });
+    });
 });

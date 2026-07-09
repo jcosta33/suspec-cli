@@ -53,6 +53,32 @@ describe('worktree_diff_digest', () => {
         expect(worktree_diff_digest(repo)).not.toBe(clean);
     });
 
+    it('changes when an UNTRACKED file\'s CONTENT is edited after capture (same status line)', () => {
+        writeFileSync(join(repo, 'new.txt'), 'v1\n');
+        const captured = worktree_diff_digest(repo);
+        // Same untracked file, same `?? new.txt` status line — only the bytes change.
+        writeFileSync(join(repo, 'new.txt'), 'v2\n');
+        expect(worktree_diff_digest(repo)).not.toBe(captured);
+    });
+
+    it('changes when a file inside an UNTRACKED DIRECTORY is edited (-uall lists files, not dirs)', () => {
+        mkdirSync(join(repo, 'newdir'));
+        writeFileSync(join(repo, 'newdir', 'f.txt'), 'v1\n');
+        const captured = worktree_diff_digest(repo);
+        writeFileSync(join(repo, 'newdir', 'f.txt'), 'v2\n');
+        expect(worktree_diff_digest(repo)).not.toBe(captured);
+    });
+
+    it('sees a STAGED content swap — `git diff HEAD` reads staged and unstaged alike', () => {
+        const clean = worktree_diff_digest(repo);
+        // Swap content INTO the index while restoring the worktree file: a bare `git diff`
+        // (worktree↔index) would read empty here; HEAD-relative sees the staged swap.
+        writeFileSync(join(repo, 'a.txt'), 'swapped\n');
+        git(['add', 'a.txt']);
+        writeFileSync(join(repo, 'a.txt'), 'one\n');
+        expect(worktree_diff_digest(repo)).not.toBe(clean);
+    });
+
     it('is null outside a git checkout', () => {
         const plain = mkdtempSync(join(realpathSync(tmpdir()), 'suspec-plain-'));
         mkdirSync(join(plain, 'sub'));

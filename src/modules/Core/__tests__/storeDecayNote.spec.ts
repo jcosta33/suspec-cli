@@ -6,7 +6,7 @@ import { basename, join } from 'path';
 import { store_decay_note } from '../useCases/storeDecayNote.ts';
 
 // SPEC-suspec-v2 AC-019: the shared surface hook — probe-only (never creates a store), silent on
-// every miss, one line when the store decayed. `work` and `status` wire it; Wave 5's `next` will.
+// every miss, one line when the store decayed. `work`, `status`, and `next` wire it.
 
 let root: string;
 let repo: string;

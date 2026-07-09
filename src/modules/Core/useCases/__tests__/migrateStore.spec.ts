@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -51,6 +51,19 @@ describe('migrate_store (AC-003)', () => {
         const written = readFileSync(path, 'utf8');
         expect(read_grammar_version(written)).toBe(1);
         expect(written).toContain('body\n');
+    });
+
+    it('preserves mtime across a rewrite — a migration never resets the gc retention clock', () => {
+        const path = join(store, 'archive', 'spec-ancient.md');
+        mkdirSync(join(store, 'archive'), { recursive: true });
+        writeFileSync(path, '---\ntype: spec\n---\nbody\n', 'utf8'); // unversioned → will be rewritten
+        const past = new Date('2026-01-01T00:00:00Z');
+        utimesSync(path, past, past);
+
+        const report = assertOk(migrate_store({ storeDir: store }));
+        expect(report.upgraded).toEqual([path]);
+        expect(read_grammar_version(readFileSync(path, 'utf8'))).toBe(1); // content DID change
+        expect(Math.abs(statSync(path).mtimeMs - past.getTime())).toBeLessThan(1000); // clock did NOT
     });
 
     it('upgrades an older artifact through the transform table and stamps the new version', () => {

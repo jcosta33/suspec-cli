@@ -17,7 +17,6 @@ export {
     worktree_changed_stats,
     is_worktree_dirty,
     paths_changed_since,
-    path_is_tracked,
     head_sha,
     worktree_diff_digest,
 } from './git.ts';
@@ -34,6 +33,8 @@ export { upsert_pr_comment, type UpsertPrCommentInput, type UpsertPrCommentRepor
 export { create_gh_issue, type CreatedIssue } from './ghCreateIssue.ts';
 // store doctor (SPEC-suspec-v2 AC-018): the PR-state probe the reconcile sweep injects
 export { probe_pr_state, type PrStateProbeResult } from './ghPrState.ts';
+// run-lock liveness (AC-008): the pid probe `work` ranks above heartbeat timestamps
+export { is_pid_alive } from './isPidAlive.ts';
 // setup executor — `suspec work`: run project-declared setup in the fresh worktree (advisory, no gate)
 export { run_setup, type SetupResult } from './runSetup.ts';
 // launch loop v2 (SPEC-suspec-v2 AC-005/009): the rendered-argv runner spawn + the setup_copy copier

@@ -82,12 +82,17 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
                   requirements: lint.value.requirements,
                   records,
                   allowAgentEvidence: false,
-                  captureVerified: (record) => verify_evidence_capture(storeDir, runRef, record),
+                  // Mirrors `done` exactly (this IS the gate preview): capture block + ledger
+                  // backing when the ledger exists; 'uncomputable' matches itself so an
+                  // undiffable worktree never wedges the record stale forever.
+                  captureVerified: (record) =>
+                      verify_evidence_capture(storeDir, runRef, record) &&
+                      !(lint.value.ledgerExists && lint.value.unledgered.includes(record.filename)),
                   isStale: (record) => {
                       if (record.worktreeDiffSha === null || record.worktree === null) {
                           return true;
                       }
-                      return worktree_diff_digest(record.worktree) !== record.worktreeDiffSha;
+                      return (worktree_diff_digest(record.worktree) ?? 'uncomputable') !== record.worktreeDiffSha;
                   },
               })
             : null;

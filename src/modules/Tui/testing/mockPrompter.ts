@@ -14,6 +14,9 @@ export type MockCalls = {
     warns: string[];
     errors: string[];
     spinnerMessages: string[];
+    // Every select PROMPT as the flow presented it — message + options (labels/hints included),
+    // so tests can assert what the human was actually offered, not just what was answered.
+    selects: { message: string; options: readonly { value: string; label?: string; hint?: string }[] }[];
 };
 
 export type MockScript = Readonly<{
@@ -42,6 +45,7 @@ export function create_mock_prompter(script: MockScript = {}): MockPrompter {
         warns: [],
         errors: [],
         spinnerMessages: [],
+        selects: [],
     };
     const selects = [...(script.select ?? [])];
     const multiselects = [...(script.multiselect ?? [])];
@@ -58,8 +62,10 @@ export function create_mock_prompter(script: MockScript = {}): MockPrompter {
         warn: (message) => calls.warns.push(message),
         error: (message) => calls.errors.push(message),
         // Defer take() into the promise chain so an under-scripted prompt rejects (not a sync throw).
-        select: () =>
-            Promise.resolve().then(() => take<string | Cancelled>(selects as (string | Cancelled)[], 'select')),
+        select: (input) => {
+            calls.selects.push({ message: input.message, options: input.options });
+            return Promise.resolve().then(() => take<string | Cancelled>(selects as (string | Cancelled)[], 'select'));
+        },
         multiselect: () =>
             Promise.resolve().then(() =>
                 take<string[] | Cancelled>(multiselects as (string[] | Cancelled)[], 'multiselect')

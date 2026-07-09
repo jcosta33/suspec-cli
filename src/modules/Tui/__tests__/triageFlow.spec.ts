@@ -29,9 +29,17 @@ describe('run_triage_flow', () => {
     it('labels a critical finding\'s discard option with the --discard-critical requirement', async () => {
         const prompter = create_mock_prompter({ select: ['keep'] });
         await run_triage_flow(prompter, [FINDINGS[1]]);
-        // the hint travels through the options — the mock records only messages, so assert via the
-        // prompt message carrying the severity tag
-        expect(prompter.calls.intros[0]).toContain('1 open finding(s)');
+        // The critical hint travels through the discard OPTION — assert the option text the
+        // human is actually shown, not just the prompt message.
+        expect(prompter.calls.selects).toHaveLength(1);
+        expect(prompter.calls.selects[0].message).toContain('[critical]');
+        const discard = prompter.calls.selects[0].options.find((option) => option.value === 'discard');
+        expect(discard?.hint).toContain('--discard-critical');
+        // A non-critical finding's discard option carries no such requirement.
+        const plain = create_mock_prompter({ select: ['keep'] });
+        await run_triage_flow(plain, [FINDINGS[2]]);
+        const plainDiscard = plain.calls.selects[0].options.find((option) => option.value === 'discard');
+        expect(plainDiscard?.hint).not.toContain('--discard-critical');
     });
 
     it('defers the cancelled finding AND every remaining one', async () => {

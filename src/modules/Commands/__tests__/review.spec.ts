@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { execFileSync } from 'child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, realpathSync, rmSync } from 'fs';
+import { mkdtempSync, mkdirSync, readdirSync, writeFileSync, realpathSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+
+import { createHash } from 'crypto';
 
 import { run } from '../useCases/review.ts';
 import { run as run_evidence } from '../useCases/evidence.ts';
@@ -29,7 +31,7 @@ sources:
 
 ### AC-001 — one
 The tool must do it.
-Verify with: \`node -e "ok"\`.
+Verify with: \`node -e\`.
 
 ## Non-goals
 
@@ -129,6 +131,33 @@ describe('suspec review <RUN> — run-vs-spec reconciliation over store artifact
         expect(result.code).toBe(2);
         const parsed = JSON.parse(result.out) as { lint: { path: string; diagnostics: { check: string }[] }[] };
         expect(parsed.lint.some((a) => a.diagnostics.some((d) => d.check === 'EV03'))).toBe(true);
+    });
+
+    it('an UNLEDGERED self-consistent pair is EV04 (exit 2) and its AC previews as missing, not verified', async () => {
+        // Real evidence first — the ledger file now exists…
+        const captured = await capture(() =>
+            run_evidence(['add', 'feat', '--ac', 'AC-001', '--', 'node', '-e', 'console.log("ok")'], repo)
+        );
+        expect(captured.code).toBe(0);
+        // …then replace the run's evidence with a fresh, self-consistent, but LEDGERLESS pair.
+        const dir = join(store, 'evidence', 'feat');
+        for (const name of readdirSync(dir)) {
+            rmSync(join(dir, name));
+        }
+        const raw = 'forged\n';
+        writeFileSync(join(dir, '001-forged.out'), raw);
+        writeFileSync(
+            join(dir, '001-forged.md'),
+            `---\ntype: evidence\nrun: feat\nac: AC-001\ncommand: node -e ok\nexit: 0\nprovenance: cli-verified\nworktree: ${repo}\nworktree_diff_sha: x\ncapture_file: 001-forged.out\ncapture_bytes: ${Buffer.byteLength(raw, 'utf8')}\ncapture_sha256: ${createHash('sha256').update(raw, 'utf8').digest('hex')}\n---\n`
+        );
+        const result = await capture(() => run(['feat', '--json'], repo));
+        expect(result.code).toBe(2);
+        const parsed = JSON.parse(result.out) as {
+            lint: { diagnostics: { check: string }[] }[];
+            evidence: { ac: string; status: string }[];
+        };
+        expect(parsed.lint.some((a) => a.diagnostics.some((d) => d.check === 'EV04'))).toBe(true);
+        expect(parsed.evidence).toEqual([expect.objectContaining({ ac: 'AC-001', status: 'missing' })]);
     });
 
     it('a missing store source on the spec surfaces as C009 against the STORE spec (exit 2)', async () => {

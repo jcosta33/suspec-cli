@@ -11,6 +11,11 @@ export default defineConfig({
         // A higher ceiling keeps `vitest run` deterministic without weakening any check (coverage
         // thresholds and the test set are unchanged); a genuinely hung test still fails, just later.
         testTimeout: 30000,
+        // Pin color OFF for every test process. picocolors force-enables color when a `CI`
+        // env var is present, so renderer tests asserting uncolored strings passed locally
+        // but failed on every CI run. NO_COLOR takes precedence over CI/FORCE_COLOR in
+        // picocolors, making test output deterministic in both environments.
+        env: { NO_COLOR: '1' },
         globals: true,
         environment: 'node',
         exclude: ['**/node_modules/**', '**/dist/**', '.worktrees/**', 'scaffold/**'],

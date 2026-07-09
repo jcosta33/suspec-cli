@@ -79,7 +79,7 @@ Every command has a direct form; the daily reconcile flows also have an interact
 | `suspec pull <ref>`                              | Snapshot a ticket into the store — verbatim capture only, never a spec                                         |
 | `suspec promote <FIND>`                          | Promote a store finding to a GitHub issue (evidence digest + provenance), then archive it                      |
 | `suspec fix <FIND-id \| #issue>`                 | Scaffold a fix-spec from a finding or gh issue, then launch it via the work pipeline                           |
-| `suspec store <doctor\|list\|gc\|purge>`         | Store maintenance — doctor reconciles against git/GitHub truth; gc applies retention                           |
+| `suspec store <doctor\|list\|gc\|purge\|migrate>` | Store maintenance — doctor reconciles against git/GitHub truth; gc applies retention; migrate upgrades grammar |
 | `suspec work <SPEC>`                             | Work a store spec: create/reuse its worktree, run setup, launch a runner pointed at the store (no verdict)     |
 | `suspec evidence add <RUN> --ac <AC> -- <cmd…>`  | Run a verify command in the run worktree and record cli-verified evidence in the store                         |
 | `suspec done <RUN>`                              | The strict gate: lint the run artifacts, gate every AC on cli-verified evidence, digest + findings triage      |
