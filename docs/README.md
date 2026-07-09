@@ -15,11 +15,12 @@ tree starting at 05 is not four missing documents.
 
 ## The Suspec workflow
 
-The Suspec CLI runs on the Suspec working discipline: specs carry verifiable requirements, a task
-packet bounds each unit of agent work, and the review packet clears it on pasted evidence. The
-agent-facing rules are not in this `docs/` tree — they live in the live Suspec surface:
+The Suspec CLI runs on the Suspec working discipline: specs carry verifiable requirements, each
+unit of agent work is bounded by the spec (or a task slice cut from it), and the gate clears it on
+cli-verified evidence. The agent-facing rules are not in this `docs/` tree — they live in the live
+Suspec surface:
 
 - ➡️ **[`AGENTS.md`](../AGENTS.md)** — the always-loaded bootloader (startup, project facts, command bindings).
 - ➡️ **[`.claude/skills/`](../.claude/skills/)** — the `implement-task` guide plus this repo's engineering skills, each carrying its procedure inline.
-- ➡️ **The kit** — [suspec-starter-kit](https://github.com/jcosta33/suspec-starter-kit), which `suspec init` clones (its `advanced/` carries the SOL + checks reference cards).
-- ➡️ **Toolchain specs** — in the private family workspace (`specs/`).
+- ➡️ **The kit** — [suspec-starter-kit](https://github.com/jcosta33/suspec-starter-kit), the source `suspec update` refreshes the kit-owned templates from.
+- ➡️ **Working artifacts** — specs, runs, reviews, evidence, and findings for changes to this repo live in the personal store (`~/.claude/state/<repo>/`), never committed; accepted decisions are canon in the suspec repo's `docs/adrs/`.

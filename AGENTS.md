@@ -1,25 +1,33 @@
 # AGENTS.md — suspec-cli
 
 <!-- Always-loaded bootloader (aim ~100 lines). Procedures load on demand from
-     `.agents/skills/`. This is a CODE repo: the Suspec workspace governing it
-     is the private family workspace. -->
+     `.agents/skills/`. This is a CODE repo: Suspec working artifacts for it are
+     transient and live in the personal store, outside the repo (ADR-0137). -->
 
 ## Suspec
 
-- Suspec workspace: read the task packet you are given. Specs, tasks, reviews,
-  findings, decisions, and the board live in the private family workspace, not here.
-- Implement against the packet: read its linked spec first; stay inside its
-  scope (if a requirement can't be met as written, stop and say why instead of
-  improvising); run every item under its `## Verify` and paste the real output
-  (a claim without output counts as unverified); fill its `## Run summary`;
+- Working artifacts: the store (`~/.claude/state/<repo>/`) carries the transient
+  working artifacts — specs, runs, reviews, evidence, findings, intake — and is
+  never committed anywhere. Accepted framework decisions are canon in
+  `../corpus/docs/adrs/`; durable value leaves the store only by promotion
+  (ADRs, tests, issues, PR digests).
+- Implement against the spec (or task slice) you are given: read it first; stay
+  inside its scope (if a requirement can't be met as written, stop and say why
+  instead of improvising); run every item under its `## Verify` and paste the
+  real output (a claim without output counts as unverified); fill the run
+  record (`## Run summary`, or the spec's `## Execution` for 1:1 work);
   re-read your own diff as a skeptic before handoff. Guide:
   `.agents/skills/implement-task/`.
 - suspec-cli is the **reconcile-only harness**: it prepares,
   checks, and reconciles the Suspec loop and never runs the model loop. Surface:
-  `init · update · check · worktree · status · clean · stamp · review · new · pull · promote · run · work · show · agents`
-  (+ `help`) — each a direct command, most also an interactive TUI flow (`-i`;
-  `suspec` with no args opens the dashboard).
-  `suspec init` clones the suspec-starter-kit (no vendored copy lives here). The
+  `init · update · check · worktree · status · clean · stamp · review · new · write · pull · promote · fix · store · work · evidence · done · check-my-work · next · show · agents`
+  (+ `help`) — each a direct command; the daily reconcile flows
+  (`init · check · worktree · status · review · new`) also take `-i`, and
+  `suspec` with no args opens the dashboard.
+  `suspec init` seeds the repo in place — `suspec.config.json`, `AGENTS.md` if
+  absent, the skills dirs — and never clones a workspace or touches the store;
+  `suspec update` refreshes the kit-owned templates (from the suspec-starter-kit
+  by default) conflict-safely. The
   checks contract this CLI implements lives in the suspec repo,
   `checks/checks.yaml` (that file's `version:` is the contract version of record —
   don't pin a copy of it here), reimplemented in code at
