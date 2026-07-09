@@ -167,17 +167,6 @@ export const COMMAND_CATALOG = [
         ],
     },
     {
-        name: 'run',
-        description: 'Launch a prepared task on an agent in its worktree — records the launch (no verdict)',
-        usage: [
-            'suspec run <task> --agent <name>',
-            '  <task>                      the task to launch — its worktree must already exist (suspec worktree create)',
-            '  --agent <name>              the adapter from .suspec/config.yaml (else agents.default)',
-            '  --json                      machine output',
-            '  launches the agent + records the launch envelope under .suspec/work/; never the board, never a verdict',
-        ],
-    },
-    {
         name: 'work',
         description:
             'Work a store spec: create/reuse its worktree, set up, launch a runner pointed at the store (no verdict)',

@@ -3,8 +3,7 @@
 // runs in the fresh worktree before it launches the agent — plus the v2 faces: the `setup_copy`
 // allowlist of gitignored files to copy into the worktree, and the lockfile AUTODETECT fallback
 // used when no `setup` is declared. Pure parsers beside runtimeIsolation.ts (use-cases depend on
-// services, never the reverse); the disk reads live in the read_setup_commands /
-// resolve_setup_plan use-cases. Any shape that is not a list of non-empty strings parses to an
+// services, never the reverse); the disk reads live in the resolve_setup_plan use-case. Any shape that is not a list of non-empty strings parses to an
 // empty list — setup is then a no-op.
 
 function is_record(value: unknown): value is Record<string, unknown> {

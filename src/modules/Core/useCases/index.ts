@@ -30,11 +30,7 @@ export { list_suspec_worktrees } from './listSuspecWorktrees.ts';
 export { remove_worktree } from './removeWorktree.ts';
 export { prune_worktrees } from './pruneWorktrees.ts';
 export { stamp_runtime_isolation } from './stampRuntimeIsolation.ts';
-export { resolve_launch, type LaunchPlan, type ResolveLaunchInput } from './resolveLaunch.ts';
-// spec-first launch resolution + setup commands — `suspec work` (SPEC-suspec-cli-work), task-optional
-export { resolve_launch_by_spec, type LaunchBySpecPlan, type ResolveLaunchBySpecInput } from './resolveLaunchBySpec.ts';
-export { read_setup_commands } from './readSetupCommands.ts';
-// Task resolution shared by the worktree/review/run surfaces — bidirectional id↔slug + the task list.
+// Task resolution shared by the worktree/review surfaces — bidirectional id↔slug + the task list.
 export { resolve_task, list_task_ids } from './taskLocator.ts';
 
 // read-only artifact projection — the `suspec show` loader surface (the MCP adapts it; ADR-0085)

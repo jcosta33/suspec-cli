@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
 import { parse_setup_config, parse_setup_copy, detect_setup_commands } from '../services/setupConfig.ts';
-import { read_setup_commands } from '../useCases/readSetupCommands.ts';
 
 // SPEC-suspec-cli-work AC-003: the optional `setup` list in the consumer-side suspec.config.json.
 describe('parse_setup_config', () => {
@@ -64,19 +63,5 @@ describe('detect_setup_commands (AC-005)', () => {
 
     it('detects nothing in a lockfile-less repo', () => {
         expect(detect()).toEqual([]);
-    });
-});
-
-describe('read_setup_commands', () => {
-    it('reads setup from the config file via the injected reader', () => {
-        expect(read_setup_commands('/x', () => JSON.stringify({ setup: ['a', 'b'] }))).toEqual(['a', 'b']);
-    });
-
-    it('returns [] when the config is absent', () => {
-        expect(read_setup_commands('/x', () => null)).toEqual([]);
-    });
-
-    it('returns [] on malformed JSON (never throws)', () => {
-        expect(read_setup_commands('/x', () => '{not json')).toEqual([]);
     });
 });

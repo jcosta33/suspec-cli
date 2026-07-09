@@ -5,8 +5,8 @@
 // them; the Codex template puts the repo's store dir into the sandbox's writable_roots — the
 // sandbox is the adapter's problem, never architecture (ADR-0137 D2). PURE (parsed JSON in,
 // records out); the file read lives in resolve_launch_from_store. This map replaces the retired
-// `.suspec/config.yaml` `agents:` block for `work` (agentConfig.ts survives for `suspec run`).
-// A WORKSPACE leaf, not a Core service: like emit_agents and launch_adapter it NAMES runner CLIs,
+// `.suspec/config.yaml` `agents:` block (ADR-0137 D7 — the `.suspec/` dir is retired).
+// A WORKSPACE leaf, not a Core service: like emit_agents and launch_runner it NAMES runner CLIs,
 // and the reconcile-only Core boundary (boundary.spec.ts) keeps agent names out of Core by
 // construction — Core calls these through the Workspace barrel.
 

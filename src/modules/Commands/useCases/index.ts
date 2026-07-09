@@ -13,7 +13,6 @@ export { run as run_init } from './init.ts';
 export { run as run_update } from './update.ts';
 export { run as run_pull } from './pull.ts';
 export { run as run_promote } from './promote.ts';
-export { run as run_run } from './run.ts';
 export { run as run_work } from './work.ts';
 export { run as run_evidence } from './evidence.ts';
 export { run as run_done } from './done.ts';
