@@ -25,3 +25,16 @@ export { fetch_gh_issue, type GhIssue, type GhFetchError } from './gh.ts';
 export { launch_adapter, write_run_record, write_prompt_scratch, type RunRecord, type LaunchError } from './launch.ts';
 // setup executor — `suspec work`: run project-declared setup in the fresh worktree (advisory, no gate)
 export { run_setup, type SetupResult } from './runSetup.ts';
+// launch loop v2 (SPEC-suspec-v2 AC-005/009): the rendered-argv runner spawn + the setup_copy copier
+export { launch_runner, type RunnerLaunchError } from './launchRunner.ts';
+export { copy_setup_files, type SetupCopyResult } from './copySetupFiles.ts';
+// runner adapters (AC-009) — a Workspace leaf because it names runner CLIs (like emit_agents);
+// Core resolves runners through this barrel, keeping agent names out of Core (boundary.spec.ts)
+export {
+    parse_runner_config,
+    resolve_runner,
+    render_runner_command,
+    runner_attach_hint,
+    type Runner,
+    type RunnerConfig,
+} from './runnerAdapters.ts';

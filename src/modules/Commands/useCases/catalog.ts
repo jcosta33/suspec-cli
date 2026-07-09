@@ -138,16 +138,18 @@ export const COMMAND_CATALOG = [
     },
     {
         name: 'work',
-        description: 'Work a spec: create/reuse its worktree, set up, launch an agent with a fitted prompt (no verdict)',
+        description: 'Work a store spec: create/reuse its worktree, set up, launch a runner pointed at the store (no verdict)',
         usage: [
             'suspec work <SPEC>',
-            '  <SPEC>                      a spec id/slug — worked directly; the task is optional',
-            '  --agent <name>              the adapter from .suspec/config.yaml (else agents.default)',
-            '  --task <t>                  narrow to a task packet (its worktree tail + scope)',
+            '  <SPEC>                      a spec id/slug, resolved against the store (spec-*.md)',
+            '  --runner <name>             the runner from suspec.config.json runners (built-ins: claude, codex)',
             '  --base <branch>             the worktree base (else the current branch)',
+            '  --anyway                    launch despite recorded spec staleness',
+            '  --attach                    a live run: print the runner-native attach hint (dispatches nothing)',
+            '  --second-worktree           a live run: launch in a suffixed worktree with its own run file',
             '  --dry-run                   resolve + print the plan and prompt; launch nothing, write nothing',
             '  --json                      machine output',
-            '  by hand (no CLI): create the worktree, cd in, run your agent against the spec',
+            '  by hand (no CLI): create the worktree, cd in, run your agent against the store spec',
         ],
     },
     {

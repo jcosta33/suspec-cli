@@ -31,11 +31,7 @@ export { prune_worktrees } from './pruneWorktrees.ts';
 export { stamp_runtime_isolation } from './stampRuntimeIsolation.ts';
 export { resolve_launch, type LaunchPlan, type ResolveLaunchInput } from './resolveLaunch.ts';
 // spec-first launch resolution + setup commands — `suspec work` (SPEC-suspec-cli-work), task-optional
-export {
-    resolve_launch_by_spec,
-    type LaunchBySpecPlan,
-    type ResolveLaunchBySpecInput,
-} from './resolveLaunchBySpec.ts';
+export { resolve_launch_by_spec, type LaunchBySpecPlan, type ResolveLaunchBySpecInput } from './resolveLaunchBySpec.ts';
 export { read_setup_commands } from './readSetupCommands.ts';
 // Task resolution shared by the worktree/review/run surfaces — bidirectional id↔slug + the task list.
 export { resolve_task, list_task_ids } from './taskLocator.ts';
@@ -85,6 +81,29 @@ export {
 export { write_store_artifact, type WriteStoreArtifactOptions } from './writeStoreArtifact.ts';
 export { archive_artifact } from './archiveArtifact.ts';
 export { migrate_store, type MigrateStoreInput, type MigrateStoreReport } from './migrateStore.ts';
+
+// launch loop v2 — `suspec work` re-rooted onto the store (SPEC-suspec-v2 AC-004..009)
+export {
+    resolve_launch_from_store,
+    type LaunchFromStorePlan,
+    type ResolveLaunchFromStoreInput,
+} from './resolveLaunchFromStore.ts';
+export { resolve_setup_plan, type SetupPlan, type ResolveSetupPlanInput } from './resolveSetupPlan.ts';
+export { check_store_spec_staleness, type StoreSpecStaleness } from './checkStoreSpecStaleness.ts';
+export { read_run_state, type RunState } from './readRunState.ts';
+// the pure v2 services the work command wires: the setup blocking heuristic (AC-005), the
+// run-file record + lock (AC-006/008), and the store run-file name (AC-002). The runner
+// adapters (AC-009) live in the Workspace barrel — they name runner CLIs, which Core must not.
+export { spec_requires_runtime } from '../services/specRuntimeNeeds.ts';
+export {
+    build_run_content,
+    reclaim_run_content,
+    finish_run_content,
+    abort_run_content,
+    is_heartbeat_fresh,
+    HEARTBEAT_FRESH_MS,
+} from '../services/runArtifact.ts';
+export { run_filename } from '../services/storeLayout.ts';
 
 // prepare engine — init + new, no agent (AC-012/013/016); pull + promote, no board (W5 AC-001/002)
 export { init_workspace, type ConflictPolicy } from './initWorkspace.ts';
