@@ -1,40 +1,14 @@
 #!/usr/bin/env node
 
-// The dispatcher (AC-004/014). A thin in-process router over the M1 command surface — no agent
-// fallback, no telemetry/registry bootstrap, no model loop. `suspec` with no command opens the
-// dashboard (TTY) or prints help (piped); `suspec <cmd>` routes to its command; an unknown command
-// prints to stderr and exits 2. The advertised set equals the dispatchable set by construction
-// (see the AC-004 parity test).
+// The dispatcher. A thin in-process router over the single check verb (ADR-0143) — the CLI reads
+// exactly the files it is handed and resolves nothing else. `suspec` with no command prints usage;
+// `suspec check …` routes to the check command; an unknown command prints to stderr and exits 2.
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
-import {
-    run_check,
-    run_worktree,
-    run_status,
-    run_clean,
-    run_stamp,
-    run_review,
-    run_new,
-    run_init,
-    run_pull,
-    run_promote,
-    run_work,
-    run_evidence,
-    run_done,
-    run_check_my_work,
-    run_write,
-    run_next,
-    run_show,
-    run_agents,
-    run_fix,
-    run_store,
-    print_help,
-    print_command_help,
-} from './modules/Commands/useCases/index.ts';
-import { run_dashboard_flow, create_clack_prompter } from './modules/Tui/useCases/index.ts';
+import { run_check, print_usage } from './modules/Commands/useCases/index.ts';
 
 function is_record(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
@@ -49,35 +23,14 @@ function print_version(): void {
     process.stdout.write(`suspec ${version}\n`);
 }
 
-// A command returns an exit code — synchronously (`status`, which only renders) or asynchronously
-// (the commands whose `-i` flow awaits prompts). The dispatcher awaits uniformly, so both fit.
+// A command returns an exit code. The dispatcher awaits uniformly so a future async command fits.
 type CommandRun = (argv: string[], cwd?: string) => number | Promise<number>;
 
 const COMMANDS: Record<string, CommandRun> = {
     check: run_check,
-    worktree: run_worktree,
-    status: run_status,
-    clean: run_clean,
-    stamp: run_stamp,
-    review: run_review,
-    new: run_new,
-    init: run_init,
-    pull: run_pull,
-    promote: run_promote,
-    work: run_work,
-    evidence: run_evidence,
-    done: run_done,
-    'check-my-work': run_check_my_work,
-    write: run_write,
-    next: run_next,
-    fix: run_fix,
-    store: run_store,
-    show: run_show,
-    agents: run_agents,
 };
 
-// The dispatchable command names (excluding `help`, handled inline) — the AC-004 parity test
-// cross-checks these against COMMAND_CATALOG.
+// The dispatchable command names (excluding `help`, handled inline).
 export const COMMAND_NAMES = Object.keys(COMMANDS);
 
 // Is this module the process entry? Compare URL-to-URL: `import.meta.url` percent-encodes the path
@@ -90,18 +43,13 @@ export function is_main_module(metaUrl: string, entry: string | undefined): bool
 
 export async function dispatch(argv: string[], cwd: string = process.cwd()): Promise<number> {
     if (argv.length === 0) {
-        /* v8 ignore start -- the no-args dashboard is the interactive shell; the dashboard flow logic is tested via the mock Prompter */
-        if (process.stdout.isTTY === true) {
-            return run_dashboard_flow(create_clack_prompter(), { cwd });
-        }
-        /* v8 ignore stop */
-        print_help();
+        print_usage();
         return 0;
     }
 
     const command = argv[0];
     if (command === '--help' || command === '-h' || command === 'help') {
-        print_help();
+        print_usage();
         return 0;
     }
     if (command === '--version' || command === '-v') {
@@ -111,7 +59,7 @@ export async function dispatch(argv: string[], cwd: string = process.cwd()): Pro
 
     const run = COMMANDS[command];
     if (run === undefined) {
-        process.stderr.write(`Unknown command: ${command}\nRun 'suspec --help' to see the commands.\n`);
+        process.stderr.write(`Unknown command: ${command}\nRun 'suspec --help' to see the usage.\n`);
         return 2;
     }
 
@@ -120,7 +68,7 @@ export async function dispatch(argv: string[], cwd: string = process.cwd()): Pro
     // must not be read as a help request.
     const optionZone = rest.includes('--') ? rest.slice(0, rest.indexOf('--')) : rest;
     if (optionZone.includes('--help') || optionZone.includes('-h')) {
-        print_command_help(command);
+        print_usage();
         return 0;
     }
     return run(rest, cwd);
