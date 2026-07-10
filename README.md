@@ -37,7 +37,7 @@ produces the `dist/` bundle. (A published package under a non-colliding name wil
 
 ```bash
 suspec check <path>                                                # a spec or change plan
-suspec check <review-path> --spec <spec-path> --task <task-path>   # a review packet
+suspec check <review-path> --spec <spec-path> [--task <task-path>] # a review packet
 suspec check --contract                                            # the checks contract as JSON
 ```
 
@@ -50,9 +50,12 @@ suspec check --contract                                            # the checks 
 - **Several artifacts ride one invocation** (specs / change plans): the process starts once, every
   file is checked, the exit code is the max across files, and frontmatter `id:` collisions across
   the set fire C002. A pre-commit hook batches its staged set here.
-- **A review packet needs both companions.** Checked without `--spec` or `--task` it exits `2`
-  naming the missing flag — the floor's strongest checks (coverage, verify-binding, unresolvable
-  ref) never silently degrade into a shallower check.
+- **A review packet always needs its spec; the task follows the review.** `--spec` is required for
+  every review; `--task` is required iff the review names a `task:` (the task is an optional split
+  slice — a task-less 1:1 review reconciles spec-keyed, against the spec's full requirement set).
+  A missing required companion exits `2` naming the flag — the floor's strongest checks (coverage,
+  verify-binding, unresolvable ref) never silently degrade into a shallower check — and a `--task`
+  the review never references is refused as a wiring mistake.
 - **References resolve artifact-relative.** A spec's `sources:` refs and its named `sources.md`
   resolve against the spec's own directory; a change plan's `SPEC-x#AC-NNN` refs resolve against
   the plan's sibling specs. No root is ever inferred.

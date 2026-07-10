@@ -282,19 +282,20 @@ describe('check command — multiple positionals (exit = max severity; C002 acro
 });
 
 describe('check command — review packets need explicit companions (ADR-0143 D3)', () => {
-    it('a review without --spec and --task → exit 2 naming both flags', () => {
+    it('a review without --spec → exit 2 naming --spec', () => {
         const review = write('review.md', CLEAN_REVIEW);
         const { code, err } = capture(() => run([review]));
         expect(code).toBe(2);
-        expect(err).toContain('--spec and --task');
+        expect(err).toContain('missing --spec');
     });
 
-    it('a review with --spec but no --task → exit 2 naming --task', () => {
+    it('a task-referencing review with --spec but no --task → exit 2 naming --task (Q2)', () => {
         const review = write('review.md', CLEAN_REVIEW);
         const specPath = write('spec.md', CONFORMANT);
         const { code, err } = capture(() => run([review, '--spec', specPath]));
         expect(code).toBe(2);
         expect(err).toContain('missing --task');
+        expect(err).toContain('TASK-feat');
         expect(err).not.toContain('missing --spec');
     });
 
@@ -314,13 +315,38 @@ describe('check command — review packets need explicit companions (ADR-0143 D3
         expect(err).toContain('--task file not found');
     });
 
-    it('a review with both companions runs the reconcile → clean review exits 0', () => {
+    it('a review with both companions runs the reconcile → clean review exits 0 (Q1)', () => {
         const review = write('review.md', CLEAN_REVIEW);
         const specPath = write('spec.md', CONFORMANT);
         const taskPath = write('task.md', TASK);
         const { code, out } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
         expect(code).toBe(0);
         expect(out).toContain('clean');
+    });
+
+    it('a task-less review with --spec only runs spec-keyed → C012 keys on the full spec set (Q3)', () => {
+        // A 1:1 review with no `task:` frontmatter, covering only AC-001 of the two-AC spec.
+        const taskless = CLEAN_REVIEW.replace('task: TASK-feat\n', '').replace(
+            /\| AC-002 \| Pass \| p \| no \|[\s\S]*?```\n/,
+            ''
+        );
+        const review = write('review.md', taskless);
+        const specPath = write('spec.md', CONFORMANT);
+        const { code, out } = capture(() => run([review, '--spec', specPath]));
+        expect(code).toBe(1);
+        expect(out).toContain('C012');
+        expect(out).toContain('AC-002');
+        expect(out).not.toContain('C020');
+    });
+
+    it('a task-less review handed a --task anyway → exit 2 (a companion nothing references, Q4)', () => {
+        const taskless = CLEAN_REVIEW.replace('task: TASK-feat\n', '');
+        const review = write('review.md', taskless);
+        const specPath = write('spec.md', CONFORMANT);
+        const taskPath = write('task.md', TASK);
+        const { code, err } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
+        expect(code).toBe(2);
+        expect(err).toContain('references no task');
     });
 
     it('an empty-Evidence Pass row → C016 blocks (exit 2)', () => {

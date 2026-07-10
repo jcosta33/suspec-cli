@@ -87,13 +87,14 @@ function reviewWithVerify(
 
 // The engine is pure over the handed sources (ADR-0143) — every case passes explicit spec/task
 // sources; nothing here touches the filesystem.
-function check(input: { reviewSource: string; specSource?: string; taskSource?: string }) {
+function check(input: { reviewSource: string; specSource?: string; taskSource?: string | null }) {
     return check_review_file({
         reviewSource: input.reviewSource,
         reviewPath: 'review.md',
         specSource: input.specSource ?? SPEC,
         specPath: 'spec.md',
-        taskSource: input.taskSource ?? TASK,
+        // `taskSource: null` = no --task handed (the spec-keyed path); omitted = the matching TASK.
+        taskSource: input.taskSource === null ? undefined : (input.taskSource ?? TASK),
     });
 }
 
@@ -188,13 +189,58 @@ describe('check_review_file — C020 unresolvable-ref (the review names a differ
         expect(report.diagnostics[0].message).toContain('no id');
         expect(report.level).toBe('blocking');
     });
+});
 
-    it('a review with no `task:` ref reconciles against the handed packet as-is (no C020)', () => {
+// The four task-ref × --task-given quadrants (ADR-0134: the task is an optional split slice;
+// ADR-0143 D3: the floor never silently degrades).
+describe('check_review_file — the conditional --task rule', () => {
+    it('Q1: review names a task + task handed → task-keyed checks run (scope keys C012)', () => {
+        const report = assertOk(
+            check({
+                reviewSource: reviewWithVerify([{ id: 'AC-001', result: 'Pass', verify: true }]),
+                taskSource: TASK.replace('scope: [AC-001, AC-002]', 'scope: [AC-001]'),
+            })
+        );
+        expect(report.diagnostics).toEqual([]); // AC-002 is outside the slice's scope — task-keyed
+    });
+
+    it('Q2: review names a task + NO task handed → Err naming --task (never a spec-only downgrade)', () => {
+        const error = assertErr(check({ reviewSource: review('| AC-001 | Pass | p | no |'), taskSource: null }));
+        expect(error.message).toContain('missing --task');
+        expect(error.message).toContain('TASK-feat');
+    });
+
+    it('Q3: task-less review + no task handed → spec-keyed: C012 keys on the full spec id set, no C020', () => {
         const taskless = review('| AC-001 | Pass | p | no |').replace('task: TASK-feat\n', '');
-        const report = assertOk(check({ reviewSource: taskless }));
-        // C012 still runs (AC-002 uncovered) — the checks are not bypassed.
-        expect(report.diagnostics.some((d) => d.code === 'C012')).toBe(true);
-        expect(report.diagnostics.some((d) => d.code === 'C020')).toBe(false);
+        const report = assertOk(check({ reviewSource: taskless, taskSource: null }));
+        const codes = report.diagnostics.map((d) => d.code);
+        expect(codes).toContain('C012'); // AC-002 uncovered against the SPEC's full set
+        expect(report.diagnostics.find((d) => d.code === 'C012')?.message).toContain('AC-002');
+        expect(codes).toContain('C013'); // the free-form Pass row still surfaces
+        expect(codes).not.toContain('C020'); // no ref to resolve
+    });
+
+    it('Q3: a task-less review covering the whole spec with consistent blocks is clean', () => {
+        const taskless = reviewWithVerify([
+            { id: 'AC-001', result: 'Pass', verify: true },
+            { id: 'AC-002', result: 'Pass', verify: true },
+        ]).replace('task: TASK-feat\n', '');
+        const report = assertOk(check({ reviewSource: taskless, taskSource: null }));
+        expect(report.diagnostics).toEqual([]);
+        expect(report.level).toBe('clean');
+    });
+
+    it('Q3: C016 still blocks a task-less review (an empty-Evidence Pass is spec-independent)', () => {
+        const taskless = review('| AC-001 | Pass |  | no |').replace('task: TASK-feat\n', '');
+        const report = assertOk(check({ reviewSource: taskless, taskSource: null }));
+        expect(report.diagnostics.map((d) => d.code)).toContain('C016');
+        expect(report.level).toBe('blocking');
+    });
+
+    it('Q4: task-less review + a task handed anyway → Err (a companion nothing references)', () => {
+        const taskless = review('| AC-001 | Pass | p | no |').replace('task: TASK-feat\n', '');
+        const error = assertErr(check({ reviewSource: taskless }));
+        expect(error.message).toContain('references no task');
     });
 });
 

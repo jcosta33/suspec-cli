@@ -127,25 +127,24 @@ export function run(argv: string[]): number {
     // Check one loaded artifact: dispatch by its frontmatter `type:` and render its report. Returns
     // the file's exit code (the shared unixOutcome contract via `project`).
     const check_one_file = (file: string, source: string, type: string | null): number => {
-        // A review packet reconciles against the spec + task it names — both handed explicitly
-        // (ADR-0143 D3): checked without them, the floor's strongest checks (C012/C013/C020) simply
-        // would not run, so the missing flag is a blocking usage error, never a silent downgrade.
+        // A review packet reconciles against the spec it is checked against — always handed
+        // explicitly (ADR-0143 D3). The task is an optional split slice (ADR-0134): --task is
+        // required iff the review references a task — the engine refuses a task-referencing review
+        // with no --task (and a handed --task nothing references) as a blocking usage error, so the
+        // floor's strongest checks (C012/C013/C020) are never silently skippable.
         if (type === 'review') {
-            const missing = [specPath === undefined ? '--spec' : null, taskPath === undefined ? '--task' : null]
-                .filter((flag): flag is string => flag !== null)
-                .join(' and ');
-            if (missing.length > 0) {
+            if (specPath === undefined) {
                 return emit_error(
                     usage_error(
-                        `a review packet needs its companions: missing ${missing} — usage: suspec check <review-path> --spec <spec-path> --task <task-path>`
+                        'a review packet needs its source spec: missing --spec — usage: suspec check <review-path> --spec <spec-path> [--task <task-path>]'
                     ),
                     json
                 );
             }
-            const companions: { flag: string; path: string }[] = [
-                { flag: '--spec', path: specPath ?? '' },
-                { flag: '--task', path: taskPath ?? '' },
-            ];
+            const companions: { flag: string; path: string }[] = [{ flag: '--spec', path: specPath }];
+            if (taskPath !== undefined) {
+                companions.push({ flag: '--task', path: taskPath });
+            }
             for (const companion of companions) {
                 if (!existsSync(companion.path) || statSync(companion.path).isDirectory()) {
                     return emit_error(usage_error(`${companion.flag} file not found: ${companion.path}`), json);
@@ -155,9 +154,9 @@ export function run(argv: string[]): number {
                 result: check_review_file({
                     reviewSource: source,
                     reviewPath: file,
-                    specSource: readFileSync(companions[0].path, 'utf8'),
-                    specPath: companions[0].path,
-                    taskSource: readFileSync(companions[1].path, 'utf8'),
+                    specSource: readFileSync(specPath, 'utf8'),
+                    specPath,
+                    taskSource: taskPath === undefined ? undefined : readFileSync(taskPath, 'utf8'),
                 }),
                 json,
                 render: format_check_report,

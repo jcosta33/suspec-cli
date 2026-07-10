@@ -21,10 +21,12 @@
 - suspec-cli is the **path-agnostic checker**: one verb, `suspec check` — it
   reads exactly the files it is handed and resolves nothing else. Invocations:
   `suspec check <path>` (spec / change plan, several allowed per invocation) ·
-  `suspec check <review-path> --spec <spec-path> --task <task-path>` (review) ·
-  `suspec check --contract` (the contract as JSON). Exit codes are the API:
-  0 clean · 1 warning · 2 blocking; a review checked without a companion exits 2
-  naming the missing flag. The checks contract this CLI implements lives in the
+  `suspec check <review-path> --spec <spec-path> [--task <task-path>]` (review;
+  `--task` required iff the review names a `task:` — a task-less 1:1 review
+  reconciles spec-keyed) · `suspec check --contract` (the contract as JSON).
+  Exit codes are the API: 0 clean · 1 warning · 2 blocking; a review checked
+  without a required companion exits 2 naming the missing flag. The checks
+  contract this CLI implements lives in the
   suspec repo, `checks/checks.yaml` (that file's `version:` is the contract
   version of record — don't pin a copy of it here), reimplemented in code at
   `src/modules/Core/services/checksContract.ts` and drift-guarded against it
