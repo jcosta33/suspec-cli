@@ -29,20 +29,15 @@ another project; none of that applies (this repo is a TypeScript CLI, no UI, no 
   **zero** architectural violations before a cross-module change is done. Run it after every ~10 files in
   a refactor — it is the `cmdValidate` proof adapter.
 
-> As the repo migrates to the `packages/{core,cli,tui,…}` monorepo, the _discipline_ above carries
-> forward to each package; only the concrete module names change.
+## The checker boundary
 
-## The reconcile-only boundary
-
-suspec-cli prepares, checks, and reconciles the Suspec loop — it **never runs the model/agent loop**,
-owns no chat UI, and issues no review verdict. The logic lives in `src/modules/Core` (the four
-engines: check, launch/worktree, reconcile/status, prepare/init+new — plus `unixOutcome`, the
-`--json`/exit-code contract). Two surfaces wrap Core: the thin direct commands (`src/modules/Commands`,
-the Unix path) and the interactive flows (`src/modules/Tui`, over an injected `Prompter`). A boundary
-test (`Core/__tests__/boundary.spec.ts`) fails if any Core module imports an agent path. (The earlier
-agent-loop surface — adapters, agent-state, the event bus, the DI container, the SQLite store — was
-removed in the M1 realignment; deleting that authorized SOL-era code is the one exception to the
-"never delete without instruction" rule above.)
+suspec-cli checks Suspec artifacts — it **never runs the model/agent loop**, owns no chat UI, and
+issues no review verdict. The logic lives in `src/modules/Core` (the check engine — pure over the
+files the command hands it, with filesystem access injected as predicates — plus `unixOutcome`, the
+`--json`/exit-code contract). One surface wraps Core: the check command + usage
+(`src/modules/Commands`, the Unix path). The CLI reads exactly the files it is handed (ADR-0143):
+it resolves no store, no config, no repo root, no workspace tree — a change that adds any location
+resolution is out of bounds.
 
 ## Cross-cutting infra (`src/infra/*`)
 

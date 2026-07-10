@@ -42,8 +42,7 @@ module.exports = {
         {
             name: 'leaf-isolation',
             severity: 'error',
-            comment:
-                'Leaves (Sol, Terminal) sit below Core — they must not import Core or the surface; only infra.',
+            comment: 'Leaves (Sol, Terminal) sit below Core — they must not import Core or the surface; only infra.',
             from: { path: '^src/modules/(Sol|Terminal)/' },
             to: { path: '^src/modules/(Core|Commands)/' },
         },

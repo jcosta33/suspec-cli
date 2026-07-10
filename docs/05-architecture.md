@@ -30,12 +30,10 @@ A module is the unit that owns:
 ### The modules
 
 ```text
-Core         the four reconcile-only engines + the unixOutcome contract
+Core         the check engine + the unixOutcome contract
 Sol          the plain two-tier spec parser
-Workspace    git worktree / repo-root operations
 Terminal     CLI argument parsing
-Commands     the thin direct-command wrappers
-Tui          the interactive flows + renderers (over an injected Prompter)
+Commands     the check command + usage (the surface)
 ```
 
 (_Two-tier_ spec form: a spec is a header tier of frontmatter + prose and a body tier of
@@ -56,7 +54,7 @@ Each module exposes independently-importable contract surfaces, typically throug
 | `useCases/`          | public write boundary (functions) | Relative path to `src/modules/<M>/useCases/index.ts` from the caller, with explicit `.ts`; `export { fn }` only, **no** `export type` from `useCases/`. |
 | `events/` (optional) | domain event payload types        | Relative path to the event surface from the caller, with explicit `.ts`; `export type` / values as needed.                                              |
 
-> `events/` is the convention for a module that needs to publish event payload types; the reconcile-only harness has no event bus, so no module currently populates one.
+> `events/` is the convention for a module that needs to publish event payload types; the checker has no event bus, so no module currently populates one.
 
 ### 2.2 Private internals
 
@@ -123,9 +121,10 @@ Never the reverse. `repositories` MUST NOT import from `useCases`.
 ## 5. Cross-module interaction
 
 Modules interact only through each other's root barrel (`useCases/index.ts`) — `dependency-cruiser`
-forbids deep imports. The composition flows one way: `Commands` / `Tui` → `Core` → `{ Sol, Workspace,
-Terminal }` → `infra`. There is no event bus or DI container in the reconcile-only harness; the
-engines are composed directly and return `Result`s. The contract util (`Core/unixOutcome`) owns the
+forbids deep imports. The composition flows one way: `Commands` → `Core` → `{ Sol, Terminal }` →
+`infra`. There is no event bus or DI container; the engine is composed directly and returns
+`Result`s, with filesystem access injected as predicates built by the command from explicit paths
+(the engine itself stays pure). The contract util (`Core/unixOutcome`) owns the
 stdout/stderr/exit boundary.
 
 ---

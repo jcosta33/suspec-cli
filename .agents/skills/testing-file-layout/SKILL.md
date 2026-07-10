@@ -9,11 +9,11 @@ description: Apply when creating, moving, or reviewing Vitest spec files (*.spec
 
 All Vitest specs live in **`__tests__/`** directories **inside** the folder that owns the code under test — never beside the source file.
 
-| Production file                     | Spec                                                               |
-| ----------------------------------- | ------------------------------------------------------------------ |
-| `useCases/check.ts`                 | `useCases/__tests__/check.spec.ts`                                 |
-| `repositories/config.ts`            | `repositories/__tests__/config.spec.ts`                            |
-| `services/render.ts`                | `__tests__/render.spec.ts` (module root)                           |
+| Production file          | Spec                                     |
+| ------------------------ | ---------------------------------------- |
+| `useCases/check.ts`      | `useCases/__tests__/check.spec.ts`       |
+| `repositories/config.ts` | `repositories/__tests__/config.spec.ts`  |
+| `services/render.ts`     | `__tests__/render.spec.ts` (module root) |
 
 ## Reproduction First (Empirical Proof)
 
@@ -28,7 +28,7 @@ From `path/to/__tests__/foo.spec.ts`, import the subject with **`../foo.ts`** (o
 - **Module-wide** dummies and mocks: `src/modules/<Module>/__tests__/` (module root).
 - **Cross-module** helpers: `src/infra/__tests__/` or `src/helpers/__tests__/`.
 - **Testing helpers** (not specs): a `testing/` dir beside the code they serve (e.g.
-  `src/infra/errors/testing/`, `src/modules/Tui/testing/`).
+  `src/infra/errors/testing/`, `src/modules/Core/testing/`).
 
 ## Authoritative doc
 

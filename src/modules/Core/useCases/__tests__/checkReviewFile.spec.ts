@@ -100,7 +100,9 @@ function check(input: { reviewSource: string; specSource?: string; taskSource?: 
 describe('check_review_file — C012 coverage against the handed spec + task', () => {
     it('reports C012 for a coverage gap (AC-002 uncovered)', () => {
         // AC-001 carries a consistent verify block so the only finding is the C012 coverage gap.
-        const report = assertOk(check({ reviewSource: reviewWithVerify([{ id: 'AC-001', result: 'Pass', verify: true }]) }));
+        const report = assertOk(
+            check({ reviewSource: reviewWithVerify([{ id: 'AC-001', result: 'Pass', verify: true }]) })
+        );
         expect(report.diagnostics.map((d) => d.code)).toEqual(['C012']);
         expect(report.diagnostics[0].message).toContain('AC-002');
         expect(report.level).toBe('warning');
@@ -154,7 +156,9 @@ describe('check_review_file — C012 coverage against the handed spec + task', (
     });
 
     it('a spec that does not parse is an Err (blocking), not a silent clean', () => {
-        const error = assertErr(check({ reviewSource: review('| AC-001 | Pass | p | no |'), specSource: 'no fence\n' }));
+        const error = assertErr(
+            check({ reviewSource: review('| AC-001 | Pass | p | no |'), specSource: 'no fence\n' })
+        );
         expect(error.message.length).toBeGreaterThan(0);
     });
 });
@@ -201,7 +205,11 @@ describe('check_review_file — C013 verify-evidence-binding', () => {
         const report = assertOk(
             check({
                 reviewSource: reviewWithVerify([
-                    { id: 'AC-001', result: 'Pass', verifyLine: 'verify id=AC-001 cmd="a different command" result=pass' },
+                    {
+                        id: 'AC-001',
+                        result: 'Pass',
+                        verifyLine: 'verify id=AC-001 cmd="a different command" result=pass',
+                    },
                     { id: 'AC-002', result: 'Pass', verify: true },
                 ]),
             })
@@ -227,7 +235,9 @@ describe('check_review_file — C013 verify-evidence-binding', () => {
     });
 
     it('reports C013 free-form-only for a Pass row with no verify block (non-draft spec)', () => {
-        const report = assertOk(check({ reviewSource: review('| AC-001 | Pass | p | no |\n| AC-002 | Pass | p | no |') }));
+        const report = assertOk(
+            check({ reviewSource: review('| AC-001 | Pass | p | no |\n| AC-002 | Pass | p | no |') })
+        );
         expect(report.diagnostics.map((d) => d.code)).toEqual(['C013', 'C013']);
         expect(report.diagnostics.every((d) => d.message.includes('free-form'))).toBe(true);
         expect(report.level).toBe('warning');
@@ -248,7 +258,9 @@ describe('check_review_file — C013 verify-evidence-binding', () => {
     });
 
     it('the C013 fact is verdict-free (a diagnostic + a level, never a review result)', () => {
-        const report = assertOk(check({ reviewSource: review('| AC-001 | Pass | p | no |\n| AC-002 | Pass | p | no |') }));
+        const report = assertOk(
+            check({ reviewSource: review('| AC-001 | Pass | p | no |\n| AC-002 | Pass | p | no |') })
+        );
         expect(report.diagnostics.length).toBeGreaterThan(0);
         const json = JSON.stringify(report);
         expect(json).not.toMatch(/"(verdict|decision|suggestedDecision|mergeDecision)":/);
@@ -260,7 +272,9 @@ describe('check_review_file — C013 verify-evidence-binding', () => {
 // named manual observation; an empty cell reads Unverified, never Pass.
 describe('check_review_file — C016 pass-needs-evidence', () => {
     it('BLOCKS a Pass row with an empty Evidence cell (hard-error → blocking / exit 2)', () => {
-        const report = assertOk(check({ reviewSource: review('| AC-001 | Pass |  | no |\n| AC-002 | Pass | p | no |') }));
+        const report = assertOk(
+            check({ reviewSource: review('| AC-001 | Pass |  | no |\n| AC-002 | Pass | p | no |') })
+        );
         const c016 = report.diagnostics.filter((d) => d.code === 'C016');
         expect(c016).toHaveLength(1);
         expect(c016[0].message).toContain('AC-001');
@@ -270,13 +284,17 @@ describe('check_review_file — C016 pass-needs-evidence', () => {
 
     it('a Pass row WITH a non-empty Evidence cell does not trip C016 (0-FP on a filled review)', () => {
         const report = assertOk(
-            check({ reviewSource: review('| AC-001 | Pass | pasted output | no |\n| AC-002 | Pass | a CI link | no |') })
+            check({
+                reviewSource: review('| AC-001 | Pass | pasted output | no |\n| AC-002 | Pass | a CI link | no |'),
+            })
         );
         expect(report.diagnostics.filter((d) => d.code === 'C016')).toEqual([]);
     });
 
     it('an empty-Evidence row that is NOT Pass (Unverified) is not a C016 — only Pass needs evidence', () => {
-        const report = assertOk(check({ reviewSource: review('| AC-001 | Unverified |  | yes |\n| AC-002 | Pass | p | no |') }));
+        const report = assertOk(
+            check({ reviewSource: review('| AC-001 | Unverified |  | yes |\n| AC-002 | Pass | p | no |') })
+        );
         expect(report.diagnostics.filter((d) => d.code === 'C016')).toEqual([]);
     });
 

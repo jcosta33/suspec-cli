@@ -48,13 +48,15 @@ Tests live in **`__tests__/`** subfolders **inside** the folder that owns the co
 **Knip** excludes `**/*.spec.{ts,tsx}` from the project graph (`knip.json`) so specs are not analyzed as orphaned modules.
 
 ```text
-src/modules/Workspace/
+src/modules/Core/
 ├── __tests__/
-│   └── workspaceDummy.ts
+│   └── checksContract.spec.ts     (spec for services/checksContract.ts)
+├── services/
+│   └── checksContract.ts
 ├── useCases/
 │   ├── __tests__/
-│   │   └── git.spec.ts
-│   ├── git.ts
+│   │   └── checkSpec.spec.ts
+│   ├── checkSpec.ts
 │   └── index.ts
 ```
 
@@ -74,28 +76,24 @@ Every `it` block should clearly describe the behavior under test:
 
 ### 5.1 Use cases
 
-Subject: `src/modules/Workspace/useCases/git.ts` — runs git, parses its output.
+Subject: `src/modules/Core/useCases/checkSpec.ts` — parses a spec source and runs the contract
+checks over it, with filesystem access injected as a predicate.
 
-Mock external dependencies with `vi.mock()` or inline stubs. No DI framework is used in this CLI.
+Prefer real inputs over mocks: the engine takes sources and predicates, so a spec passes a
+markdown string and a plain function. Where a subject reads the filesystem itself (a predicate
+builder), use a `mkdtempSync` temp dir. No DI framework is used in this CLI.
 
 ```typescript
-// src/modules/Workspace/useCases/__tests__/git.spec.ts
-import { describe, it, expect, vi } from 'vitest';
-import { current_branch } from '../git';
+// src/modules/Core/useCases/__tests__/checkSpec.spec.ts
+import { describe, it, expect } from 'vitest';
+import { check_spec } from '../checkSpec.ts';
+import { assertOk } from '../../../../infra/errors/testing/assertOk.ts';
 
-vi.mock('node:child_process', () => ({
-    spawnSync: vi.fn(),
-}));
+describe('check_spec', () => {
+    it('reports a clean verdict for a conformant spec', () => {
+        const report = assertOk(check_spec({ source: CONFORMANT, path: 'spec.md', exists: () => true }));
 
-import { spawnSync } from 'node:child_process';
-
-describe('current_branch', () => {
-    it('returns the current branch name', () => {
-        vi.mocked(spawnSync).mockReturnValue({ status: 0, stdout: 'feature/cli-cleanup\n' } as never);
-
-        const result = current_branch('/repo');
-
-        expect(result).toBe('feature/cli-cleanup');
+        expect(report.level).toBe('clean');
     });
 });
 ```
@@ -129,16 +127,15 @@ Mock Node APIs (fs, child_process, etc.) at the module boundary. Assert on orche
 
 ### 6.1 Dummy factories
 
-Each module owns factories for its domain objects in `__tests__/`. Factories accept a partial override and return a full, plausible instance.
+Each module owns factories for its domain objects in `__tests__/`. Factories accept a partial override and return a full, plausible instance. (A reserved pattern — no module currently needs one; the check engine's inputs are markdown strings, built inline per spec file.)
 
 ```typescript
-// src/modules/Workspace/__tests__/workspaceDummy.ts
-import type { WorkspaceConfig } from '../models/config';
-
-export const WorkspaceDummy = {
-    create: (overrides?: Partial<WorkspaceConfig>): WorkspaceConfig => ({
-        name: 'test-workspace',
-        path: '/tmp/test',
+// the shape, when a module grows one: src/modules/<M>/__tests__/<thing>Dummy.ts
+export const ReportDummy = {
+    create: (overrides?: Partial<Report>): Report => ({
+        path: 'spec.md',
+        level: 'clean',
+        diagnostics: [],
         ...overrides,
     }),
 };

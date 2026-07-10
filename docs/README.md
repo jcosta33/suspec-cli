@@ -15,11 +15,11 @@ tree starting at 05 is not four missing documents.
 
 ## The Suspec workflow
 
-The Suspec CLI runs on the Suspec working discipline: specs carry verifiable requirements, each
-unit of agent work is bounded by the spec (or a task slice cut from it), and the gate clears it on
-cli-verified evidence. The agent-facing rules are not in this `docs/` tree — they live in the live
-Suspec surface:
+The Suspec CLI is developed with the Suspec working discipline: specs carry verifiable
+requirements, each unit of agent work is bounded by the spec (or a task slice cut from it), and
+every completion claim binds to pasted evidence. The agent-facing rules are not in this `docs/`
+tree — they live in the live Suspec surface:
 
 - ➡️ **[`AGENTS.md`](../AGENTS.md)** — the always-loaded bootloader (startup, project facts, command bindings).
 - ➡️ **[`.claude/skills/`](../.claude/skills/)** — the `implement-task` guide plus this repo's engineering skills, each carrying its procedure inline.
-- ➡️ **Working artifacts** — specs, runs, reviews, evidence, and findings for changes to this repo live in the personal store (`~/.claude/state/<repo>/`), never committed; accepted decisions are canon in the suspec repo's `docs/adrs/`.
+- ➡️ **Working artifacts** — specs, tasks, reviews, and findings for changes to this repo live beside the developer's own native artifacts, outside the repo, named by explicit path; accepted decisions are canon in the suspec repo's `docs/adrs/`.

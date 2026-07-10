@@ -114,12 +114,30 @@ describe('check_spec', () => {
 describe('check_spec — markdown structure (#31/#23)', () => {
     it('H1: a TODO inside a code fence does not trip C007 at status: ready', () => {
         const spec = [
-            '---', 'type: spec', 'id: SPEC-h1', 'title: H1', 'status: ready', 'owner: Jane',
-            'sources:', '  - ADR-0077', '---', '',
-            '## Requirements', '',
-            '### AC-001 — the linter flags a marker', 'The linter must flag a marker like the example.',
-            'Verify with: a unit test.', '```js', '// TODO: revisit', '```', '',
-            '## Non-goals', '- none.', '', '## Open questions', '- none',
+            '---',
+            'type: spec',
+            'id: SPEC-h1',
+            'title: H1',
+            'status: ready',
+            'owner: Jane',
+            'sources:',
+            '  - ADR-0077',
+            '---',
+            '',
+            '## Requirements',
+            '',
+            '### AC-001 — the linter flags a marker',
+            'The linter must flag a marker like the example.',
+            'Verify with: a unit test.',
+            '```js',
+            '// TODO: revisit',
+            '```',
+            '',
+            '## Non-goals',
+            '- none.',
+            '',
+            '## Open questions',
+            '- none',
         ].join('\n');
         const report = assertOk(check_spec({ source: spec, path: 'spec.md', exists: () => true }));
         expect(report.diagnostics.some((d) => d.code === 'C007')).toBe(false);
@@ -128,12 +146,29 @@ describe('check_spec — markdown structure (#31/#23)', () => {
 
     it('H2: a fenced `## Non-goals` example does not satisfy the C005 presence check', () => {
         const spec = [
-            '---', 'type: spec', 'id: SPEC-h2', 'title: H2', 'status: ready', 'owner: Jane',
-            'sources:', '  - ADR-0077', '---', '',
-            '## Requirements', '',
-            '### AC-001 — emits a scaffold', 'The generator must emit a section example.',
-            'Verify with: a snapshot test.', '```md', '## Non-goals', '', '- placeholder', '```', '',
-            '## Open questions', '- none',
+            '---',
+            'type: spec',
+            'id: SPEC-h2',
+            'title: H2',
+            'status: ready',
+            'owner: Jane',
+            'sources:',
+            '  - ADR-0077',
+            '---',
+            '',
+            '## Requirements',
+            '',
+            '### AC-001 — emits a scaffold',
+            'The generator must emit a section example.',
+            'Verify with: a snapshot test.',
+            '```md',
+            '## Non-goals',
+            '',
+            '- placeholder',
+            '```',
+            '',
+            '## Open questions',
+            '- none',
         ].join('\n');
         const report = assertOk(check_spec({ source: spec, path: 'spec.md', exists: () => true }));
         expect(report.diagnostics.some((d) => d.code === 'C005')).toBe(true);
@@ -141,12 +176,27 @@ describe('check_spec — markdown structure (#31/#23)', () => {
 
     it('H3: a strength word inside an inline-code span is not counted by C004', () => {
         const spec = [
-            '---', 'type: spec', 'id: SPEC-h3', 'title: H3', 'status: ready', 'owner: Jane',
-            'sources:', '  - ADR-0077', '---', '',
-            '## Requirements', '',
-            '### AC-001 — rejects a deprecated key', 'The loader must reject a config that sets the `should:` key.',
-            'Verify with: a unit test.', '',
-            '## Non-goals', '- none.', '', '## Open questions', '- none',
+            '---',
+            'type: spec',
+            'id: SPEC-h3',
+            'title: H3',
+            'status: ready',
+            'owner: Jane',
+            'sources:',
+            '  - ADR-0077',
+            '---',
+            '',
+            '## Requirements',
+            '',
+            '### AC-001 — rejects a deprecated key',
+            'The loader must reject a config that sets the `should:` key.',
+            'Verify with: a unit test.',
+            '',
+            '## Non-goals',
+            '- none.',
+            '',
+            '## Open questions',
+            '- none',
         ].join('\n');
         const report = assertOk(check_spec({ source: spec, path: 'spec.md', exists: () => true }));
         expect(report.diagnostics.some((d) => d.code === 'C004')).toBe(false);

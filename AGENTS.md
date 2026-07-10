@@ -1,16 +1,16 @@
 # AGENTS.md — suspec-cli
 
 <!-- Always-loaded bootloader (aim ~100 lines). Procedures load on demand from
-     `.agents/skills/`. This is a CODE repo: Suspec working artifacts for it are
-     transient and live in the personal store, outside the repo (ADR-0137). -->
+     `.agents/skills/`. This is a CODE repo: Suspec working artifacts for it live
+     beside the developer's own native artifacts, outside the repo, named by
+     explicit path. -->
 
 ## Suspec
 
-- Working artifacts: the store (`~/.claude/state/<repo>/`) carries the transient
-  working artifacts — specs, runs, reviews, evidence, findings, intake — and is
-  never committed anywhere. Accepted framework decisions are canon in
-  `../corpus/docs/adrs/`; durable value leaves the store only by promotion
-  (ADRs, tests, issues, PR digests).
+- Working artifacts: specs, tasks, reviews, and findings for changes to this repo
+  live beside the developer's own native artifacts, outside the repo, and are
+  named by explicit path — read the spec or task slice you are given by the path
+  you are given. Accepted framework decisions are canon in `../corpus/docs/adrs/`.
 - Implement against the spec (or task slice) you are given: read it first; stay
   inside its scope (if a requirement can't be met as written, stop and say why
   instead of improvising); run every item under its `## Verify` and paste the
@@ -18,32 +18,28 @@
   record (`## Run summary`, or the spec's `## Execution` for 1:1 work);
   re-read your own diff as a skeptic before handoff. Guide:
   `.agents/skills/implement-task/`.
-- suspec-cli is the **reconcile-only harness**: it prepares,
-  checks, and reconciles the Suspec loop and never runs the model loop. Surface:
-  `init · check · worktree · status · clean · stamp · review · new · write · pull · promote · fix · store · work · evidence · done · check-my-work · next · show · agents`
-  (+ `help`) — each a direct command; the daily reconcile flows
-  (`init · check · worktree · status · review · new`) also take `-i`, and
-  `suspec` with no args opens the dashboard.
-  `suspec init` seeds the repo in place — `suspec.config.json`, `AGENTS.md` if
-  absent, the skills dirs — and never clones a workspace or touches the store.
-  Init seeds everything an adopter needs (the starter kit is retired): the
-  artifact shapes are built into the CLI's scaffolds and enforced by the checks
-  contract. The
-  checks contract this CLI implements lives in the suspec repo,
-  `checks/checks.yaml` (that file's `version:` is the contract version of record —
-  don't pin a copy of it here), reimplemented in code at
-  `src/modules/Core/services/checksContract.ts` and drift-guarded against it whenever a sibling
-  canon checkout is present (SUSPEC_CANON / `../suspec` / any canon-shaped sibling — the guard
-  skips loudly otherwise; CI checks out the canon beside this repo in
-  `.github/workflows/gate.yml`, so the guard bites on every push/PR).
+- suspec-cli is the **path-agnostic checker**: one verb, `suspec check` — it
+  reads exactly the files it is handed and resolves nothing else. Invocations:
+  `suspec check <path>` (spec / change plan, several allowed per invocation) ·
+  `suspec check <review-path> --spec <spec-path> --task <task-path>` (review) ·
+  `suspec check --contract` (the contract as JSON). Exit codes are the API:
+  0 clean · 1 warning · 2 blocking; a review checked without a companion exits 2
+  naming the missing flag. The checks contract this CLI implements lives in the
+  suspec repo, `checks/checks.yaml` (that file's `version:` is the contract
+  version of record — don't pin a copy of it here), reimplemented in code at
+  `src/modules/Core/services/checksContract.ts` and drift-guarded against it
+  whenever a sibling canon checkout is present (SUSPEC_CANON / `../suspec` / any
+  canon-shaped sibling — the guard skips loudly otherwise; CI checks out the
+  canon beside this repo in `.github/workflows/gate.yml`, so the guard bites on
+  every push/PR).
 
 ## Project facts
 
 - TypeScript, pnpm, vitest, eslint, dependency-cruiser; entry `bin/suspec.js` →
-  `src/index.ts` (the in-process dispatcher). Modules: `Core` (the four engines and the
-  `unixOutcome` contract), `Sol` (the plain-form spec parser), `Workspace` (git worktrees),
-  `Terminal` (arg parsing), `Commands` (the thin wrappers), `Tui` (the interactive flows and
-  renderers). `src/infra` is the `Result`/`AppError` algebra plus the shared pure markdown/YAML scan utilities.
+  `src/index.ts` (the in-process dispatcher). Modules: `Core` (the check engine and the
+  `unixOutcome` contract), `Sol` (the plain-form spec parser), `Terminal` (arg parsing),
+  `Commands` (the check command + usage, the surface). `src/infra` is the `Result`/`AppError`
+  algebra plus the shared pure markdown/YAML scan utilities.
 - **Architecture discipline:** DDD module boundaries — cross-module imports only via a
   module's root `useCases/index.ts`; internals (`models/`/`repositories/`/`services/`) private;
   one function per use-case/repository file; `src/infra/**` MUST NOT import
@@ -62,17 +58,17 @@
   `.agents/memory/glossary.md`.
 - Full conventions: `.agents/repo-conventions.md` · human coding conventions:
   `docs/07-conventions.md` · architecture: `docs/05-architecture.md` · testing:
-  `docs/06-testing.md`. (The CLI reads/writes a consumer-side `suspec.config.json`
-  in the repo it operates on; this repo carries no project-config file of its own.)
+  `docs/06-testing.md`. The CLI reads no config file — not in this repo, not in
+  the repos it checks.
 
 ## Commands
 
-| Slot         | Command              | Purpose                        |
-| ------------ | -------------------- | ------------------------------ |
-| cmdTest      | `pnpm test:run`      | run the test suite             |
-| cmdLint      | `pnpm lint`          | static checks                  |
-| cmdTypecheck | `pnpm typecheck`     | types                          |
-| cmdValidate  | `pnpm deps:validate` | dependency-boundary validation |
+| Slot         | Command              | Purpose                                            |
+| ------------ | -------------------- | -------------------------------------------------- |
+| cmdTest      | `pnpm test:run`      | run the test suite                                 |
+| cmdLint      | `pnpm lint`          | static checks                                      |
+| cmdTypecheck | `pnpm typecheck`     | types                                              |
+| cmdValidate  | `pnpm deps:validate` | dependency-boundary validation                     |
 | cmdFormat    | `pnpm format:check`  | format hygiene (check-only — `pnpm format` writes) |
 
 An empty or missing slot means **ask** — never invent a command. A Verify item

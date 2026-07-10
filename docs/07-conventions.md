@@ -140,13 +140,13 @@ import * as path from 'node:path';
 
 ```typescript
 // ✅ Good
-import { execSync } from 'node:child_process';
-import { select } from '@clack/prompts';
-import { getWorkspace } from '../../modules/Workspace/useCases/index.ts';
+import { readFileSync } from 'node:fs';
+import color from 'picocolors';
+import { check_spec } from '../../Core/useCases/index.ts';
 
 // ❌ Bad: Mixed order and missing type-only imports
-import { getWorkspace } from '../../modules/Workspace/useCases/index.ts';
-import { execSync } from 'node:child_process';
+import { check_spec } from '../../Core/useCases/index.ts';
+import { readFileSync } from 'node:fs';
 ```
 
 ### Export patterns
@@ -169,7 +169,7 @@ export default format_time;
 ### Import paths
 
 - Cross-module imports use **relative paths to the module's root `useCases/index.ts`** with an explicit `.ts`
-  extension (NodeNext resolution) — e.g. `import { resolve_repo_root } from '../../Workspace/useCases/index.ts';`.
+  extension (NodeNext resolution) — e.g. `import { check_spec } from '../../Core/useCases/index.ts';`.
   Within a module, use relative paths (`../services/…`, `./useCases/…`); never import your own root barrel.
 - The `#/` alias is reserved for `src/infra` and is not used by module code today. No `src/` file imports
   via `#/` — match that.

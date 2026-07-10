@@ -2,14 +2,14 @@
     "name": "suspec-cli",
     "version": "1.0.0",
     "packageManager": "pnpm@10.32.1",
-    "description": "The reference CLI for the Suspec framework — a reconcile-only harness for spec-driven agent work.",
+    "description": "The reference checker for the Suspec methodology — a path-agnostic, deterministic checker for Suspec artifacts.",
     "keywords": [
         "suspec",
         "spec-driven",
         "agents",
         "cli",
-        "reconcile",
-        "worktree"
+        "check",
+        "lint"
     ],
     "homepage": "https://github.com/jcosta33/suspec-cli#readme",
     "bugs": {
