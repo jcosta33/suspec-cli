@@ -4,22 +4,20 @@
 // Suspec CLI module architecture enforcement
 //
 // Module layout (one folder per bounded context under src/modules):
-//   src/modules/Core/       — the four reconcile-only engines + the unixOutcome contract
+//   src/modules/Core/       — the check engine + the unixOutcome contract
 //   src/modules/Sol/        — the plain two-tier spec parser
-//   src/modules/Workspace/  — git worktree / repo-root operations
 //   src/modules/Terminal/   — CLI argument parsing
-//   src/modules/Commands/   — the thin direct-command wrappers (a surface)
-//   src/modules/Tui/        — the interactive flows + renderers (a surface)
+//   src/modules/Commands/   — the thin command wrapper (the surface)
 //   src/infra/              — cross-cutting infra (the Result / AppError algebra only)
 //
 // Composition flows one way (enforced below):
-//   surfaces (Commands, Tui) → Core → leaves (Sol, Workspace, Terminal) → infra
+//   the surface (Commands) → Core → leaves (Sol, Terminal) → infra
 //
 // AGENTS.md hard rules enforced here:
 //   - Cross-module imports MUST target the destination module's root useCases/index.ts.
 //   - Same-module imports MUST use relative paths (never the module barrel).
 //   - Models / repositories / services / validators are PRIVATE to their module.
-//   - Nothing below a surface may import a surface; leaves may import only infra.
+//   - Nothing below the surface may import it; leaves may import only infra.
 //   - Infra is leaf-level — it must not import any module.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -37,18 +35,17 @@ module.exports = {
         {
             name: 'surface-isolation',
             severity: 'error',
-            comment:
-                'The surfaces (Commands, Tui) are the top of the graph — Core and the leaves must not import them.',
-            from: { path: '^src/modules/(Core|Sol|Workspace|Terminal)/' },
-            to: { path: '^src/modules/(Commands|Tui)/' },
+            comment: 'The surface (Commands) is the top of the graph — Core and the leaves must not import it.',
+            from: { path: '^src/modules/(Core|Sol|Terminal)/' },
+            to: { path: '^src/modules/Commands/' },
         },
         {
             name: 'leaf-isolation',
             severity: 'error',
             comment:
-                'Leaves (Sol, Workspace, Terminal) sit below Core — they must not import Core or a surface; only infra.',
-            from: { path: '^src/modules/(Sol|Workspace|Terminal)/' },
-            to: { path: '^src/modules/(Core|Commands|Tui)/' },
+                'Leaves (Sol, Terminal) sit below Core — they must not import Core or the surface; only infra.',
+            from: { path: '^src/modules/(Sol|Terminal)/' },
+            to: { path: '^src/modules/(Core|Commands)/' },
         },
         {
             name: 'infra-isolation',
