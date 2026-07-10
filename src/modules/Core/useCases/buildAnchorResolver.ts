@@ -1,7 +1,8 @@
 // Build the `anchor_resolves` predicate the citation check (C015) injects: does a `[[KEY]]` citation
-// resolve to a matching `<a id="KEY">` anchor in the workspace's sources.md? Reads the filesystem;
-// the engine (check_spec) stays pure by taking the resulting predicate (mirrors C009's `exists` and
-// C010's `spec_ref_resolves`).
+// resolve to a matching `<a id="KEY">` anchor in the sources.md the spec's frontmatter names —
+// resolved against the spec's own directory (ADR-0143 D4)? Reads the filesystem; the engine
+// (check_spec) stays pure by taking the resulting predicate (mirrors C009's `exists` and C010's
+// `spec_ref_resolves`).
 //
 // The sources.md is the one the spec's own frontmatter `sources:` names — the self-contained source
 // the dangling case actually arose from (ADR-0087 Decision 2). When no `sources.md` entry is found,

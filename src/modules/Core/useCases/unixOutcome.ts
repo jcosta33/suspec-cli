@@ -5,7 +5,7 @@
 //   - progress/notes and error messages → stderr, always;
 //   - exit code: 0 clean · 1 warnings/soft-fail · 2 hard error OR usage/runtime error.
 // A hard error is either a blocking outcome an engine returns as a success value (e.g. a spec with
-// a blocking check failure → exit 2) or an `Err` (bad usage, missing workspace, I/O failure → exit
+// a blocking check failure → exit 2) or an `Err` (bad usage, a missing file, I/O failure → exit
 // 2). Both collapse to 2 — the human/JSON message distinguishes them.
 
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';

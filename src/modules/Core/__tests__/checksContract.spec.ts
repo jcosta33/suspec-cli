@@ -8,7 +8,7 @@ import {
     CONTRACT_VERSION,
     CORE_CHECKS,
     severity_of,
-    is_workspace_ref,
+    is_path_ref,
     check_unique_ids,
     check_verify_with,
     check_one_strength_word,
@@ -85,8 +85,7 @@ describe('severity_of', () => {
         expect(severity_of('C013')).toBe('warning');
         expect(severity_of('C014')).toBe('warning');
         expect(severity_of('C015')).toBe('warning');
-        expect(severity_of('C016')).toBe('hard-error'); // the gate blocks an empty-Evidence Pass
-        expect(severity_of('C017')).toBe('warning');
+        expect(severity_of('C016')).toBe('hard-error'); // an empty-Evidence Pass blocks
         expect(severity_of('C019')).toBe('warning');
     });
 });
@@ -600,24 +599,24 @@ describe('C011 waves-present (change-plan, AC-003)', () => {
     });
 });
 
-describe('is_workspace_ref', () => {
-    it('treats paths and doc-like files as workspace refs', () => {
-        expect(is_workspace_ref('specs/x/spec.md')).toBe(true);
-        expect(is_workspace_ref('../suspec/checks/checks.yaml')).toBe(true);
-        expect(is_workspace_ref('file.md')).toBe(true);
-        expect(is_workspace_ref('config.json')).toBe(true);
+describe('is_path_ref', () => {
+    it('treats paths and doc-like files as resolvable refs', () => {
+        expect(is_path_ref('specs/x/spec.md')).toBe(true);
+        expect(is_path_ref('../suspec/checks/checks.yaml')).toBe(true);
+        expect(is_path_ref('file.md')).toBe(true);
+        expect(is_path_ref('config.json')).toBe(true);
     });
 
     it('exempts bare tracker ids, urls, prose tokens, and bare cross-refs', () => {
-        expect(is_workspace_ref('JIRA-123')).toBe(false);
-        expect(is_workspace_ref('ADR-0077')).toBe(false);
-        expect(is_workspace_ref('https://example.com')).toBe(false);
-        expect(is_workspace_ref('http://example.com')).toBe(false);
-        expect(is_workspace_ref('mailto:a@b.c')).toBe(false);
-        expect(is_workspace_ref('plainword')).toBe(false);
-        expect(is_workspace_ref('e.g.')).toBe(false);
-        expect(is_workspace_ref('#a-heading')).toBe(false);
-        expect(is_workspace_ref('   ')).toBe(false);
+        expect(is_path_ref('JIRA-123')).toBe(false);
+        expect(is_path_ref('ADR-0077')).toBe(false);
+        expect(is_path_ref('https://example.com')).toBe(false);
+        expect(is_path_ref('http://example.com')).toBe(false);
+        expect(is_path_ref('mailto:a@b.c')).toBe(false);
+        expect(is_path_ref('plainword')).toBe(false);
+        expect(is_path_ref('e.g.')).toBe(false);
+        expect(is_path_ref('#a-heading')).toBe(false);
+        expect(is_path_ref('   ')).toBe(false);
     });
 });
 

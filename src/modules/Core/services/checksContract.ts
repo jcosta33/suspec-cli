@@ -9,14 +9,15 @@
 // These rule functions are PURE over a ParsedSpec record — the parser (Sol) extracts the structure;
 // this module owns the contract semantics (strength words, the Verify-line shape, link
 // classification). C009's filesystem check takes an injected `exists` predicate so it stays pure;
-// C010 takes an injected `spec_ref_resolves` predicate for the same reason (the engine reads the
-// workspace). C002 (cross-file id collision) is workspace-scope and lives with the workspace checker.
+// C010 takes an injected `spec_ref_resolves` predicate for the same reason (the command reads the
+// files). C002 (cross-file id collision) keys on the file set passed in one invocation and lives
+// with the file-set checker (checkArtifactSet).
 
 import type { OutcomeLevel } from '../useCases/unixOutcome.ts';
 import { strip_inline_code } from '../../../infra/markdownScan.ts';
 
 // Pinned to suspec/checks/checks.yaml `version:`; the drift-guard test fails if the sibling diverges.
-export const CONTRACT_VERSION = '0.15.0';
+export const CONTRACT_VERSION = '0.16.0';
 
 export type CheckSeverity = 'hard-error' | 'warning';
 
@@ -24,7 +25,7 @@ export type CheckSeverity = 'hard-error' | 'warning';
 export type CheckId =
     | 'C001' | 'C002' | 'C003' | 'C004' | 'C005' | 'C006'
     | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C012' | 'C013' | 'C014' | 'C015'
-    | 'C016' | 'C017' | 'C019' | 'C020';
+    | 'C016' | 'C019' | 'C020';
 
 // Severity per check, the single source inside suspec-cli; a total Record so the lookup needs no
 // fallback. The drift guard reconciles it against suspec/checks/checks.yaml.
@@ -45,16 +46,13 @@ const SEVERITY_BY_ID: Record<CheckId, CheckSeverity> = {
     C014: 'warning',
     C015: 'warning',
     // C016 pass-needs-evidence: the contract pins it hard-error (checks.yaml review_file content_rule).
-    // The GATE path (`suspec check <review>`) honors that — an empty-Evidence Pass is a structural
-    // contradiction, not a judgment call. The reconcile path (`suspec review`) still surfaces the same
-    // fact advisorily (ADR-0077 D8 never blocks); see ADR-0097.
+    // An empty-Evidence Pass is a structural contradiction, not a judgment call; see ADR-0097.
     C016: 'hard-error',
-    C017: 'warning',
     C019: 'warning',
-    // C020 unresolvable-ref (ADR-0128): a review names a task/spec ref that does not resolve, so the
-    // coverage/evidence checks cannot run. The GATE face (`suspec check <review>`) blocks — a review
-    // that can't be tied to its spec is structurally unverifiable, not a judgment call (mirrors C016);
-    // the reconcile face stays advisory (ADR-0077 D8).
+    // C020 unresolvable-ref (ADR-0128): a review names a task ref that does not resolve to the task
+    // packet it is checked against, so the coverage/evidence checks would key on the wrong slice. A
+    // review that can't be tied to its spec/task is structurally unverifiable, not a judgment call
+    // (mirrors C016) — blocking severity at check time; the human owns what blocks a merge (ADR-0143).
     C020: 'hard-error',
 };
 
@@ -80,7 +78,6 @@ export const CORE_CHECKS: readonly { id: CheckId; name: string; severity: CheckS
     { id: 'C014', name: 'do-not-change-touched', severity: severity_of('C014') },
     { id: 'C015', name: 'citation-resolves', severity: severity_of('C015') },
     { id: 'C016', name: 'pass-needs-evidence', severity: severity_of('C016') },
-    { id: 'C017', name: 'orphaned-reference', severity: severity_of('C017') },
     { id: 'C019', name: 'malformed-requirement-heading', severity: severity_of('C019') },
     { id: 'C020', name: 'unresolvable-ref', severity: severity_of('C020') },
 ];
@@ -172,9 +169,9 @@ function diagnostic(code: CheckId, message: string, line: number | null): Diagno
     return { code, severity: severity_of(code), message, line };
 }
 
-// A workspace path/cross-reference (resolve it) vs a bare external tracker id like `JIRA-123`
-// (exempt — naming it is C008's concern, not C009's).
-export function is_workspace_ref(raw: string): boolean {
+// A path-shaped reference (resolve it, artifact-relative) vs a bare external tracker id like
+// `JIRA-123` (exempt — naming it is C008's concern, not C009's).
+export function is_path_ref(raw: string): boolean {
     const value = raw.trim();
     if (value.length === 0) {
         return false;
@@ -186,9 +183,9 @@ export function is_workspace_ref(raw: string): boolean {
     if (/^[A-Z]+-\d+$/.test(value)) {
         return false;
     }
-    // A workspace ref is a path (has a separator) or names a doc-like file by extension. A bare
+    // A path-shaped ref is a path (has a separator) or names a doc-like file by extension. A bare
     // name without either (a prose token, an unqualified cross-ref) is not resolvable here — bare
-    // cross-ref id resolution is workspace-scope (C002), not a single-file path check.
+    // cross-ref id resolution is the file-set check's concern (C002), not a single-file path check.
     return value.includes('/') || /\.(?:md|ya?ml|json|ts|txt)$/i.test(value);
 }
 
@@ -341,16 +338,18 @@ export function check_sources_named(spec: ParsedSpec): Diagnostic[] {
 }
 
 // --- C009 broken-source-link ---------------------------------------------------------------------
+// A spec's `sources:`/reference path must resolve — ARTIFACT-RELATIVE (ADR-0143 D4): the injected
+// `exists` predicate is built against the spec's own directory, never a workspace root.
 export type CheckBrokenLinksInput = Readonly<{
     spec: ParsedSpec;
-    exists: (workspaceRef: string) => boolean;
+    exists: (ref: string) => boolean;
 }>;
 
 export function check_broken_source_link(input: CheckBrokenLinksInput): Diagnostic[] {
     const diagnostics: Diagnostic[] = [];
     const frontmatterRefs: SpecLink[] = input.spec.frontmatter.sources.map((raw) => ({ raw, line: 0 }));
     for (const link of [...frontmatterRefs, ...input.spec.links]) {
-        if (!is_workspace_ref(link.raw)) {
+        if (!is_path_ref(link.raw)) {
             continue;
         }
         if (!input.exists(link.raw)) {
@@ -363,11 +362,12 @@ export function check_broken_source_link(input: CheckBrokenLinksInput): Diagnost
 }
 
 // --- C015 citation-resolves (ADR-0087) -----------------------------------------------------------
-// A spec's inline `[[KEY]]` citation that resolves to no `<a id="KEY">` anchor in the workspace's
-// sources.md is surfaced as a C015 warning — a dangling citation (the discipline CLAUDE.md's
-// "citations are contextual" rule names). PURE over the parsed record: the engine injects
+// A spec's inline `[[KEY]]` citation that resolves to no `<a id="KEY">` anchor in the sources.md
+// its frontmatter names is surfaced as a C015 warning — a dangling citation (the "citations are
+// contextual" discipline). PURE over the parsed record: the command injects
 // `anchor_resolves: (key) => boolean`, built by reading the sources.md the spec's frontmatter
-// `sources:` names and extracting its `<a id="…">` anchors (mirrors C009's injected `exists`).
+// `sources:` names — resolved against the spec's own directory (ADR-0143 D4) — and extracting its
+// `<a id="…">` anchors (mirrors C009's injected `exists`).
 //
 // Skip-when-nothing-to-check (ADR-0087 Decision 3): if no sources.md is resolvable, the command
 // passes `anchor_resolves = () => true`, so the check admits every key and never false-flags. C015
@@ -823,7 +823,7 @@ export function check_waves_present(input: WavesPresentInput): Diagnostic[] {
 // --- The single-file runner + verdict ------------------------------------------------------------
 export type RunSpecChecksInput = Readonly<{
     spec: ParsedSpec;
-    exists: (workspaceRef: string) => boolean;
+    exists: (ref: string) => boolean;
     // Resolves a `[[KEY]]` citation to whether sources.md carries a matching `<a id="KEY">` anchor
     // (C015). Injected like `exists` so the engine stays pure; defaults to admit-every-key, so a
     // caller with no sources.md (the skip-when-nothing-to-check rule, ADR-0087) never false-flags.

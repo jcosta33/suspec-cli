@@ -14,9 +14,10 @@ import type { OutcomeLevel } from './unixOutcome.ts';
 export type CheckSpecInput = Readonly<{
     source: string;
     path: string;
-    // Resolves a workspace ref to whether it exists (C009). Injected so the engine stays pure and
-    // testable; the command supplies a filesystem-backed predicate.
-    exists: (workspaceRef: string) => boolean;
+    // Resolves a path-shaped ref to whether it exists (C009) — artifact-relative (ADR-0143 D4).
+    // Injected so the engine stays pure and testable; the command supplies a filesystem-backed
+    // predicate built against the spec's own directory.
+    exists: (ref: string) => boolean;
     // Resolves a `[[KEY]]` citation to whether sources.md carries a matching `<a id="KEY">` anchor
     // (C015). Optional and injected like `exists`; the command builds it from the spec's named
     // sources.md, or omits it (defaulting to admit-every-key) when no sources.md is resolvable —

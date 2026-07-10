@@ -6,7 +6,7 @@
 //
 // C010 resolves a `SPEC-x#AC-NNN` ref against the named spec. Resolution is injected as
 // `spec_ref_resolves` so the engine stays pure and testable; the command supplies a
-// workspace/filesystem-backed predicate (a spec-id → requirement-id map built from candidate specs).
+// filesystem-backed predicate (a spec-id → requirement-id map built from the plan's sibling specs).
 
 import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
@@ -23,7 +23,7 @@ export type CheckChangePlanInput = Readonly<{
     source: string;
     path: string;
     // Resolves a `SPEC-x#AC-NNN` ref to whether the named spec exists and defines the anchor (C010).
-    // Injected so the engine stays pure; the command supplies a workspace-backed predicate.
+    // Injected so the engine stays pure; the command supplies a filesystem-backed predicate.
     spec_ref_resolves: (specId: string, acId: string) => boolean;
 }>;
 

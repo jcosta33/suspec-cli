@@ -1,8 +1,7 @@
 // Build the `spec_ref_resolves` predicate the change-plan check (C010) injects: does a named spec
 // (`SPEC-x`) exist among the candidate spec files and define a given anchor (`AC-NNN`)? Reads the
-// filesystem; the engine (check_change_plan) stays pure by taking the resulting predicate. Both the
-// single-file command surface and the workspace engine build it the same way, so a `SPEC-x#AC-NNN`
-// ref resolves identically in either context (it indexes the candidate specs by frontmatter id).
+// filesystem; the engine (check_change_plan) stays pure by taking the resulting predicate (it
+// indexes the candidate specs by frontmatter id).
 
 import { readFileSync } from 'fs';
 
