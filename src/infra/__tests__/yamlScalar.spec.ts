@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { normalize_scalar } from '../yamlScalar.ts';
+import { normalize_scalar, emit_scalar } from '../yamlScalar.ts';
 
 describe('normalize_scalar', () => {
     it('strips a surrounding double- or single-quote pair (the #38 root)', () => {
@@ -36,5 +36,23 @@ describe('normalize_scalar', () => {
         const start = Date.now();
         expect(normalize_scalar(big)).toBe('a'.repeat(200000));
         expect(Date.now() - start).toBeLessThan(500);
+    });
+});
+
+describe('emit_scalar', () => {
+    it('quotes a value containing a comma so it never merges into a `, `-joined list line', () => {
+        // A label like "a, b" emitted unquoted would read as two labels once joined with `, `.
+        expect(emit_scalar('a, b')).toBe('"a, b"');
+        expect(emit_scalar('bug, needs-triage')).toBe('"bug, needs-triage"');
+    });
+
+    it('leaves a plain comma-free value unquoted, byte-identical', () => {
+        expect(emit_scalar('enhancement')).toBe('enhancement');
+        expect(emit_scalar('needs-triage')).toBe('needs-triage');
+    });
+
+    it('still quotes the other YAML-unsafe forms it always guarded', () => {
+        expect(emit_scalar('key: value')).toBe('"key: value"');
+        expect(emit_scalar('a # b')).toBe('"a # b"');
     });
 });

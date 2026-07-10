@@ -52,7 +52,7 @@ export function emit_scalar(raw: string): string {
     const value = raw.replace(/\s+/g, ' ').trim();
     const needsQuoting =
         value.length === 0 ||
-        /[:#"'\\]/.test(value) || // a mapping/comment opener or a quote the line-scanners would misread
+        /[,:#"'\\]/.test(value) || // a `,` (would merge into a `, `-joined list line), a mapping/comment opener, or a quote the line-scanners would misread
         /^[\s\-?[\]{}&*!|>%@`]/.test(value) || // a YAML indicator character in value-lead position
         /\s$/.test(value);
     if (!needsQuoting) {
