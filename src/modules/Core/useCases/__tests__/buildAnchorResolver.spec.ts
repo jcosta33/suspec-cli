@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { build_anchor_resolver } from '../useCases/buildAnchorResolver.ts';
+import { build_anchor_resolver } from '../buildAnchorResolver.ts';
 
 let dir: string;
 

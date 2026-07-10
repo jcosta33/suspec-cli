@@ -1,18 +1,14 @@
-// CheckEngine, review-packet scope (M2, AC-028 / ADR-0079; C013 per ADR-0083): run C012 (coverage)
-// and C013 (verify-evidence-binding) on a review file. `suspec check <review-file>` recognizes a
-// `type: review` packet and reconciles its coverage table against the source spec — keyed on the task
-// packet's declared `scope` — at both checks' `warning` severity. Read-only; writes nothing. This is
-// the `suspec check` face of the same C012/C013 the review engine surfaces (one check, two commands;
-// ADR-0079/0083 — AC-005 requires BOTH `suspec review` and `suspec check` to surface the C013 fact).
+// CheckEngine, review-packet scope (ADR-0079 C012; ADR-0083 C013; ADR-0097 C016; ADR-0128 C020):
+// reconcile a review packet against the spec and task packet it is handed. `suspec check
+// <review-path> --spec <spec-path> --task <task-path>` reads all three files and passes their
+// sources here — the engine is PURE over the handed sources (ADR-0143: the CLI resolves nothing;
+// companions are explicit flags, never discovered). Read-only; writes nothing; renders facts and a
+// severity level, never a verdict (ADR-0077 D8).
 //
-// Resolution: the review's frontmatter `task:` → tasks/<task>.md (scope + source spec id) → the
-// specs/*/spec.md whose id matches (requirement ids + named verify commands + draft-guard status).
-// An unresolvable `task:` ref (no local task packet) is a hard C020 (ADR-0128, #89) — a dangling ref
-// must not silently pass the gate. An unreachable source SPEC stays clean (cross-root, ADR-0100 —
-// indistinguishable from a typo here). This engine adds C012/C013/C016/C020.
-
-import { readFileSync, existsSync, readdirSync } from 'fs';
-import { join } from 'path';
+// The reconcile: the task packet's declared `scope` keys the in-scope id set; the spec supplies the
+// requirement ids, the named Verify command per id, and the draft-guard status. C020 fires when the
+// review's frontmatter `task:` ref does not match the handed task packet's own id — a dangling or
+// mistyped ref must not silently pass (the coverage/evidence checks would key on the wrong packet).
 
 import { ok, isOk, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
@@ -27,12 +23,16 @@ import {
 } from '../services/checksContract.ts';
 import { parse_review_packet } from '../services/parseReviewPacket.ts';
 import { read_frontmatter, fm_scalar } from '../services/readFrontmatter.ts';
-import { is_safe_segment } from '../services/safeSegment.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
 export type CheckReviewFileInput = Readonly<{
-    workspaceDir: string;
+    reviewSource: string;
     reviewPath: string;
+    // The companions, read by the command from the explicit --spec / --task paths (ADR-0143 D3 —
+    // a review checked without them never reaches this engine; the command exits blocking first).
+    specSource: string;
+    specPath: string;
+    taskSource: string;
 }>;
 
 export type CheckReviewFileReport = Readonly<{
@@ -41,136 +41,55 @@ export type CheckReviewFileReport = Readonly<{
     diagnostics: readonly Diagnostic[];
 }>;
 
-// The task packet path for a review's `task:` id (tasks/<task>.md), or null when absent.
-function find_task_packet(workspaceDir: string, taskId: string): string | null {
-    // A `task:` id from review frontmatter is an id, never a path — reject traversal so the read below
-    // can never escape tasks/ (mirrors resolve_task / showArtifact confinement).
-    if (!is_safe_segment(taskId)) {
-        return null;
-    }
-    const path = join(workspaceDir, 'tasks', `${taskId}.md`);
-    return existsSync(path) ? readFileSync(path, 'utf8') : null;
-}
-
-// The source spec for a `source:` spec id — the specs/*/spec.md whose frontmatter id matches.
-function find_source_spec(workspaceDir: string, specId: string): string | null {
-    const specsDir = join(workspaceDir, 'specs');
-    if (!existsSync(specsDir)) {
-        return null;
-    }
-    for (const slug of readdirSync(specsDir).sort()) {
-        const specPath = join(specsDir, slug, 'spec.md');
-        if (existsSync(specPath) && fm_scalar(read_frontmatter(readFileSync(specPath, 'utf8')).id) === specId) {
-            return readFileSync(specPath, 'utf8');
-        }
-    }
-    return null;
-}
-
 export function check_review_file(input: CheckReviewFileInput): Result<CheckReviewFileReport, AppError> {
-    const reviewSource = readFileSync(input.reviewPath, 'utf8');
-    const reviewFrontmatter = read_frontmatter(reviewSource);
-    const taskId = fm_scalar(reviewFrontmatter.task);
+    const reviewFrontmatter = read_frontmatter(input.reviewSource);
+    const taskRef = fm_scalar(reviewFrontmatter.task);
 
-    const clean = (diagnostics: Diagnostic[]): Result<CheckReviewFileReport, AppError> =>
+    const report = (diagnostics: Diagnostic[]): Result<CheckReviewFileReport, AppError> =>
         ok({ path: input.reviewPath, level: verdict_for(diagnostics), diagnostics });
 
-    // Resolve the source spec + the in-scope ids. Two keyed paths (ADR-0103 review-to-spec):
-    //  - TASK-keyed (the slice case): the review's `task:` → tasks/<id>.md → its `source:` spec; coverage
-    //    keys on the TASK's scope (this review owns only its slice's ACs).
-    //  - SPEC-keyed (the 1:1 case): no `task:`, the review names its spec directly via `spec:`; coverage
-    //    keys on the SPEC's full AC set — the spec is the unit, the task an optional accessory.
-    // The C012/C013/C016 checks then run identically against the resolved spec. `spec:` is an OPTIONAL
-    // review-frontmatter key (not in checks.yaml's required list, so it breaks no existing review).
-    // The resolved spec view the checks key on: the requirement ids, the named Verify command per id,
-    // and the source status (for the draft guard). It comes from the LIVE spec when resolvable, or —
-    // when the live spec is in a SEPARATE repo (cross-root) — from the task's EMBEDDED snapshot
-    // (`## Spec snapshot`, ADR-0100 / suspec-cli#2), so a cross-root review is still validated.
-    let specView: {
-        requirementIds: readonly string[];
-        namedCommandById: Map<string, string | null>;
-        status: string | null;
-    } | null = null;
-    let taskScope: readonly string[] | null = null;
-
-    const viewFromSpec = (source: string): typeof specView => {
-        const parsed = parse_spec_record({ source, path: input.reviewPath });
-        /* v8 ignore next 3 -- find_source_spec already matched this file's frontmatter, so its fence is intact; parse only errs on a missing/unclosed fence */
-        if (!isOk(parsed)) {
-            return null;
-        }
-        return {
-            requirementIds: parsed.value.requirements.map((requirement) => requirement.id),
-            namedCommandById: new Map(
-                parsed.value.requirements.map((requirement) => [requirement.id, requirement.verifyCommand])
-            ),
-            status: parsed.value.frontmatter.status,
-        };
-    };
-
-    if (taskId !== undefined) {
-        const taskSource = find_task_packet(input.workspaceDir, taskId);
-        if (taskSource === null) {
-            // #89: the review names a task id that resolves to no packet — a typo'd/renamed ref. Emit
-            // C020 instead of a silent clean pass (which would bypass C012/C013/C016 entirely).
-            return clean([unresolvable_ref_diagnostic(taskId)]);
-        }
-        const packet = parse_task_packet(taskSource);
-        taskScope = packet.scope;
-        const specId = fm_scalar(read_frontmatter(taskSource).source);
-        const specSource = specId !== undefined ? find_source_spec(input.workspaceDir, specId) : null;
-        if (specSource !== null) {
-            specView = viewFromSpec(specSource);
-        } else if (packet.embeddedRequirements.length > 0) {
-            // Cross-root (ADR-0100): the live spec is unreachable; validate against the embedded slice.
-            // The slice was cut from a non-draft spec, so treat it as non-draft (run the guarded checks).
-            specView = {
-                requirementIds: packet.embeddedRequirements.map((requirement) => requirement.id),
-                namedCommandById: new Map(
-                    packet.embeddedRequirements.map((requirement) => [requirement.id, requirement.verifyCommand])
-                ),
-                status: 'active',
-            };
-        }
-        // If the task resolved but its named source spec did not (and no embedded slice), the spec may
-        // simply live in another repo (cross-root, ADR-0100) — indistinguishable from a typo here, so
-        // that path stays clean rather than false-firing C020. C020 fires only on the unambiguous case:
-        // the review's `task:` ref resolving to no local task packet (handled above).
-    } else {
-        // The task-less 1:1 review names its spec directly (`spec:`); with neither, nothing to reconcile.
-        const specId = fm_scalar(reviewFrontmatter.spec);
-        const specSource = specId !== undefined ? find_source_spec(input.workspaceDir, specId) : null;
-        if (specSource !== null) {
-            specView = viewFromSpec(specSource);
-        }
+    // C020 (ADR-0128): the review's `task:` ref must resolve to the handed task packet. A review
+    // naming task X reconciled against a packet identifying as Y is keyed on the wrong slice —
+    // emit C020 instead of a silently-miskeyed coverage table. Deliberately narrow: a review with
+    // no `task:` ref reconciles against the handed packet as-is (the human named it explicitly).
+    const packet = parse_task_packet(input.taskSource);
+    const taskId = fm_scalar(read_frontmatter(input.taskSource).id);
+    if (taskRef !== undefined && taskRef !== taskId) {
+        return report([unresolvable_ref_diagnostic(taskRef, taskId ?? null)]);
     }
-    if (specView === null) {
-        return clean([]);
-    }
-    const specRequirementIds = specView.requirementIds;
-    // The spec-keyed path keys coverage on the full spec; the task-keyed path narrows to the task scope.
-    const inScopeIds = taskScope ?? specRequirementIds;
 
-    const review = parse_review_packet(reviewSource);
+    // The spec view the checks key on: the requirement ids, the named Verify command per id, and
+    // the source status (for the draft guard) — all from the handed spec.
+    const parsed = parse_spec_record({ source: input.specSource, path: input.specPath });
+    if (!isOk(parsed)) {
+        return parsed;
+    }
+    const specRequirementIds = parsed.value.requirements.map((requirement) => requirement.id);
+    const namedCommandById = new Map(
+        parsed.value.requirements.map((requirement) => [requirement.id, requirement.verifyCommand])
+    );
+    const sourceSpecStatus = parsed.value.frontmatter.status;
+
+    const review = parse_review_packet(input.reviewSource);
+    // C012 (ADR-0079): the coverage reconcile — the task's declared scope against the review's
+    // coverage rows and the spec's requirement ids.
     const coverage = check_coverage({
-        sourceSpecStatus: specView.status,
-        inScopeIds,
+        sourceSpecStatus,
+        inScopeIds: packet.scope,
         specRequirementIds,
         coverageRowIds: review.coverageRows.map((row) => row.id),
     });
     // C013 (ADR-0083): the verify-evidence-binding fact — the named command per id vs the review's
-    // structured verify blocks against its Pass rows. The non-draft scope guard + verdict-free shape
-    // live inside check_verify_binding; this engine only passes the extracted records.
+    // structured verify blocks against its Pass rows. The non-draft scope guard + verdict-free
+    // shape live inside check_verify_binding; this engine only passes the extracted records.
     const verifyBinding = check_verify_binding({
-        sourceSpecStatus: specView.status,
-        namedCommandById: specView.namedCommandById,
+        sourceSpecStatus,
+        namedCommandById,
         coverageRows: review.coverageRows,
         verifyBlocks: review.verifyBlocks,
     });
-    // C016 (ADR-0097): the GATE path blocks an empty-Evidence Pass row — the contract's hard-error
-    // pass-needs-evidence rule, which the `suspec check` surface (unlike the advisory reconcile) is the
-    // place to enforce. NOT draft-guarded: an empty-evidence Pass is a structural contradiction
-    // independent of the source spec's status (the row claims Pass with nothing backing it).
+    // C016 (ADR-0097): an empty-Evidence Pass row is a structural contradiction — the row claims
+    // Pass with nothing backing it. NOT draft-guarded: it is independent of the spec's status.
     const passEvidence = check_pass_evidence(review.coverageRows);
-    return clean([...coverage, ...verifyBinding, ...passEvidence]);
+    return report([...coverage, ...verifyBinding, ...passEvidence]);
 }

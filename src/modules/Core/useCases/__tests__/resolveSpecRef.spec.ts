@@ -3,8 +3,8 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { build_spec_ref_resolver } from '../useCases/resolveSpecRef.ts';
-import { find_workspace_spec_files, find_sibling_spec_files } from '../useCases/findSpecFiles.ts';
+import { build_spec_ref_resolver } from '../resolveSpecRef.ts';
+import { find_sibling_spec_files } from '../findSpecFiles.ts';
 
 let dir: string;
 
@@ -84,18 +84,7 @@ describe('build_spec_ref_resolver', () => {
     });
 });
 
-describe('find_workspace_spec_files / find_sibling_spec_files', () => {
-    it('finds specs/*/spec.md under the workspace dir', () => {
-        mkdirSync(join(dir, 'specs', 'checkout'), { recursive: true });
-        writeFileSync(join(dir, 'specs', 'checkout', 'spec.md'), SPEC);
-        mkdirSync(join(dir, 'specs', 'empty'), { recursive: true }); // no spec.md → skipped
-        expect(find_workspace_spec_files(dir)).toEqual([join(dir, 'specs', 'checkout', 'spec.md')]);
-    });
-
-    it('returns [] when there is no specs/ dir', () => {
-        expect(find_workspace_spec_files(dir)).toEqual([]);
-    });
-
+describe('find_sibling_spec_files', () => {
     it('returns [] when the change plan has no existing parent directory', () => {
         // planDir = dir/absent/deeper, so parentDir = dir/absent (does not exist) → no siblings, no crash
         expect(find_sibling_spec_files(join(dir, 'absent', 'deeper', 'change-plan.md'))).toEqual([]);

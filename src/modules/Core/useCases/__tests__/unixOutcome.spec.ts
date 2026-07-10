@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import { ok, err } from '../../../infra/errors/result.ts';
-import { createAppError } from '../../../infra/errors/createAppError.ts';
+import { ok, err } from '../../../../infra/errors/result.ts';
+import { createAppError } from '../../../../infra/errors/createAppError.ts';
 import {
     project,
     emit_error,
@@ -9,7 +9,7 @@ import {
     usage_error,
     type OutputWriters,
     type OutcomeLevel,
-} from '../useCases/unixOutcome.ts';
+} from '../unixOutcome.ts';
 
 type Captured = { out: string[]; err: string[]; writers: OutputWriters };
 

@@ -85,17 +85,30 @@ export const CORE_CHECKS: readonly { id: CheckId; name: string; severity: CheckS
     { id: 'C020', name: 'unresolvable-ref', severity: severity_of('C020') },
 ];
 
-// --- C020 unresolvable-ref (ADR-0128) ------------------------------------------------------------
-// A `type: review` packet whose `task:` ref resolves to no local task packet. Without the task (and
-// its source spec), C012 (coverage) and C013 (verify-binding) cannot run, so the review would
-// otherwise gate CLEAN — a typo'd/renamed task id silently bypasses the honesty checks
-// (suspec-works #89). C020 makes the dangling task ref a hard error at the gate face. Deliberately
-// narrow to the task packet (always local, so unambiguous): an unreachable source SPEC may be
-// cross-root (ADR-0100) and stays clean.
-export function unresolvable_ref_diagnostic(taskRef: string): Diagnostic {
+// --- C020 unresolvable-ref (ADR-0128, re-scoped by ADR-0143) --------------------------------------
+// A `type: review` packet whose `task:` ref does not resolve to the task packet it is checked
+// against — the handed packet identifies as a different task (or carries no id). Reconciling the
+// review against the wrong slice would key C012 (coverage) and C013 (verify-binding) on the wrong
+// scope, so a typo'd/renamed task ref must not silently pass. Hard error. Deliberately narrow to
+// the task ref: the spec is likewise handed explicitly, and its identity is the reviewer's call.
+export function unresolvable_ref_diagnostic(taskRef: string, handedTaskId: string | null): Diagnostic {
+    const handed = handedTaskId === null ? 'a packet with no id' : `the packet for \`${handedTaskId}\``;
     return diagnostic(
         'C020',
-        `review names task \`${taskRef}\` which resolves to no task packet — coverage/evidence cannot be checked (unresolvable-ref)`,
+        `review names task \`${taskRef}\` but was checked against ${handed} — coverage/evidence cannot be reconciled (unresolvable-ref)`,
+        null
+    );
+}
+
+// --- C002 duplicate-id (cross-file, within the passed set) ----------------------------------------
+// Frontmatter `id:` uniqueness across the artifacts passed in one invocation (requirement ids stay
+// spec-scoped — ADR-0080). Cross-file by nature, so it applies only when several artifacts are
+// checked together; the id is each artifact's identity, and two artifacts claiming the same one is
+// a hard collision whichever file is "right".
+export function duplicate_id_diagnostic(id: string, firstPath: string, duplicatePath: string): Diagnostic {
+    return diagnostic(
+        'C002',
+        `frontmatter id \`${id}\` appears in both ${firstPath} and ${duplicatePath} (duplicate-id)`,
         null
     );
 }

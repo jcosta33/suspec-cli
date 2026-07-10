@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
-import { assertOk } from '../../../infra/errors/testing/assertOk.ts';
-import { assertErr } from '../../../infra/errors/testing/assertErr.ts';
-import { check_spec } from '../useCases/checkSpec.ts';
+import { assertOk } from '../../../../infra/errors/testing/assertOk.ts';
+import { assertErr } from '../../../../infra/errors/testing/assertErr.ts';
+import { check_spec } from '../checkSpec.ts';
 
 const CONFORMANT = `---
 type: spec

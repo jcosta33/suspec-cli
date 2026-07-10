@@ -2,11 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { assertOk } from '../../../infra/errors/testing/assertOk.ts';
-import { check_change_plan } from '../useCases/checkChangePlan.ts';
-import { build_spec_ref_resolver } from '../useCases/resolveSpecRef.ts';
-import { find_sibling_spec_files } from '../useCases/findSpecFiles.ts';
-import { resolve_canon_root } from '../testing/resolveCanonRoot.ts';
+import { assertOk } from '../../../../infra/errors/testing/assertOk.ts';
+import { check_change_plan } from '../checkChangePlan.ts';
+import { build_spec_ref_resolver } from '../resolveSpecRef.ts';
+import { find_sibling_spec_files } from '../findSpecFiles.ts';
+import { resolve_canon_root } from '../../testing/resolveCanonRoot.ts';
 
 const codes = (diagnostics: readonly { code: string }[]) => diagnostics.map((d) => d.code);
 
