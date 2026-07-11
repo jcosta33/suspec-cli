@@ -77,7 +77,7 @@ helpers/format-time.ts    # kebab-case
 
 ### Variable and function names
 
-Variables are `camelCase`. Module-level functions are `snake_case` and declared with `export function` (not `export const` arrows). Both are descriptive and verbose — no abbreviations.
+Variables are `camelCase`. Module-level functions in `src/modules/**` are `snake_case` and declared with `export function` (not `export const` arrows). The `src/infra` combinator library (the Result/AppError algebra) is the deliberate carve-out: its combinators are camelCase `export const` arrows, matching the functional idiom they implement. Both styles are descriptive and verbose — no abbreviations.
 
 ```typescript
 // ✅ Good: Descriptive, verbose names
@@ -151,7 +151,7 @@ import { readFileSync } from 'node:fs';
 
 ### Export patterns
 
-Module-level functions are declared with `export function`, not `export const` arrows. Always named exports — never default exports.
+Module-level functions in `src/modules/**` are declared with `export function`, not `export const` arrows (the `src/infra` combinator library is the carve-out noted above). Always named exports — never default exports.
 
 ```typescript
 // ✅ Good: Named function declaration
@@ -171,8 +171,8 @@ export default format_time;
 - Cross-module imports use **relative paths to the module's root `useCases/index.ts`** with an explicit `.ts`
   extension (NodeNext resolution) — e.g. `import { check_spec } from '../../Core/useCases/index.ts';`.
   Within a module, use relative paths (`../services/…`, `./useCases/…`); never import your own root barrel.
-- The `#/` alias is reserved for `src/infra` and is not used by module code today. No `src/` file imports
-  via `#/` — match that.
+- No import alias is configured (no tsconfig `paths`, no package.json `imports` map) — every
+  import in `src/` is a relative path. Match that.
 
 ## Function patterns
 
@@ -197,35 +197,35 @@ export function calc_path(b: string, s: string): string {
 
 ```typescript
 // ✅ Good: Descriptive parameter names
-export const createNotification = ({ workspaceName, alertLevel, notificationType }): void => {
+export function create_notification({ workspaceName, alertLevel, notificationType }: CreateNotificationInput): void {
     // Implementation
-};
+}
 
 // ❌ Bad: Single letter or abbreviated parameters
-export const createNotif = (t: string, a: string, n: string): void => {
+export function create_notif(t: string, a: string, n: string): void {
     // Implementation
-};
+}
 
 // ✅ Good: Single object with descriptive properties
-export const updateWorkspace = ({ workspaceId, isVisible, notifyUser, updateMeta }): void => {
+export function update_workspace({ workspaceId, isVisible, notifyUser, updateMeta }: UpdateWorkspaceInput): void {
     // Implementation
-};
+}
 
 // ❌ Bad: Multiple boolean parameters - unclear what each does
-export const updateWorkspace = (
+export function update_workspace(
     workspaceId: string,
     isVisible: boolean,
     notify: boolean,
     updateMeta: boolean
-): void => {
+): void {
     // Implementation
-};
+}
 
 // ❌ Bad: Function call is unclear without checking the signature
-updateWorkspace('ws-123', true, false, true); // What do these booleans mean?
+update_workspace('ws-123', true, false, true); // What do these booleans mean?
 
 // ✅ Good: Function call is self-documenting
-updateWorkspace({
+update_workspace({
     workspaceId: 'ws-123',
     isVisible: true,
     notifyUser: false,

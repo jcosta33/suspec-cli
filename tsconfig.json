@@ -10,9 +10,8 @@
 
         // ── Module system ───────────────────────────────────────────────────
         // NodeNext mirrors Node's own resolver: explicit ".ts" extensions on
-        // relative imports, no path-mapping at runtime. The "#/*" alias still
-        // resolves at typecheck time for the infra package, but every runtime
-        // import must spell out the file extension.
+        // relative imports, no path-mapping at runtime — every import must
+        // spell out the file extension.
         "module": "NodeNext",
         "moduleResolution": "NodeNext",
         "allowImportingTsExtensions": true,
@@ -40,15 +39,7 @@
         "isolatedModules": true,
         "noEmit": true,
         "skipLibCheck": true,
-        "useDefineForClassFields": true,
-
-        // ── Path aliases ────────────────────────────────────────────────────
-        // Only used by the new src/infra/* package. Module code uses relative
-        // imports (../../Module/useCases/index.ts) per AGENTS.md. With TypeScript 6+
-        // `paths` resolves relative to this config — no `baseUrl` needed.
-        "paths": {
-            "#/*": ["./src/*"]
-        }
+        "useDefineForClassFields": true
     },
     "include": ["src", "bin"],
     "exclude": [

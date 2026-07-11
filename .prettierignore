@@ -1,4 +1,3 @@
-.dependency-cruiser-known-violations.json
 node_modules
 dist
 .github

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { mkdtempSync, mkdirSync, realpathSync, writeFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -99,5 +99,25 @@ describe('find_sibling_spec_files', () => {
         // a non-directory sibling is tolerated (skipped), not a crash
         writeFileSync(join(dir, 'README.md'), 'hi\n');
         expect(find_sibling_spec_files(planPath)).toEqual([join(dir, 'checkout', 'spec.md')]);
+    });
+
+    it('finds siblings from a bare or ./-prefixed argv path — the resolve-before-dirname regression pin', () => {
+        // Without resolve(), dirname-of-dirname on `change-plan.md` collapses to `.` twice —
+        // landing in the plan's OWN directory and silently finding zero siblings (false-C010).
+        // realpath: chdir lands in the kernel-resolved dir (macOS tmpdir is a /var symlink),
+        // so the returned sibling paths are realpath-based too.
+        const realDir = realpathSync(dir);
+        mkdirSync(join(realDir, 'transformation'), { recursive: true });
+        mkdirSync(join(realDir, 'checkout'), { recursive: true });
+        writeFileSync(join(realDir, 'checkout', 'spec.md'), SPEC);
+        writeFileSync(join(realDir, 'transformation', 'change-plan.md'), '---\ntype: change-plan\nid: X\n---\n# x\n');
+        const cwd = process.cwd();
+        try {
+            process.chdir(join(realDir, 'transformation'));
+            expect(find_sibling_spec_files('change-plan.md')).toEqual([join(realDir, 'checkout', 'spec.md')]);
+            expect(find_sibling_spec_files('./change-plan.md')).toEqual([join(realDir, 'checkout', 'spec.md')]);
+        } finally {
+            process.chdir(cwd);
+        }
     });
 });

@@ -57,7 +57,7 @@ export type SpecRecord = Readonly<{
     // key resolves to no `<a id="KEY">` anchor in the workspace's sources.md is a dangling citation.
     citations: readonly string[];
     // Id-shaped `###` headings with a letter suffix (`AC-004a`) — NOT requirements (the grammar is
-    // digits-only), captured so C018 can warn instead of letting the heading vanish silently.
+    // digits-only), captured so C019 can warn instead of letting the heading vanish silently.
     malformedRequirementHeadings: readonly { heading: string; line: number }[];
 }>;
 
@@ -74,7 +74,7 @@ export type ParseSpecRecordResult = Result<
 const REQUIREMENT_HEADING = /^###\s+([A-Z][A-Z0-9]*-\d+)\b/;
 // The near-miss the real heading regex silently drops: an id-shaped `###` heading whose number
 // carries a letter suffix (`AC-004a`). It parses as plain prose, so the requirement vanishes from
-// scope and coverage with no signal — C018 exists to make that disappearance visible. Requirement
+// scope and coverage with no signal — C019 exists to make that disappearance visible. Requirement
 // ids are digits-only (ADR-0058); split requirements get their own numbers.
 // Lowercase split-suffix only (`AC-004a`): the uppercase-continuation shape is prose
 // (`### UTF-16LE handling`, `### C-3PO example`) and false-fires; the capture runs through

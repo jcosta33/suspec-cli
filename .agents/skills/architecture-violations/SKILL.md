@@ -164,7 +164,7 @@ If a layer exists only to satisfy the validator while the real logic still lives
 
 A `TEMPORARY MIGRATION SHIM` (or any similar annotation) is not a comment. It is a task marker: it exists to trigger a real refactor.
 
-Removing the annotation from a file that is still a pure re-export — e.g. `export { getX } from '../helpers/Y'` — does **not** make the file architecturally sound. The code still launders private access through a fake public surface, and the boundary is still non-existent.
+Removing the annotation from a file that is still a pure re-export — e.g. `export { getX } from '../services/Y'` — does **not** make the file architecturally sound. The code still launders private access through a fake public surface, and the boundary is still non-existent.
 
 The refactor that discharges a shim annotation is creating a real typed boundary (see §6). Deleting the comment without doing the refactor is malicious compliance, regardless of whether `deps:validate` still passes.
 
@@ -180,16 +180,17 @@ Each module exposes its public API through a root `useCases/index.ts` barrel. Ot
 src/modules/ModuleName/useCases/index.ts ← public contract
 src/modules/ModuleName/useCases/         ← public functions
 src/modules/ModuleName/models/           ← private
+src/modules/ModuleName/services/         ← private
 ```
 
 ### Importing cross-module
 
 ```ts
 // CORRECT — import from the module root barrel
-import { getWorkspace } from '../../Workspace/useCases/index.ts';
+import { parse_spec_record } from '../../Sol/useCases/index.ts';
 
 // FORBIDDEN — direct file access from outside the module
-import { getWorkspace } from '../../Workspace/useCases/git.ts';
+import { parse_spec_record } from '../../Sol/useCases/parseSpecRecord.ts';
 ```
 
 ### Importing inside the same module (never own barrel)
@@ -197,23 +198,23 @@ import { getWorkspace } from '../../Workspace/useCases/git.ts';
 Files under `src/modules/<Name>/` must **not** import from their own module root barrel. Use **relative** paths.
 
 ```ts
-// CORRECT — Workspace file importing Workspace internals
-import { parseGitOutput } from '../useCases/git';
+// CORRECT — Sol file importing Sol internals
+import { parse_spec_record } from '../useCases/parseSpecRecord.ts';
 
 // FORBIDDEN — same module importing its own barrel
-import { parseGitOutput } from '../useCases/index.ts';
+import { parse_spec_record } from '../useCases/index.ts';
 ```
 
 ### Writing a module root barrel
 
 ```ts
-// src/modules/Workspace/useCases/index.ts — curated public surface
-export { getWorkspace } from './getWorkspace.ts';
-export { createWorkspace } from './createWorkspace.ts';
+// src/modules/Core/useCases/index.ts — curated public surface
+export { check_spec } from './checkSpec.ts';
+export { check_review_file } from './checkReviewFile.ts';
 
 // FORBIDDEN inside useCases/index.ts:
-export type { InternalDto } from './getWorkspace.ts'; // use-case types do not cross modules
-export { WorkspaceModel } from '../models/Workspace.ts'; // models/ is private
+export type { InternalDto } from './checkSpec.ts'; // use-case types do not cross modules
+export { read_frontmatter } from '../services/readFrontmatter.ts'; // services/ is private
 ```
 
 ---
@@ -229,20 +230,20 @@ Every use case file must export its own typed function:
 - The file exports a named function (or arrow) written by the module that owns the use case.
 - **Types** used in the signature (`input`, return DTOs, etc.) are **internal** to the module — they are not re-exported from `useCases/index.ts` and are not imported by other modules from another module's use-case barrel.
 - The input and output types may use this module's `models/` or inline types in the file.
-- The function body may be thin. `return someHelper.method(input)` is acceptable — a use case is allowed to delegate to a private helper.
+- The function body may be thin. `return some_service_fn(input)` is acceptable — a use case is allowed to delegate to a private service.
 - **Within the same module**, callers use **relative** paths to the file that defines the symbol (`./useCases/<file>`, `../models/…`, etc.). They must **not** import from their own module root barrel.
 - **From another module**, callers import **values** from the destination module root barrel only (`export { fn }` on `useCases/index.ts`).
 
 ```ts
-// Workspace/useCases/getNextId.ts — legitimate thin use case
-import { getNextId as allocateIdFromCounter } from '../helpers/idCounter';
+// Core/useCases/readSpecFrontmatter.ts — legitimate thin use case
+import { read_frontmatter as read_frontmatter_map } from '../services/readFrontmatter.ts';
 
-export function getNextId(): string {
-    return allocateIdFromCounter();
+export function read_spec_frontmatter(source: string): Record<string, string | string[]> {
+    return read_frontmatter_map(source);
 }
 ```
 
-The helper is free to change its internal implementation; the use case absorbs the change. Another module imports `getNextId` and does not import a type alias for its return type from Workspace's use cases.
+The service is free to change its internal implementation; the use case absorbs the change. Another module imports `read_spec_frontmatter` and does not import a type alias for its return type from Core's use cases.
 
 ### 6.2 What is forbidden
 
@@ -250,65 +251,64 @@ The helper is free to change its internal implementation; the use case absorbs t
 
 ```ts
 // FORBIDDEN — bypasses the module boundary (direct file access)
-import { getWorkspace } from '../../Workspace/useCases/git.ts';
+import { parse_flags } from '../../Terminal/useCases/cli.ts';
 
 // CORRECT — goes through the module root
-import { getWorkspace } from '../../Workspace/useCases/index.ts';
+import { parse_flags } from '../../Terminal/useCases/index.ts';
 ```
 
 **Importing use-case types from another module:**
 
 ```ts
 // FORBIDDEN — types defined in useCases/ are not a cross-module surface
-import type { WorkspaceSummary } from '../../Workspace/useCases/index.ts';
+import type { SpecSummary } from '../../Sol/useCases/index.ts';
 
-// Prefer: local shape, or ReturnType<typeof getWorkspaceSummary> after importing the function
+// Prefer: local shape, or ReturnType<typeof get_spec_summary> after importing the function
 ```
 
-**Re-exporting a helper function through a use-case file:**
+**Re-exporting a service function through a use-case file:**
 
 ```ts
 // FORBIDDEN — laundering private access through a fake boundary
-export { getNextId } from '../helpers/idCounter';
-export * from '../helpers/automergeRepository';
+export { read_frontmatter } from '../services/readFrontmatter.ts';
+export * from '../services/checksContract.ts';
 ```
 
-This creates no boundary. The consumer imports the helper symbol verbatim, under a different path. If the helper signature changes, every consumer breaks. There is no translation, no contract, no ownership change across the file.
+This creates no boundary. The consumer imports the service symbol verbatim, under a different path. If the service signature changes, every consumer breaks. There is no translation, no contract, no ownership change across the file.
 
 **Re-exporting non-contract internals from a module root barrel:**
 
 ```ts
 // FORBIDDEN — index.ts may only re-export from useCases/** or public surfaces
-export { WorkspaceModel } from './models/Workspace';
-export { getWorkspaceById } from './helpers/getWorkspaceById';
-export { WorkspaceNotFoundError } from './errors/WorkspaceNotFoundError';
-export type { WorkspaceSummary } from './useCases/getWorkspaceSummary'; // use-case types do not cross
+export type { ParseFailure } from '../models/parseFailure.ts'; // models/ is private
+export { split_frontmatter } from '../services/frontmatter.ts'; // services/ is private
+export type { SpecSummary } from './getSpecSummary.ts'; // use-case types do not cross
 ```
 
 These patterns are non-compliant even if `deps:validate` passes — a fake public surface does not become a real one just because the path resolves.
 
 If there is nothing to add to a use-case body, define a proper typed function that calls the helper. The function _is_ the boundary.
 
-### 6.3 Internal DTOs when the helper shape is not safe to leak
+### 6.3 Internal DTOs when the service shape is not safe to leak
 
-If the helper returns a framework-coupled object or internal entity shape, the use case defines **internal** types to map or narrow — those types stay in the module (not on `useCases/index.ts`):
+If the service returns a framework-coupled object or internal entity shape, the use case defines **internal** types to map or narrow — those types stay in the module (not on `useCases/index.ts`):
 
 ```ts
 // Internal to the module — not exported from useCases/index.ts for other modules
-type WorkspaceSummary = { id: string; name: string; status: string };
+type SpecSummary = { id: string; title: string; requirementCount: number };
 
-export function getWorkspaceSummary(input: { workspaceId: string }): WorkspaceSummary | null {
-    const entity = workspaceHelper.get(input.workspaceId);
-    if (!entity) return null;
-    return { id: entity.id, name: entity.name, status: entity.status };
+export function get_spec_summary(input: { source: string }): SpecSummary | null {
+    const record = parse_record(input.source); // private service call
+    if (!record) return null;
+    return { id: record.id, title: record.title, requirementCount: record.requirements.length };
 }
 ```
 
-Other modules import `getWorkspaceSummary` only; they define their own local types or use `ReturnType<typeof getWorkspaceSummary>` if needed.
+Other modules import `get_spec_summary` only; they define their own local types or use `ReturnType<typeof get_spec_summary>` if needed.
 
 ### 6.4 One function per file
 
-Each use case lives in its own file, named after the function. A file that exports many thin wrappers over a helper (e.g. `crdtRepositoryAccess.ts` with 8 re-exports) violates both §6.2 (laundering) and the One Function Per File rule. Split it into N files, one per function, each with a real typed signature.
+Each use case lives in its own file, named after the function. A file that exports many thin wrappers over a service (e.g. a `frontmatterAccess.ts` re-exporting every `services/frontmatter.ts` symbol) violates both §6.2 (laundering) and the One Function Per File rule. Split it into N files, one per function, each with a real typed signature.
 
 ### 6.5 What types a use case file may export
 
@@ -317,8 +317,7 @@ A use case file may declare and export **its own local types** — the function'
 What a use case file **must never** export — by re-export or otherwise:
 
 - **Model types or model values** from `../models/...`. Models are private to the owning module.
-- **Helper types or helper values** from `../helpers/...`. Helpers are internals.
-- **Types from `../services/`, `../validators/`, `../transformers/`, `../errors/`** — these folders are private.
+- **Service or repository types and values** from `../services/` or `../repositories/` — these folders are private internals.
 
 The rule of thumb: if the type is **defined in this file**, exporting it is fine. If the type is **imported from another folder**, re-exporting it from a use case file is laundering — stop and reconsider.
 
@@ -327,7 +326,7 @@ The rule of thumb: if the type is **defined in this file**, exporting it is fine
 Before committing a use-case file, ask:
 
 1. Does this file export its own typed function, not a re-export?
-2. If the signature uses helper types, are those types pure models and only referenced **inside this module**?
+2. If the signature uses internal types, are those types pure models and only referenced **inside this module**?
 3. Are we avoiding `export type` of use-case types on `useCases/index.ts` and avoiding cross-module `import type` of those types?
 
 If any answer is no, the boundary is fake or the type surface is too wide.

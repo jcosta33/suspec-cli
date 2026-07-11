@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { read_frontmatter, upsert_frontmatter } from '../services/readFrontmatter.ts';
+import { fm_scalar, read_frontmatter } from '../services/readFrontmatter.ts';
 
 describe('read_frontmatter', () => {
     it('reads scalar key: value pairs from the leading block', () => {
@@ -36,6 +36,14 @@ describe('read_frontmatter', () => {
         expect(read_frontmatter(source)).toEqual({ id: 'X' });
     });
 
+    it('drops a `__proto__` key instead of reassigning the parsed object prototype', () => {
+        // The list branch assigns via a computed key; unguarded, `__proto__:` + items would hit
+        // Object.prototype's accessor and swap the returned object's prototype for the array.
+        const parsed = read_frontmatter('---\nid: SPEC-1\n__proto__:\n  - x\n---\n');
+        expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype);
+        expect(parsed).toEqual({ id: 'SPEC-1' });
+    });
+
     it('tolerates CRLF line endings and a leading UTF-8 BOM', () => {
         const crlf = '---\r\nid: SPEC-x\r\nsource:\r\n  - SPEC-a\r\nstatus: ready\r\n---\r\n';
         expect(read_frontmatter(crlf)).toEqual({ id: 'SPEC-x', source: ['SPEC-a'], status: 'ready' });
@@ -44,47 +52,10 @@ describe('read_frontmatter', () => {
     });
 });
 
-describe('upsert_frontmatter', () => {
-    it('updates an existing key in place, preserving the rest of the file', () => {
-        const out = upsert_frontmatter('---\nid: SPEC-1\nsnapshot: old\n---\n# body\n', { snapshot: 'new' });
-        expect(read_frontmatter(out)).toEqual({ id: 'SPEC-1', snapshot: 'new' });
-        expect(out).toContain('# body'); // body untouched
-    });
-
-    it('inserts a new key before the closing fence', () => {
-        const out = upsert_frontmatter('---\nid: SPEC-1\n---\n# body\n', { snapshot: 'abc' });
-        expect(read_frontmatter(out)).toEqual({ id: 'SPEC-1', snapshot: 'abc' });
-    });
-
-    it('upserts multiple keys (update + insert) at once', () => {
-        const out = upsert_frontmatter('---\nid: R\nreviewed_sha: old\n---\n', { reviewed_sha: 's', evidence_hash: 'h' });
-        expect(read_frontmatter(out)).toEqual({ id: 'R', reviewed_sha: 's', evidence_hash: 'h' });
-    });
-
-    it('returns the source unchanged when there is no frontmatter fence', () => {
-        const src = '# no frontmatter\n';
-        expect(upsert_frontmatter(src, { snapshot: 'x' })).toBe(src);
-    });
-
-    it('replaces a block-list key with a scalar, leaving no orphaned list items', () => {
-        const out = upsert_frontmatter('---\nid: T\nsource:\n  - SPEC-A\n  - SPEC-B\nstatus: ready\n---\n# body\n', {
-            source: 'SPEC-C',
-        });
-        expect(read_frontmatter(out)).toEqual({ id: 'T', source: 'SPEC-C', status: 'ready' });
-        expect(out).not.toContain('- SPEC-A'); // the old list items are gone, not orphaned into the body
-        expect(out).toContain('# body');
-    });
-
-    it('collapses a duplicate key to the single stamped value (no stale second copy)', () => {
-        const out = upsert_frontmatter('---\nid: R\nsnapshot: old1\nsnapshot: old2\n---\n', { snapshot: 'new' });
-        expect((out.match(/snapshot:/g) ?? []).length).toBe(1);
-        expect(read_frontmatter(out).snapshot).toBe('new');
-    });
-
-    it('preserves a body line that equals --- (a horizontal rule below the closing fence)', () => {
-        const out = upsert_frontmatter('---\nid: X\n---\n\nintro\n\n---\n\nmore\n', { snapshot: 's' });
-        expect(read_frontmatter(out)).toEqual({ id: 'X', snapshot: 's' });
-        expect(out).toContain('intro');
-        expect(out).toContain('more'); // the body's own --- separator + content survive
+describe('fm_scalar', () => {
+    it('passes a string or undefined through, and collapses a block list to its first item', () => {
+        expect(fm_scalar(undefined)).toBeUndefined();
+        expect(fm_scalar('TASK-1')).toBe('TASK-1');
+        expect(fm_scalar(['TASK-1', 'TASK-2'])).toBe('TASK-1');
     });
 });

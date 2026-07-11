@@ -79,6 +79,46 @@ status: draft
         ]);
     });
 
+    it('drops a coverage-table row whose ID cell is not requirement-id-shaped (lowercase / prose)', () => {
+        // The in-coverage shape guard: a row inside the coverage table whose first cell does not match
+        // the requirement-id shape is dropped from coverageRows (it never reaches C012 as an orphan).
+        const malformed = `---
+status: draft
+---
+## Requirement coverage
+
+| ID | Result | Evidence | Human attention |
+|---|---|---|---|
+| AC-001 | Pass | x | no |
+| ac-002 | Pass | x | no |
+| notes | see below | | |
+`;
+        expect(parse_review_packet(malformed).coverageRows).toEqual([
+            { id: 'AC-001', result: 'Pass', evidence: 'x' },
+        ]);
+    });
+
+    it('a plain (non-verify) fence inside the coverage section emits no verify block', () => {
+        // Only a ```verify info-string opens a structured-evidence block; any other fence in the
+        // coverage section is verbatim example text — ignored, not misread as a binding.
+        const plainFence = `---
+status: draft
+---
+## Requirement coverage
+
+| ID | Result | Evidence | Human attention |
+|---|---|---|---|
+| AC-001 | Pass | x | no |
+
+\`\`\`text
+id=AC-001 cmd="a test" result=pass
+\`\`\`
+`;
+        const parsed = parse_review_packet(plainFence);
+        expect(parsed.verifyBlocks).toEqual([]);
+        expect(parsed.coverageRows).toEqual([{ id: 'AC-001', result: 'Pass', evidence: 'x' }]);
+    });
+
     it('a frontmatter with no status reads null', () => {
         expect(parse_review_packet('---\ntask: TASK-x\n---\n# r\n').status).toBeNull();
     });
@@ -157,13 +197,24 @@ output
 \`\`\`verify cmd="no id here" result=pass
 output
 \`\`\`
+
+\`\`\`verify id=AC-002 result=pass
+output
+\`\`\`
+
+\`\`\`verify id=AC-003 cmd="a test"
+output
+\`\`\`
 `;
         const parsed = parse_review_packet(packet);
         // result=maybe is outside the {pass,fail} enum → result null, malformed. The id-less block →
-        // id null, malformed. Both surfaced, neither dropped.
+        // id null, malformed. A block with no cmd="…" token at all → cmd null, malformed. A block with
+        // no result= token at all → result null, malformed. All surfaced, none dropped.
         expect(parsed.verifyBlocks).toEqual([
             { id: 'AC-001', cmd: 'a test', result: null, malformed: true },
             { id: null, cmd: 'no id here', result: 'pass', malformed: true },
+            { id: 'AC-002', cmd: null, result: 'pass', malformed: true },
+            { id: 'AC-003', cmd: 'a test', result: null, malformed: true },
         ]);
     });
 

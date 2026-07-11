@@ -24,4 +24,14 @@ describe('AppError', () => {
         expect(error._tag).toBe('RealTag');
         expect(error.message).toBe('real message');
     });
+
+    it('creates a real Error instance', () => {
+        expect(createAppError('TestError', 'A test error occurred')).toBeInstanceOf(Error);
+    });
+
+    it('propagates a provided cause and omits the property entirely when absent', () => {
+        const cause = new Error('root cause');
+        expect(createAppError('DetailedError', 'A detailed error', { id: 123 }, cause).cause).toBe(cause);
+        expect('cause' in createAppError('TestError', 'msg')).toBe(false);
+    });
 });

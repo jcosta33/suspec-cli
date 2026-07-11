@@ -2,15 +2,10 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
     test: {
-        // Fork a child process per test file. The default thread pool deadlocks under v8 coverage
-        // when a test spawns many `git` subprocesses (the worktree / launch integration tests);
-        // forks isolate cleanly so `vitest run --coverage` completes.
+        // Fork a child process per test file. The suite stubs and mutates per-process state —
+        // process.exitCode, captured stdout/stderr writers, env — so each file gets its own
+        // process and that state cannot leak across files under `vitest run --coverage`.
         pool: 'forks',
-        // The worktree / review integration tests spawn many real `git` subprocesses; under forked
-        // parallelism they contend and can exceed the 5s default, flaking the suite on busy hosts.
-        // A higher ceiling keeps `vitest run` deterministic without weakening any check (coverage
-        // thresholds and the test set are unchanged); a genuinely hung test still fails, just later.
-        testTimeout: 30000,
         // Pin color OFF for every test process. picocolors force-enables color when a `CI`
         // env var is present, so renderer tests asserting uncolored strings passed locally
         // but failed on every CI run. NO_COLOR takes precedence over CI/FORCE_COLOR in
@@ -18,7 +13,7 @@ export default defineConfig({
         env: { NO_COLOR: '1' },
         globals: true,
         environment: 'node',
-        exclude: ['**/node_modules/**', '**/dist/**', '.worktrees/**', 'scaffold/**'],
+        exclude: ['**/node_modules/**', '**/dist/**'],
         coverage: {
             provider: 'v8',
             reporter: ['text', 'html', 'json'],
@@ -27,10 +22,10 @@ export default defineConfig({
             include: ['src/**/*.ts'],
             exclude: ['src/modules/**/index.ts', 'src/**/*.spec.ts', 'src/**/testing/**'],
             all: true,
-            // Near-100%, gated. The documented margin (a few percent of branches) is genuinely
-            // untestable defensive code: the no---from network clone, the detached-HEAD `?? 'main'`
-            // fallbacks, and a worktree-list parse branch. Interactive @clack shells + the spawn-
-            // launch error paths are v8-ignored at the source with justifications.
+            // Near-100%, gated. The only source-level exemption is the v8-ignored process entry
+            // in src/index.ts (dispatch() + is_main_module are unit-tested directly); the margin
+            // under 100% is uncovered branches spread across the dispatcher, the check engine,
+            // and the parsers — the coverage report names the lines.
             thresholds: { statements: 98, branches: 94, functions: 99, lines: 98 },
         },
     },

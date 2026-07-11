@@ -1,5 +1,5 @@
 // `suspec` / `suspec help` / `suspec --help` / `suspec check --help` — the usage reference, driven
-// by COMMAND_CATALOG so it always shows exactly the dispatchable surface. Plain stdout
+// by COMMAND_CATALOG, which a test pins to the dispatcher's command map. Plain stdout
 // (scriptable), coloured for humans; picocolors no-ops when output is not a TTY.
 
 import color from 'picocolors';

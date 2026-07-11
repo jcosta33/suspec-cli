@@ -45,4 +45,10 @@ describe('parse_flags', () => {
         expect(parse_flags(['--json=false'], SPEC).flags.get('json')).toBe(false);
         expect(parse_flags(['--from=SPEC-z'], SPEC).flags.get('from')).toBe('SPEC-z');
     });
+
+    it('a standalone undeclared flag is dropped — never a positional, never a flag (a typo is ignored)', () => {
+        const { positional, flags } = parse_flags(['spec.md', '--bogus', '--tsak', 'task.md'], SPEC);
+        expect(positional).toEqual(['spec.md', 'task.md']);
+        expect(flags.size).toBe(0);
+    });
 });

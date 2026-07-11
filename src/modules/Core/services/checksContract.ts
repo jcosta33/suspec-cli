@@ -43,6 +43,9 @@ const SEVERITY_BY_ID: Record<CheckId, CheckSeverity> = {
     C011: 'warning',
     C012: 'warning',
     C013: 'warning',
+    // C014 do-not-change-touched is checklist-level (docs/reference/checks.md): it needs the live
+    // diff, which a path-agnostic checker never sees — the reviewer's own re-run is the honest
+    // backstop. The contract rule rides these tables; no engine rule function computes it.
     C014: 'warning',
     C015: 'warning',
     // C016 pass-needs-evidence: the contract pins it hard-error (checks.yaml review_file content_rule).
@@ -123,6 +126,12 @@ const VERIFY_LINE_PATTERN = /^[ \t>-]*(?:Verify with:|VERIFY BY)/m;
 // At `status: ready`, none of these may remain (C007). At draft they are fine.
 const UNRESOLVED_MARKER_PATTERN = /\b(?:TBD|TODO)\b|\?\?\?/;
 
+// The blocking-open-question half of C007 (checks.md: `status: ready` has no TBD, TODO, ???, "or
+// blocking open question"): a `Blocking:` bullet (the plain-form record) or a SOL
+// `QUESTION Q-NNN [blocking]` header — two surfaces of one record (the payment-5xx equivalence
+// pair pins both). A question downgraded to `[non-blocking]` matches neither alternative.
+const BLOCKING_QUESTION_PATTERN = /^[ \t>*+-]*Blocking:|^QUESTION\s+[A-Z][A-Z0-9]*-\d+\s*\[blocking\]/im;
+
 // --- The records the rules key on (the parser produces a structurally-compatible value) ----------
 
 export type Requirement = Readonly<{
@@ -165,8 +174,15 @@ export type Diagnostic = Readonly<{
     line: number | null;
 }>;
 
+// Diagnostic messages interpolate raw field values from the checked artifact (link targets, ids,
+// task refs). A crafted artifact could smuggle ANSI/terminal escape sequences through them into the
+// plain-text report a human reads (the `--json` path is escaped by JSON.stringify already), so C0
+// control characters and DEL are stripped here — the one choke point every Diagnostic goes through.
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHAR_PATTERN = /[\x00-\x1F\x7F]/g;
+
 function diagnostic(code: CheckId, message: string, line: number | null): Diagnostic {
-    return { code, severity: severity_of(code), message, line };
+    return { code, severity: severity_of(code), message: message.replace(CONTROL_CHAR_PATTERN, ''), line };
 }
 
 // A path-shaped reference (resolve it, artifact-relative) vs a bare external tracker id like
@@ -323,10 +339,14 @@ export function check_no_tbd_at_ready(spec: ParsedSpec): Diagnostic[] {
     if (spec.frontmatter.status !== 'ready') {
         return [];
     }
+    const diagnostics: Diagnostic[] = [];
     if (UNRESOLVED_MARKER_PATTERN.test(spec.bodyText)) {
-        return [diagnostic('C007', 'a TBD / TODO / ??? marker remains at status: ready', null)];
+        diagnostics.push(diagnostic('C007', 'a TBD / TODO / ??? marker remains at status: ready', null));
     }
-    return [];
+    if (BLOCKING_QUESTION_PATTERN.test(spec.bodyText)) {
+        diagnostics.push(diagnostic('C007', 'an unresolved blocking open question remains at status: ready', null));
+    }
+    return diagnostics;
 }
 
 // --- C008 sources-named --------------------------------------------------------------------------
@@ -409,7 +429,7 @@ export function check_malformed_requirement_heading(spec: ParsedSpec): Diagnosti
 //   - orphan    — a coverage row naming an id absent from the source spec (stale/mistyped id).
 // Scope-guarded to non-draft source specs: a `draft` spec's ids are work-in-progress, so the check
 // is exempt (mirrors C002's draft exemption). PURE — plain id sets in, diagnostics out; the engine
-// (reconcileReview) does the I/O and passes the extracted ids here.
+// (check_review_file) does the I/O and passes the extracted ids here.
 export type CoverageInput = Readonly<{
     sourceSpecStatus: string | null;
     inScopeIds: readonly string[];
@@ -422,16 +442,16 @@ export type CoverageInput = Readonly<{
 // rather than re-parsing the diagnostic message.
 export type CoverageFinding = Readonly<{ id: string; kind: 'uncovered' | 'orphan' }>;
 
-// The message a coverage finding renders to — single-sourced, so `check_coverage`'s Diagnostic and
-// the review engine's surfaced fact share the exact wording.
+// The message a coverage finding renders to — single-sourced, so every C012 Diagnostic shares the
+// exact wording.
 export function coverage_message(finding: CoverageFinding): string {
     return finding.kind === 'uncovered'
         ? `requirement ${finding.id} is in scope but has no coverage row (uncovered)`
         : `coverage row ${finding.id} names an id absent from the source spec (orphan)`;
 }
 
-// The structured C012 facts. PURE; the draft scope guard lives here so both faces (the `suspec check`
-// Diagnostic and the `suspec review` surfaced fact) inherit it.
+// The structured C012 facts — the pure fact layer `check_coverage` builds its Diagnostics on. PURE;
+// the draft scope guard lives here so everything built on the facts inherits it.
 export function coverage_facts(input: CoverageInput): CoverageFinding[] {
     // Draft scope guard: a draft source spec's ids are not finalized claims.
     if (input.sourceSpecStatus === 'draft') {
@@ -537,7 +557,7 @@ export function spec_coverage_drift_facts(input: SpecCoverageDriftInput): SpecCo
 //                       routed to human attention, never machine-rejected — SMELLS-precision).
 // A Pass row whose block's `cmd` matches and reads `result=pass` is consistent → no finding.
 // Scope-guarded to non-draft source specs (mirrors C012 / the ADR-0079 guard). PURE — plain records
-// in, structured findings out; the engine (reconcileReview) does the I/O and extraction.
+// in, structured findings out; the engine (check_review_file) does the I/O and extraction.
 export type VerifyBlockFact = Readonly<{
     id: string | null;
     cmd: string | null;
@@ -671,11 +691,12 @@ export function verify_binding_facts(input: VerifyBindingInput): VerifyBindingFi
 export function check_verify_binding(input: VerifyBindingInput): Diagnostic[] {
     return verify_binding_facts(input).map((finding) => {
         const base = diagnostic('C013', verify_binding_message(finding), null);
-        // #95 (ADR-0129 amends ADR-0083): at the GATE face (`suspec check <review>`) a cmd-mismatch
-        // BLOCKS — a recorded verify block whose cmd disagrees with the requirement's named Verify
-        // command is a structural contradiction (a fabricated/renamed command name), not a nudge, so
-        // ship it hard-error here. The other C013 kinds stay advisory (warning); the reconcile face
-        // (verify_binding_facts, used by `suspec review`) is unaffected and never blocks (ADR-0077 D8).
+        // #95 (ADR-0129 amends ADR-0083; severity expressed at check time, ADR-0143 D7): a
+        // cmd-mismatch BLOCKS — a recorded verify block whose cmd disagrees with the requirement's
+        // named Verify command is a structural contradiction (a fabricated/renamed command name),
+        // not a nudge, so ship it hard-error here. The other C013 kinds stay advisory (warning);
+        // verify_binding_facts stays the pure fact layer this check builds on (ADR-0077 D8: a
+        // severity level, never a verdict).
         return finding.kind === 'cmd-mismatch' ? { ...base, severity: 'hard-error' as const } : base;
     });
 }
@@ -684,14 +705,12 @@ export function check_verify_binding(input: VerifyBindingInput): Diagnostic[] {
 // A coverage row recorded as `Pass` whose Evidence cell is empty is a STRUCTURAL contradiction: a
 // Pass needs pasted output, a CI link, or (for a manual Verify) a named human's recorded observation
 // — an empty cell reads Unverified, never Pass. Unlike C012/C013 (judgment-laden facts shipped at
-// warning), this is unambiguous, so the contract pins it hard-error and the GATE path blocks on it.
-// The reconcile path (`suspec review`) surfaces the SAME row ids advisorily (it never blocks, ADR-0077
-// D8) — hence one predicate, two surfaces. PURE: the row records in, ids/diagnostics out.
+// warning), this is unambiguous, so the contract pins it hard-error and `suspec check` blocks on it
+// (severity expressed at check time, ADR-0143 D7). PURE: the row records in, ids/diagnostics out.
 export type CoverageEvidenceRow = Readonly<{ id: string; result: string; evidence: string }>;
 
-// The single source for "a Pass row with no evidence" — both the gate Diagnostic (C016, below) and the
-// reconcile advisory field (reconcileFacts.empty_evidence_pass_rows) derive from this, so the two
-// surfaces can never disagree on what counts.
+// The single source for "a Pass row with no evidence" — the C016 Diagnostic (below) renders exactly
+// these ids, so the predicate and the diagnostic can never disagree on what counts.
 export function pass_rows_missing_evidence(rows: readonly CoverageEvidenceRow[]): string[] {
     return rows.filter((row) => row.result === 'Pass' && row.evidence.trim().length === 0).map((row) => row.id);
 }

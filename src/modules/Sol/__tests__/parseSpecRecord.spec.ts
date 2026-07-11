@@ -55,6 +55,14 @@ describe('parse_spec_record', () => {
         expect(record.frontmatter.status).toBe('superseded');
     });
 
+    it('tolerates CRLF line endings and a leading UTF-8 BOM (a BOM-saved spec still parses)', () => {
+        const bom =
+            '﻿---\r\ntype: spec\r\nid: SPEC-bom\r\nstatus: ready\r\nsources:\r\n  - self\r\n---\r\n\r\n## Requirements\r\n';
+        const record = assertOk(parse_spec_record({ source: bom, path: 'spec.md' }));
+        expect(record.frontmatter.id).toBe('SPEC-bom');
+        expect(record.frontmatter.status).toBe('ready');
+    });
+
     it('extracts requirements (skipping non-id H3 group headings) with their body', () => {
         const record = assertOk(parse_spec_record({ source: SPEC, path: 'spec.md' }));
         expect(record.requirements.map((r) => r.id)).toEqual(['AC-001', 'AC-002']);

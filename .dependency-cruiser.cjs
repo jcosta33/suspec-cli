@@ -112,10 +112,6 @@ module.exports = {
                     '(^|/)__tests__/',
                     '(^|/)testing/',
                     'src/index\\.ts$',
-                    'src/modules/Commands/useCases/',
-                    'src/infra/[^/]+/index\\.ts$',
-                    'eslint\\.config\\.mjs$',
-                    'eslint\\.fast\\.config\\.mjs$',
                 ],
             },
             to: {},
@@ -138,8 +134,9 @@ module.exports = {
 
     options: {
         doNotFollow: { path: ['node_modules'] },
-        exclude: { path: '\\.(spec|test)\\.(ts|tsx|js|jsx|mjs|cjs|mts|cts)$' },
-        includeOnly: ['src', 'bin'],
+        // NOTE: spec/test files are deliberately NOT excluded from the graph — the
+        // `not-to-spec` rule can only fire when they are visible as dependency targets.
+        includeOnly: ['src'],
         moduleSystems: ['cjs', 'es6'],
         enhancedResolveOptions: {
             exportsFields: ['exports'],

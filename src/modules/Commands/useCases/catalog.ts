@@ -1,7 +1,9 @@
-// The dispatchable command catalog — one list, single-sourced: the dispatcher routes to each
-// command's run(), and the usage renderer (usage.ts) renders the `usage` lines. The surface is the
+// The dispatchable command catalog — the usage renderer (usage.ts) renders the `usage` lines,
+// and the dispatcher's COMMANDS map is cross-checked against this list by test (index.spec.ts). The surface is the
 // single check verb (ADR-0143): the CLI reads exactly the files it is handed — the primary
-// artifact's kind comes from its own frontmatter, companions are explicit flags.
+// artifact's kind comes from its own frontmatter, companions are explicit flags. The only lookups
+// beyond the handed files are artifact-relative reference resolution (C009/C015 beside the spec,
+// C010's sibling specs beside the plan) — never a tree walk, never an inferred root.
 export const COMMAND_CATALOG = [
     {
         name: 'check',

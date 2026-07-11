@@ -1,10 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { existsSync, mkdtempSync, mkdirSync, symlinkSync, writeFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { run } from '../check.ts';
-import { CONTRACT_VERSION } from '../../../Core/services/checksContract.ts';
 
 function spec(id: string): string {
     return `---
@@ -169,6 +168,22 @@ describe('check command — invocation shapes (ADR-0143)', () => {
         expect(code).toBe(2);
         expect(err).toContain('checked alone');
     });
+
+    it('a review alongside a missing path → only the file error, never a contradictory arity error', () => {
+        const review = write('review.md', CLEAN_REVIEW);
+        const { code, err } = capture(() => run([review, join(dir, 'nope.md')]));
+        expect(code).toBe(2);
+        expect(err).toContain('file not found');
+        expect(err).not.toContain('checked alone');
+        expect(err).not.toContain('missing --spec');
+    });
+
+    it('a load failure with --json emits exactly one JSON document on stdout', () => {
+        const review = write('review.md', CLEAN_REVIEW);
+        const { code, out } = capture(() => run([review, join(dir, 'nope.md'), '--json']));
+        expect(code).toBe(2);
+        expect(JSON.parse(out)).toMatchObject({ error: 'Usage' }); // throws on concatenated documents
+    });
 });
 
 describe('check command — `--contract` (the checks contract as JSON)', () => {
@@ -176,7 +191,10 @@ describe('check command — `--contract` (the checks contract as JSON)', () => {
         const { code, out } = capture(() => run(['--contract']));
         expect(code).toBe(0);
         const dump = JSON.parse(out) as { version: string; checks: { id: string; severity: string }[] };
-        expect(dump.version).toBe(CONTRACT_VERSION);
+        // Shape only — exact-version equality is Core's business (contractDump.spec.ts,
+        // checksContract.spec.ts drift-guard); reaching into Core internals for the
+        // constant would cross the module boundary.
+        expect(dump.version).toMatch(/^\d+\.\d+\.\d+$/);
         const ids = dump.checks.map((check) => check.id);
         expect(ids).toContain('C001');
         expect(ids).toContain('C012');
@@ -185,10 +203,17 @@ describe('check command — `--contract` (the checks contract as JSON)', () => {
         expect(dump.checks.find((check) => check.id === 'C016')?.severity).toBe('hard-error');
     });
 
-    it('--contract takes no other arguments → exit 2', () => {
+    it('--contract takes no artifacts or companions → exit 2', () => {
         const file = write('ok.md', CONFORMANT);
         expect(capture(() => run(['--contract', file])).code).toBe(2);
         expect(capture(() => run(['--contract', '--spec', file])).code).toBe(2);
+    });
+
+    it('--contract --json is accepted — --json rides every invocation (corpus-mcp appends it unconditionally)', () => {
+        const { code, out } = capture(() => run(['--contract', '--json']));
+        expect(code).toBe(0);
+        const dump = JSON.parse(out) as { version: string };
+        expect(dump.version).toMatch(/^\d+\.\d+\.\d+$/);
     });
 });
 
@@ -246,7 +271,97 @@ describe('check command — spec checking (frontmatter-sniffed)', () => {
             expect(out).not.toContain('C00');
         }
     );
+
+    it('a type-less file (no `type:` frontmatter, the legacy spec shape) takes the spec path, never the "no checks" skip', () => {
+        const typeless = CONFORMANT.replace('type: spec\n', '');
+        const good = write('typeless.md', typeless);
+        const goodRun = capture(() => run([good]));
+        expect(goodRun.code).toBe(0);
+        expect(goodRun.out).toContain('clean');
+        expect(goodRun.out).not.toContain('no checks for type');
+        // a malformed type-less file gets the normal spec diagnostics, not a silent exit-0 skip
+        const bad = write('typeless-bad.md', typeless.replace('Verify with: a test.\n\n### AC-002', '\n### AC-002'));
+        const badRun = capture(() => run([bad]));
+        expect(badRun.code).toBe(2);
+        expect(badRun.out).toContain('C003');
+    });
 });
+
+describe('check command — the type sniff reads the whole frontmatter fence as YAML', () => {
+    it('a quoted `type: "review"` dispatches as a review, never the "no checks" skip (exit 2 naming --spec)', () => {
+        const review = write('review.md', CLEAN_REVIEW.replace('type: review', 'type: "review"'));
+        const { code, err, out } = capture(() => run([review]));
+        expect(code).toBe(2);
+        expect(err).toContain('missing --spec');
+        expect(out).not.toContain('no checks for type');
+    });
+
+    it('a quoted `type: "spec"` (and an inline-commented one) runs the spec checks', () => {
+        const quoted = write('quoted.md', CONFORMANT.replace('type: spec', 'type: "spec"'));
+        const quotedRun = capture(() => run([quoted]));
+        expect(quotedRun.code).toBe(0);
+        expect(quotedRun.out).toContain('clean');
+        expect(quotedRun.out).not.toContain('no checks for type');
+        const commented = write('commented.md', CONFORMANT.replace('type: spec', 'type: spec # canonical'));
+        const commentedRun = capture(() => run([commented]));
+        expect(commentedRun.code).toBe(0);
+        expect(commentedRun.out).not.toContain('no checks for type');
+    });
+
+    it('a leading UTF-8 BOM never blinds the sniff — a BOM-prefixed review still dispatches (exit 2 naming --spec)', () => {
+        const review = write('bom.md', `\uFEFF${CLEAN_REVIEW}`);
+        const { code, err, out } = capture(() => run([review]));
+        expect(code).toBe(2);
+        expect(err).toContain('missing --spec');
+        expect(out).not.toContain('no checks for type');
+    });
+
+    it('a `type: ""` whose scalar normalizes empty is type-less — the spec path, never an empty-string dispatch', () => {
+        const file = write('empty-type.md', CONFORMANT.replace('type: spec', 'type: ""'));
+        const { code, out } = capture(() => run([file]));
+        expect(code).toBe(0);
+        expect(out).toContain('clean');
+        expect(out).not.toContain('no checks for type');
+    });
+
+    it('a `type:` past the 12th line of a long frontmatter still dispatches (exit 2 naming --spec)', () => {
+        const filler = Array.from({ length: 11 }, (_, i) => `f${i + 1}: x`).join('\n');
+        const review = write('deep.md', CLEAN_REVIEW.replace('type: review', `${filler}\ntype: review`));
+        const { code, err } = capture(() => run([review]));
+        expect(code).toBe(2);
+        expect(err).toContain('missing --spec');
+    });
+
+    it('a `type:` line in the body (outside the fence) never hijacks the dispatch', () => {
+        const typeless = CONFORMANT.replace('type: spec\n', '');
+        const file = write('body-type.md', `${typeless}\ntype: review\n`);
+        const { code, err } = capture(() => run([file]));
+        expect(code).toBe(0);
+        expect(err).not.toContain('missing --spec');
+    });
+
+    it('a fence-less file is type-less — the spec parser owns rejecting it, never a review dispatch', () => {
+        const file = write('nofence.md', 'type: review\n\n# not frontmatter\n');
+        const { code, err, out } = capture(() => run([file]));
+        expect(code).toBe(2);
+        expect(err).not.toContain('missing --spec');
+        expect(out).not.toContain('no checks for type');
+        expect(err).toContain('frontmatter fence');
+    });
+});
+
+// Whether the temp volume resolves paths case-insensitively (e.g. macOS APFS) — probed once
+// at collection time, so the case-variant test below skips (not silently passes) on
+// case-sensitive volumes such as CI's ext4, where a case variant aliases nothing.
+const caseInsensitiveVolume = (() => {
+    const probe = mkdtempSync(join(tmpdir(), 'suspec-check-case-probe-'));
+    try {
+        writeFileSync(join(probe, 'probe.md'), '');
+        return existsSync(join(probe, 'PROBE.MD'));
+    } finally {
+        rmSync(probe, { recursive: true, force: true });
+    }
+})();
 
 describe('check command — multiple positionals (exit = max severity; C002 across the set)', () => {
     it('checks every named file in one process; exit is the max across them', () => {
@@ -279,6 +394,43 @@ describe('check command — multiple positionals (exit = max severity; C002 acro
         expect(code).toBe(0);
         expect(out).not.toContain('C002');
     });
+
+    it('the same MISSING path passed twice is deduped — one "file not found" report, not two', () => {
+        // A path that stats to nothing falls back to its resolved spelling as the dedup key,
+        // so the per-file load error reports once.
+        const missing = join(dir, 'nope.md');
+        const { code, err } = capture(() => run([missing, missing]));
+        expect(code).toBe(2);
+        expect(err.match(/file not found/g)).toHaveLength(1);
+    });
+
+    it('the same file under two spellings (a redundant `./` segment) is deduped — no self-collision C002', () => {
+        const a = write('a.md', CONFORMANT);
+        const aliased = `${dir}/./a.md`; // resolves to the same file as `a`
+        const { code, out } = capture(() => run([a, aliased]));
+        expect(code).toBe(0);
+        expect(out).not.toContain('C002');
+    });
+
+    it('the same file behind a symlink alias is deduped — one inode is one artifact, no C002', () => {
+        const a = write('a.md', CONFORMANT);
+        const alias = join(dir, 'alias.md');
+        symlinkSync(a, alias);
+        const { code, out } = capture(() => run([a, alias]));
+        expect(code).toBe(0);
+        expect(out).not.toContain('C002');
+    });
+
+    it.skipIf(!caseInsensitiveVolume)(
+        'the same file under a case-variant spelling is deduped on a case-insensitive volume — no C002',
+        () => {
+            const a = write('a.md', CONFORMANT);
+            const variant = join(dir, 'A.MD'); // resolves to the same file as `a` on this volume
+            const { code, out } = capture(() => run([a, variant]));
+            expect(code).toBe(0);
+            expect(out).not.toContain('C002');
+        }
+    );
 });
 
 describe('check command — review packets need explicit companions (ADR-0143 D3)', () => {
@@ -313,6 +465,15 @@ describe('check command — review packets need explicit companions (ADR-0143 D3
         const { code, err } = capture(() => run([review, '--spec', specPath, '--task', join(dir, 'nope.md')]));
         expect(code).toBe(2);
         expect(err).toContain('--task file not found');
+    });
+
+    it('a companion path that is a directory → exit 2 saying so, never "not found"', () => {
+        const review = write('review.md', CLEAN_REVIEW);
+        const { code, err } = capture(() => run([review, '--spec', dir]));
+        expect(code).toBe(2);
+        expect(err).toContain('--spec');
+        expect(err).toContain('it is a directory');
+        expect(err).not.toContain('not found');
     });
 
     it('a review with both companions runs the reconcile → clean review exits 0 (Q1)', () => {

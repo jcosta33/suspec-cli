@@ -39,6 +39,14 @@ export function read_frontmatter(source: string): Frontmatter {
             continue;
         }
         const key = keyMatch[1];
+        // Own-property writes only: a computed `__proto__` key would hit Object.prototype's
+        // accessor and reassign the parsed object's prototype instead of storing a field — drop
+        // it (kin to the Object.hasOwn dispatch guard in src/index.ts). Any `- item` lines that
+        // follow fall through the keyMatch === null branch above.
+        if (key === '__proto__') {
+            index += 1;
+            continue;
+        }
         const value = normalize_scalar(keyMatch[2]);
         if (value.length > 0) {
             out[key] = value;
@@ -64,59 +72,4 @@ export function read_frontmatter(source: string): Frontmatter {
         }
     }
     return out;
-}
-
-// Upsert scalar keys into the leading `---` frontmatter block — replaced as a scalar where the key
-// exists (its whole value range, so a former block list leaves no orphaned `- item` lines), else
-// inserted just before the closing fence. A duplicate of an updated key is collapsed to the single
-// stamped value (no stale second copy). The body below the closing fence is byte-preserved. Pure;
-// a file with no (or an unterminated) frontmatter fence is returned unchanged. `suspec stamp` uses it
-// to write a spec's `snapshot:` or a review's `reviewed_sha:`/`evidence_hash:`.
-export function upsert_frontmatter(source: string, updates: Readonly<Record<string, string>>): string {
-    const hasBom = source.charCodeAt(0) === BOM;
-    const text = hasBom ? source.slice(1) : source;
-    const eol = text.includes('\r\n') ? '\r\n' : '\n';
-    const lines = text.split(/\r\n|[\r\n]/);
-    if (lines[0] !== '---') {
-        return source;
-    }
-    let close = 1;
-    while (close < lines.length && lines[close] !== '---') {
-        close += 1;
-    }
-    if (close >= lines.length) {
-        return source; // unterminated frontmatter — do not touch
-    }
-    const pending = new Map(Object.entries(updates));
-    const updated = new Set<string>();
-    const body: string[] = []; // the rebuilt frontmatter lines, between the fences
-    let i = 1;
-    while (i < close) {
-        const keyMatch = KEY.exec(lines[i]);
-        const value = keyMatch !== null ? pending.get(keyMatch[1]) : undefined;
-        if (keyMatch !== null && value !== undefined) {
-            const key = keyMatch[1];
-            // Skip this key's whole value range: the key line plus any block-list (`- item`) lines that
-            // followed it — so replacing a list with a scalar orphans nothing.
-            i += 1;
-            while (i < close && LIST_ITEM.test(lines[i])) {
-                i += 1;
-            }
-            // Emit the scalar once; a later duplicate of the same key is dropped (no stale second copy).
-            if (!updated.has(key)) {
-                body.push(`${key}: ${value}`);
-                updated.add(key);
-            }
-            continue;
-        }
-        body.push(lines[i]);
-        i += 1;
-    }
-    for (const [key, value] of pending) {
-        if (!updated.has(key)) {
-            body.push(`${key}: ${value}`);
-        }
-    }
-    const out = [lines[0], ...body, ...lines.slice(close)];
-    return (hasBom ? '﻿' : '') + out.join(eol);
 }

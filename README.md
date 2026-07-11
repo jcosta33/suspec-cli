@@ -7,20 +7,23 @@ the honesty floor a lazy or dishonest reviewer cannot fake — coverage-complete
 pass-needs-evidence, ref-resolves — plus the single-artifact lint, at zero model cost.
 
 The CLI reads **exactly the files it is handed**. It never resolves a store, a config, a repo
-root, or a workspace tree, and never scans for siblings: the primary artifact's kind is read from
-its own frontmatter `type:`, and companions are always explicit flags. That makes it a pure
-function over files — runnable by hand, in a pre-commit hook, in CI, or through MCP, identically.
+root, or a workspace tree: the primary artifact's kind is read from its own frontmatter `type:`,
+and companions are always explicit flags. The only lookups beyond the handed files are
+artifact-relative reference resolution (below) — a spec's named `sources.md` beside the spec, a
+change plan's sibling specs one level beside the plan — never a tree walk, never an inferred
+root. That makes it a pure function over files — runnable by hand, in a pre-commit hook, in CI,
+or through MCP, identically.
 
 ## Requirements
 
-- **Node.js ≥ 18.18** to run an installed build; **≥ 22.6** to run from a source checkout (the dev
+- **Node.js ≥ 22.6** (declared in `engines`), installed or from a source checkout (the dev
   loop runs the TypeScript directly via `--experimental-strip-types`, no build step).
 - `pnpm` recommended for development (`npm` works for installing).
 
 ## Install
 
-suspec-cli is **not yet published to npm** — the bare name `suspec-cli` on npm is an unrelated project,
-so `npm install -g suspec-cli` installs the wrong tool. Install from source instead:
+suspec-cli is **not yet published to npm** — there is no package under that name yet, so
+`npm install -g suspec-cli` won't find anything. Install from source instead:
 
 ```bash
 git clone https://github.com/jcosta33/suspec-cli
@@ -31,12 +34,12 @@ npm link                                     # puts `suspec` on your PATH
 `bin/suspec.js` runs the bundled JavaScript (`dist/`, built on `prepack`), so an installed CLI needs
 no transpiler. From a checkout it runs the `src/` TypeScript directly via Node's native type
 stripping (Node ≥ 22.6) — `node bin/suspec.js <command>` works without a build step; `pnpm build`
-produces the `dist/` bundle. (A published package under a non-colliding name will replace this.)
+produces the `dist/` bundle. (A published npm package will make the source install optional.)
 
 ## Usage
 
 ```bash
-suspec check <path>                                                # a spec or change plan
+suspec check <path> [<path>...]                                    # spec / change-plan files
 suspec check <review-path> --spec <spec-path> [--task <task-path>] # a review packet
 suspec check --contract                                            # the checks contract as JSON
 ```

@@ -2,7 +2,7 @@
 // on — a sibling to parse_spec_record. Pure: the source string is never mutated and no state is held
 // between calls.
 //
-// What it reads (the canonical change-plan shape — built into `suspec new change-plan`'s scaffold):
+// What it reads (the canonical change-plan shape — the canon's transformation fixture is the exemplar):
 //   - `kind` and the `preserves:` ref list from the frontmatter;
 //   - the `## Behavioral preservation guarantees` table — every row's id and its `Verify with` cell;
 //   - the `## Transformation waves` section — each wave entry and whether it names a green check.

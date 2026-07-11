@@ -5,6 +5,7 @@ import { join } from 'path';
 import { pathToFileURL } from 'node:url';
 
 import { dispatch, is_main_module, COMMAND_NAMES } from '../index.ts';
+import { COMMAND_CATALOG } from '../modules/Commands/useCases/index.ts';
 
 async function capture(fn: () => Promise<number>): Promise<{ out: string; err: string; code: number }> {
     const out: string[] = [];
@@ -52,6 +53,8 @@ Verify with: a test.
 describe('dispatch — the single-verb router (ADR-0143)', () => {
     it('the dispatchable surface is exactly the check verb', () => {
         expect(COMMAND_NAMES).toEqual(['check']);
+        // the catalog and the dispatcher name the same surface — neither drifts alone
+        expect(COMMAND_NAMES).toEqual(COMMAND_CATALOG.map((entry) => entry.name));
     });
 
     it('no args → prints usage (exit 0), never an interactive shell', async () => {
@@ -78,6 +81,15 @@ describe('dispatch — the single-verb router (ADR-0143)', () => {
         expect(code).toBe(2);
         expect(err).toContain('Unknown command: garden');
     });
+
+    it.each(['toString', 'constructor', 'hasOwnProperty', '__proto__'])(
+        '`suspec %s` is an unknown command — an Object.prototype name never resolves through the chain',
+        async (name) => {
+            const { code, err } = await capture(() => dispatch([name]));
+            expect(code).toBe(2);
+            expect(err).toContain(`Unknown command: ${name}`);
+        }
+    );
 
     it('`suspec check --help` prints usage (exit 0)', async () => {
         const { code, out } = await capture(() => dispatch(['check', '--help']));

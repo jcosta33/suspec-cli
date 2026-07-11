@@ -16,12 +16,15 @@ another project; none of that applies (this repo is a TypeScript CLI, no UI, no 
   typed payloads from `events/`. Do not re-export use-case `type`s across modules; a consumer defines its
   own local type or uses `ReturnType<typeof fn>`.
 - **Internals are private to their module:** `models/`, `repositories/`, `services/`. A `service` is a
-  pure, stateless helper over domain types — no I/O (that's `repositories/`), no orchestration (that's
-  `useCases/`).
+  pure, stateless helper over domain types — no I/O, no orchestration (that's `useCases/`). `repositories/`
+  is a reserved convention — no module currently has one; the CLI's only I/O is filesystem reads, living in
+  dedicated use-case files as explicit-path reads and injected predicate builders (`docs/05-architecture.md`
+  §3.1–3.2).
 - **Model isolation:** a module's `models/` never cross a module boundary. If module B needs A-shaped
   data, B defines its own local type with only the fields it uses. Duplication is intentional — it keeps
   a model change in A from cascading into B, and makes a contract change break at compile time.
-- **One function per `useCase`/`repository` file.** Repositories own I/O; use cases orchestrate them.
+- **One function per `useCase`/`repository` file.** Use cases orchestrate; a repository, when a module
+  grows one, owns its I/O.
 - **`src/infra` MUST NOT import `src/modules`** (`infra-isolation`). Infra is leaf-level by
   construction — after the M1 realignment it carries the `Result<V, E>` / `AppError` algebra plus the
   shared pure markdown/YAML scan utilities (`markdownScan.ts`, `yamlScalar.ts`).

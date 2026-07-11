@@ -4,8 +4,8 @@ import { assertOk } from '../../../infra/errors/testing/assertOk.ts';
 import { assertErr } from '../../../infra/errors/testing/assertErr.ts';
 import { parse_change_plan } from '../useCases/parseChangePlan.ts';
 
-// A trimmed-but-faithful change plan in the canonical shape (`suspec new change-plan`'s scaffold): the
-// transformation fixture's structure — preserves[], a guarantees table (with a plan-local PG-NNN),
+// A trimmed-but-faithful change plan in the canonical shape: the canon transformation fixture's
+// structure — preserves[], a guarantees table (with a plan-local PG-NNN),
 // and waves that each name a green check.
 const PLAN = `---
 type: change-plan
@@ -140,5 +140,33 @@ preserves:
 `;
         const plan = assertOk(parse_change_plan({ source: block, path: 'p.md' }));
         expect(plan.preservedRefs.map((ref) => ref.raw)).toEqual(['SPEC-a#AC-001', 'PG-002']);
+    });
+
+    it('a fenced `## ` heading is not a section switch; a fenced numbered item is not a wave', () => {
+        const fenced = `---
+type: change-plan
+id: X
+---
+
+## Behavioral preservation guarantees
+
+| ID | Behavior | Verify with |
+|---|---|---|
+| PG-001 | real | \`t\` |
+
+\`\`\`md
+## Transformation waves
+
+1. A quoted wave example with no check named.
+\`\`\`
+
+## Transformation waves
+
+1. The real wave. Green check: \`pnpm test\`.
+`;
+        const plan = assertOk(parse_change_plan({ source: fenced, path: 'p.md' }));
+        expect(plan.guaranteeIds).toEqual(['PG-001']); // the section was not false-closed by the fenced H2
+        expect(plan.waves).toHaveLength(1); // the fenced example item is not a wave entry
+        expect(plan.waves[0].namesCheck).toBe(true);
     });
 });

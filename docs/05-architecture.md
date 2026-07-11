@@ -67,13 +67,13 @@ services/
 validators/   (optional)
 ```
 
-These are private unless explicitly promoted to a contract-folder barrel. `validators/` is the convention for a module that needs them; no module currently has one (invariant checks live inline or in `services/`).
+These are private unless explicitly promoted to a contract-folder barrel. `validators/` is the convention for a module that needs them; no module currently has one (invariant checks live inline or in `services/`). `repositories/` is likewise reserved — no module currently has one (§3.2).
 
 ## 3. Architectural Concepts
 
 ### 3.1 `useCases/`
 
-Use cases orchestrate workflows. They do NOT contain deep business logic (that goes in `services/` or `validators/`) or direct I/O (that goes in `repositories/`).
+Use cases orchestrate workflows. They do NOT contain deep business logic (that goes in `services/` or `validators/`). The filesystem access this CLI needs lives in dedicated use-case files — explicit-path reads and the injected predicate/resolver builders that keep the check engine pure (§5); heavier I/O adapters belong in `repositories/` (§3.2).
 
 ### 3.2 `repositories/`
 
@@ -85,6 +85,8 @@ A repository may access:
 - File system (`fs`)
 - Child processes (`spawn`, `exec`)
 - Git commands
+
+This is a reserved convention — no module currently has a `repositories/` folder; the CLI's only I/O is filesystem reads, which live in dedicated use-case files (§3.1).
 
 ### 3.3 `models/`
 
@@ -118,11 +120,14 @@ repositories
 
 Never the reverse. `repositories` MUST NOT import from `useCases`.
 
+(`validators/` and `repositories/` are reserved conventions — no module currently has either (§3.2, §3.5); today the `fs` edge lives in the use-case files that read explicit paths and build injected predicates.)
+
 ## 5. Cross-module interaction
 
 Modules interact only through each other's root barrel (`useCases/index.ts`) — `dependency-cruiser`
-forbids deep imports. The composition flows one way: `Commands` → `Core` → `{ Sol, Terminal }` →
-`infra`. There is no event bus or DI container; the engine is composed directly and returns
+forbids deep imports. The composition flows one way: `Commands` → `{ Core, Terminal }` and
+`Core` → `Sol`, with modules resting on `infra` (never the reverse). There is no event bus or
+DI container; the engine is composed directly and returns
 `Result`s, with filesystem access injected as predicates built by the command from explicit paths
 (the engine itself stays pure). The contract util (`Core/unixOutcome`) owns the
 stdout/stderr/exit boundary.

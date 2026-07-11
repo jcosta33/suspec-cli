@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import { assertOk } from '../../../../infra/errors/testing/assertOk.ts';
 import { assertErr } from '../../../../infra/errors/testing/assertErr.ts';
 import { check_spec } from '../checkSpec.ts';
+import { resolve_canon_root } from '../../testing/resolveCanonRoot.ts';
 
 const CONFORMANT = `---
 type: spec
@@ -201,5 +204,37 @@ describe('check_spec — markdown structure (#31/#23)', () => {
         const report = assertOk(check_spec({ source: spec, path: 'spec.md', exists: () => true }));
         expect(report.diagnostics.some((d) => d.code === 'C004')).toBe(false);
         expect(report.level).toBe('clean');
+    });
+});
+
+// The frozen payment-5xx fixture is the oracle for C007's blocking-open-question clause — its
+// EXPECTED.md pins "C007 fires" on BOTH surfaces (`spec.md` and `spec.sol.md`) with every other
+// core check passing. Reached the same way the contract drift-guard reaches the sibling suspec
+// canon (resolve_canon_root: SUSPEC_CANON, `../suspec`, or any canon-shaped sibling). CONDITIONAL
+// on that checkout: in a hermetic suspec-cli-only checkout the fixture isn't on disk, so this
+// oracle CANNOT run and no-ops (SKIPPED below, never silently green). We deliberately do NOT
+// vendor a fixture copy here (a second source of truth would drift from the canon it pins).
+describe('check_spec reproduces the payment-5xx fixture (C007 blocking open question)', () => {
+    const canonRoot = resolve_canon_root(process.cwd());
+    const fixtureDir = canonRoot === null ? '' : resolve(canonRoot, 'checks/fixtures/payment-5xx');
+    const plainPath = fixtureDir === '' ? '' : resolve(fixtureDir, 'spec.md');
+    const solPath = fixtureDir === '' ? '' : resolve(fixtureDir, 'spec.sol.md');
+    const present = plainPath !== '' && existsSync(plainPath) && existsSync(solPath);
+    if (!present) {
+        console.warn(
+            `[no-op] payment-5xx-fixture oracle SKIPPED: no sibling suspec canon found (SUSPEC_CANON / ../suspec / canon-shaped sibling) — provide one for the C007 oracle to bite`
+        );
+    }
+    const fixtureName = present
+        ? 'both surfaces report exactly one hard C007 — the unresolved blocking question (matches EXPECTED.md)'
+        : 'both surfaces report exactly one hard C007 — the unresolved blocking question (matches EXPECTED.md) (SKIPPED: no sibling suspec canon)';
+
+    (present ? it : it.skip)(fixtureName, () => {
+        for (const path of [plainPath, solPath]) {
+            const report = assertOk(check_spec({ source: readFileSync(path, 'utf8'), path, exists: () => true }));
+            expect(report.diagnostics.map((d) => d.code)).toEqual(['C007']);
+            expect(report.diagnostics[0].message).toContain('blocking open question');
+            expect(report.level).toBe('blocking');
+        }
     });
 });

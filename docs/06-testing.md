@@ -37,7 +37,7 @@ TypeScript tests use **Vitest** and live under **`__tests__/`** folders. This do
 
 Tests live in **`__tests__/`** subfolders **inside** the folder that owns the code under test.
 
-**Rule:** For `path/to/SourceFile.ts`, the spec is `path/to/__tests__/SourceFile.spec.ts` (same basename).
+**Rule:** For `path/to/SourceFile.ts`, the spec is `path/to/__tests__/SourceFile.spec.ts` (same basename). **Exception:** specs for private-folder files (`services/`, `models/`) live in the **module-root** `__tests__/` — e.g. `Core/services/checksContract.ts` → `Core/__tests__/checksContract.spec.ts` (see the tree below and the `testing-file-layout` skill).
 
 **Imports:** From `useCases/__tests__/git.spec.ts`, import the subject with a **sibling-relative** path — e.g. `import { current_branch } from '../git';`.
 
@@ -168,7 +168,7 @@ Use `beforeEach(() => { vi.resetAllMocks(); })` when mocks are shared across tes
 | --------------- | --------------------------------------------- |
 | `pnpm test`     | Vitest in watch mode — use during development |
 | `pnpm test:run` | Vitest single run — use in CI                 |
-| `pnpm coverage` | Vitest with **v8** coverage; HTML + `lcov`    |
+| `pnpm coverage` | Vitest with **v8** coverage; HTML + `json`    |
 
 Vitest config is in `vitest.config.ts`. Global setup is `src/setupTests.ts` if present.
 

@@ -35,6 +35,7 @@ import {
     check_waves_present,
     run_spec_checks,
     verdict_for,
+    type RunSpecChecksInput,
     type ParsedSpec,
     type Requirement,
     type SpecFrontmatter,
@@ -76,8 +77,13 @@ const codes = (diagnostics: readonly Diagnostic[]) => diagnostics.map((d) => d.c
 describe('severity_of', () => {
     it('returns the contract severity per check id', () => {
         expect(severity_of('C001')).toBe('hard-error');
+        expect(severity_of('C002')).toBe('hard-error'); // a cross-file id collision blocks
         expect(severity_of('C003')).toBe('hard-error');
         expect(severity_of('C004')).toBe('warning');
+        expect(severity_of('C005')).toBe('warning');
+        expect(severity_of('C006')).toBe('warning');
+        expect(severity_of('C007')).toBe('hard-error');
+        expect(severity_of('C008')).toBe('warning');
         expect(severity_of('C009')).toBe('hard-error');
         expect(severity_of('C010')).toBe('hard-error');
         expect(severity_of('C011')).toBe('warning');
@@ -87,6 +93,7 @@ describe('severity_of', () => {
         expect(severity_of('C015')).toBe('warning');
         expect(severity_of('C016')).toBe('hard-error'); // an empty-Evidence Pass blocks
         expect(severity_of('C019')).toBe('warning');
+        expect(severity_of('C020')).toBe('hard-error'); // a review tied to nothing blocks (ADR-0128)
     });
 });
 
@@ -423,11 +430,19 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
                         { id: 'AC-001', cmd: 'npm test -- other.spec.ts', result: 'pass', malformed: false },
                     ],
                 })
-            )[0]
-        ).toMatchObject({ code: 'C013', severity: 'hard-error' });
+            )
+        ).toEqual([
+            {
+                code: 'C013',
+                severity: 'hard-error',
+                message:
+                    "coverage row AC-001's verify block records a cmd that does not match the requirement's named Verify command",
+                line: null,
+            },
+        ]);
     });
 
-    it('a result=fail under a Pass row → a result-fail fact', () => {
+    it('a result=fail under a Pass row → a result-fail fact, rendered at warning with its own message', () => {
         expect(
             verify_binding_facts(
                 base({
@@ -437,6 +452,23 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
                 })
             )
         ).toEqual([{ id: 'AC-001', kind: 'result-fail' }]);
+        // The gate wrapper keeps result-fail advisory (warning) — only cmd-mismatch escalates.
+        expect(
+            check_verify_binding(
+                base({
+                    verifyBlocks: [
+                        { id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'fail', malformed: false },
+                    ],
+                })
+            )
+        ).toEqual([
+            {
+                code: 'C013',
+                severity: 'warning',
+                message: 'coverage row AC-001 is Pass but its verify block records result=fail',
+                line: null,
+            },
+        ]);
     });
 
     it('a malformed block under a Pass row → a malformed fact', () => {
@@ -478,8 +510,47 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
         expect(facts.some((f) => f.kind === 'duplicate' && f.id === 'AC-001')).toBe(true);
     });
 
+    it('the gate wrapper renders the duplicate and malformed kinds at warning severity with their own messages', () => {
+        // Two blocks keyed to AC-001, the second malformed: one duplicate fact + one malformed fact;
+        // the first block backs the Pass row consistently, so nothing else fires. Pins the
+        // verify_binding_message branches the cmd-mismatch case above never reaches.
+        const diagnostics = check_verify_binding(
+            base({
+                verifyBlocks: [
+                    { id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'pass', malformed: false },
+                    { id: 'AC-001', cmd: null, result: null, malformed: true },
+                ],
+            })
+        );
+        expect(diagnostics).toEqual([
+            {
+                code: 'C013',
+                severity: 'warning',
+                message: 'requirement AC-001 carries more than one verify block',
+                line: null,
+            },
+            {
+                code: 'C013',
+                severity: 'warning',
+                message:
+                    'coverage row AC-001 carries a malformed verify block (its info-string did not parse to id / cmd / result)',
+                line: null,
+            },
+        ]);
+    });
+
     it('a Pass row with no verify block (free-form cell only) → a free-form-only warning', () => {
         expect(verify_binding_facts(base({ verifyBlocks: [] }))).toEqual([{ id: 'AC-001', kind: 'free-form-only' }]);
+        // The gate wrapper renders it advisory, spelling out how to silence it (R5-I11).
+        expect(check_verify_binding(base({ verifyBlocks: [] }))).toEqual([
+            {
+                code: 'C013',
+                severity: 'warning',
+                message:
+                    'coverage row AC-001 is Pass with only a free-form Evidence cell (advisory — add a `verify` block to machine-confirm, or leave as-is to route to human attention)',
+                line: null,
+            },
+        ]);
     });
 
     it('a non-Pass row is not subject to the free-form-only warning', () => {
@@ -649,12 +720,16 @@ describe('C004 one-strength-word', () => {
         expect(
             codes(check_one_strength_word(spec({ requirements: [req('AC-002', 'The tool must not reject it.')] })))
         ).toEqual([]);
-        expect(codes(check_one_strength_word(spec({ requirements: [req('AC-003', 'The tool rejects it.')] })))).toEqual(
-            ['C004']
+        const zero = check_one_strength_word(spec({ requirements: [req('AC-003', 'The tool rejects it.')] }));
+        expect(codes(zero)).toEqual(['C004']);
+        expect(zero[0].message).toBe(
+            'requirement AC-003 states no strength word — it binds on nothing; add the one word (MUST/SHOULD/…) it binds on'
         );
-        expect(
-            codes(check_one_strength_word(spec({ requirements: [req('AC-004', 'It must X and should Y.')] })))
-        ).toEqual(['C004']);
+        const two = check_one_strength_word(spec({ requirements: [req('AC-004', 'It must X and should Y.')] }));
+        expect(codes(two)).toEqual(['C004']);
+        expect(two[0].message).toBe(
+            'requirement AC-004 states 2 strength words — several bindings often mean several requirements; consider a split (advice, not a format bar)'
+        );
     });
 
     it('exempts SOL INTERFACE (IF-) blocks — a declaration has no strength-word slot (ADR-0127, #96)', () => {
@@ -687,6 +762,25 @@ describe('C004 one-strength-word', () => {
                 )
             )
         ).toEqual(['C004']);
+    });
+
+    it('ignores strength words quoted in inline code — they are mentions, not stated modals (#31)', () => {
+        // the only "should" is inside a backticked flag name → it counts as zero, so C004 fires
+        const quotedOnly = check_one_strength_word(
+            spec({ requirements: [req('AC-1', 'The flag is a `--should-skip` option.')] })
+        );
+        expect(codes(quotedOnly)).toEqual(['C004']);
+        expect(quotedOnly[0].message).toContain('states no strength word');
+        // one real modal plus a "must" quoted in an error string → still exactly one, no C004
+        expect(
+            check_one_strength_word(
+                spec({
+                    requirements: [
+                        req('AC-2', 'The validator must reject the error string `input must be non-empty`.'),
+                    ],
+                })
+            )
+        ).toEqual([]);
     });
 
     it('counts strength words only in the SOL RESPONSE clause, not the WHEN/IF trigger condition (R5-I02)', () => {
@@ -739,13 +833,48 @@ describe('C007 no-tbd-at-ready', () => {
         expect(check_no_tbd_at_ready(spec({ frontmatter: { status: 'draft' }, bodyText: 'a TODO remains' }))).toEqual(
             []
         );
-        expect(
-            codes(check_no_tbd_at_ready(spec({ frontmatter: { status: 'ready' }, bodyText: 'a TODO remains' })))
-        ).toEqual(['C007']);
+        const marker = check_no_tbd_at_ready(spec({ frontmatter: { status: 'ready' }, bodyText: 'a TODO remains' }));
+        expect(codes(marker)).toEqual(['C007']);
+        expect(marker[0].message).toBe('a TBD / TODO / ??? marker remains at status: ready');
         expect(
             codes(check_no_tbd_at_ready(spec({ frontmatter: { status: 'ready' }, bodyText: 'has ??? still' })))
         ).toEqual(['C007']);
         expect(check_no_tbd_at_ready(spec({ frontmatter: { status: 'ready' }, bodyText: 'all resolved' }))).toEqual([]);
+    });
+
+    it('flags an unresolved blocking open question at ready, on both record surfaces (the "or blocking open question" clause; payment-5xx fixture)', () => {
+        const plain = check_no_tbd_at_ready(
+            spec({
+                frontmatter: { status: 'ready' },
+                bodyText: '- Blocking: is the charge endpoint idempotent across retries?',
+            })
+        );
+        expect(codes(plain)).toEqual(['C007']);
+        expect(plain[0].message).toContain('blocking open question');
+        expect(
+            codes(
+                check_no_tbd_at_ready(
+                    spec({
+                        frontmatter: { status: 'ready' },
+                        bodyText: 'QUESTION Q-001 [blocking]:\nIs the charge endpoint idempotent?',
+                    })
+                )
+            )
+        ).toEqual(['C007']);
+    });
+
+    it('a blocking question at draft, or a question downgraded to non-blocking at ready, does not fire', () => {
+        expect(
+            check_no_tbd_at_ready(spec({ frontmatter: { status: 'draft' }, bodyText: '- Blocking: still open' }))
+        ).toEqual([]);
+        expect(
+            check_no_tbd_at_ready(
+                spec({
+                    frontmatter: { status: 'ready' },
+                    bodyText: 'QUESTION Q-001 [non-blocking]:\nNice-to-have, answer later.',
+                })
+            )
+        ).toEqual([]);
     });
 });
 
@@ -799,6 +928,62 @@ describe('run_spec_checks + verdict_for', () => {
         expect(verdict_for(diagnostics)).toBe('blocking');
     });
 
+    // Wiring guard, generalized from C019's case: for every check run_spec_checks claims to run, a
+    // spec violating only that rule surfaces exactly its code — dropping any one `...check_x(...)`
+    // line from the aggregator fails the matching row here, not just C019's.
+    it.each<{ code: string; input: RunSpecChecksInput }>([
+        {
+            code: 'C001',
+            input: {
+                spec: spec({
+                    requirements: [
+                        req('AC-001', 'The tool must X.\nVerify with: a test', 3),
+                        req('AC-001', 'The tool must Y.\nVerify with: a test', 9),
+                    ],
+                }),
+                exists: () => true,
+            },
+        },
+        {
+            code: 'C003',
+            input: {
+                spec: spec({ requirements: [req('AC-001', 'The tool must X with no check line.')] }),
+                exists: () => true,
+            },
+        },
+        {
+            code: 'C004',
+            input: {
+                spec: spec({ requirements: [req('AC-001', 'The tool rejects it.\nVerify with: a test')] }),
+                exists: () => true,
+            },
+        },
+        { code: 'C005', input: { spec: spec({ nonGoalsBody: '   ' }), exists: () => true } },
+        { code: 'C006', input: { spec: spec({ openQuestionsPresent: false }), exists: () => true } },
+        {
+            code: 'C007',
+            input: { spec: spec({ frontmatter: { status: 'ready' }, bodyText: 'a TODO remains' }), exists: () => true },
+        },
+        { code: 'C008', input: { spec: spec({ frontmatter: { sources: [] } }), exists: () => true } },
+        {
+            code: 'C009',
+            input: { spec: spec({ frontmatter: { sources: ['specs/gone.md'] } }), exists: () => false },
+        },
+        {
+            code: 'C015',
+            input: { spec: spec({ citations: ['FAROS2025'] }), exists: () => true, anchor_resolves: () => false },
+        },
+        {
+            code: 'C019',
+            input: {
+                spec: spec({ malformedRequirementHeadings: [{ heading: 'AC-004a', line: 12 }] }),
+                exists: () => true,
+            },
+        },
+    ])('$code stays wired: a spec violating only that rule surfaces it through run_spec_checks', ({ code, input }) => {
+        expect(codes(run_spec_checks(input))).toEqual([code]);
+    });
+
     it('verdict_for returns warning when only warnings fire and clean when empty', () => {
         expect(verdict_for([{ code: 'C004', severity: 'warning', message: 'x', line: 1 }])).toBe('warning');
         expect(verdict_for([])).toBe('clean');
@@ -833,6 +1018,11 @@ describe('drift guard against the sibling suspec/checks/checks.yaml', () => {
             const row = new RegExp(`id:\\s*${check.id},\\s*name:\\s*${check.name},\\s*severity:\\s*${check.severity}`);
             expect(text).toMatch(row);
         }
+        // Reverse direction: a check minted in the canon with no counterpart here must also fail
+        // the guard — otherwise a new core_checks row (e.g. a future C021) drifts past silently.
+        const coreChecksBlock = text.match(/^core_checks:\n([\s\S]*?)(?=^\S|$(?![\r\n]))/m)?.[1] ?? '';
+        const canonIds = [...coreChecksBlock.matchAll(/\bid:\s*(C\d+)/g)].map((m) => m[1]);
+        expect([...canonIds].sort()).toEqual(CORE_CHECKS.map((c) => c.id).sort());
     });
 });
 

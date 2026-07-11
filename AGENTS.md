@@ -10,7 +10,9 @@
 - Working artifacts: specs, tasks, reviews, and findings for changes to this repo
   live beside the developer's own native artifacts, outside the repo, and are
   named by explicit path — read the spec or task slice you are given by the path
-  you are given. Accepted framework decisions are canon in `../corpus/docs/adrs/`.
+  you are given. Accepted framework decisions are canon in the suspec repo's
+  `docs/adrs/` (the canon sibling — resolved as described under drift-guarding
+  below).
 - Implement against the spec (or task slice) you are given: read it first; stay
   inside its scope (if a requirement can't be met as written, stop and say why
   instead of improvising); run every item under its `## Verify` and paste the

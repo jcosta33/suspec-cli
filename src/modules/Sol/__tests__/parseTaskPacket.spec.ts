@@ -70,16 +70,6 @@ describe('parse_task_packet — scope (AC-017)', () => {
     });
 });
 
-describe('parse_task_packet — ReDoS guard (private workspace #15)', () => {
-    it('parses a Changed-files line carrying a huge path-shaped token in well under a second', () => {
-        const huge = `${'a/'.repeat(80000)}:`; // a non-matching token that was O(n²) under the old PATH_LIKE
-        const packet = `---\ntype: task\nscope: [AC-001]\n---\n\n## Run summary\n\n- Changed files: ${huge}\n`;
-        const start = Date.now();
-        parse_task_packet(packet);
-        expect(Date.now() - start).toBeLessThan(500);
-    });
-});
-
 describe('parse_task_packet — Affected areas (AC-018)', () => {
     it('reads backtick paths and strips a context prefix', () => {
         expect(parse_task_packet(PACKET).affectedAreas).toEqual([
@@ -149,69 +139,6 @@ scope: [AC-001]
     it('a packet with no Do not change section protects nothing', () => {
         expect(parse_task_packet(PACKET).doNotChange).toEqual([]);
     });
-});
-
-describe('parse_task_packet — Run summary changed files (AC-018)', () => {
-    it('reads the backticked Changed files tokens', () => {
-        expect(parse_task_packet(PACKET).claimedChangedFiles).toEqual([
-            'src/index.ts',
-            'src/modules/Core/useCases/reconcileReview.ts',
-        ]);
-    });
-
-    it('falls back to bare path-like tokens when no backticks are used', () => {
-        const bare = parse_task_packet(`---
-scope: [AC-001]
----
-## Run summary
-
-- Changed files: src/a.ts, src/b.ts and some prose
-`);
-        expect(bare.claimedChangedFiles).toEqual(['src/a.ts', 'src/b.ts']);
-    });
-
-    it('reads a LABEL-then-bullet-list layout — `**Changed files:**` / `### Changed files` then a list (R5-I13)', () => {
-        // The old first-physical-line scanner dropped these to ZERO claims (the paths live on separate
-        // bullet lines under the label, not on the label line). The structure-aware harvest reads both.
-        const bold = parse_task_packet(`---
-scope: [AC-001]
----
-## Run summary
-
-**Changed files:**
-
-- \`src/server.js\`
-- \`src/db.js\`
-`);
-        expect(bold.claimedChangedFiles).toEqual(['src/db.js', 'src/server.js']);
-
-        const heading = parse_task_packet(`---
-scope: [AC-001]
----
-## Run summary
-
-### Changed files
-
-- \`src/a.ts\`
-- \`src/b.ts\`
-`);
-        expect(heading.claimedChangedFiles).toEqual(['src/a.ts', 'src/b.ts']);
-    });
-
-    it("a list-item Changed-files label owns only its OWN sub-bullets, never a sibling bullet's list", () => {
-        const packet = parse_task_packet(`---
-scope: [AC-001]
----
-## Run summary
-
-- Changed files:
-  - \`src/a.ts\`
-  - \`src/b.ts\`
-- Verify results:
-  - \`should-not-leak.ts\` ran green
-`);
-        expect(packet.claimedChangedFiles).toEqual(['src/a.ts', 'src/b.ts']);
-    });
 
     it('a fenced `## ` heading does not false-close a section; a fenced backticked path is not a protection/area', () => {
         const packet = parse_task_packet(`---
@@ -232,84 +159,6 @@ scope: [AC-001]
 `);
         expect(packet.doNotChange).toEqual(['src/frozen.ts']); // the fenced example path is excluded
         expect(packet.affectedAreas).toEqual(['src/real.ts']); // the section was not false-closed by the fenced H2
-    });
-
-    it('a packet with an unfilled Run summary placeholder claims nothing', () => {
-        const tmpl = parse_task_packet(`---
-scope: [AC-001]
----
-## Run summary
-
-- Changed files: {{paths}}
-`);
-        expect(tmpl.claimedChangedFiles).toEqual([]);
-    });
-
-    it('a packet with no Run summary section claims nothing', () => {
-        const none = parse_task_packet(`---
-scope: [AC-001]
----
-# Task
-`);
-        expect(none.claimedChangedFiles).toEqual([]);
-    });
-
-    it('reads a SOFT-WRAPPED Changed files bullet across its continuation lines (R5-I01/R5-I05)', () => {
-        // A wrapped list dropped the paths on continuation lines, false-flagging them changed-not-claimed.
-        // The whole logical bullet is read; the following sub-bullet (`  - …`) correctly ends it.
-        const wrapped = parse_task_packet(`---
-scope: [AC-001]
----
-## Run summary
-
-- Changed files: \`snippets.py\` (load-on-boot + write-through, in-memory path
-  preserved), \`test_snippets.py\` (new, 4 stdlib unittest cases),
-  \`.gitignore\` (ignore the runtime json).
-- Verify results (all PASS):
-  - AC-001 ok
-`);
-        expect(wrapped.claimedChangedFiles).toEqual(['.gitignore', 'snippets.py', 'test_snippets.py']);
-    });
-
-    it('drops backticked non-path tokens — a commit sha or a symbol is not a claimed file (#44)', () => {
-        const noisy = parse_task_packet(`---
-scope: [AC-001]
----
-## Run summary
-
-- Changed files: refactored \`reconcile_self_report\` in \`0791385\`, plus \`src/real.ts\`
-`);
-        expect(noisy.claimedChangedFiles).toEqual(['src/real.ts']);
-    });
-
-    it('a prose Changed files line with no path-like tokens claims nothing (#44)', () => {
-        const prose = parse_task_packet(`---
-scope: [AC-001]
----
-## Run summary
-
-- Changed files: taskLocator, deriveBoard, and the reconcile helpers
-`);
-        expect(prose.claimedChangedFiles).toEqual([]);
-    });
-
-    it('recognizes multi-dot config files and dotfiles, not just single-extension names (#44)', () => {
-        const dotted = parse_task_packet(`---
-scope: [AC-001]
----
-## Run summary
-
-- Changed files: \`vite.config.ts\`, \`tsconfig.base.json\`, \`.eslintrc.json\`, \`.gitignore\`, \`src/app.ts\`
-`);
-        // All five resolve — a regression guard for the false positive where a backticked root-level
-        // config/dotfile was dropped from the claim set and then flagged inDiffNotClaimed (#44).
-        expect(dotted.claimedChangedFiles).toEqual([
-            '.eslintrc.json',
-            '.gitignore',
-            'src/app.ts',
-            'tsconfig.base.json',
-            'vite.config.ts',
-        ]);
     });
 });
 

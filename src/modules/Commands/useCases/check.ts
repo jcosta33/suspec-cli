@@ -4,11 +4,12 @@
 // handed: the primary artifact's kind comes from its own frontmatter `type:`, companions are
 // explicit flags, and nothing resolves a store, a config, a repo root, or a workspace tree.
 //   suspec check <artifact> [<artifact>...]                    spec / change-plan files (exit = max)
-//   suspec check <review-path> --spec <path> --task <path>     reconcile a review packet
+//   suspec check <review-path> --spec <path> [--task <path>]   reconcile a review packet
 //   suspec check --contract                                    the checks contract as JSON
 // Direct output + exit codes flow through the shared unixOutcome contract.
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import {
     check_spec,
@@ -25,19 +26,29 @@ import {
     usage_error,
 } from '../../Core/useCases/index.ts';
 import { err, ok } from '../../../infra/errors/result.ts';
+import { normalize_scalar } from '../../../infra/yamlScalar.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import { format_check_report } from '../services/renderCheckReport.ts';
 
-// The frontmatter `type:` scalar from an artifact's head (the first 12 lines) — the kind sniff the
-// dispatch keys on. null when no `type:` line is present (the legacy type-less spec shape the spec
-// parser owns rejecting).
+// The frontmatter `type:` scalar from an artifact's leading `---` fence — the kind sniff the
+// dispatch keys on. Scans the fenced block only (however long, never the body) and reads the value
+// as YAML would (normalize_scalar: quotes, inline comments), so `type: "review"` dispatches like
+// `type: review`. null when no `type:` is present (the legacy type-less spec shape the spec parser
+// owns rejecting).
 function artifact_type(source: string): string | null {
-    const head = source
-        .split(/\r\n|[\r\n]/)
-        .slice(0, 12)
-        .join('\n');
-    const match = /^type:\s*(.+?)\s*$/m.exec(head);
-    return match !== null ? match[1] : null;
+    const text = source.charCodeAt(0) === 0xfeff ? source.slice(1) : source; // BOM-tolerant, like read_frontmatter
+    const lines = text.split(/\r\n|[\r\n]/);
+    if (lines[0] !== '---') {
+        return null;
+    }
+    for (let index = 1; index < lines.length && lines[index] !== '---'; index += 1) {
+        const match = /^type:\s*(.+)$/.exec(lines[index]);
+        if (match !== null) {
+            const value = normalize_scalar(match[1]);
+            return value.length > 0 ? value : null;
+        }
+    }
+    return null;
 }
 
 export function run(argv: string[]): number {
@@ -51,11 +62,14 @@ export function run(argv: string[]): number {
     const specPath = typeof specFlag === 'string' ? specFlag : undefined;
     const taskPath = typeof taskFlag === 'string' ? taskFlag : undefined;
 
-    // `--contract`: dump the checks contract as JSON — its own invocation, nothing else rides it.
+    // `--contract`: dump the checks contract as JSON — its own invocation: no artifacts, no
+    // companions. `--json` (the structured face, ADR-0143 D7) rides every invocation and is
+    // accepted here too — it changes nothing, the dump is already JSON, and corpus-mcp's
+    // shell-out appends it unconditionally.
     if (flags.get('contract') === true) {
         if (positional.length > 0 || specPath !== undefined || taskPath !== undefined) {
             return emit_error(
-                usage_error('--contract takes no other arguments — usage: suspec check --contract'),
+                usage_error('--contract takes no artifacts or companions — usage: suspec check --contract'),
                 json
             );
         }
@@ -66,21 +80,40 @@ export function run(argv: string[]): number {
     if (positional.length === 0) {
         return emit_error(
             usage_error(
-                'no artifact named — usage: suspec check <artifact> [<artifact>...] | suspec check <review-path> --spec <spec-path> --task <task-path>'
+                'no artifact named — usage: suspec check <artifact> [<artifact>...] | suspec check <review-path> --spec <spec-path> [--task <task-path>]'
             ),
             json
         );
     }
 
-    // Load every named file up front (deduped): a missing file or a directory keeps its per-file
-    // error report; the survivors are sniffed for the invocation-shape rules below.
+    // Load every named file up front (deduped by filesystem identity — `spec.md`, `./spec.md`, a
+    // case-variant spelling on a case-insensitive volume, and a symlink alias all name ONE
+    // artifact, never a C002 duplicate-id pair; a path that stats to nothing falls back to its
+    // resolved spelling, so one missing file named twice still reports once): a missing file or
+    // a directory keeps its per-file error report. Any load failure fails the whole invocation
+    // before the invocation-shape rules below — shape judged over a partial set would print a
+    // second, contradictory diagnosis (and a second JSON document) for what is really one bad path.
     let status = 0;
     const bump = (code: number) => {
         if (code > status) {
             status = code;
         }
     };
-    const paths = [...new Set(positional)];
+    const seen = new Set<string>();
+    const paths = positional.filter((file) => {
+        let key: string;
+        try {
+            const stats = statSync(file, { bigint: true });
+            key = `${stats.dev}:${stats.ino}`;
+        } catch {
+            key = resolve(file); // not statable — the per-file load pass below diagnoses it
+        }
+        if (seen.has(key)) {
+            return false;
+        }
+        seen.add(key);
+        return true;
+    });
     const loaded: { path: string; source: string; type: string | null }[] = [];
     for (const file of paths) {
         if (!existsSync(file)) {
@@ -102,7 +135,7 @@ export function run(argv: string[]): number {
         const source = readFileSync(file, 'utf8');
         loaded.push({ path: file, source, type: artifact_type(source) });
     }
-    if (loaded.length === 0) {
+    if (loaded.length < paths.length) {
         return status;
     }
 
@@ -112,7 +145,7 @@ export function run(argv: string[]): number {
     if (hasReview && paths.length > 1) {
         return emit_error(
             usage_error(
-                'a review packet is checked alone — usage: suspec check <review-path> --spec <spec-path> --task <task-path>'
+                'a review packet is checked alone — usage: suspec check <review-path> --spec <spec-path> [--task <task-path>]'
             ),
             json
         );
@@ -146,8 +179,16 @@ export function run(argv: string[]): number {
                 companions.push({ flag: '--task', path: taskPath });
             }
             for (const companion of companions) {
-                if (!existsSync(companion.path) || statSync(companion.path).isDirectory()) {
+                if (!existsSync(companion.path)) {
                     return emit_error(usage_error(`${companion.flag} file not found: ${companion.path}`), json);
+                }
+                if (statSync(companion.path).isDirectory()) {
+                    return emit_error(
+                        usage_error(
+                            `${companion.flag} is not an artifact file (it is a directory): ${companion.path} — point at the file inside it`
+                        ),
+                        json
+                    );
                 }
             }
             return project({
@@ -163,7 +204,8 @@ export function run(argv: string[]): number {
             });
         }
         // A change plan (`type: change-plan`) runs C010/C011. C010 resolves `SPEC-x#AC-NNN` refs
-        // artifact-relative — against the plan's sibling `*/spec.md` files (ADR-0143 D4).
+        // artifact-relative — against the plan's sibling `*/spec.md` files (contract C010:
+        // refs resolve against the plan's sibling specs; checks.yaml).
         if (type === 'change-plan') {
             return project({
                 result: check_change_plan({

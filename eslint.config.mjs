@@ -18,9 +18,7 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
     // ── Ignores ──────────────────────────────────────────────────────────────
     {
-        // `.worktrees/` holds task worktrees the launch engine creates — separate
-        // checkouts, never lint targets (same reasoning as node_modules).
-        ignores: ['node_modules/', 'dist/', 'build/', 'coverage/', 'scaffold/', '.worktrees/', '**/*.md'],
+        ignores: ['node_modules/', 'dist/', 'build/', 'coverage/', '**/*.md'],
     },
 
     // ── Base configs ─────────────────────────────────────────────────────────
@@ -87,10 +85,9 @@ export default tseslint.config(
     {
         files: ['**/*.{ts,mts,cts}'],
         rules: {
-            // AGENTS.md § TypeScript — soundness. The legacy SOL-era code that
-            // accumulated `any` debt has been removed (M1 realignment), so the
-            // `no-unsafe-*` family is now an error in source (tests relax it for
-            // JSON.parse / mock convenience — see the test-file override below).
+            // AGENTS.md § TypeScript — soundness. The `no-unsafe-*` family is an
+            // error in source; tests relax it for JSON.parse / mock convenience —
+            // see the test-file override below.
             '@typescript-eslint/no-explicit-any': 'error',
             '@typescript-eslint/no-unsafe-argument': 'error',
             '@typescript-eslint/no-unsafe-assignment': 'error',

@@ -4,9 +4,7 @@
 // paths; nothing resolves a store, a config, a repo root, or a workspace tree.
 
 // The contract util
-export { project, emit_error, exit_code_for, usage_error } from './unixOutcome.ts';
-// Path-segment guard — rejects traversal-shaped ids/segments before they reach a path join.
-export { is_safe_segment } from '../services/safeSegment.ts';
+export { project, emit_error, usage_error } from './unixOutcome.ts';
 
 // check engine: single-spec checks, review-packet reconcile (C012/C013/C016/C020), change-plan
 // checks (C010/C011), the file-set checks (C002), and the injected-predicate builders (all

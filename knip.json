@@ -7,5 +7,5 @@
     "entry": ["bin/suspec.js", "src/index.ts", "src/modules/Commands/useCases/*.ts"],
     "project": ["src/**/*.ts", "!src/**/*.spec.ts", "!src/**/*.test.ts"],
     "ignoreExportsUsedInFile": true,
-    "ignoreBinaries": ["prettier", "gh"]
+    "ignoreBinaries": ["prettier"]
 }

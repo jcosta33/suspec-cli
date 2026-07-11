@@ -57,7 +57,9 @@ export async function dispatch(argv: string[], cwd: string = process.cwd()): Pro
         return 0;
     }
 
-    const run = COMMANDS[command];
+    // Own-key lookup only: a bare bracket read walks the prototype chain, so an argv value like
+    // `toString` would resolve to an Object.prototype member instead of the unknown-command path.
+    const run = Object.hasOwn(COMMANDS, command) ? COMMANDS[command] : undefined;
     if (run === undefined) {
         process.stderr.write(`Unknown command: ${command}\nRun 'suspec --help' to see the usage.\n`);
         return 2;
