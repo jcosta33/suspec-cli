@@ -24,4 +24,10 @@ describe('build_source_exists — C009 resolves artifact-relative (ADR-0143 D4)'
         expect(exists('intake/sup-204.md')).toBe(false); // NOT resolved against any root — broken
         expect(exists('nope.md')).toBe(false); // exists nowhere → broken
     });
+
+    it('rejects a directory at the referenced artifact path', () => {
+        mkdirSync(join(root, 'specs', 'demo', 'directory-source.md'));
+        const exists = build_source_exists(join(root, 'specs', 'demo', 'spec.md'));
+        expect(exists('directory-source.md')).toBe(false);
+    });
 });
