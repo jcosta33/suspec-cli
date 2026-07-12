@@ -804,7 +804,7 @@ describe('C008 sources-named', () => {
 });
 
 describe('C009 broken-source-link', () => {
-    it('flags unresolved workspace refs, exempts trackers, passes resolved refs', () => {
+    it('flags unresolved path refs, exempts trackers, passes resolved refs', () => {
         const present = check_broken_source_link({
             spec: spec({ frontmatter: { sources: ['specs/x/spec.md'] }, links: [{ raw: 'docs/y.md', line: 12 }] }),
             exists: () => true,

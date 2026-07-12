@@ -690,7 +690,7 @@ export type PreservesRefsInput = Readonly<{
     refs: readonly PreservesRef[];
     // The ids defined in the plan's own guarantees table — a plan-local id (no spec) resolves here.
     guaranteeIds: readonly string[];
-    // Whether the named spec exists and defines the anchor (injected; the engine reads the workspace).
+    // Whether the named spec exists and defines the anchor (injected from bounded sibling candidates).
     spec_ref_resolves: (specId: string, acId: string) => boolean;
 }>;
 
