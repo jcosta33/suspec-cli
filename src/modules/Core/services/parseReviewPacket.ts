@@ -6,8 +6,8 @@
 // The coverage table is the GFM pipe table under `## Requirement coverage`: a header row
 // (`| ID | Result | Evidence | Human attention |`), a `|---|` separator, then data rows. Template
 // placeholder rows (`| AC-001 | Pass | {{test}} … |`) and the example rows shipped in the template
-// are real-looking; the engine only parses a packet a real run produced, and a row whose id is not a
-// requirement id is simply read as an orphan by C012 — no special-casing here.
+// are real-looking; the engine only parses a packet a real run produced. Rows whose first cell is
+// not requirement-ID-shaped are outside the coverage record consumed by the checks.
 
 import { normalize_scalar } from '../../../infra/yamlScalar.ts';
 import { scan_markdown, strip_inline_code } from '../../../infra/markdownScan.ts';
@@ -56,28 +56,34 @@ const INFO_ID = /\bid=([A-Z][A-Z0-9]*-\d+)\b/;
 const INFO_CMD = /\bcmd="([^"]*)"/;
 const INFO_RESULT = /\bresult=(\w+)\b/;
 
-// The cells of a GFM table row (`| a | b | c |`), trimmed, surrounding empties from the outer pipes
+// The cells of a GFM table row (`| a | b | c |` or `a | b | c`), trimmed, with optional outer pipes
 // dropped. Splits only on a `|` OUTSIDE an inline-code span and not GFM-escaped (`\|`), so a piped
 // shell command in an evidence cell (`` `grep x | wc -l` ``) is read as one cell. A non-table → null.
 function table_cells(line: string): string[] | null {
     const trimmed = line.trim();
-    if (!trimmed.startsWith('|')) {
-        return null;
-    }
     // `masked` blanks inline-code spans (length-preserved), so a `|` inside a code span is not a split.
     const masked = strip_inline_code(trimmed);
     const cells: string[] = [];
     let start = 0;
+    let sawDelimiter = false;
     for (let i = 0; i < trimmed.length; i += 1) {
         if (masked[i] === '|' && (i === 0 || masked[i - 1] !== '\\')) {
+            sawDelimiter = true;
             cells.push(trimmed.slice(start, i).trim());
             start = i + 1;
         }
     }
+    if (!sawDelimiter) {
+        return null;
+    }
     cells.push(trimmed.slice(start).trim());
-    // `| a | b |` → ['', 'a', 'b', ''] → drop the leading/trailing empties from the outer pipes.
-    cells.shift();
-    cells.pop();
+    // `| a | b |` → ['', 'a', 'b', '']; only present boundary empties are outer pipes.
+    if (cells[0] === '') {
+        cells.shift();
+    }
+    if (cells[cells.length - 1] === '') {
+        cells.pop();
+    }
     return cells;
 }
 

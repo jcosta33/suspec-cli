@@ -58,6 +58,27 @@ describe('parse_review_packet', () => {
         ]);
     });
 
+    it('reads GFM coverage rows when either outer pipe is omitted', () => {
+        const packet = `---
+status: draft
+---
+## Requirement coverage
+
+ID | Result | Evidence
+---|---|---
+| AC-001 | Pass | leading only
+AC-002 | Pass | trailing only |
+AC-003 | Pass | neither
+| AC-004 | Pass | both |
+`;
+        expect(parse_review_packet(packet).coverageRows).toEqual([
+            { id: 'AC-001', result: 'Pass', evidence: 'leading only' },
+            { id: 'AC-002', result: 'Pass', evidence: 'trailing only' },
+            { id: 'AC-003', result: 'Pass', evidence: 'neither' },
+            { id: 'AC-004', result: 'Pass', evidence: 'both' },
+        ]);
+    });
+
     it('ignores non-id table rows and tables outside the coverage section', () => {
         const noisy = `---
 status: draft
