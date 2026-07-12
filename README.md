@@ -73,6 +73,10 @@ packets are checked one at a time because their companion flags apply to that pa
 The CLI does not discover a repository root, workspace, configuration file, or artifact store.
 References with filesystem semantics resolve from explicit artifact locations:
 
+Ordinary Suspec artifacts conventionally live under
+`~/.agents/artifacts/<workspace>/`, but that root has no special meaning to the CLI; callers pass
+the same absolute paths they would pass from any other directory.
+
 - A spec source path resolves from that spec's directory.
 - A spec citation resolves against the `sources.md` named by that spec.
 - A change-plan preservation reference resolves against specs beside the plan according to the

@@ -9,6 +9,8 @@ checker implementation, its command surface, and its tests.
 - Read every supplied source, spec, or task packet before editing. Keep the change inside its stated
   scope, run every named verification command, and preserve the command output in the current run
   notes.
+- Ordinary Suspec working artifacts for this repository live under
+  `~/.agents/artifacts/<workspace>/` and are handed to every consumer by absolute path.
 - Do not invent a command for an empty command slot. Ask when a required command cannot be resolved.
 - Review your diff before handoff. Do not issue a review judgment on work you implemented yourself.
 - The local implementation guide is `.agents/skills/implement-task/SKILL.md`. Repository-specific
