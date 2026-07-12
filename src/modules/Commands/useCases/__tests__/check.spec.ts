@@ -209,7 +209,7 @@ describe('check command — `--contract` (the checks contract as JSON)', () => {
         expect(capture(() => run(['--contract', '--spec', file])).code).toBe(2);
     });
 
-    it('--contract --json is accepted — --json rides every invocation (corpus-mcp appends it unconditionally)', () => {
+    it('--contract --json is accepted because the contract dump is already JSON', () => {
         const { code, out } = capture(() => run(['--contract', '--json']));
         expect(code).toBe(0);
         const dump = JSON.parse(out) as { version: string };
@@ -261,7 +261,7 @@ describe('check command — spec checking (frontmatter-sniffed)', () => {
         expect(out).toContain('C009');
     });
 
-    it.each(['task', 'finding', 'adr', 'intake', 'inventory'])(
+    it.each(['task', 'adr', 'intake', 'inventory'])(
         'a type: %s file gets a clean "no checks for type" note (exit 0), never spec-check category errors',
         (artifactType) => {
             const file = write(`a-${artifactType}.md`, `---\ntype: ${artifactType}\nid: X-001\n---\n\n# body\n`);
@@ -371,6 +371,22 @@ describe('check command — multiple positionals (exit = max severity; C002 acro
         expect(code).toBe(2); // max(0 from good, 2 from bad)
         expect(out).toContain('good.md');
         expect(out).toContain('bad.md');
+    });
+
+    it('--json emits one parseable JSON Lines record per report', () => {
+        const first = write('first.md', CONFORMANT);
+        const second = write('second.md', spec('SPEC-y'));
+        const { code, out } = capture(() => run([first, second, '--json']));
+        const reports = out
+            .split('\n')
+            .filter((line) => line.length > 0)
+            .map((line) => JSON.parse(line) as { path: string; level: string });
+
+        expect(code).toBe(0);
+        expect(reports).toEqual([
+            expect.objectContaining({ path: first, level: 'clean' }),
+            expect.objectContaining({ path: second, level: 'clean' }),
+        ]);
     });
 
     it('clean + warning → exit 1', () => {
@@ -483,6 +499,96 @@ describe('check command — review packets need explicit companions (ADR-0143 D3
         const { code, out } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
         expect(code).toBe(0);
         expect(out).toContain('clean');
+    });
+
+    it('rejects a --spec companion whose declared artifact type is not spec', () => {
+        const review = write('review.md', CLEAN_REVIEW);
+        const specPath = write('not-a-spec.md', CONFORMANT.replace('type: spec', 'type: task'));
+        const taskPath = write('task.md', TASK);
+        const { code, err } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
+        expect(code).toBe(2);
+        expect(err).toContain('--spec companion must have `type: spec`');
+    });
+
+    it('accepts a type-less legacy --spec companion through the documented spec parser path', () => {
+        const review = write('review.md', CLEAN_REVIEW);
+        const specPath = write('legacy-spec.md', CONFORMANT.replace('type: spec\n', ''));
+        const taskPath = write('task.md', TASK);
+        const { code, out } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
+        expect(code).toBe(0);
+        expect(out).toContain('clean');
+    });
+
+    it.each([
+        {
+            name: 'review task ref',
+            reviewSource: CLEAN_REVIEW.replace('task: TASK-feat', 'task:\n  - TASK-feat\n  - TASK-other'),
+            specSource: CONFORMANT,
+            taskSource: TASK,
+            message: 'review `task:` must be a single scalar',
+        },
+        {
+            name: 'spec type',
+            reviewSource: CLEAN_REVIEW,
+            specSource: CONFORMANT.replace('type: spec', 'type:\n  - spec\n  - task'),
+            taskSource: TASK,
+            message: '--spec `type:` must be a single scalar',
+        },
+        {
+            name: 'spec id',
+            reviewSource: CLEAN_REVIEW,
+            specSource: CONFORMANT.replace('id: SPEC-x', 'id:\n  - SPEC-x\n  - SPEC-other'),
+            taskSource: TASK,
+            message: '--spec `id:` must be a single scalar',
+        },
+        {
+            name: 'task type',
+            reviewSource: CLEAN_REVIEW,
+            specSource: CONFORMANT,
+            taskSource: TASK.replace('type: task', 'type:\n  - task\n  - review'),
+            message: '--task `type:` must be a single scalar',
+        },
+        {
+            name: 'task id',
+            reviewSource: CLEAN_REVIEW,
+            specSource: CONFORMANT,
+            taskSource: TASK.replace('id: TASK-feat', 'id:\n  - TASK-feat\n  - TASK-other'),
+            message: '--task `id:` must be a single scalar',
+        },
+    ])('rejects a list-shaped singular companion field: $name', ({ reviewSource, specSource, taskSource, message }) => {
+        const review = write('review.md', reviewSource);
+        const specPath = write('spec.md', specSource);
+        const taskPath = write('task.md', taskSource);
+        const { code, err } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
+        expect(code).toBe(2);
+        expect(err).toContain(message);
+    });
+
+    it('rejects a --task companion whose artifact type is not task', () => {
+        const review = write('review.md', CLEAN_REVIEW);
+        const specPath = write('spec.md', CONFORMANT);
+        const taskPath = write('not-a-task.md', CONFORMANT.replace('id: SPEC-x', 'id: TASK-feat'));
+        const { code, err } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
+        expect(code).toBe(2);
+        expect(err).toContain('--task companion must have `type: task`');
+    });
+
+    it('rejects a --task companion with no scoped requirements', () => {
+        const review = write('review.md', CLEAN_REVIEW);
+        const specPath = write('spec.md', CONFORMANT);
+        const taskPath = write('task.md', TASK.replace('scope: [AC-001, AC-002]\n', ''));
+        const { code, err } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
+        expect(code).toBe(2);
+        expect(err).toContain('--task companion must name at least one requirement in `scope:`');
+    });
+
+    it('rejects a --task companion sourced from a different spec', () => {
+        const review = write('review.md', CLEAN_REVIEW);
+        const specPath = write('spec.md', CONFORMANT);
+        const taskPath = write('task.md', TASK.replace('SPEC-x', 'SPEC-other'));
+        const { code, err } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
+        expect(code).toBe(2);
+        expect(err).toContain('does not name handed spec `SPEC-x` in `source:`');
     });
 
     it('a task-less review with --spec only runs spec-keyed → C012 keys on the full spec set (Q3)', () => {

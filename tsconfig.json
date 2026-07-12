@@ -22,8 +22,7 @@
         "strict": true,
         "noFallthroughCasesInSwitch": true,
         "forceConsistentCasingInFileNames": true,
-        // Soft-off to keep the working tree green during the infra migration;
-        // re-enable once unused imports/vars in legacy useCases are cleaned.
+        // ESLint and Knip own unused variable/export checks for this repository.
         "noUnusedLocals": false,
         "noUnusedParameters": false,
         // exactOptionalPropertyTypes is intentionally off — it is a noisy
@@ -42,12 +41,5 @@
         "useDefineForClassFields": true
     },
     "include": ["src", "bin"],
-    "exclude": [
-        "dist",
-        "build",
-        "coverage",
-        "node_modules",
-        "**/*.test.ts",
-        "**/*.test.tsx"
-    ]
+    "exclude": ["dist", "build", "coverage", "node_modules", "**/*.test.ts", "**/*.test.tsx"]
 }

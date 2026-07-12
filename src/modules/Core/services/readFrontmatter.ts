@@ -1,7 +1,7 @@
 // Read the key/value pairs from a markdown file's leading `---` frontmatter block. Pure.
 // A scalar `key: value` yields a string; a YAML block list (a bare `key:` followed by `- item`
-// lines) yields a string[] — the reconcile engine needs a task's `source` list (a spec, optionally a
-// change-plan) as well as scalar fields (`status`, a review's `task`). A light line-scanner, not a
+// lines) yields a string[]. The reconcile engine uses scalar fields such as `status`, `id`, and a
+// review's `task`. A light line-scanner, not a
 // full YAML parser: nesting beyond one list level, and flow-style `[a, b]`, are kept as raw strings.
 
 import { normalize_scalar } from '../../../infra/yamlScalar.ts';

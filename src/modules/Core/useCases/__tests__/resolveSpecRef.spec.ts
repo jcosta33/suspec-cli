@@ -54,7 +54,7 @@ describe('build_spec_ref_resolver', () => {
     });
 
     it('resolves the numeric shorthand SPEC-NNN to the unique SPEC-NNN-<slug> spec, never ambiguously', () => {
-        // A real workspace's change-plan guarantee tables write `SPEC-001#AC-001` while the spec id is
+        // Change-plan guarantee tables write `SPEC-001#AC-001` while the spec id is
         // `SPEC-001-ai-rpg-dialogue` — the natural numeric shorthand must resolve to the unique extension.
         const a = join(dir, 'a.md');
         writeFileSync(a, SPEC.replace('id: SPEC-checkout', 'id: SPEC-001-ai-rpg-dialogue'));

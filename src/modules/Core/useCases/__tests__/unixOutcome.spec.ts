@@ -28,10 +28,10 @@ describe('exit_code_for', () => {
 });
 
 describe('project', () => {
-    const value = (level: OutcomeLevel) => ({ level, verdict: level, count: 3 });
+    const value = (level: OutcomeLevel) => ({ level, label: level, count: 3 });
     const render = (v: { readonly level: OutcomeLevel }) => {
-        const val = v as unknown as { verdict: string; count: number };
-        return `${val.verdict}: ${val.count}`;
+        const val = v as unknown as { label: string; count: number };
+        return `${val.label}: ${val.count}`;
     };
 
     it('writes the rendered result to stdout and returns 0 on a clean success', () => {
@@ -63,7 +63,7 @@ describe('project', () => {
         );
         expect(code).toBe(0);
         expect(rendered).toBe(false);
-        expect(JSON.parse(c.out[0])).toEqual({ level: 'clean', verdict: 'clean', count: 3 });
+        expect(JSON.parse(c.out[0])).toEqual({ level: 'clean', label: 'clean', count: 3 });
         expect(c.err).toEqual([]);
     });
 

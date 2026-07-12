@@ -1,147 +1,99 @@
-# TypeScript Module Architecture
+# Architecture
 
-This document defines the **TypeScript-side module architecture** for the Suspec CLI.
+suspec-cli is a read-only command-line checker. Its architecture keeps input discovery at the
+command boundary and check semantics deterministic over parsed values.
 
-It explains:
-
-- what a module is
-- which architectural concepts exist
-- what each concept is responsible for
-- which folders are public contracts vs private internals
-- what a normal module should look like
-- how modules interact
-
-This document is the source of truth for **TypeScript module anatomy and dependency direction**.
-
----
-
-## 1. What a module is
-
-A **module** is a **DDD bounded context / ownership boundary**.
-
-A module is **not** just a CLI command.
-A module is the unit that owns:
-
-- a slice of business truth
-- the invariants around that truth
-- the public useCases that may mutate that truth
-- the internal implementation details needed to support that ownership
-
-### The modules
+## Runtime Flow
 
 ```text
-Core         the check engine + the unixOutcome contract
-Sol          the plain two-tier spec parser
-Terminal     CLI argument parsing
-Commands     the check command + usage (the surface)
+bin/suspec.js
+  -> src/index.ts
+  -> Commands
+       -> Terminal (argument parsing)
+       -> Core (checks and outcome projection)
+            -> Sol (artifact parsing)
+       -> filesystem reads for explicit paths
 ```
 
-(_Two-tier_ spec form: a spec is a header tier of frontmatter + prose and a body tier of
-requirements; Sol parses that plain Markdown shape.)
+`src/index.ts` dispatches commands. `Commands` reads named files, selects a check face from
+frontmatter, constructs bounded reference resolvers, calls Core, and renders the result. Core parses
+through Sol and evaluates the contract. The process exits with the highest report level.
 
----
+## Modules
 
-## 2. Module anatomy
+### Commands
 
-A TypeScript module is composed of a **public contract surface** and **private internals**.
+`src/modules/Commands` owns the public command surface:
 
-### 2.1 Public contract surface
+- invocation-shape validation;
+- reads of positional paths and explicit review companions;
+- check-face dispatch;
+- construction of artifact-relative resolvers;
+- human-readable rendering and usage text.
 
-Each module exposes independently-importable contract surfaces, typically through `useCases/index.ts`.
+It contains orchestration, not check semantics.
 
-| Contract folder      | Role                              | Import target                                                                                                                                           |
-| -------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `useCases/`          | public write boundary (functions) | Relative path to `src/modules/<M>/useCases/index.ts` from the caller, with explicit `.ts`; `export { fn }` only, **no** `export type` from `useCases/`. |
-| `events/` (optional) | domain event payload types        | Relative path to the event surface from the caller, with explicit `.ts`; `export type` / values as needed.                                              |
+### Core
 
-> `events/` is the convention for a module that needs to publish event payload types; the checker has no event bus, so no module currently populates one.
+`src/modules/Core` owns:
 
-### 2.2 Private internals
+- the implemented checks contract;
+- spec, change-plan, file-set, and review check use cases;
+- review coverage and evidence reconciliation;
+- bounded source, citation, and sibling-spec resolver builders;
+- JSON/stdout/stderr/exit-code projection.
 
-These are implementation details and may change freely inside the module.
+Check functions accept parsed records and injected predicates. They do not discover a repository
+root or read hidden configuration.
 
-```text
-models/
-repositories/
-services/
-validators/   (optional)
+### Sol
+
+`src/modules/Sol` parses frontmatter and Markdown into structural records used by Core. It does not
+decide severity or render output.
+
+### Terminal
+
+`src/modules/Terminal` tokenizes positional arguments and declared flags. Public parser behavior is
+covered by its tests and changes to flag rejection are API changes.
+
+### Infra
+
+`src/infra` supplies the shared `Result`/`AppError` algebra, Markdown scanning, and YAML-scalar
+normalization. It is a leaf and imports no module code.
+
+## Dependency Rules
+
+Another module imports only from a destination module's `useCases/index.ts`. Code within a module
+imports concrete files directly. `models`, `services`, and `testing` are private implementation
+directories.
+
+Dependency-cruiser enforces these rules:
+
+```bash
+pnpm deps:validate
 ```
 
-These are private unless explicitly promoted to a contract-folder barrel. `validators/` is the convention for a module that needs them; no module currently has one (invariant checks live inline or in `services/`). `repositories/` is likewise reserved — no module currently has one (§3.2).
+## Filesystem Boundary
 
-## 3. Architectural Concepts
+Primary paths and review companions come from the command line. Some contract checks require
+bounded filesystem lookups:
 
-### 3.1 `useCases/`
+- source links resolve from a spec's directory;
+- citation keys resolve against the `sources.md` named by that spec;
+- preservation references resolve through the contract's sibling-spec rule.
 
-Use cases orchestrate workflows. They do NOT contain deep business logic (that goes in `services/` or `validators/`). The filesystem access this CLI needs lives in dedicated use-case files — explicit-path reads and the injected predicate/resolver builders that keep the check engine pure (§5); heavier I/O adapters belong in `repositories/` (§3.2).
+Commands build these predicates from explicit artifact paths and inject them into Core. No check
+walks upward for a project root, searches for a configuration file, or opens an artifact store.
 
-### 3.2 `repositories/`
+Canon discovery is test-only. Drift guards locate a Suspec checkout through `SUSPEC_CANON`, the
+conventional `../suspec` sibling, or a sibling with the canon's identifying files. Product runtime
+does not use this discovery.
 
-Repositories are the **I/O layer**.
-They are thin adapters between business logic and the outside world.
+## Output Boundary
 
-A repository may access:
+Core reports carry a level and diagnostics. The Unix outcome helpers map levels to process exit codes
+and keep structured data on stdout. Invocation errors are explained on stderr. Human-readable output
+is a Commands concern.
 
-- File system (`fs`)
-- Child processes (`spawn`, `exec`)
-- Git commands
-
-This is a reserved convention — no module currently has a `repositories/` folder; the CLI's only I/O is filesystem reads, which live in dedicated use-case files (§3.1).
-
-### 3.3 `models/`
-
-Models are the plain data structures that represent your domain. They contain no logic. They are strictly private to their module.
-
-### 3.4 `services/`
-
-Services contain stateless business logic that spans multiple entities or concepts but does not belong in one use case. (e.g. specialized path resolution, AST parsing).
-
-### 3.5 `validators/` (optional)
-
-Validators enforce invariants. They are pure functions that check whether an operation is valid. This is a reserved convention — no module currently has a `validators/` folder; invariant checks live inline or in `services/`.
-
-## 4. Dependency direction
-
-Here is the intended dependency direction inside a module.
-
-```text
-Commands (CLI boundary)
-  -> useCases
-
-useCases
-  -> models
-  -> validators
-  -> services
-  -> repositories
-
-repositories
-  -> external APIs / fs / git
-```
-
-Never the reverse. `repositories` MUST NOT import from `useCases`.
-
-(`validators/` and `repositories/` are reserved conventions — no module currently has either (§3.2, §3.5); today the `fs` edge lives in the use-case files that read explicit paths and build injected predicates.)
-
-## 5. Cross-module interaction
-
-Modules interact only through each other's root barrel (`useCases/index.ts`) — `dependency-cruiser`
-forbids deep imports. The composition flows one way: `Commands` → `{ Core, Terminal }` and
-`Core` → `Sol`, with modules resting on `infra` (never the reverse). There is no event bus or
-DI container; the engine is composed directly and returns
-`Result`s, with filesystem access injected as predicates built by the command from explicit paths
-(the engine itself stays pure). The contract util (`Core/unixOutcome`) owns the
-stdout/stderr/exit boundary.
-
----
-
-## 6. Review checklist
-
-Before accepting TypeScript module architecture work, verify:
-
-1. Is the module boundary an ownership boundary?
-2. Are models plain and framework-free?
-3. Are use cases the real write boundary?
-4. Are use-case **types** kept private?
-5. Are repositories truly I/O-only?
-6. Are validators/services private and well-scoped?
-7. Is cross-module interaction happening only via approved patterns?
+The checker never records a review judgment. It reports facts and severity; callers own workflow
+policy.

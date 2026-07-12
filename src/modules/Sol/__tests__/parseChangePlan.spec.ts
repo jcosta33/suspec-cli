@@ -76,7 +76,10 @@ describe('parse_change_plan', () => {
         expect(noCheck.waves[0].namesCheck).toBe(false);
 
         const empty = assertOk(
-            parse_change_plan({ source: PLAN.replace(/## Transformation waves[\s\S]*?(?=## Cutover)/, ''), path: 'p.md' })
+            parse_change_plan({
+                source: PLAN.replace(/## Transformation waves[\s\S]*?(?=## Cutover)/, ''),
+                path: 'p.md',
+            })
         );
         expect(empty.waves).toEqual([]);
     });
@@ -100,7 +103,10 @@ kind: migration
 
     it('tolerates a flow-style preserves list and a bare PG-only plan', () => {
         const plan = assertOk(
-            parse_change_plan({ source: '---\ntype: change-plan\nid: X\npreserves: [PG-001]\n---\n# x\n', path: 'p.md' })
+            parse_change_plan({
+                source: '---\ntype: change-plan\nid: X\npreserves: [PG-001]\n---\n# x\n',
+                path: 'p.md',
+            })
         );
         expect(plan.preservedRefs.map((ref) => ref.raw)).toEqual(['PG-001']);
         expect(plan.kind).toBeNull();

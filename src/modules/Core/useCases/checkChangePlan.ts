@@ -14,7 +14,7 @@ import { parse_change_plan } from '../../Sol/useCases/index.ts';
 import {
     check_preserves_refs_resolve,
     check_waves_present,
-    verdict_for,
+    level_for,
     type Diagnostic,
 } from '../services/checksContract.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
@@ -50,5 +50,5 @@ export function check_change_plan(input: CheckChangePlanInput): Result<ChangePla
             waves: plan.waves.map((wave) => ({ namesCheck: wave.namesCheck, line: wave.line })),
         }),
     ];
-    return ok({ level: verdict_for(diagnostics), path: input.path, diagnostics });
+    return ok({ level: level_for(diagnostics), path: input.path, diagnostics });
 }

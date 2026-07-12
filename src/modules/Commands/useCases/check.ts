@@ -63,9 +63,8 @@ export function run(argv: string[]): number {
     const taskPath = typeof taskFlag === 'string' ? taskFlag : undefined;
 
     // `--contract`: dump the checks contract as JSON — its own invocation: no artifacts, no
-    // companions. `--json` (the structured face, ADR-0143 D7) rides every invocation and is
-    // accepted here too — it changes nothing, the dump is already JSON, and corpus-mcp's
-    // shell-out appends it unconditionally.
+    // companions. `--json` is accepted here too; it changes nothing because the dump is already
+    // JSON.
     if (flags.get('contract') === true) {
         if (positional.length > 0 || specPath !== undefined || taskPath !== undefined) {
             return emit_error(
@@ -161,7 +160,7 @@ export function run(argv: string[]): number {
     // the file's exit code (the shared unixOutcome contract via `project`).
     const check_one_file = (file: string, source: string, type: string | null): number => {
         // A review packet reconciles against the spec it is checked against — always handed
-        // explicitly (ADR-0143 D3). The task is an optional split slice (ADR-0134): --task is
+        // explicitly (ADR-0143 D3). The task is a conditional split slice (ADR-0134): --task is
         // required iff the review references a task — the engine refuses a task-referencing review
         // with no --task (and a handed --task nothing references) as a blocking usage error, so the
         // floor's strongest checks (C012/C013/C020) are never silently skippable.
@@ -217,9 +216,8 @@ export function run(argv: string[]): number {
                 render: format_check_report,
             });
         }
-        // An artifact whose `type:` has NO check face (task, finding, adr, intake, inventory, …)
-        // must not fall through to the SPEC checks — that only emits category-error warnings ("no
-        // Requirements section" against a finding). Say so cleanly and exit 0: nothing to validate
+        // An artifact whose `type:` has no check face must not fall through to the spec checks.
+        // Say so cleanly and exit 0: nothing to validate
         // is not a defect. A `type: spec` file and a type-less file (the legacy shape the spec
         // parser owns rejecting) take the spec path below.
         if (type !== null && type !== 'spec') {

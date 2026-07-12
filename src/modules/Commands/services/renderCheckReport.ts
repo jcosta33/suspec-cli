@@ -13,7 +13,7 @@ export type RenderDiagnostic = Readonly<{
     line: number | null;
 }>;
 
-export function format_verdict(level: RenderLevel): string {
+export function format_level(level: RenderLevel): string {
     if (level === 'clean') {
         return color.green('✓ clean');
     }
@@ -36,7 +36,7 @@ export function format_check_report(report: {
 }): string {
     const errors = report.diagnostics.filter((d) => d.severity === 'hard-error').length;
     const warnings = report.diagnostics.length - errors;
-    const head = `${color.bold(report.path)}  ${format_verdict(report.level)}  ${color.dim(`${String(errors)} errors, ${String(warnings)} warnings`)}`;
+    const head = `${color.bold(report.path)}  ${format_level(report.level)}  ${color.dim(`${String(errors)} errors, ${String(warnings)} warnings`)}`;
     if (report.diagnostics.length === 0) {
         return head;
     }

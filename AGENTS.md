@@ -1,84 +1,68 @@
-# AGENTS.md — suspec-cli
+# AGENTS.md - suspec-cli
 
-<!-- Always-loaded bootloader (aim ~100 lines). Procedures load on demand from
-     `.agents/skills/`. This is a CODE repo: Suspec working artifacts for it live
-     beside the developer's own native artifacts, outside the repo, named by
-     explicit path. -->
+This repository contains the deterministic command-line checker for Suspec. Product decisions live
+in the [Suspec ADRs](https://github.com/jcosta33/suspec/tree/main/docs/adrs); this repository owns the
+checker implementation, its command surface, and its tests.
 
-## Suspec
+## Working With Suspec
 
-- Working artifacts: specs, tasks, reviews, and findings for changes to this repo
-  live beside the developer's own native artifacts, outside the repo, and are
-  named by explicit path — read the spec or task slice you are given by the path
-  you are given. Accepted framework decisions are canon in the suspec repo's
-  `docs/adrs/` (the canon sibling — resolved as described under drift-guarding
-  below).
-- Implement against the spec (or task slice) you are given: read it first; stay
-  inside its scope (if a requirement can't be met as written, stop and say why
-  instead of improvising); run every item under its `## Verify` and paste the
-  real output (a claim without output counts as unverified); fill the run
-  record (`## Run summary`, or the spec's `## Execution` for 1:1 work);
-  re-read your own diff as a skeptic before handoff. Guide:
-  `.agents/skills/implement-task/`.
-- suspec-cli is the **path-agnostic checker**: one verb, `suspec check` — it
-  reads exactly the files it is handed and resolves nothing else. Invocations:
-  `suspec check <path>` (spec / change plan, several allowed per invocation) ·
-  `suspec check <review-path> --spec <spec-path> [--task <task-path>]` (review;
-  `--task` required iff the review names a `task:` — a task-less 1:1 review
-  reconciles spec-keyed) · `suspec check --contract` (the contract as JSON).
-  Exit codes are the API: 0 clean · 1 warning · 2 blocking; a review checked
-  without a required companion exits 2 naming the missing flag. The checks
-  contract this CLI implements lives in the
-  suspec repo, `checks/checks.yaml` (that file's `version:` is the contract
-  version of record — don't pin a copy of it here), reimplemented in code at
-  `src/modules/Core/services/checksContract.ts` and drift-guarded against it
-  whenever a sibling canon checkout is present (SUSPEC_CANON / `../suspec` / any
-  canon-shaped sibling — the guard skips loudly otherwise; CI checks out the
-  canon beside this repo in `.github/workflows/gate.yml`, so the guard bites on
-  every push/PR).
+- Read every supplied source, spec, or task packet before editing. Keep the change inside its stated
+  scope, run every named verification command, and preserve the command output in the current run
+  notes.
+- Do not invent a command for an empty command slot. Ask when a required command cannot be resolved.
+- Review your diff before handoff. Do not issue a review judgment on work you implemented yourself.
+- The local implementation guide is `.agents/skills/implement-task/SKILL.md`. Repository-specific
+  guides live beside it.
 
-## Project facts
+## Checker Contract
 
-- TypeScript, pnpm, vitest, eslint, dependency-cruiser; entry `bin/suspec.js` →
-  `src/index.ts` (the in-process dispatcher). Modules: `Core` (the check engine and the
-  `unixOutcome` contract), `Sol` (the plain-form spec parser), `Terminal` (arg parsing),
-  `Commands` (the check command + usage, the surface). `src/infra` is the `Result`/`AppError`
-  algebra plus the shared pure markdown/YAML scan utilities.
-- **Architecture discipline:** DDD module boundaries — cross-module imports only via a
-  module's root `useCases/index.ts`; internals (`models/`/`repositories/`/`services/`) private;
-  one function per use-case/repository file; `src/infra/**` MUST NOT import
-  `src/modules/**` (`infra-isolation`).
-- **The verification gate:** `pnpm deps:validate` (dependency-cruiser) MUST pass with
-  **zero** architectural violations before a cross-module change is done.
-- **Safety:** never delete/rename/overwrite a file without an explicit instruction; no
-  destructive git; no codemods / bulk find-replace / global `--fix`; stage only
-  intentionally-changed files; when unsure, log a `QUESTION` rather than act.
-- **Working discipline:** show-don't-tell (paste real command output as proof); trace
-  blast radius with `pnpm typecheck`; after 3 failed fix attempts, stop and
-  re-strategize.
-- Repo-specific engineering guides live beside `implement-task` in
-  `.agents/skills/` (`architecture-violations`, `testing-file-layout`); Claude
-  Code reads them via the `.claude/skills` symlink. Domain terms:
-  `.agents/memory/glossary.md`.
-- Full conventions: `.agents/repo-conventions.md` · human coding conventions:
-  `docs/07-conventions.md` · architecture: `docs/05-architecture.md` · testing:
-  `docs/06-testing.md`. The CLI reads no config file — not in this repo, not in
-  the repos it checks.
+The public surface is `suspec check`:
+
+```text
+suspec check <path> [<path>...]
+suspec check <review-path> --spec <spec-path> [--task <task-path>]
+suspec check --contract
+```
+
+- Primary paths and review companions are explicit. The checker does not discover a project root,
+  configuration file, or artifact store.
+- Source links and change-plan references use the artifact-relative resolution rules documented in
+  `README.md`.
+- Exit codes are part of the API: `0` clean, `1` warning, `2` blocking or usage error.
+- `--json` emits one JSON value per report. Invocations that produce several reports use JSON Lines.
+- The contract of record is `checks/checks.yaml` in the Suspec repository. This implementation lives
+  in `src/modules/Core/services/checksContract.ts`; tests compare it with a sibling canon checkout
+  when one is available through `SUSPEC_CANON`, `../suspec`, or shape-based sibling discovery. CI
+  supplies that checkout.
+
+## Architecture
+
+- `src/modules/Commands`: command orchestration, usage, and human-readable rendering.
+- `src/modules/Terminal`: argument parsing.
+- `src/modules/Core`: checks, review reconciliation, reference resolution, and Unix outcome mapping.
+- `src/modules/Sol`: Markdown and frontmatter parsing.
+- `src/infra`: shared `Result`/`AppError`, Markdown scanning, and YAML-scalar helpers.
+- Cross-module imports go through the destination module's `useCases/index.ts`. Imports inside a
+  module use relative paths to concrete files.
+- A module's `models`, `services`, and `testing` directories are private. `src/infra` never imports
+  from `src/modules`.
+- Keep the check engine pure over parsed inputs and injected predicates. Filesystem reads belong at
+  explicit-path boundaries.
+
+Details: `.agents/repo-conventions.md`, `docs/05-architecture.md`, `docs/06-testing.md`, and
+`docs/07-conventions.md`.
 
 ## Commands
 
-| Slot         | Command              | Purpose                                            |
-| ------------ | -------------------- | -------------------------------------------------- |
-| cmdTest      | `pnpm test:run`      | run the test suite                                 |
-| cmdLint      | `pnpm lint`          | static checks                                      |
-| cmdTypecheck | `pnpm typecheck`     | types                                              |
-| cmdValidate  | `pnpm deps:validate` | dependency-boundary validation                     |
-| cmdFormat    | `pnpm format:check`  | format hygiene (check-only — `pnpm format` writes) |
+| Slot           | Command              | Purpose                                      |
+| -------------- | -------------------- | -------------------------------------------- |
+| `cmdTest`      | `pnpm test:run`      | Run the test suite                           |
+| `cmdLint`      | `pnpm lint`          | Run ESLint                                   |
+| `cmdTypecheck` | `pnpm typecheck`     | Check TypeScript types                       |
+| `cmdValidate`  | `pnpm deps:validate` | Validate dependency boundaries               |
+| `cmdFormat`    | `pnpm format:check`  | Check formatting without writing             |
+| `cmdUnused`    | `pnpm unused`        | Find unused files, exports, and dependencies |
+| `cmdGate`      | `pnpm gate`          | Run the complete repository gate             |
 
-An empty or missing slot means **ask** — never invent a command. A Verify item
-whose command cannot be resolved reads Unverified, not Pass.
-
-## Agent role
-
-You are an implementation or review worker. Suspec organizes the work; you perform
-the assigned task — and you never review your own implementation.
+Use `pnpm format` only when formatting intended edits. Never use destructive git commands, stage
+uninspected files, or overwrite unrelated work.

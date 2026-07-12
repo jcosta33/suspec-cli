@@ -74,9 +74,7 @@ status: draft
 |---|---|
 | AC-099 | Pass |
 `;
-        expect(parse_review_packet(noisy).coverageRows).toEqual([
-            { id: 'AC-001', result: 'Pass', evidence: 'x' },
-        ]);
+        expect(parse_review_packet(noisy).coverageRows).toEqual([{ id: 'AC-001', result: 'Pass', evidence: 'x' }]);
     });
 
     it('drops a coverage-table row whose ID cell is not requirement-id-shaped (lowercase / prose)', () => {
@@ -93,9 +91,7 @@ status: draft
 | ac-002 | Pass | x | no |
 | notes | see below | | |
 `;
-        expect(parse_review_packet(malformed).coverageRows).toEqual([
-            { id: 'AC-001', result: 'Pass', evidence: 'x' },
-        ]);
+        expect(parse_review_packet(malformed).coverageRows).toEqual([{ id: 'AC-001', result: 'Pass', evidence: 'x' }]);
     });
 
     it('a plain (non-verify) fence inside the coverage section emits no verify block', () => {
@@ -286,11 +282,23 @@ out
 describe('parse_review_packet — markdown structure (#23)', () => {
     it('A1: a `## Requirement coverage` + rows inside a code fence are not parsed as structure', () => {
         const packet = [
-            '---', 'type: review', 'status: draft', '---', '',
-            '## Summary', 'Example coverage table:', '',
-            '```', '## Requirement coverage', '| ID | Result | Evidence |', '|---|---|---|',
-            '| AC-999 | Pass | leaked from a code block |', '```', '',
-            '## Changed files', '- src/x.ts',
+            '---',
+            'type: review',
+            'status: draft',
+            '---',
+            '',
+            '## Summary',
+            'Example coverage table:',
+            '',
+            '```',
+            '## Requirement coverage',
+            '| ID | Result | Evidence |',
+            '|---|---|---|',
+            '| AC-999 | Pass | leaked from a code block |',
+            '```',
+            '',
+            '## Changed files',
+            '- src/x.ts',
         ].join('\n');
         const parsed = parse_review_packet(packet);
         expect(parsed.coverageRows).toEqual([]);
@@ -299,8 +307,14 @@ describe('parse_review_packet — markdown structure (#23)', () => {
 
     it('A3: a piped shell command in an inline-code Evidence cell stays one cell', () => {
         const packet = [
-            '---', 'type: review', 'status: ready', '---', '',
-            '## Requirement coverage', '| ID | Result | Evidence |', '|---|---|---|',
+            '---',
+            'type: review',
+            'status: ready',
+            '---',
+            '',
+            '## Requirement coverage',
+            '| ID | Result | Evidence |',
+            '|---|---|---|',
             '| AC-001 | Pass | `grep x | wc -l` |',
         ].join('\n');
         const row = parse_review_packet(packet).coverageRows[0];
@@ -311,10 +325,19 @@ describe('parse_review_packet — markdown structure (#23)', () => {
 
     it('A5: a second cmd="…" cannot steal the binding id (real id read after both commands)', () => {
         const packet = [
-            '---', 'type: review', 'status: ready', '---', '',
-            '## Requirement coverage', '| ID | Result | Evidence |', '|---|---|---|',
-            '| AC-001 | Pass | see below |', '',
-            '```verify cmd="x" cmd="y id=AC-555" result=pass id=AC-001', 'out', '```',
+            '---',
+            'type: review',
+            'status: ready',
+            '---',
+            '',
+            '## Requirement coverage',
+            '| ID | Result | Evidence |',
+            '|---|---|---|',
+            '| AC-001 | Pass | see below |',
+            '',
+            '```verify cmd="x" cmd="y id=AC-555" result=pass id=AC-001',
+            'out',
+            '```',
         ].join('\n');
         const block = parse_review_packet(packet).verifyBlocks[0];
         expect(block.id).toBe('AC-001');

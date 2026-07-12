@@ -1,303 +1,87 @@
 # Conventions
 
-This guide defines coding conventions and patterns for clarity, consistency, and maintainability in the Suspec CLI.
-
-## TypeScript soundness
-
-Agent-enforced rules for typing and tests — no `any` escapes, lazy assertions, or suppression comments without justification — are **canonical in `.agents/repo-conventions.md`** under _TypeScript conventions_ (the **Soundness** bullet). Follow that section for implementation; this document does not repeat it.
-
-## Control flow
-
-All control flow is explicit. The rules, each stated once:
-
-- **Always block statements** (`{...}`) for every conditional, even single-line ones — never a collapsed `if`. ([`curly`](https://eslint.org/docs/latest/rules/curly))
-- **Guard clauses / early returns** over deep nesting or a single trailing return.
-- **No chained or nested ternaries** — branch with `if`/early returns instead.
-- **No short-circuit invocation** (`onClick && onClick();`) — write the explicit `if`.
-- **Keep logic framework-agnostic**: pure business functions, thin CLI wrappers over them.
-
-```typescript
-// ✅ Good: Guard clauses, block conditionals, early returns
-export const validateWorkspace = (workspace: Workspace): void => {
-    if (!workspace) {
-        throw new Error('Missing workspace');
-    }
-
-    if (workspace.isArchived) {
-        return;
-    }
-
-    processWorkspace(workspace.path);
-};
-
-// ❌ Bad: Short-circuit invocation, collapsed ifs, chained ternary
-export const validateWorkspace = (workspace: Workspace): void => {
-    if (!workspace) throw new Error('Missing workspace');
-    workspace && !workspace.isArchived && processWorkspace(workspace.path);
-};
-const roleLabel = !user ? '—' : user.isAdmin ? 'Admin' : user.isEditor ? 'Editor' : 'User';
-```
-
-### Keep logic framework-agnostic
-
-Separate pure business logic from CLI presentation concerns.
-
-```typescript
-// ✅ Good: Pure function + thin CLI wrapper
-export const computeSlug = (title: string): string => {
-    return title
-        .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/[^a-z0-9-]/g, '');
-};
-
-// In the command handler:
-const slug = computeSlug(input.title);
-console.log(`Created sandbox: ${slug}`);
-```
-
-## Naming conventions
-
-The snake_case / camelCase / PascalCase rules for this repo, illustrated with worked examples below.
-(`.agents/repo-conventions.md` carries the broader TypeScript conventions — type-over-interface,
-no namespace imports, guard clauses — that pair with these.)
-
-### File names
-
-```text
-✅ Good
-useCases/git.ts           # camelCase for utilities and use cases
-models/Config.ts          # PascalCase for types/models
-helpers/formatTime.ts     # camelCase for utilities
-
-❌ Bad
-use_cases/git.ts          # snake_case
-helpers/format-time.ts    # kebab-case
-```
-
-### Variable and function names
-
-Variables are `camelCase`. Module-level functions in `src/modules/**` are `snake_case` and declared with `export function` (not `export const` arrows). The `src/infra` combinator library (the Result/AppError algebra) is the deliberate carve-out: its combinators are camelCase `export const` arrows, matching the functional idiom they implement. Both styles are descriptive and verbose — no abbreviations.
-
-```typescript
-// ✅ Good: Descriptive, verbose names
-const currentUserPermissions = getUserPermissions();
-const isWorkspaceDirty = workspace.status === 'dirty';
-
-export function current_branch(repoRoot: string): string | null {
-    // ...
-}
-
-// ❌ Bad: Abbreviated, unclear names
-const usrPerms = getUserPermissions();
-const isDrt = workspace.status === 'dirty';
-
-export function cur_br(r: string): string | null {
-    // ...
-}
-```
-
-### Type and class names
-
-- Types and classes must be `PascalCase`.
-- Errors should end with `Error`.
-
-```typescript
-// ✅ Good: PascalCase for types and classes
-export class WorkspaceNotFoundError extends Error {
-    /* */
-}
-
-export type WorkspaceConfig = {
-    name: string;
-    path: string;
-};
-```
-
-## Import patterns
-
-Module-boundary rules are canonical in `.agents/repo-conventions.md` (_Module architecture_ +
-_TypeScript conventions_); the examples below illustrate them.
-
-```typescript
-// ✅ Good: Import specific types / methods
-import { type WorkspaceConfig } from '../models/Config.ts';
-import { execSync } from 'node:child_process';
-
-// ❌ Bad: Namespace imports
-import * as path from 'node:path';
-```
-
-### Type-only imports and import order
-
-- Use type-only imports (`import { type MyType }`) for all type imports.
-- Organize imports in the following order, with newlines between groups and alphabetical sorting within groups:
-    1.  Built-in (e.g., `node:fs`, `node:path`, ...)
-    2.  External (e.g., `@clack/prompts`, `ora`)
-    3.  Parent (`../`)
-    4.  Sibling (`./`)
-    5.  Index
-
-```typescript
-// ✅ Good
-import { readFileSync } from 'node:fs';
-import color from 'picocolors';
-import { check_spec } from '../../Core/useCases/index.ts';
-
-// ❌ Bad: Mixed order and missing type-only imports
-import { check_spec } from '../../Core/useCases/index.ts';
-import { readFileSync } from 'node:fs';
-```
-
-### Export patterns
-
-Module-level functions in `src/modules/**` are declared with `export function`, not `export const` arrows (the `src/infra` combinator library is the carve-out noted above). Always named exports — never default exports.
-
-```typescript
-// ✅ Good: Named function declaration
-export function format_time(seconds: number): string {
-    /* */
-}
-
-// ❌ Bad: Default export
-function format_time(seconds: number): string {
-    /* */
-}
-export default format_time;
-```
-
-### Import paths
-
-- Cross-module imports use **relative paths to the module's root `useCases/index.ts`** with an explicit `.ts`
-  extension (NodeNext resolution) — e.g. `import { check_spec } from '../../Core/useCases/index.ts';`.
-  Within a module, use relative paths (`../services/…`, `./useCases/…`); never import your own root barrel.
-- No import alias is configured (no tsconfig `paths`, no package.json `imports` map) — every
-  import in `src/` is a relative path. Match that.
-
-## Function patterns
-
-Canonical in `.agents/repo-conventions.md` (_TypeScript conventions_: single-object param,
-`FunctionNameInput`/`FunctionNameOutput`); the examples below illustrate them.
-
-### Function declarations
-
-```typescript
-// ✅ Good: Clear, descriptive function names
-export function calculate_sandbox_path({ basePath, slug }: CalculateSandboxPathInput): string {
-    return `${basePath}/${slug}`;
-}
-
-// ❌ Bad: Abbreviated, unclear names
-export function calc_path(b: string, s: string): string {
-    return `${b}/${s}`;
-}
-```
-
-### Parameter patterns
-
-```typescript
-// ✅ Good: Descriptive parameter names
-export function create_notification({ workspaceName, alertLevel, notificationType }: CreateNotificationInput): void {
-    // Implementation
-}
-
-// ❌ Bad: Single letter or abbreviated parameters
-export function create_notif(t: string, a: string, n: string): void {
-    // Implementation
-}
-
-// ✅ Good: Single object with descriptive properties
-export function update_workspace({ workspaceId, isVisible, notifyUser, updateMeta }: UpdateWorkspaceInput): void {
-    // Implementation
-}
-
-// ❌ Bad: Multiple boolean parameters - unclear what each does
-export function update_workspace(
-    workspaceId: string,
-    isVisible: boolean,
-    notify: boolean,
-    updateMeta: boolean
-): void {
-    // Implementation
-}
-
-// ❌ Bad: Function call is unclear without checking the signature
-update_workspace('ws-123', true, false, true); // What do these booleans mean?
-
-// ✅ Good: Function call is self-documenting
-update_workspace({
-    workspaceId: 'ws-123',
-    isVisible: true,
-    notifyUser: false,
-    updateMeta: true,
-});
-```
-
-### Function signatures
-
-Functions with more than one parameter take a single object param. For module-level functions, the input type is named `FunctionNameInput` and the output type (if non-scalar) is named `FunctionNameOutput`; both are defined immediately above the function they belong to.
-
-```typescript
-type CreateSandboxInput = {
-    slug: string;
-    baseBranch: string;
-};
-
-type CreateSandboxOutput = {
-    path: string;
-    branch: string;
-};
-
-export function create_sandbox(input: CreateSandboxInput): CreateSandboxOutput {
-    // ...
-}
-```
-
-## Conventional programming patterns
-
-Prefer conventional, explicit patterns over clever one-liners (the control-flow rules above). For
-runtime polymorphism, prefer a strategy map over a branchy switch:
-
-```typescript
-// Strategy pattern (choose implementation at runtime)
-type FormatStrategy = (input: string) => string;
-
-const formatJson: FormatStrategy = (input) => JSON.stringify(input, null, 2);
-const formatPlain: FormatStrategy = (input) => String(input);
-
-export const formatOutput = (input: string, strategy: 'json' | 'plain'): string => {
-    if (strategy === 'json') {
-        return formatJson(input);
-    }
-    return formatPlain(input);
-};
-```
-
-## Language anti-patterns
+These conventions supplement `.agents/repo-conventions.md`. ESLint, TypeScript, Prettier, Knip, and
+dependency-cruiser enforce the machine-checkable parts.
+
+## Names
+
+- Files use `camelCase.ts`; type and class names use `PascalCase`.
+- Exported module functions use descriptive `snake_case` names and function declarations.
+- Variables and local helpers use `camelCase`.
+- Error types end in `Error`.
+- Prefer domain names such as `diagnostic`, `report`, `sourcePath`, and `companion` over generic
+  `data`, `item`, or abbreviations.
 
 ```ts
-// ❌ Bad: Truthy hacks and coercions
-const name = user.name || 'Anonymous'; // Falls back on empty string
-const count = +input; // Implicit number coercion
-const enabled = !!maybeTruthy; // Double negation
+type BuildSourceExistsInput = {
+    artifactPath: string;
+};
 
-// ✅ Good: Explicit semantics
-const name = user.name ?? 'Anonymous'; // Nullish coalescing
-const count = Number(input);
-const enabled = Boolean(maybeTruthy);
-
-// ❌ Bad: Defaulting via || in params
-function greet(name) {
-    name = name || 'world';
+export function build_source_exists(input: BuildSourceExistsInput): (ref: string) => boolean {
+    const artifactDirectory = dirname(input.artifactPath);
+    return (ref) => existsSync(resolve(artifactDirectory, ref));
 }
-// ✅ Good: Default parameters
-function greet(name = 'world') {}
 ```
 
-## Lint-aligned conventions
+Functions with several inputs take one object argument. Keep its named input type beside the
+function. Scalar inputs may remain positional when their meaning is unambiguous.
 
-- **Equality and basics**: Use `===`/`!==` (no loose equality); prefer `const`; prefer template strings; no `eval`; no `debugger`.
-- **Curly braces**: Required for all conditionals and loops. ([`curly`](https://eslint.org/docs/latest/rules/curly))
-- **TypeScript**: Use `import { type MyType }`. ([`@typescript-eslint/consistent-type-imports`](https://typescript-eslint.io/rules/consistent-type-imports))
-- **Promises**: Always handle promises (`return`/`catch`/`await`). Avoid floating promises.
-- **Imports**: Keep group order and alphabetical sort by convention. The current ESLint stack does not install `eslint-plugin-import`, so this is reviewed by humans and ordinary code review rather than `import/order`.
+## Imports And Exports
+
+Order imports by built-in, external, parent, then sibling source. Separate groups with a blank line.
+Use explicit `.ts` extensions for source imports.
+
+```ts
+import { readFileSync } from 'node:fs';
+
+import color from 'picocolors';
+
+import { check_spec } from '../../Core/useCases/index.ts';
+import { format_check_report } from '../services/renderCheckReport.ts';
+```
+
+Use named exports and explicit type imports. Do not use namespace imports, default exports, enums, or
+cross-module deep imports.
+
+## Control Flow
+
+- Put braces around every conditional and loop body.
+- Prefer guard clauses to nested branches.
+- Avoid nested ternaries and short-circuit calls.
+- Use `===` and `!==`.
+- Prefer explicit conversion (`Number`, `String`, `Boolean`) to coercion tricks.
+
+```ts
+export function level_for(diagnostics: readonly Diagnostic[]): OutcomeLevel {
+    if (diagnostics.some((entry) => entry.severity === 'hard-error')) {
+        return 'blocking';
+    }
+    if (diagnostics.length > 0) {
+        return 'warning';
+    }
+    return 'clean';
+}
+```
+
+## Types
+
+Use `type`, discriminated unions, and `Readonly` records to model real shapes. Narrow `unknown` at
+I/O boundaries. Do not use `any`, broad object placeholders, unjustified assertions, or suppression
+comments to bypass a type error.
+
+Keep module-private types private. A consumer should depend on the smallest structural shape it uses,
+not import an internal data-transfer type from another module.
+
+## Errors And Output
+
+Use `Result<T, AppError<...>>` where a caller must discriminate a recoverable boundary failure. Keep
+check diagnostics as data. Commands render reports; Unix outcome helpers own stdout, stderr, and exit
+mapping.
+
+Do not log from pure parsers or checks. Do not turn severity into a review judgment.
+
+## Verification
+
+Run `pnpm format:check`, `pnpm typecheck`, `pnpm lint`, `pnpm deps:validate`, `pnpm unused`, focused
+tests, and the complete `pnpm gate` as appropriate. Do not claim a check passed without its actual
+output.

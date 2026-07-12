@@ -61,9 +61,11 @@ const SECTION_HEADING = /^##\s+(.+?)\s*$/;
 // A guarantees / preserves id: a cross-spec ref `SPEC-x#AC-002` or a plan-local id `PG-001`. The
 // spec part is `WORD-...`; the anchor after `#` is `AC-`/`C-`/`I-`-style (letters, dash, digits).
 const SPEC_REF = /^([A-Za-z][\w-]*)#([A-Za-z][\w-]*-\d+)$/;
-const PLAN_LOCAL_ID = /^[A-Za-z][\w-]*-\d+$/;
-// A green check named in a wave: an inline-code span (`npm test …`) or the phrase "green check".
-const NAMES_CHECK = /`[^`]+`|green check|the full suite/i;
+const PLAN_LOCAL_ID = /^PG-\d+$/;
+// A wave names verification through an explicit check/verify phrase, the full-suite shorthand, or
+// a run verb bound to an inline command. An arbitrary code span can be a path or symbol and is not
+// evidence by itself.
+const NAMES_CHECK = /\bgreen check\b|\bverify(?: with| by)?\b|\bthe full suite\b|\b(?:run|rerun|re-run)\s+`[^`]+`/i;
 
 const GUARANTEES_TITLE = 'behavioral preservation guarantees';
 const WAVES_TITLE = 'transformation waves';
@@ -136,7 +138,10 @@ function first_cell(line: string): string | null {
     if (!line.trimStart().startsWith('|')) {
         return null;
     }
-    const cells = line.split('|').slice(1, -1).map((cell) => cell.trim());
+    const cells = line
+        .split('|')
+        .slice(1, -1)
+        .map((cell) => cell.trim());
     if (cells.length === 0) {
         return null;
     }

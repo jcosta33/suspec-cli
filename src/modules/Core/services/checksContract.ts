@@ -1,10 +1,8 @@
 // The checks contract (suspec/checks/checks.yaml + docs/reference/checks.md), implemented in code.
 // checks.yaml sanctions implementing the reference directly ("Read the rules from checks.yaml, or
 // implement the checks reference directly — they must agree over the core checks"). We pin the
-// contract version and the C-code table here; a drift-guard test asserts they match the sibling
-// suspec canon checkout when one is present (SUSPEC_CANON / ../suspec / any canon-shaped sibling —
-// local folders are often named corpus), so suspec-cli stays hermetic (no runtime dependency on the
-// canon) while catching divergence.
+// contract version and the C-code table here; a drift-guard test asserts they match a sibling
+// Suspec canon checkout when one is present, so the CLI stays hermetic while catching divergence.
 //
 // These rule functions are PURE over a ParsedSpec record — the parser (Sol) extracts the structure;
 // this module owns the contract semantics (strength words, the Verify-line shape, link
@@ -283,12 +281,12 @@ export function check_verify_with(spec: ParsedSpec): Diagnostic[] {
 // ADR-0126 (contract 0.12.0): the requirement is AT LEAST one binding word — zero binds on nothing
 // (the defect); more than one is a split-candidate ADVISORY under the same id, advice-framed, never
 // "expected exactly one" (the exactly-one bar was the measured dominant authoring friction with no
-// measured benefit — suspec-works #87).
+// measured benefit.
 export function check_one_strength_word(spec: ParsedSpec): Diagnostic[] {
     const diagnostics: Diagnostic[] = [];
     const isSol = spec.frontmatter.format === 'sol';
     for (const requirement of spec.requirements) {
-        // C004 exempts SOL INTERFACE blocks (IF-, suspec-works #96): an INTERFACE is a signature
+        // C004 exempts SOL INTERFACE blocks (IF-): an INTERFACE is a signature
         // DECLARATION (`RETURNS`/`ACCEPTS`/`ERRORS`/`OWNED BY`, docs/reference/structured-requirements.md)
         // with no strength-word slot by grammar — so "add the one word it binds on" is un-actionable.
         // Only REQ/CONSTRAINT/INVARIANT bear an obligation; QUESTION (Q-) is already excluded at parse.
@@ -392,7 +390,7 @@ export function check_broken_source_link(input: CheckBrokenLinksInput): Diagnost
 // Skip-when-nothing-to-check (ADR-0087 Decision 3): if no sources.md is resolvable, the command
 // passes `anchor_resolves = () => true`, so the check admits every key and never false-flags. C015
 // fires only when a sources.md is resolvable AND a `[[KEY]]` has no matching anchor. v0 is the
-// dangling-anchor case only; the tier checks (a MUST-level claim citing a Caveated/Rejected entry)
+// dangling-anchor case only; claim-quality checks (a MUST-level claim citing a caveated source)
 // are deferred to a separate v1 decision (ADR-0087 Decision 4).
 export function check_citation_resolves(spec: ParsedSpec, anchor_resolves: (key: string) => boolean): Diagnostic[] {
     const diagnostics: Diagnostic[] = [];
@@ -428,7 +426,7 @@ export function check_malformed_requirement_heading(spec: ParsedSpec): Diagnosti
 //   - uncovered — an in-scope id with no coverage row (the dominant "not reviewed yet" signal).
 //   - orphan    — a coverage row naming an id absent from the source spec (stale/mistyped id).
 // Scope-guarded to non-draft source specs: a `draft` spec's ids are work-in-progress, so the check
-// is exempt (mirrors C002's draft exemption). PURE — plain id sets in, diagnostics out; the engine
+// is exempt (mirrors C007's ready-state boundary). PURE — plain id sets in, diagnostics out; the engine
 // (check_review_file) does the I/O and passes the extracted ids here.
 export type CoverageInput = Readonly<{
     sourceSpecStatus: string | null;
@@ -486,69 +484,16 @@ export function check_coverage(input: CoverageInput): Diagnostic[] {
     return coverage_facts(input).map((finding) => diagnostic('C012', coverage_message(finding), null));
 }
 
-// --- spec-coverage drift (private workspace #72 item 2; suspec-cli#1) ------------------------------
-// Advisory, NOT a contract check: no C-id, no `checks.yaml` entry, no contract-version bump — it
-// surfaces a neutral reconcile fact, reconcile-only until measured 0-FP on the real suspec and only
-// then promoted to a check (honesty framework, ADR-0063; matches the packet-size neutral-info posture).
-// The noise source to measure before any check promotion is a non-draft spec's deliberately-deferred
-// (not-yet-tasked) ACs: the untracked set legitimately includes them — fine as neutral info, noisy as
-// a warning. So "0-FP" is UNMEASURED here, not asserted.
-// Distinct axis from C012: C012 compares the task's `scope` to the review's coverage rows; this
-// compares the *source spec's* requirement ids to the task `scope` — the "the spec grew under the
-// task/review" drift. The untracked set is the spec ids no task scope tracks. PURE — id sets in,
-// a drift summary out (or null when fully tracked); the engine does the I/O. Scope-guarded to
-// non-draft source specs (mirrors C012 / the ADR-0079 guard).
-export type SpecCoverageDriftInput = Readonly<{
-    sourceSpecStatus: string | null;
-    specRequirementIds: readonly string[];
-    inScopeIds: readonly string[];
-}>;
-
-export type SpecCoverageDrift = Readonly<{
-    specCount: number;
-    trackedCount: number;
-    untracked: readonly string[];
-}>;
-
-// The message a drift renders to — single-sourced so the reconcile fact and any future Diagnostic
-// share the exact wording.
-export function spec_coverage_drift_message(drift: SpecCoverageDrift): string {
-    return `spec has ${drift.specCount} requirements; task scope tracks ${drift.trackedCount}; ${drift.untracked.length} untracked: ${drift.untracked.join(', ')}`;
-}
-
-// The structured drift fact, or null when there is nothing to surface (fully tracked, no spec ids, or
-// a draft source spec whose ids are not finalized claims). PURE.
-export function spec_coverage_drift_facts(input: SpecCoverageDriftInput): SpecCoverageDrift | null {
-    if (input.sourceSpecStatus === 'draft') {
-        return null;
-    }
-    // Unique spec ids, first-seen order preserved (a spec that names an id twice counts it once).
-    const seen = new Set<string>();
-    const specIds: string[] = [];
-    for (const id of input.specRequirementIds) {
-        if (!seen.has(id)) {
-            seen.add(id);
-            specIds.push(id);
-        }
-    }
-    const scopeSet = new Set(input.inScopeIds);
-    const untracked = specIds.filter((id) => !scopeSet.has(id));
-    if (untracked.length === 0) {
-        return null;
-    }
-    return { specCount: specIds.length, trackedCount: specIds.length - untracked.length, untracked };
-}
-
 // --- C013 verify-evidence-binding (ADR-0083) -----------------------------------------------------
-// The structured-evidence reconcile against the named source spec. A coverage row may carry an
-// optional fenced `verify` block (a sibling to the row). Where present against a Pass row, this
+// The structured-evidence reconcile against the named source spec. A coverage row may carry a
+// fenced `verify` block (a sibling to the row). Where present against a Pass row, this
 // surfaces a CONSISTENCY fact: does the block's recorded `cmd` match the requirement's named
 // `Verify with:` / `VERIFY BY` command (closed-value, exact after whitespace-collapse — never prose
 // matching) and read `result=pass`? It is NEVER a verdict (ADR-0077 D8) and NEVER proof the command
 // ran — the fenced body is self-reported and unparsed; this reads only the closed-value info-string.
 //
-// The five faces, all `warning` (the structured-form mismatch is hard-capable but ships conservative
-// per ADR-0083):
+// The five faces: cmd-mismatch is a hard error at check time; the other four remain warnings
+// (ADR-0129 amending ADR-0083):
 //   - cmd-mismatch    — a block's `cmd` disagrees with the requirement's named command.
 //   - result-fail     — a `result=fail` block recorded under a Pass row.
 //   - malformed       — a block whose info-string did not parse to a complete binding.
@@ -585,7 +530,7 @@ export type VerifyBindingFinding = Readonly<{
 // Collapse whitespace, then strip a trailing note (a `(parenthetical)` OR an em/en-dash clause) and
 // surrounding backticks — the canon's own `Verify with:` format wraps the command in backticks and may
 // carry a trailing note (docs/04, the examples), while the review block records it bare; both sides MUST
-// normalize identically or a conformant block false-fires a cmd-mismatch (private workspace #16). The note is
+// normalize identically or a conformant block false-fires a cmd-mismatch. The note is
 // stripped before the backticks so the documented ``cmd`` (note) / ``cmd`` — note forms reduce cleanly to
 // the bare command. The dash form keys on an EM/EN dash (—/–), never the ASCII hyphen, so a real flag
 // like `npm test -- a.spec.ts` is never truncated (R4-ISS-11).
@@ -725,37 +670,6 @@ export function check_pass_evidence(rows: readonly CoverageEvidenceRow[]): Diagn
     );
 }
 
-// --- Packet diff size (neutral info; ADR-0094 size signal) ---------------------------------------
-// ADR-0094 named an oversized-packet heuristic as a toolable signal ([[SMARTBEAR]] 200-400 LOC,
-// diffusion via [[BOSU15]]). Measuring real task diffs (ADR-0097) showed a raw LOC/files BAND cannot
-// be both useful and low-FP for code tasks: legitimate feature-with-tests commits occupy the same
-// 600-1200 LOC range as genuinely-too-big ones (≈15% false-positive at a 600-LOC band; a 0-FP band of
-// ≥1500 LOC never fires on the population it targets). So the band-based CHECK is specified-not-shipped
-// (ADR-0097), and the size is surfaced as NEUTRAL INFO instead — the reviewer sees the diff size and
-// makes their own decomposition judgment, no threshold asserted. Generated / vendored / lockfile churn
-// is excluded so the number reflects human-authored review surface. PURE: per-file LOC in, totals out.
-export type ChangedFileStat = Readonly<{ path: string; loc: number }>;
-
-const GENERATED_PATH =
-    /(?:^|\/)(?:node_modules|vendor|dist|build|out|\.next|coverage|__snapshots__)\/|(?:^|\/)(?:package-lock\.json|pnpm-lock\.yaml|yarn\.lock|composer\.lock|Cargo\.lock|poetry\.lock|Gemfile\.lock|go\.sum)$|\.(?:min\.(?:js|css)|map|snap|lock)$|\.generated\./;
-
-export function is_generated_path(path: string): boolean {
-    return GENERATED_PATH.test(path);
-}
-
-export type PacketSizeFacts = Readonly<{
-    changedLoc: number; // sum of insertions+deletions over non-generated files
-    filesTouched: number; // count of non-generated files
-}>;
-
-export function packet_size_facts(stats: readonly ChangedFileStat[]): PacketSizeFacts {
-    const authored = stats.filter((stat) => !is_generated_path(stat.path));
-    return {
-        changedLoc: authored.reduce((sum, stat) => sum + stat.loc, 0),
-        filesTouched: authored.length,
-    };
-}
-
 // --- C010 preserves-refs-resolve (change-plan, hard error) ---------------------------------------
 // Every id in a change plan's `preserves:` and Behavioral-preservation-guarantees table must
 // resolve: a `SPEC-x#AC-NNN` ref against the named spec (the spec exists and defines AC-NNN), or a
@@ -839,7 +753,7 @@ export function check_waves_present(input: WavesPresentInput): Diagnostic[] {
     return [];
 }
 
-// --- The single-file runner + verdict ------------------------------------------------------------
+// --- The single-file runner and aggregate level --------------------------------------------------
 export type RunSpecChecksInput = Readonly<{
     spec: ParsedSpec;
     exists: (ref: string) => boolean;
@@ -867,7 +781,7 @@ export function run_spec_checks(input: RunSpecChecksInput): Diagnostic[] {
 
 // Aggregate diagnostics to one outcome level: any hard-error → blocking, else any warning → warning,
 // else clean (AC-005 exit mapping).
-export function verdict_for(diagnostics: readonly Diagnostic[]): OutcomeLevel {
+export function level_for(diagnostics: readonly Diagnostic[]): OutcomeLevel {
     if (diagnostics.some((entry) => entry.severity === 'hard-error')) {
         return 'blocking';
     }

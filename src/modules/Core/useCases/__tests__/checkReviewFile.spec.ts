@@ -191,7 +191,7 @@ describe('check_review_file — C020 unresolvable-ref (the review names a differ
     });
 });
 
-// The four task-ref × --task-given quadrants (ADR-0134: the task is an optional split slice;
+// The task-ref x --task-given quadrants (ADR-0134: the task is a conditional split slice;
 // ADR-0143 D3: the floor never silently degrades).
 describe('check_review_file — the conditional --task rule', () => {
     it('Q1: review names a task + task handed → task-keyed checks run (scope keys C012)', () => {

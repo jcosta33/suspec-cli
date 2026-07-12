@@ -107,12 +107,7 @@ module.exports = {
             comment: 'Orphan modules — files no other module imports — are likely dead code.',
             from: {
                 orphan: true,
-                pathNot: [
-                    '\\.(d\\.ts|spec\\.ts|test\\.ts)$',
-                    '(^|/)__tests__/',
-                    '(^|/)testing/',
-                    'src/index\\.ts$',
-                ],
+                pathNot: ['\\.(d\\.ts|spec\\.ts|test\\.ts)$', '(^|/)__tests__/', '(^|/)testing/', 'src/index\\.ts$'],
             },
             to: {},
         },

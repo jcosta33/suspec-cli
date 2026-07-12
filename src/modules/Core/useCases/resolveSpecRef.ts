@@ -30,7 +30,7 @@ export function build_spec_ref_resolver(specFiles: readonly string[]): (specId: 
     // Resolve a referenced spec id to an index key: an EXACT frontmatter-id match first; else the UNIQUE
     // id that extends it with the numeric-slug convention `SPEC-NNN-<slug>`. So a `SPEC-001#AC-001` ref
     // written with the natural numeric shorthand resolves to `SPEC-001-ai-rpg-dialogue` — the slip a real
-    // workspace's change-plan guarantee tables hit at scale (the preserves: frontmatter carried the full
+    // change-plan guarantee tables hit at scale (the preserves: frontmatter carried the full
     // id while the table used the short one, false-failing C010 across dozens of plans). Ambiguous (more
     // than one `SPEC-NNN-…`) or no match → no resolution: the resolver never guesses between candidates.
     const resolve_key = (specId: string): string | null => {

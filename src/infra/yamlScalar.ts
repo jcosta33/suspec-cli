@@ -1,11 +1,10 @@
-// Normalize a YAML scalar value the way the hand-rolled frontmatter / config parsers read it.
-// The repo carries no YAML dependency (a deliberate stance — see readFrontmatter.ts, agentConfig.ts);
-// this is the one shared, structure-aware normalizer those line-scanners route their scalar values
-// through, so a quoted value, an inline comment, or both are read as YAML would read them. Pure.
+// Normalize a YAML scalar value for the repository's frontmatter readers. This shared,
+// structure-aware helper keeps quoted values and inline comments consistent without adding a YAML
+// dependency. Pure.
 //
 // Two real defects this closes: a quoted `status: "ready"` whose leaked quotes break the enum guards
-// (the C007 `!== 'ready'` / C012-C013 `=== 'draft'` comparisons), and a `.suspec/config.yaml` value
-// carrying an inline `# …` comment that corrupted adapter resolution.
+// (the C007 `!== 'ready'` / C012-C013 `=== 'draft'` comparisons), and an inline comment that would
+// otherwise leak into a parsed scalar.
 
 // Cut an unquoted trailing `# …` comment. YAML: a `#` opens a comment only at the start of the value
 // or when preceded by whitespace, and never inside a single/double-quoted span. So `SPEC-x#AC-001`
@@ -40,23 +39,4 @@ function strip_quotes(value: string): string {
 // (`"claude"   # note`) loses the comment, trims to `"claude"`, then unwraps to `claude`.
 export function normalize_scalar(raw: string): string {
     return strip_quotes(strip_inline_comment(raw).trim());
-}
-
-// The EMIT-side counterpart of normalize_scalar: render an external string (a gh issue title, a
-// label — anything not under this repo's control) as one safe single-line YAML scalar. Newlines
-// collapse to spaces (a frontmatter value must never break the fence structure), and a value that
-// would be misread as YAML syntax — a `:`/`#` opening a mapping or comment, quotes, a leading
-// indicator character — is double-quoted with `\` and `"` escaped, exactly the form
-// strip_quotes/strip_inline_comment read back. A plain value stays unquoted, byte-identical.
-export function emit_scalar(raw: string): string {
-    const value = raw.replace(/\s+/g, ' ').trim();
-    const needsQuoting =
-        value.length === 0 ||
-        /[,:#"'\\]/.test(value) || // a `,` (would merge into a `, `-joined list line), a mapping/comment opener, or a quote the line-scanners would misread
-        /^[\s\-?[\]{}&*!|>%@`]/.test(value) || // a YAML indicator character in value-lead position
-        /\s$/.test(value);
-    if (!needsQuoting) {
-        return value;
-    }
-    return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }

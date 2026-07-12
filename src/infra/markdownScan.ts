@@ -38,8 +38,7 @@ export function scan_markdown(lines: readonly string[]): ScannedLine[] {
         }
         // Inside a fence: a closing fence is a line of only the marker char, run length >= the opener.
         const trimmed = text.trim();
-        const isClose =
-            trimmed.length >= runLen && trimmed.length > 0 && [...trimmed].every((ch) => ch === marker);
+        const isClose = trimmed.length >= runLen && trimmed.length > 0 && [...trimmed].every((ch) => ch === marker);
         out.push({ text, inFence: true, opensFence: false, fenceInfo: '' });
         if (isClose) {
             marker = null;

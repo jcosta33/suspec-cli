@@ -1,5 +1,5 @@
 // @ts-check
-// ESLint config for the Suspec CLI — Node 22, TypeScript, no React, no JSX.
+// ESLint config for the Suspec CLI: Node 22 and TypeScript.
 //
 // Uses only the plugins that are actually installed:
 //   - @eslint/js
@@ -7,8 +7,7 @@
 //   - eslint-config-prettier (Prettier compat)
 //   - globals
 //
-// AGENTS.md soundness rules are enforced inline below. We do not pull in
-// React/Tauri/Tailwind/TanStack tooling — this is a CLI.
+// Repository soundness rules are enforced inline below.
 
 import eslintJs from '@eslint/js';
 import prettierConfig from 'eslint-config-prettier';
@@ -85,7 +84,7 @@ export default tseslint.config(
     {
         files: ['**/*.{ts,mts,cts}'],
         rules: {
-            // AGENTS.md § TypeScript — soundness. The `no-unsafe-*` family is an
+            // The `no-unsafe-*` family is an
             // error in source; tests relax it for JSON.parse / mock convenience —
             // see the test-file override below.
             '@typescript-eslint/no-explicit-any': 'error',
@@ -105,14 +104,14 @@ export default tseslint.config(
                 { allowAny: false, allowBoolean: true, allowNullish: false, allowNumber: true, allowRegExp: true },
             ],
 
-            // Prefer `type` over `interface` (AGENTS.md L147). Soft-warn for
+            // Prefer `type` over `interface`. Soft-warn for
             // now while pre-existing `interface` declarations are migrated.
             '@typescript-eslint/consistent-type-definitions': ['warn', 'type'],
 
             // Forbid empty `{}` types.
             '@typescript-eslint/no-empty-object-type': 'error',
 
-            // `import { type X } ...` style (AGENTS.md L147).
+            // `import { type X } ...` style.
             '@typescript-eslint/consistent-type-imports': [
                 'error',
                 { prefer: 'type-imports', fixStyle: 'inline-type-imports', disallowTypeAnnotations: false },
@@ -136,11 +135,11 @@ export default tseslint.config(
                 {
                     selector: 'ImportNamespaceSpecifier',
                     message:
-                        'Namespace imports (`import * as X from ...`) are forbidden. Import named exports individually (AGENTS.md § React 19 & Coding Conventions).',
+                        'Namespace imports (`import * as X from ...`) are forbidden. Import named exports individually.',
                 },
                 {
                     selector: 'TSEnumDeclaration',
-                    message: '`enum` is forbidden. Use an `as const` object instead (AGENTS.md L147).',
+                    message: '`enum` is forbidden. Use an `as const` object instead.',
                 },
                 {
                     selector: 'TSAsExpression > TSAnyKeyword',

@@ -5,7 +5,7 @@
 // CLI resolves nothing; companions are explicit flags, never discovered). Read-only; writes
 // nothing; renders facts and a severity level, never a verdict (ADR-0077 D8).
 //
-// Two keyed paths (the task is an optional split slice — ADR-0134):
+// Two keyed paths (a task participates when the review names one — ADR-0134):
 //  - TASK-keyed: the review's `task:` names a task; its handed packet's declared `scope` keys the
 //    in-scope id set. C020 fires when the ref does not match the handed packet's own id — a
 //    dangling or mistyped ref must not silently pass (coverage/evidence would key on the wrong
@@ -17,13 +17,14 @@
 
 import { ok, err, isOk, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
+import { normalize_scalar } from '../../../infra/yamlScalar.ts';
 import { parse_spec_record, parse_task_packet } from '../../Sol/useCases/index.ts';
 import {
     check_coverage,
     check_verify_binding,
     check_pass_evidence,
     unresolvable_ref_diagnostic,
-    verdict_for,
+    level_for,
     type Diagnostic,
 } from '../services/checksContract.ts';
 import { parse_review_packet } from '../services/parseReviewPacket.ts';
@@ -48,8 +49,24 @@ export type CheckReviewFileReport = Readonly<{
     diagnostics: readonly Diagnostic[];
 }>;
 
+function fm_items(value: string | readonly string[] | undefined): readonly string[] {
+    let entries: readonly string[] = [];
+    if (typeof value === 'string') {
+        entries = [value];
+    } else if (value !== undefined) {
+        entries = value;
+    }
+    return entries
+        .flatMap((entry) => entry.trim().replace(/^\[/, '').replace(/\]$/, '').split(','))
+        .map(normalize_scalar)
+        .filter((item) => item.length > 0);
+}
+
 export function check_review_file(input: CheckReviewFileInput): Result<CheckReviewFileReport, AppError> {
     const reviewFrontmatter = read_frontmatter(input.reviewSource);
+    if (Array.isArray(reviewFrontmatter.task)) {
+        return err(usage_error('review `task:` must be a single scalar, not a list'));
+    }
     const taskRef = fm_scalar(reviewFrontmatter.task);
 
     // The conditional-companion rule (ADR-0143 D3 × ADR-0134): a review that names a task must be
@@ -71,18 +88,55 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
         );
     }
 
+    const specFrontmatter = read_frontmatter(input.specSource);
+    if (Array.isArray(specFrontmatter.type)) {
+        return err(usage_error('--spec `type:` must be a single scalar, not a list'));
+    }
+    if (Array.isArray(specFrontmatter.id)) {
+        return err(usage_error('--spec `id:` must be a single scalar, not a list'));
+    }
+    const specType = fm_scalar(specFrontmatter.type);
+    if (specType !== undefined && specType !== 'spec') {
+        return err(
+            usage_error(
+                `--spec companion must have \`type: spec\` or omit \`type:\` for supported legacy input; received ${specType}`
+            )
+        );
+    }
+
     const report = (diagnostics: Diagnostic[]): Result<CheckReviewFileReport, AppError> =>
-        ok({ path: input.reviewPath, level: verdict_for(diagnostics), diagnostics });
+        ok({ path: input.reviewPath, level: level_for(diagnostics), diagnostics });
 
     // C020 (ADR-0128): the review's `task:` ref must resolve to the handed task packet. A review
     // naming task X reconciled against a packet identifying as Y is keyed on the wrong slice —
     // emit C020 instead of a silently-miskeyed coverage table.
     let taskScope: readonly string[] | null = null;
     if (input.taskSource !== undefined) {
+        const taskFrontmatter = read_frontmatter(input.taskSource);
+        if (Array.isArray(taskFrontmatter.type)) {
+            return err(usage_error('--task `type:` must be a single scalar, not a list'));
+        }
+        if (Array.isArray(taskFrontmatter.id)) {
+            return err(usage_error('--task `id:` must be a single scalar, not a list'));
+        }
+        const taskType = fm_scalar(taskFrontmatter.type);
+        if (taskType !== 'task') {
+            return err(usage_error(`--task companion must have \`type: task\`; received ${taskType ?? 'no type'}`));
+        }
         const packet = parse_task_packet(input.taskSource);
-        const taskId = fm_scalar(read_frontmatter(input.taskSource).id);
+        const taskId = fm_scalar(taskFrontmatter.id);
         if (taskRef !== taskId) {
             return report([unresolvable_ref_diagnostic(taskRef ?? '', taskId ?? null)]);
+        }
+        if (packet.scope.length === 0) {
+            return err(usage_error('--task companion must name at least one requirement in `scope:`'));
+        }
+        const specId = fm_scalar(specFrontmatter.id);
+        if (specId === undefined) {
+            return err(usage_error('--spec companion must name its artifact in `id:`'));
+        }
+        if (!fm_items(taskFrontmatter.source).includes(specId)) {
+            return err(usage_error(`--task companion does not name handed spec \`${specId}\` in \`source:\``));
         }
         taskScope = packet.scope;
     }
@@ -101,8 +155,7 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
 
     const review = parse_review_packet(input.reviewSource);
     // C012 (ADR-0079): the coverage reconcile. The task-keyed path narrows the in-scope id set to
-    // the task's declared scope; the spec-keyed (task-less 1:1) path keys on the spec's full set —
-    // the spec is the unit, the task an optional accessory.
+    // the task's declared scope; the spec-keyed (task-less 1:1) path keys on the spec's full set.
     const coverage = check_coverage({
         sourceSpecStatus,
         inScopeIds: taskScope ?? specRequirementIds,
@@ -110,7 +163,7 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
         coverageRowIds: review.coverageRows.map((row) => row.id),
     });
     // C013 (ADR-0083): the verify-evidence-binding fact — the named command per id vs the review's
-    // structured verify blocks against its Pass rows. The non-draft scope guard + verdict-free
+    // structured verify blocks against its Pass rows. The non-draft scope guard + judgment-free
     // shape live inside check_verify_binding; this engine only passes the extracted records.
     const verifyBinding = check_verify_binding({
         sourceSpecStatus,

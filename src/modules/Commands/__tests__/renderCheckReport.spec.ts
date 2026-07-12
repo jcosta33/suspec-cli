@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
 
-import { format_check_report, format_verdict } from '../services/renderCheckReport.ts';
+import { format_check_report, format_level } from '../services/renderCheckReport.ts';
 
-describe('format_verdict', () => {
+describe('format_level', () => {
     it('renders the three outcome levels', () => {
-        expect(format_verdict('clean')).toContain('clean');
-        expect(format_verdict('warning')).toContain('warning');
-        expect(format_verdict('blocking')).toContain('blocking');
+        expect(format_level('clean')).toContain('clean');
+        expect(format_level('warning')).toContain('warning');
+        expect(format_level('blocking')).toContain('blocking');
     });
 });
 

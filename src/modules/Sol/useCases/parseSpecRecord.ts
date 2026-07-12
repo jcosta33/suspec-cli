@@ -1,5 +1,5 @@
-// Parse a plain two-tier spec (the default form) into the common requirement record the check
-// engine keys on. SOL (`format: sol`) is the opt-in stricter notation handled by parse_spec; this
+// Parse a plain Markdown spec into the common requirement record the check engine keys on. SOL
+// (`format: sol`) is the stricter notation handled by the same structural parser; this
 // is the default path. Pure: the source string is never mutated and no state is held between calls.
 //
 // The record is deliberately structural — the check engine (Core) defines its own ParsedSpec view
@@ -33,15 +33,6 @@ export type SpecRecordFrontmatter = Readonly<{
     status: string | null;
     format: string | null;
     sources: readonly string[];
-    // The whole-feature replacement pointer (ADR-0108 living specs): set ONLY when a spec is replaced
-    // wholesale (`status: superseded`), naming the SPEC-id that replaces it. null when absent (the
-    // common case — a living spec amends in place and never supersedes). The keep-clean tooling
-    // (ADR-0106) resolves it against the workspace's spec ids.
-    supersededBy: string | null;
-    // The commit SHA the spec's current text was last written against (ADR-0108 item 4 staleness
-    // snapshot). null when absent (the common case today). When set, the staleness check diffs the
-    // spec's Affected areas between this SHA and HEAD; any change flags the spec as possibly stale.
-    snapshot: string | null;
 }>;
 
 export type SpecRecord = Readonly<{
@@ -54,7 +45,7 @@ export type SpecRecord = Readonly<{
     links: readonly SpecRecordLink[];
     // The deduped inline `[[KEY]]` citation keys (the text before any `|`), marked distinctly from
     // the markdown `](path)` links that also land in `links`. C015 keys on these — a `[[KEY]]` whose
-    // key resolves to no `<a id="KEY">` anchor in the workspace's sources.md is a dangling citation.
+    // key resolves to no `<a id="KEY">` anchor in the spec's sources.md is a dangling citation.
     citations: readonly string[];
     // Id-shaped `###` headings with a letter suffix (`AC-004a`) — NOT requirements (the grammar is
     // digits-only), captured so C019 can warn instead of letting the heading vanish silently.
@@ -156,8 +147,6 @@ function parse_frontmatter(lines: readonly string[], end_line: number): SpecReco
         status: scalars.get('status') ?? null,
         format: scalars.get('format') ?? null,
         sources,
-        supersededBy: scalars.get('superseded_by') ?? null,
-        snapshot: scalars.get('snapshot') ?? null,
     };
 }
 

@@ -20,7 +20,7 @@ export const COMMAND_CATALOG = [
             'suspec check --contract',
             '  --contract                print the checks contract (version + core checks) as JSON',
             '',
-            '  --json                    machine-readable output',
+            '  --json                    one JSON value per report; multiple reports use JSON Lines',
             '  exit codes: 0 clean · 1 warnings · 2 blocking / error',
         ],
     },

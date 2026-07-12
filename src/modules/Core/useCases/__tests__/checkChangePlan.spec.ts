@@ -87,10 +87,34 @@ describe('check_change_plan — C010/C011 (AC-001/002/003)', () => {
         expect(codes(report.diagnostics)).toEqual([]);
     });
 
+    it('AC-002: a bare non-PG guarantee id is not a valid plan-local preservation ref', () => {
+        const report = assertOk(
+            check_change_plan({
+                source: plan({ preserves: '[AC-777]', guarantees: '| AC-777 | invalid local id | `t` |' }),
+                path: 'p.md',
+                spec_ref_resolves: () => false,
+            })
+        );
+        expect(codes(report.diagnostics)).toEqual(['C010']);
+        expect(report.level).toBe('blocking');
+    });
+
     it('AC-003: a kind: migration plan with an empty waves section → one C011 warning', () => {
         const report = assertOk(
             check_change_plan({
                 source: plan({ kind: 'migration', waves: '' }),
+                path: 'p.md',
+                spec_ref_resolves: checkoutResolver,
+            })
+        );
+        expect(codes(report.diagnostics)).toEqual(['C011']);
+        expect(report.level).toBe('warning');
+    });
+
+    it('AC-003: mentioning an inline-code path does not count as naming a verify step', () => {
+        const report = assertOk(
+            check_change_plan({
+                source: plan({ kind: 'migration', waves: '1. Create the `db/inventory` schema.' }),
                 path: 'p.md',
                 spec_ref_resolves: checkoutResolver,
             })
@@ -118,9 +142,9 @@ describe('check_change_plan — C010/C011 (AC-001/002/003)', () => {
 });
 
 // AC-004: the frozen transformation fixture is the oracle — C010 pass, C011 pass (EXPECTED.md).
-// Reached the same way the contract drift-guard reaches the sibling suspec canon (resolve_canon_root:
-// SUSPEC_CANON, `../suspec`, or any canon-shaped sibling — folder name irrelevant; some checkouts name
-// it `corpus`). CONDITIONAL on that checkout: in a hermetic suspec-cli-only checkout the fixture isn't
+// Reached the same way the contract drift guard reaches the sibling Suspec canon (resolve_canon_root:
+// SUSPEC_CANON, `../suspec`, or any canon-shaped sibling). CONDITIONAL on that checkout: in a
+// hermetic suspec-cli-only checkout the fixture isn't
 // on disk, so this oracle CANNOT run and no-ops (SKIPPED below, never silently green). We deliberately
 // do NOT vendor a fixture copy here (it would become a second source of truth that could drift from
 // the canon it pins). The skip is named + warned so an absent sibling is a visible signal in the run,

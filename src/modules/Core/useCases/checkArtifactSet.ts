@@ -5,7 +5,7 @@
 
 import { ok, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
-import { duplicate_id_diagnostic, verdict_for, type Diagnostic } from '../services/checksContract.ts';
+import { duplicate_id_diagnostic, level_for, type Diagnostic } from '../services/checksContract.ts';
 import { read_frontmatter, fm_scalar } from '../services/readFrontmatter.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
@@ -34,5 +34,5 @@ export function check_artifact_set(input: CheckArtifactSetInput): Result<Artifac
         }
         firstPathById.set(id, artifact.path);
     }
-    return ok({ path: '(file set)', level: verdict_for(diagnostics), diagnostics });
+    return ok({ path: '(file set)', level: level_for(diagnostics), diagnostics });
 }

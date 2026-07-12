@@ -20,7 +20,7 @@ export type CoverageRow = Readonly<{
     evidence: string; // the raw Evidence cell value (empty = unverified-when-Pass)
 }>;
 
-// A structured-evidence `verify` block (ADR-0083), parsed from a coverage row's optional fenced
+// A structured-evidence `verify` block (ADR-0083), parsed when a coverage row has a fenced
 // sibling: the closed-value info-string only — `id` / `cmd` / `result` (`pass` | `fail`). The fenced
 // BODY is deliberately never captured here: it is verbatim, self-reported, and unparsed (C013 reads a
 // consistency fact off the info-string, never a verdict off the body). A block whose info-string does

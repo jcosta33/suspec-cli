@@ -25,21 +25,16 @@ build/
 .vite-temp/
 *.cache
 
-# Stale artifacts
+# Local reports
 lint-results.json
-node_modules
 
 # Coverage
 coverage
-# --- Suspec (code-repo footprint) ---
-# The Suspec workspace governing this repo is the private family workspace; only
-# code-repo scratch is ignored here (the kit's .gitignore.additions).
+
+# Agent scratch
 .agents/tmp/
 tmp/
-.suspec/
-# legacy pre-migration execution frames (local scratch)
-.agents/tasks/
 .worktrees/
 
-# Generated Codex agent definitions (suspec agents emit --codex) — regenerate, do not commit
+# Generated local agent definitions
 .codex/

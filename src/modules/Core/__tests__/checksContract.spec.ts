@@ -21,20 +21,16 @@ import {
     check_malformed_requirement_heading,
     check_coverage,
     coverage_facts,
-    spec_coverage_drift_facts,
-    spec_coverage_drift_message,
     check_verify_binding,
     verify_binding_facts,
     check_pass_evidence,
     pass_rows_missing_evidence,
-    packet_size_facts,
-    is_generated_path,
     normalize_cmd,
     type VerifyBindingInput,
     check_preserves_refs_resolve,
     check_waves_present,
     run_spec_checks,
-    verdict_for,
+    level_for,
     type RunSpecChecksInput,
     type ParsedSpec,
     type Requirement,
@@ -118,30 +114,6 @@ describe('C016 pass-needs-evidence (ADR-0097)', () => {
 
     it('a fully-filled coverage table yields no C016 (0-FP)', () => {
         expect(check_pass_evidence([{ id: 'AC-001', result: 'Pass', evidence: 'a CI link' }])).toEqual([]);
-    });
-});
-
-describe('packet_size_facts (the neutral diff-size signal; oversized band specified-not-shipped, ADR-0097)', () => {
-    it('sums LOC + counts files over human-authored files only, excluding generated/vendored/lockfiles', () => {
-        const facts = packet_size_facts([
-            { path: 'src/a.ts', loc: 100 },
-            { path: 'src/b.ts', loc: 50 },
-            { path: 'pnpm-lock.yaml', loc: 5000 }, // lockfile — excluded
-            { path: 'dist/bundle.js', loc: 9000 }, // build output — excluded
-            { path: 'node_modules/x/index.js', loc: 9000 }, // vendored — excluded
-            { path: 'src/c.test.ts.snap', loc: 200 }, // snapshot — excluded
-        ]);
-        expect(facts.changedLoc).toBe(150);
-        expect(facts.filesTouched).toBe(2);
-    });
-
-    it('is_generated_path classifies vendored / build / lockfile / minified / snapshot paths', () => {
-        expect(is_generated_path('node_modules/x/y.js')).toBe(true);
-        expect(is_generated_path('dist/app.js')).toBe(true);
-        expect(is_generated_path('package-lock.json')).toBe(true);
-        expect(is_generated_path('app.min.css')).toBe(true);
-        expect(is_generated_path('comp.snap')).toBe(true);
-        expect(is_generated_path('src/feature.ts')).toBe(false); // real authored code is not generated
     });
 });
 
@@ -279,61 +251,7 @@ describe('C012 coverage (ADR-0079)', () => {
     });
 });
 
-describe('spec_coverage_drift (private workspace #72 item 2; suspec-cli#1)', () => {
-    it('reports spec ids no task scope tracks as untracked', () => {
-        expect(
-            spec_coverage_drift_facts({
-                sourceSpecStatus: 'ready',
-                specRequirementIds: ['AC-001', 'AC-002', 'AC-003', 'AC-004'],
-                inScopeIds: ['AC-001', 'AC-002'],
-            })
-        ).toEqual({ specCount: 4, trackedCount: 2, untracked: ['AC-003', 'AC-004'] });
-    });
-
-    it('renders the drift message', () => {
-        expect(spec_coverage_drift_message({ specCount: 3, trackedCount: 1, untracked: ['AC-002', 'AC-003'] })).toBe(
-            'spec has 3 requirements; task scope tracks 1; 2 untracked: AC-002, AC-003'
-        );
-    });
-
-    it('returns null when the scope tracks every spec id', () => {
-        expect(
-            spec_coverage_drift_facts({
-                sourceSpecStatus: 'ready',
-                specRequirementIds: ['AC-001', 'AC-002'],
-                inScopeIds: ['AC-001', 'AC-002', 'AC-003'],
-            })
-        ).toBeNull();
-    });
-
-    it('is exempt on a draft source spec', () => {
-        expect(
-            spec_coverage_drift_facts({
-                sourceSpecStatus: 'draft',
-                specRequirementIds: ['AC-001', 'AC-002'],
-                inScopeIds: [],
-            })
-        ).toBeNull();
-    });
-
-    it('counts a spec id named twice only once', () => {
-        expect(
-            spec_coverage_drift_facts({
-                sourceSpecStatus: 'ready',
-                specRequirementIds: ['AC-001', 'AC-001', 'AC-002'],
-                inScopeIds: ['AC-001'],
-            })
-        ).toEqual({ specCount: 2, trackedCount: 1, untracked: ['AC-002'] });
-    });
-
-    it('returns null for an empty spec', () => {
-        expect(
-            spec_coverage_drift_facts({ sourceSpecStatus: 'ready', specRequirementIds: [], inScopeIds: [] })
-        ).toBeNull();
-    });
-});
-
-describe('normalize_cmd (ADR-0083 / private workspace #16)', () => {
+describe('normalize_cmd (ADR-0083)', () => {
     const bare = 'npm test -- auth-refresh.spec.ts';
     it('reduces the canon Verify-with forms (backtick-wrapped, trailing note, extra whitespace) to the same bare command', () => {
         expect(normalize_cmd(`\`${bare}\``)).toBe(bare);
@@ -388,7 +306,7 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
         ).toEqual([]);
     });
 
-    it('a backtick-wrapped named command (the canon Verify-with format) matches a bare block — no false cmd-mismatch (private workspace #16)', () => {
+    it('a backtick-wrapped named command matches a bare block', () => {
         expect(
             verify_binding_facts(
                 base({
@@ -401,7 +319,7 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
         ).toEqual([]);
     });
 
-    it('a named command with a trailing (parenthetical) note matches a bare block — no false cmd-mismatch (private workspace #16)', () => {
+    it('a named command with a trailing parenthetical note matches a bare block', () => {
         expect(
             verify_binding_facts(
                 base({
@@ -908,24 +826,24 @@ describe('C009 broken-source-link', () => {
     });
 });
 
-describe('run_spec_checks + verdict_for', () => {
-    it('a conformant spec yields no diagnostics and a clean verdict', () => {
+describe('run_spec_checks + level_for', () => {
+    it('a conformant spec yields no diagnostics and a clean level', () => {
         const conformant = spec({
             frontmatter: { status: 'ready', sources: ['ADR-0077'] },
             requirements: [req('AC-001', 'The tool must X.\nVerify with: a named test')],
         });
         const diagnostics = run_spec_checks({ spec: conformant, exists: () => true });
         expect(diagnostics).toEqual([]);
-        expect(verdict_for(diagnostics)).toBe('clean');
+        expect(level_for(diagnostics)).toBe('clean');
     });
 
-    it('aggregates a blocking verdict when any hard error fires', () => {
+    it('aggregates a blocking level when any hard error fires', () => {
         const diagnostics = run_spec_checks({
             spec: spec({ requirements: [req('AC-001', 'The tool rejects it.')] }), // C003 (hard) + C004 (warn)
             exists: () => true,
         });
         expect(codes(diagnostics)).toEqual(expect.arrayContaining(['C003', 'C004']));
-        expect(verdict_for(diagnostics)).toBe('blocking');
+        expect(level_for(diagnostics)).toBe('blocking');
     });
 
     // Wiring guard, generalized from C019's case: for every check run_spec_checks claims to run, a
@@ -984,9 +902,9 @@ describe('run_spec_checks + verdict_for', () => {
         expect(codes(run_spec_checks(input))).toEqual([code]);
     });
 
-    it('verdict_for returns warning when only warnings fire and clean when empty', () => {
-        expect(verdict_for([{ code: 'C004', severity: 'warning', message: 'x', line: 1 }])).toBe('warning');
-        expect(verdict_for([])).toBe('clean');
+    it('level_for returns warning when only warnings fire and clean when empty', () => {
+        expect(level_for([{ code: 'C004', severity: 'warning', message: 'x', line: 1 }])).toBe('warning');
+        expect(level_for([])).toBe('clean');
     });
 });
 
@@ -994,10 +912,9 @@ describe('drift guard against the sibling suspec/checks/checks.yaml', () => {
     // PG-005's drift-guard teeth are conditional on a sibling suspec canon checkout being present: in a
     // hermetic suspec-cli-only checkout the contract source isn't on disk, so the guard CANNOT run and
     // no-ops (SKIPPED below, never silently green). The canon resolves via SUSPEC_CANON, `../suspec`,
-    // or any canon-shaped sibling (checks/checks.yaml + docs/adrs — the folder name is irrelevant;
-    // some checkouts name it `corpus`). We deliberately do NOT vendor a checks.yaml copy here (a second
-    // source of truth would itself drift from the canon it is meant to pin). The skip is named + warned
-    // so an absent sibling is a visible signal in the run, not a silent pass.
+    // or any canon-shaped sibling (checks/checks.yaml + docs/adrs). We deliberately do NOT vendor a
+    // checks.yaml copy here: a second source of truth would itself drift from the canon it is meant to
+    // pin. The named, warned skip makes an absent sibling visible instead of silently passing.
     const canonRoot = resolve_canon_root(process.cwd());
     const contractPath = canonRoot === null ? '' : resolve(canonRoot, 'checks/checks.yaml');
     const present = contractPath !== '' && existsSync(contractPath);

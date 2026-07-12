@@ -2,13 +2,12 @@
 // checks-contract core checks over it, and return a leveled report (clean / warning / blocking).
 // No file is written (AC-008 — the diagnostics are the result, projected to stdout by the command).
 //
-// M1 parses the default plain two-tier form. `format: sol` routing to the stricter SOL parser is an
-// M2 follow-up; the field is captured on the record so the command can surface that boundary.
+// The parser maps plain Markdown and the supported `format: sol` structures to one check record.
 
 import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
 import { parse_spec_record } from '../../Sol/useCases/index.ts';
-import { run_spec_checks, verdict_for, type Diagnostic } from '../services/checksContract.ts';
+import { run_spec_checks, level_for, type Diagnostic } from '../services/checksContract.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
 export type CheckSpecInput = Readonly<{
@@ -19,8 +18,8 @@ export type CheckSpecInput = Readonly<{
     // predicate built against the spec's own directory.
     exists: (ref: string) => boolean;
     // Resolves a `[[KEY]]` citation to whether sources.md carries a matching `<a id="KEY">` anchor
-    // (C015). Optional and injected like `exists`; the command builds it from the spec's named
-    // sources.md, or omits it (defaulting to admit-every-key) when no sources.md is resolvable —
+    // (C015). Injected like `exists`; when omitted, the check admits every key. The command builds
+    // it from the spec's named sources.md when one resolves —
     // the ADR-0087 skip-when-nothing-to-check rule, so a spec is never false-flagged.
     anchor_resolves?: (key: string) => boolean;
 }>;
@@ -41,5 +40,5 @@ export function check_spec(input: CheckSpecInput): Result<SpecCheckReport, AppEr
         exists: input.exists,
         anchor_resolves: input.anchor_resolves,
     });
-    return ok({ level: verdict_for(diagnostics), path: input.path, diagnostics });
+    return ok({ level: level_for(diagnostics), path: input.path, diagnostics });
 }
