@@ -5,7 +5,7 @@
 // tree walk. Reads the filesystem; returns plain paths. The resolver (build_spec_ref_resolver)
 // reads + indexes them — this only enumerates.
 
-import { readdirSync, existsSync, type Dirent } from 'fs';
+import { readdirSync, existsSync, statSync, type Dirent } from 'fs';
 import { join, dirname, resolve } from 'path';
 
 // The `spec.md` files in the change plan's sibling directories — one level only, sorted.
@@ -18,8 +18,8 @@ export function find_sibling_spec_files(changePlanPath: string): string[] {
     if (!existsSync(parentDir)) {
         return [];
     }
-    // `withFileTypes` reads the dir-entry kind from the single readdir, so a sibling that vanishes
-    // between listing and inspection (a parallel temp-dir cleanup) cannot ENOENT a second stat call.
+    // `withFileTypes` avoids a stat per sibling. The candidate itself still needs a type check;
+    // tolerate it vanishing between listing and inspection.
     const entries: Dirent[] = readdirSync(parentDir, { withFileTypes: true });
     const out: string[] = [];
     for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
@@ -27,8 +27,12 @@ export function find_sibling_spec_files(changePlanPath: string): string[] {
             continue;
         }
         const specPath = join(parentDir, entry.name, 'spec.md');
-        if (existsSync(specPath)) {
-            out.push(specPath);
+        try {
+            if (statSync(specPath).isFile()) {
+                out.push(specPath);
+            }
+        } catch {
+            // Missing or unreadable candidates are not spec files.
         }
     }
     return out;

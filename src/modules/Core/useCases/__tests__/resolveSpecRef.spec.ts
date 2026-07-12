@@ -101,6 +101,14 @@ describe('find_sibling_spec_files', () => {
         expect(find_sibling_spec_files(planPath)).toEqual([join(dir, 'checkout', 'spec.md')]);
     });
 
+    it('rejects a sibling directory named spec.md', () => {
+        mkdirSync(join(dir, 'transformation'), { recursive: true });
+        mkdirSync(join(dir, 'checkout', 'spec.md'), { recursive: true });
+        const planPath = join(dir, 'transformation', 'change-plan.md');
+        writeFileSync(planPath, '---\ntype: change-plan\nid: X\n---\n# x\n');
+        expect(find_sibling_spec_files(planPath)).toEqual([]);
+    });
+
     it('finds siblings from a bare or ./-prefixed argv path — the resolve-before-dirname regression pin', () => {
         // Without resolve(), dirname-of-dirname on `change-plan.md` collapses to `.` twice —
         // landing in the plan's OWN directory and silently finding zero siblings (false-C010).
