@@ -41,6 +41,11 @@ describe('parse_task_packet', () => {
         expect(parse_task_packet(packet('scope:\n  - AC-001\n  - AC-002')).scope).toEqual(['AC-001', 'AC-002']);
     });
 
+    it('ignores requirement-shaped ids in YAML comments', () => {
+        expect(parse_task_packet(packet('scope: [AC-001] # retired AC-999')).scope).toEqual(['AC-001']);
+        expect(parse_task_packet(packet('scope:\n  # retired AC-999\n  - AC-001')).scope).toEqual(['AC-001']);
+    });
+
     it('stops a scalar at the next frontmatter key', () => {
         expect(parse_task_packet(packet('scope: AC-007')).scope).toEqual(['AC-007']);
     });

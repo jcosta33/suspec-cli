@@ -2,6 +2,7 @@
 // and no state is held between calls.
 
 import { isErr } from '../../../infra/errors/result.ts';
+import { normalize_scalar } from '../../../infra/yamlScalar.ts';
 import { split_frontmatter } from '../services/frontmatter.ts';
 
 export type TaskPacket = Readonly<{
@@ -35,14 +36,15 @@ function read_scope(source: string): string[] {
         if (match === null) {
             continue;
         }
-        let value = match[1];
+        let value = normalize_scalar(match[1]);
         if (!value.includes(']')) {
             for (let next = index + 1; next < frontmatter_end_line - 1; next += 1) {
                 if (TOP_LEVEL_KEY.test(lines[next])) {
                     break;
                 }
-                value += ` ${lines[next]}`;
-                if (lines[next].includes(']')) {
+                const fragment = normalize_scalar(lines[next]);
+                value += ` ${fragment}`;
+                if (fragment.includes(']')) {
                     break;
                 }
             }
