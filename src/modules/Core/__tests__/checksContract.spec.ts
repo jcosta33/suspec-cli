@@ -12,8 +12,6 @@ import {
     check_unique_ids,
     check_verify_with,
     check_one_strength_word,
-    check_non_goals,
-    check_open_questions,
     check_no_tbd_at_ready,
     check_sources_named,
     check_broken_source_link,
@@ -23,8 +21,8 @@ import {
     coverage_facts,
     check_verify_binding,
     verify_binding_facts,
-    check_pass_evidence,
-    pass_rows_missing_evidence,
+    check_supported_evidence,
+    supported_rows_missing_evidence,
     normalize_cmd,
     type VerifyBindingInput,
     check_preserves_refs_resolve,
@@ -76,8 +74,6 @@ describe('severity_of', () => {
         expect(severity_of('C002')).toBe('hard-error'); // a cross-file id collision blocks
         expect(severity_of('C003')).toBe('hard-error');
         expect(severity_of('C004')).toBe('warning');
-        expect(severity_of('C005')).toBe('warning');
-        expect(severity_of('C006')).toBe('warning');
         expect(severity_of('C007')).toBe('hard-error');
         expect(severity_of('C008')).toBe('warning');
         expect(severity_of('C009')).toBe('hard-error');
@@ -87,33 +83,35 @@ describe('severity_of', () => {
         expect(severity_of('C013')).toBe('warning');
         expect(severity_of('C014')).toBe('warning');
         expect(severity_of('C015')).toBe('warning');
-        expect(severity_of('C016')).toBe('hard-error'); // an empty-Evidence Pass blocks
+        expect(severity_of('C016')).toBe('hard-error'); // an empty-Evidence Supported blocks
         expect(severity_of('C019')).toBe('warning');
         expect(severity_of('C020')).toBe('hard-error'); // a review tied to nothing blocks (ADR-0128)
     });
 });
 
-describe('C016 pass-needs-evidence (ADR-0097)', () => {
+describe('C016 supported-needs-evidence (ADR-0097)', () => {
     const rows = [
-        { id: 'AC-001', result: 'Pass', evidence: '' }, // empty Evidence on a Pass → C016
-        { id: 'AC-002', result: 'Pass', evidence: 'pasted output' }, // backed → no finding
-        { id: 'AC-003', result: 'Unverified', evidence: '' }, // empty but not Pass → no finding
-        { id: 'AC-004', result: 'Pass', evidence: '   ' }, // whitespace-only → still empty → C016
+        { id: 'AC-001', assessment: 'Supported', evidence: '' }, // empty Evidence on a Supported → C016
+        { id: 'AC-002', assessment: 'Supported', evidence: 'pasted output' }, // backed → no finding
+        { id: 'AC-003', assessment: 'Unverified', evidence: '' }, // empty but not Supported → no finding
+        { id: 'AC-004', assessment: 'Supported', evidence: '   ' }, // whitespace-only → still empty → C016
     ];
 
-    it('reports the Pass rows whose Evidence is empty (or whitespace-only), and only those', () => {
-        expect(pass_rows_missing_evidence(rows)).toEqual(['AC-001', 'AC-004']);
+    it('reports the Supported rows whose Evidence is empty (or whitespace-only), and only those', () => {
+        expect(supported_rows_missing_evidence(rows)).toEqual(['AC-001', 'AC-004']);
     });
 
-    it('emits a C016 hard-error diagnostic per empty-evidence Pass row', () => {
-        const diagnostics = check_pass_evidence(rows);
+    it('emits a C016 hard-error diagnostic per empty-evidence Supported row', () => {
+        const diagnostics = check_supported_evidence(rows);
         expect(diagnostics.map((d) => d.code)).toEqual(['C016', 'C016']);
         expect(diagnostics.every((d) => d.severity === 'hard-error')).toBe(true);
         expect(diagnostics[0].message).toContain('AC-001');
     });
 
     it('a fully-filled coverage table yields no C016 (0-FP)', () => {
-        expect(check_pass_evidence([{ id: 'AC-001', result: 'Pass', evidence: 'a CI link' }])).toEqual([]);
+        expect(check_supported_evidence([{ id: 'AC-001', assessment: 'Supported', evidence: 'a CI link' }])).toEqual(
+            []
+        );
     });
 });
 
@@ -276,7 +274,7 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
     const base = (over: Partial<VerifyBindingInput> = {}): VerifyBindingInput => ({
         sourceSpecStatus: 'ready',
         namedCommandById: new Map([['AC-001', 'npm test -- auth-refresh.spec.ts']]),
-        coverageRows: [{ id: 'AC-001', result: 'Pass' }],
+        coverageRows: [{ id: 'AC-001', assessment: 'Supported' }],
         verifyBlocks: [],
         ...over,
     });
@@ -360,7 +358,7 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
         ]);
     });
 
-    it('a result=fail under a Pass row → a result-fail fact, rendered at warning with its own message', () => {
+    it('a result=fail under a Supported row → a result-fail fact, rendered at warning with its own message', () => {
         expect(
             verify_binding_facts(
                 base({
@@ -383,23 +381,23 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
             {
                 code: 'C013',
                 severity: 'warning',
-                message: 'coverage row AC-001 is Pass but its verify block records result=fail',
+                message: 'coverage row AC-001 is Supported but its verify block records result=fail',
                 line: null,
             },
         ]);
     });
 
-    it('a malformed block under a Pass row → a malformed fact', () => {
+    it('a malformed block under a Supported row → a malformed fact', () => {
         expect(
             verify_binding_facts(base({ verifyBlocks: [{ id: 'AC-001', cmd: null, result: 'pass', malformed: true }] }))
         ).toEqual([{ id: 'AC-001', kind: 'malformed' }]);
     });
 
-    it('a keyed malformed block on a NON-Pass row is still surfaced, not dropped (#32, AC-004)', () => {
+    it('a keyed malformed block on a NON-Supported row is still surfaced, not dropped (#32, AC-004)', () => {
         expect(
             verify_binding_facts(
                 base({
-                    coverageRows: [{ id: 'AC-001', result: 'Fail' }],
+                    coverageRows: [{ id: 'AC-001', assessment: 'Unsupported' }],
                     verifyBlocks: [{ id: 'AC-001', cmd: null, result: null, malformed: true }],
                 })
             )
@@ -411,7 +409,7 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
             verify_binding_facts(base({ verifyBlocks: [{ id: null, cmd: 'x', result: 'pass', malformed: true }] }))
         ).toEqual([
             { id: '(unkeyed)', kind: 'malformed' },
-            // the Pass row still has no block → free-form-only
+            // the Supported row still has no block → free-form-only
             { id: 'AC-001', kind: 'free-form-only' },
         ]);
     });
@@ -430,7 +428,7 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
 
     it('the gate wrapper renders the duplicate and malformed kinds at warning severity with their own messages', () => {
         // Two blocks keyed to AC-001, the second malformed: one duplicate fact + one malformed fact;
-        // the first block backs the Pass row consistently, so nothing else fires. Pins the
+        // the first block backs the Supported row consistently, so nothing else fires. Pins the
         // verify_binding_message branches the cmd-mismatch case above never reaches.
         const diagnostics = check_verify_binding(
             base({
@@ -457,7 +455,7 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
         ]);
     });
 
-    it('a Pass row with no verify block (free-form cell only) → a free-form-only warning', () => {
+    it('a Supported row with no verify block (free-form cell only) → a free-form-only warning', () => {
         expect(verify_binding_facts(base({ verifyBlocks: [] }))).toEqual([{ id: 'AC-001', kind: 'free-form-only' }]);
         // The gate wrapper renders it advisory, spelling out how to silence it (R5-I11).
         expect(check_verify_binding(base({ verifyBlocks: [] }))).toEqual([
@@ -465,15 +463,15 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
                 code: 'C013',
                 severity: 'warning',
                 message:
-                    'coverage row AC-001 is Pass with only a free-form Evidence cell (advisory — add a `verify` block to machine-confirm, or leave as-is to route to human attention)',
+                    'coverage row AC-001 is Supported with only a free-form Evidence cell (advisory — add a `verify` block to machine-confirm, or leave as-is to route to a human)',
                 line: null,
             },
         ]);
     });
 
-    it('a non-Pass row is not subject to the free-form-only warning', () => {
+    it('a non-Supported row is not subject to the free-form-only warning', () => {
         expect(
-            verify_binding_facts(base({ coverageRows: [{ id: 'AC-001', result: 'Unverified' }], verifyBlocks: [] }))
+            verify_binding_facts(base({ coverageRows: [{ id: 'AC-001', assessment: 'Unverified' }], verifyBlocks: [] }))
         ).toEqual([]);
     });
 
@@ -482,14 +480,14 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
             verify_binding_facts(
                 base({
                     sourceSpecStatus: 'draft',
-                    coverageRows: [{ id: 'AC-001', result: 'Pass' }],
+                    coverageRows: [{ id: 'AC-001', assessment: 'Supported' }],
                     verifyBlocks: [{ id: 'AC-001', cmd: 'wrong', result: 'fail', malformed: false }],
                 })
             )
         ).toEqual([]);
     });
 
-    it('a Pass row whose requirement names no command cannot match a recorded cmd → cmd-mismatch', () => {
+    it('a Supported row whose requirement names no command cannot match a recorded cmd → cmd-mismatch', () => {
         expect(
             verify_binding_facts(
                 base({
@@ -731,21 +729,6 @@ describe('C004 one-strength-word', () => {
     });
 });
 
-describe('C005 non-goals-present', () => {
-    it('passes a non-empty Non-goals section and flags missing or empty', () => {
-        expect(check_non_goals(spec())).toEqual([]);
-        expect(codes(check_non_goals(spec({ sectionTitles: ['Open questions'] })))).toEqual(['C005']);
-        expect(codes(check_non_goals(spec({ nonGoalsBody: '   ' })))).toEqual(['C005']);
-    });
-});
-
-describe('C006 open-questions-present', () => {
-    it('passes when present and flags when absent', () => {
-        expect(check_open_questions(spec())).toEqual([]);
-        expect(codes(check_open_questions(spec({ openQuestionsPresent: false })))).toEqual(['C006']);
-    });
-});
-
 describe('C007 no-tbd-at-ready', () => {
     it('ignores markers at draft, flags them at ready, passes a clean ready spec', () => {
         expect(check_no_tbd_at_ready(spec({ frontmatter: { status: 'draft' }, bodyText: 'a TODO remains' }))).toEqual(
@@ -876,8 +859,6 @@ describe('run_spec_checks + level_for', () => {
                 exists: () => true,
             },
         },
-        { code: 'C005', input: { spec: spec({ nonGoalsBody: '   ' }), exists: () => true } },
-        { code: 'C006', input: { spec: spec({ openQuestionsPresent: false }), exists: () => true } },
         {
             code: 'C007',
             input: { spec: spec({ frontmatter: { status: 'ready' }, bodyText: 'a TODO remains' }), exists: () => true },

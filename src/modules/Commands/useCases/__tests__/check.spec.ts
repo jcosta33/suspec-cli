@@ -50,25 +50,25 @@ status: review-ready
 ## Run summary
 `;
 
-// A review whose Pass rows carry consistent verify blocks (cmd matches the spec's `a test.`).
+// A review whose Supported rows carry consistent verify blocks (cmd matches the spec's `a test.`).
 const CLEAN_REVIEW = `---
 type: review
 id: REVIEW-feat
 task: TASK-feat
-status: needs-human
+decision: pending
 ---
 
 ## Requirement coverage
 
-| ID | Result | Evidence | Human attention |
-|---|---|---|---|
-| AC-001 | Pass | p | no |
+| ID | Assessment | Evidence |
+|---|---|---|
+| AC-001 | Supported | p |
 
 \`\`\`verify id=AC-001 cmd="a test." result=pass
 ok
 \`\`\`
 
-| AC-002 | Pass | p | no |
+| AC-002 | Supported | p |
 
 \`\`\`verify id=AC-002 cmd="a test." result=pass
 ok
@@ -223,13 +223,6 @@ describe('check command — spec checking (frontmatter-sniffed)', () => {
         const { code, out } = capture(() => run([file]));
         expect(code).toBe(0);
         expect(out).toContain('clean');
-    });
-
-    it('a spec with only a warning (empty Non-goals → C005) → exit 1', () => {
-        const file = write('warn.md', CONFORMANT.replace('- nope.', ''));
-        const { code, out } = capture(() => run([file]));
-        expect(code).toBe(1);
-        expect(out).toContain('C005');
     });
 
     it('a spec missing a Verify line → exit 2 (C003 hard-error)', () => {
@@ -391,7 +384,7 @@ describe('check command — multiple positionals (exit = max severity; C002 acro
 
     it('clean + warning → exit 1', () => {
         const good = write('good.md', CONFORMANT);
-        const warn = write('warn.md', spec('SPEC-y').replace('- nope.', ''));
+        const warn = write('warn.md', spec('SPEC-y').replace('  - ADR-0077\n', ''));
         expect(capture(() => run([good, warn])).code).toBe(1);
     });
 
@@ -594,7 +587,7 @@ describe('check command — review packets need explicit companions (ADR-0143 D3
     it('a task-less review with --spec only runs spec-keyed → C012 keys on the full spec set (Q3)', () => {
         // A 1:1 review with no `task:` frontmatter, covering only AC-001 of the two-AC spec.
         const taskless = CLEAN_REVIEW.replace('task: TASK-feat\n', '').replace(
-            /\| AC-002 \| Pass \| p \| no \|[\s\S]*?```\n/,
+            /\| AC-002 \| Supported \| p \|[\s\S]*?```\n/,
             ''
         );
         const review = write('review.md', taskless);
@@ -616,10 +609,10 @@ describe('check command — review packets need explicit companions (ADR-0143 D3
         expect(err).toContain('references no task');
     });
 
-    it('an empty-Evidence Pass row → C016 blocks (exit 2)', () => {
+    it('an empty-Evidence Supported row → C016 blocks (exit 2)', () => {
         const review = write(
             'review.md',
-            CLEAN_REVIEW.replace('| AC-001 | Pass | p | no |', '| AC-001 | Pass |  | no |')
+            CLEAN_REVIEW.replace('| AC-001 | Supported | p |', '| AC-001 | Supported |  |')
         );
         const specPath = write('spec.md', CONFORMANT);
         const taskPath = write('task.md', TASK);
@@ -642,14 +635,14 @@ describe('check command — review packets need explicit companions (ADR-0143 D3
 type: review
 id: REVIEW-feat
 task: TASK-feat
-status: needs-human
+decision: pending
 ---
 
 ## Requirement coverage
 
-| ID | Result | Evidence | Human attention |
-|---|---|---|---|
-| AC-001 | Pass | p | no |
+| ID | Assessment | Evidence |
+|---|---|---|
+| AC-001 | Supported | p |
 
 \`\`\`verify id=AC-001 cmd="a test." result=pass
 ok

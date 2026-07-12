@@ -22,7 +22,7 @@ import { parse_spec_record, parse_task_packet } from '../../Sol/useCases/index.t
 import {
     check_coverage,
     check_verify_binding,
-    check_pass_evidence,
+    check_supported_evidence,
     unresolvable_ref_diagnostic,
     level_for,
     type Diagnostic,
@@ -159,7 +159,7 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
         coverageRowIds: review.coverageRows.map((row) => row.id),
     });
     // C013 (ADR-0083): the verify-evidence-binding fact — the named command per id vs the review's
-    // structured verify blocks against its Pass rows. The non-draft scope guard + judgment-free
+    // structured verify blocks against its Supported rows.
     // shape live inside check_verify_binding; this engine only passes the extracted records.
     const verifyBinding = check_verify_binding({
         sourceSpecStatus,
@@ -167,8 +167,6 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
         coverageRows: review.coverageRows,
         verifyBlocks: review.verifyBlocks,
     });
-    // C016 (ADR-0097): an empty-Evidence Pass row is a structural contradiction — the row claims
-    // Pass with nothing backing it. NOT draft-guarded: it is independent of the spec's status.
-    const passEvidence = check_pass_evidence(review.coverageRows);
-    return report([...coverage, ...verifyBinding, ...passEvidence]);
+    const supportedEvidence = check_supported_evidence(review.coverageRows);
+    return report([...coverage, ...verifyBinding, ...supportedEvidence]);
 }

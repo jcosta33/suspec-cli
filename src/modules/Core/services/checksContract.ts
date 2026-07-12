@@ -15,13 +15,13 @@ import type { OutcomeLevel } from '../useCases/unixOutcome.ts';
 import { strip_inline_code } from '../../../infra/markdownScan.ts';
 
 // Pinned to suspec/checks/checks.yaml `version:`; the drift-guard test fails if the sibling diverges.
-export const CONTRACT_VERSION = '0.16.0';
+export const CONTRACT_VERSION = '0.17.0';
 
 export type CheckSeverity = 'hard-error' | 'warning';
 
 // prettier-ignore
 export type CheckId =
-    | 'C001' | 'C002' | 'C003' | 'C004' | 'C005' | 'C006'
+    | 'C001' | 'C002' | 'C003' | 'C004'
     | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C012' | 'C013' | 'C014' | 'C015'
     | 'C016' | 'C019' | 'C020';
 
@@ -32,8 +32,6 @@ const SEVERITY_BY_ID: Record<CheckId, CheckSeverity> = {
     C002: 'hard-error',
     C003: 'hard-error',
     C004: 'warning',
-    C005: 'warning',
-    C006: 'warning',
     C007: 'hard-error',
     C008: 'warning',
     C009: 'hard-error',
@@ -46,8 +44,8 @@ const SEVERITY_BY_ID: Record<CheckId, CheckSeverity> = {
     // backstop. The contract rule rides these tables; no engine rule function computes it.
     C014: 'warning',
     C015: 'warning',
-    // C016 pass-needs-evidence: the contract pins it hard-error (checks.yaml review_file content_rule).
-    // An empty-Evidence Pass is a structural contradiction, not a judgment call; see ADR-0097.
+    // C016 supported-needs-evidence: the contract pins it hard-error (checks.yaml review_file content_rule).
+    // An empty-Evidence Supported is a structural contradiction, not a judgment call; see ADR-0097.
     C016: 'hard-error',
     C019: 'warning',
     // C020 unresolvable-ref (ADR-0128): a review names a task ref that does not resolve to the task
@@ -67,8 +65,6 @@ export const CORE_CHECKS: readonly { id: CheckId; name: string; severity: CheckS
     { id: 'C002', name: 'duplicate-id', severity: severity_of('C002') },
     { id: 'C003', name: 'verify-with', severity: severity_of('C003') },
     { id: 'C004', name: 'one-strength-word', severity: severity_of('C004') },
-    { id: 'C005', name: 'non-goals-present', severity: severity_of('C005') },
-    { id: 'C006', name: 'open-questions-present', severity: severity_of('C006') },
     { id: 'C007', name: 'no-tbd-at-ready', severity: severity_of('C007') },
     { id: 'C008', name: 'sources-named', severity: severity_of('C008') },
     { id: 'C009', name: 'broken-source-link', severity: severity_of('C009') },
@@ -78,7 +74,7 @@ export const CORE_CHECKS: readonly { id: CheckId; name: string; severity: CheckS
     { id: 'C013', name: 'verify-evidence-binding', severity: severity_of('C013') },
     { id: 'C014', name: 'do-not-change-touched', severity: severity_of('C014') },
     { id: 'C015', name: 'citation-resolves', severity: severity_of('C015') },
-    { id: 'C016', name: 'pass-needs-evidence', severity: severity_of('C016') },
+    { id: 'C016', name: 'supported-needs-evidence', severity: severity_of('C016') },
     { id: 'C019', name: 'malformed-requirement-heading', severity: severity_of('C019') },
     { id: 'C020', name: 'unresolvable-ref', severity: severity_of('C020') },
 ];
@@ -315,23 +311,6 @@ export function check_one_strength_word(spec: ParsedSpec): Diagnostic[] {
     return diagnostics;
 }
 
-// --- C005 non-goals-present ----------------------------------------------------------------------
-export function check_non_goals(spec: ParsedSpec): Diagnostic[] {
-    const present = spec.sectionTitles.some((title) => title.toLowerCase() === 'non-goals');
-    if (!present || spec.nonGoalsBody.trim().length === 0) {
-        return [diagnostic('C005', 'no non-empty Non-goals section', null)];
-    }
-    return [];
-}
-
-// --- C006 open-questions-present -----------------------------------------------------------------
-export function check_open_questions(spec: ParsedSpec): Diagnostic[] {
-    if (!spec.openQuestionsPresent) {
-        return [diagnostic('C006', 'no Open questions section (it may say "none")', null)];
-    }
-    return [];
-}
-
 // --- C007 no-tbd-at-ready ------------------------------------------------------------------------
 export function check_no_tbd_at_ready(spec: ParsedSpec): Diagnostic[] {
     if (spec.frontmatter.status !== 'ready') {
@@ -486,7 +465,7 @@ export function check_coverage(input: CoverageInput): Diagnostic[] {
 
 // --- C013 verify-evidence-binding (ADR-0083) -----------------------------------------------------
 // The structured-evidence reconcile against the named source spec. A coverage row may carry a
-// fenced `verify` block (a sibling to the row). Where present against a Pass row, this
+// fenced `verify` block (a sibling to the row). Where present against a Supported row, this
 // surfaces a CONSISTENCY fact: does the block's recorded `cmd` match the requirement's named
 // `Verify with:` / `VERIFY BY` command (closed-value, exact after whitespace-collapse — never prose
 // matching) and read `result=pass`? It is NEVER a verdict (ADR-0077 D8) and NEVER proof the command
@@ -495,12 +474,12 @@ export function check_coverage(input: CoverageInput): Diagnostic[] {
 // The five faces: cmd-mismatch is a hard error at check time; the other four remain warnings
 // (ADR-0129 amending ADR-0083):
 //   - cmd-mismatch    — a block's `cmd` disagrees with the requirement's named command.
-//   - result-fail     — a `result=fail` block recorded under a Pass row.
+//   - result-fail     — a `result=fail` block recorded under a Supported row.
 //   - malformed       — a block whose info-string did not parse to a complete binding.
 //   - duplicate       — more than one block keyed to the same requirement id.
-//   - free-form-only  — a Pass row with no verify block (only the free-form cell; the fuzzy band,
+//   - free-form-only  — a Supported row with no verify block (only the free-form cell; the fuzzy band,
 //                       routed to human attention, never machine-rejected — SMELLS-precision).
-// A Pass row whose block's `cmd` matches and reads `result=pass` is consistent → no finding.
+// A Supported row whose block's `cmd` matches and reads `result=pass` is consistent → no finding.
 // Scope-guarded to non-draft source specs (mirrors C012 / the ADR-0079 guard). PURE — plain records
 // in, structured findings out; the engine (check_review_file) does the I/O and extraction.
 export type VerifyBlockFact = Readonly<{
@@ -515,8 +494,8 @@ export type VerifyBindingInput = Readonly<{
     // The requirement's named verify command per id (null when the requirement names none). The
     // engine lifts this from the parsed spec record; the C013 reconcile keys on it.
     namedCommandById: ReadonlyMap<string, string | null>;
-    // The coverage rows (id + raw Result cell) — C013 keys on Pass rows.
-    coverageRows: readonly { id: string; result: string }[];
+    // The coverage rows (id + raw Assessment cell) — C013 keys on Supported rows.
+    coverageRows: readonly { id: string; assessment: string }[];
     // The structured-evidence blocks parsed from the coverage section.
     verifyBlocks: readonly VerifyBlockFact[];
 }>;
@@ -550,7 +529,7 @@ export function verify_binding_message(finding: VerifyBindingFinding): string {
         case 'cmd-mismatch':
             return `coverage row ${finding.id}'s verify block records a cmd that does not match the requirement's named Verify command`;
         case 'result-fail':
-            return `coverage row ${finding.id} is Pass but its verify block records result=fail`;
+            return `coverage row ${finding.id} is Supported but its verify block records result=fail`;
         case 'malformed':
             return `coverage row ${finding.id} carries a malformed verify block (its info-string did not parse to id / cmd / result)`;
         case 'duplicate':
@@ -558,7 +537,7 @@ export function verify_binding_message(finding: VerifyBindingFinding): string {
         case 'free-form-only':
             // R5-I11: spell out that this is ADVISORY + how to silence it, so it doesn't read as "you
             // reviewed wrong". A prose Evidence cell can't be machine-matched, so it routes to a human.
-            return `coverage row ${finding.id} is Pass with only a free-form Evidence cell (advisory — add a \`verify\` block to machine-confirm, or leave as-is to route to human attention)`;
+            return `coverage row ${finding.id} is Supported with only a free-form Evidence cell (advisory — add a \`verify\` block to machine-confirm, or leave as-is to route to a human)`;
     }
 }
 
@@ -592,7 +571,7 @@ export function verify_binding_facts(input: VerifyBindingInput): VerifyBindingFi
     }
     // A keyed malformed block is surfaced regardless of its row's result, once per id — AC-004 + the
     // canon require it not be silently dropped, and this restores parity with `duplicate` above (the
-    // `(unkeyed)` malformed block is already surfaced in the indexing loop). The Pass-row loop below
+    // `(unkeyed)` malformed block is already surfaced in the indexing loop). The Supported-row loop below
     // therefore no longer re-emits malformed (#32).
     const seenMalformed = new Set<string>();
     for (const [id, blocks] of blocksById) {
@@ -603,12 +582,12 @@ export function verify_binding_facts(input: VerifyBindingInput): VerifyBindingFi
     }
 
     for (const row of input.coverageRows) {
-        if (row.result !== 'Pass') {
-            continue; // C013 keys on Pass rows (the recorded-as-passed claim).
+        if (row.assessment !== 'Supported') {
+            continue;
         }
         const blocks = blocksById.get(row.id) ?? [];
         if (blocks.length === 0) {
-            // A Pass row with no verify block — the free-form-only warning (fuzzy band, ADR-0083).
+            // A Supported row with no verify block — the free-form-only warning (fuzzy band, ADR-0083).
             findings.push({ id: row.id, kind: 'free-form-only' });
             continue;
         }
@@ -646,25 +625,27 @@ export function check_verify_binding(input: VerifyBindingInput): Diagnostic[] {
     });
 }
 
-// --- C016 pass-needs-evidence (ADR-0097; the implemented pass-needs-evidence content_rule) --------
-// A coverage row recorded as `Pass` whose Evidence cell is empty is a STRUCTURAL contradiction: a
-// Pass needs pasted output, a CI link, or (for a manual Verify) a named human's recorded observation
-// — an empty cell reads Unverified, never Pass. Unlike C012/C013 (judgment-laden facts shipped at
+// --- C016 supported-needs-evidence (ADR-0097; the implemented supported-needs-evidence content_rule) --------
+// A coverage row recorded as `Supported` whose Evidence cell is empty is a STRUCTURAL contradiction: a
+// Supported needs pasted output, a CI link, or (for a manual Verify) a named human's recorded observation
+// — an empty cell reads Unverified, never Supported. Unlike C012/C013 (judgment-laden facts shipped at
 // warning), this is unambiguous, so the contract pins it hard-error and `suspec check` blocks on it
 // (severity expressed at check time, ADR-0143 D7). PURE: the row records in, ids/diagnostics out.
-export type CoverageEvidenceRow = Readonly<{ id: string; result: string; evidence: string }>;
+export type CoverageEvidenceRow = Readonly<{ id: string; assessment: string; evidence: string }>;
 
-// The single source for "a Pass row with no evidence" — the C016 Diagnostic (below) renders exactly
+// The single source for "a Supported row with no evidence" — the C016 Diagnostic (below) renders exactly
 // these ids, so the predicate and the diagnostic can never disagree on what counts.
-export function pass_rows_missing_evidence(rows: readonly CoverageEvidenceRow[]): string[] {
-    return rows.filter((row) => row.result === 'Pass' && row.evidence.trim().length === 0).map((row) => row.id);
+export function supported_rows_missing_evidence(rows: readonly CoverageEvidenceRow[]): string[] {
+    return rows
+        .filter((row) => row.assessment === 'Supported' && row.evidence.trim().length === 0)
+        .map((row) => row.id);
 }
 
-export function check_pass_evidence(rows: readonly CoverageEvidenceRow[]): Diagnostic[] {
-    return pass_rows_missing_evidence(rows).map((id) =>
+export function check_supported_evidence(rows: readonly CoverageEvidenceRow[]): Diagnostic[] {
+    return supported_rows_missing_evidence(rows).map((id) =>
         diagnostic(
             'C016',
-            `coverage row ${id} is Pass with an empty Evidence cell — a Pass needs pasted output, a CI link, or a named manual observation (an empty cell reads Unverified)`,
+            `coverage row ${id} is Supported with an empty Evidence cell — Supported needs pasted output, a CI link, or a named manual observation (an empty cell reads Unverified)`,
             null
         )
     );
@@ -769,8 +750,6 @@ export function run_spec_checks(input: RunSpecChecksInput): Diagnostic[] {
         ...check_unique_ids(input.spec),
         ...check_verify_with(input.spec),
         ...check_one_strength_word(input.spec),
-        ...check_non_goals(input.spec),
-        ...check_open_questions(input.spec),
         ...check_no_tbd_at_ready(input.spec),
         ...check_sources_named(input.spec),
         ...check_broken_source_link({ spec: input.spec, exists: input.exists }),

@@ -24,13 +24,13 @@ describe('format_check_report', () => {
             level: 'blocking',
             diagnostics: [
                 { code: 'C003', severity: 'hard-error', message: 'no Verify line', line: 12 },
-                { code: 'C005', severity: 'warning', message: 'no Non-goals', line: null },
+                { code: 'C008', severity: 'warning', message: 'no sources', line: null },
             ],
         });
         expect(text).toContain('1 errors, 1 warnings');
         expect(text).toContain('C003');
         expect(text).toContain(':12');
-        expect(text).toContain('C005');
-        expect(text).toContain('no Non-goals');
+        expect(text).toContain('C008');
+        expect(text).toContain('no sources');
     });
 });

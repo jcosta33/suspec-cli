@@ -6,7 +6,7 @@ const PACKET = `---
 type: review
 id: REVIEW-feat
 task: TASK-feat
-status: needs-human
+decision: pending
 ---
 
 # Review: feat
@@ -21,24 +21,24 @@ what changed.
 
 ## Requirement coverage
 
-| ID | Result | Evidence | Human attention |
-|---|---|---|---|
-| AC-001 | Pass | \`pnpm test\` output pasted | no |
-| AC-002 | Unverified |  | yes |
+| ID | Assessment | Evidence |
+|---|---|---|
+| AC-001 | Supported | \`pnpm test\` output pasted |
+| AC-002 | Unverified |  |
 
-## Human attention
+## Open decisions
 
 1. AC-002 unverified.
 
-## Suggested decision
+## Findings
 
 Block until AC-002 has evidence.
 `;
 
 describe('parse_review_packet', () => {
-    it('reads the frontmatter status', () => {
-        expect(parse_review_packet(PACKET).status).toBe('needs-human');
-        expect(parse_review_packet('no frontmatter\n').status).toBeNull();
+    it('reads the frontmatter decision', () => {
+        expect(parse_review_packet(PACKET).decision).toBe('pending');
+        expect(parse_review_packet('no frontmatter\n').decision).toBeNull();
     });
 
     it('reads the H2 section titles', () => {
@@ -46,15 +46,15 @@ describe('parse_review_packet', () => {
             'Summary',
             'Changed files',
             'Requirement coverage',
-            'Human attention',
-            'Suggested decision',
+            'Open decisions',
+            'Findings',
         ]);
     });
 
     it('reads the coverage rows (id / result / evidence), skipping header + separator', () => {
         expect(parse_review_packet(PACKET).coverageRows).toEqual([
-            { id: 'AC-001', result: 'Pass', evidence: '`pnpm test` output pasted' },
-            { id: 'AC-002', result: 'Unverified', evidence: '' },
+            { id: 'AC-001', assessment: 'Supported', evidence: '`pnpm test` output pasted' },
+            { id: 'AC-002', assessment: 'Unverified', evidence: '' },
         ]);
     });
 
@@ -64,18 +64,18 @@ status: draft
 ---
 ## Requirement coverage
 
-ID | Result | Evidence
+ID | Assessment | Evidence
 ---|---|---
-| AC-001 | Pass | leading only
-AC-002 | Pass | trailing only |
-AC-003 | Pass | neither
-| AC-004 | Pass | both |
+| AC-001 | Supported | leading only
+AC-002 | Supported | trailing only |
+AC-003 | Supported | neither
+| AC-004 | Supported | both |
 `;
         expect(parse_review_packet(packet).coverageRows).toEqual([
-            { id: 'AC-001', result: 'Pass', evidence: 'leading only' },
-            { id: 'AC-002', result: 'Pass', evidence: 'trailing only' },
-            { id: 'AC-003', result: 'Pass', evidence: 'neither' },
-            { id: 'AC-004', result: 'Pass', evidence: 'both' },
+            { id: 'AC-001', assessment: 'Supported', evidence: 'leading only' },
+            { id: 'AC-002', assessment: 'Supported', evidence: 'trailing only' },
+            { id: 'AC-003', assessment: 'Supported', evidence: 'neither' },
+            { id: 'AC-004', assessment: 'Supported', evidence: 'both' },
         ]);
     });
 
@@ -85,17 +85,19 @@ status: draft
 ---
 ## Requirement coverage
 
-| ID | Result | Evidence | Human attention |
-|---|---|---|---|
-| AC-001 | Pass | x | no |
+| ID | Assessment | Evidence |
+|---|---|---|
+| AC-001 | Supported | x |
 
 ## Other table
 
 | a | b |
 |---|---|
-| AC-099 | Pass |
+| AC-099 | Supported |
 `;
-        expect(parse_review_packet(noisy).coverageRows).toEqual([{ id: 'AC-001', result: 'Pass', evidence: 'x' }]);
+        expect(parse_review_packet(noisy).coverageRows).toEqual([
+            { id: 'AC-001', assessment: 'Supported', evidence: 'x' },
+        ]);
     });
 
     it('drops a coverage-table row whose ID cell is not requirement-id-shaped (lowercase / prose)', () => {
@@ -106,13 +108,15 @@ status: draft
 ---
 ## Requirement coverage
 
-| ID | Result | Evidence | Human attention |
-|---|---|---|---|
-| AC-001 | Pass | x | no |
-| ac-002 | Pass | x | no |
+| ID | Assessment | Evidence |
+|---|---|---|
+| AC-001 | Supported | x |
+| ac-002 | Supported | x |
 | notes | see below | | |
 `;
-        expect(parse_review_packet(malformed).coverageRows).toEqual([{ id: 'AC-001', result: 'Pass', evidence: 'x' }]);
+        expect(parse_review_packet(malformed).coverageRows).toEqual([
+            { id: 'AC-001', assessment: 'Supported', evidence: 'x' },
+        ]);
     });
 
     it('a plain (non-verify) fence inside the coverage section emits no verify block', () => {
@@ -123,9 +127,9 @@ status: draft
 ---
 ## Requirement coverage
 
-| ID | Result | Evidence | Human attention |
-|---|---|---|---|
-| AC-001 | Pass | x | no |
+| ID | Assessment | Evidence |
+|---|---|---|
+| AC-001 | Supported | x |
 
 \`\`\`text
 id=AC-001 cmd="a test" result=pass
@@ -133,28 +137,28 @@ id=AC-001 cmd="a test" result=pass
 `;
         const parsed = parse_review_packet(plainFence);
         expect(parsed.verifyBlocks).toEqual([]);
-        expect(parsed.coverageRows).toEqual([{ id: 'AC-001', result: 'Pass', evidence: 'x' }]);
+        expect(parsed.coverageRows).toEqual([{ id: 'AC-001', assessment: 'Supported', evidence: 'x' }]);
     });
 
     it('a frontmatter with no status reads null', () => {
-        expect(parse_review_packet('---\ntask: TASK-x\n---\n# r\n').status).toBeNull();
+        expect(parse_review_packet('---\ntask: TASK-x\n---\n# r\n').decision).toBeNull();
     });
 
     it('an empty status value reads null', () => {
-        expect(parse_review_packet('---\nstatus:\ntask: TASK-x\n---\n# r\n').status).toBeNull();
+        expect(parse_review_packet('---\ndecision:\ntask: TASK-x\n---\n# r\n').decision).toBeNull();
     });
 
-    it('a short coverage row (missing Result/Evidence columns) reads empty for the absent cells', () => {
+    it('a short coverage row (missing Assessment/Evidence columns) reads empty for the absent cells', () => {
         const short = `---
 status: draft
 ---
 ## Requirement coverage
 
-| ID | Result | Evidence |
+| ID | Assessment | Evidence |
 |---|---|---|
 | AC-001 |
 `;
-        expect(parse_review_packet(short).coverageRows).toEqual([{ id: 'AC-001', result: '', evidence: '' }]);
+        expect(parse_review_packet(short).coverageRows).toEqual([{ id: 'AC-001', assessment: '', evidence: '' }]);
     });
 
     it('an empty pipe-only line in the coverage section is skipped, not a crash', () => {
@@ -164,20 +168,22 @@ status: draft
 ## Requirement coverage
 
 |
-| AC-001 | Pass | p | no |
+| AC-001 | Supported | p |
 `;
-        expect(parse_review_packet(empty).coverageRows).toEqual([{ id: 'AC-001', result: 'Pass', evidence: 'p' }]);
+        expect(parse_review_packet(empty).coverageRows).toEqual([
+            { id: 'AC-001', assessment: 'Supported', evidence: 'p' },
+        ]);
     });
 
     it('parses a verify block into {id, cmd, result} and leaves the body unparsed (AC-004)', () => {
         const packet = `---
-status: needs-human
+decision: pending
 ---
 ## Requirement coverage
 
-| ID | Result | Evidence | Human attention |
-|---|---|---|---|
-| AC-001 | Pass | see verify block | no |
+| ID | Assessment | Evidence |
+|---|---|---|
+| AC-001 | Supported | see verify block |
 
 \`\`\`verify id=AC-001 cmd="npm test -- auth-refresh.spec.ts" result=pass
 replays-after-refresh ✓  (1 passed, 0 failed)
@@ -185,7 +191,7 @@ replays-after-refresh ✓  (1 passed, 0 failed)
 result=fail and id=AC-999 in the body must NOT be parsed
 \`\`\`
 
-## Human attention
+## Open decisions
 x
 `;
         const parsed = parse_review_packet(packet);
@@ -194,18 +200,18 @@ x
         ]);
         // The fenced body is verbatim and unparsed: its pipe row is not a coverage row, and its
         // `result=fail` / `id=AC-999` tokens never leak into a second block.
-        expect(parsed.coverageRows).toEqual([{ id: 'AC-001', result: 'Pass', evidence: 'see verify block' }]);
+        expect(parsed.coverageRows).toEqual([{ id: 'AC-001', assessment: 'Supported', evidence: 'see verify block' }]);
     });
 
     it('surfaces a malformed verify block rather than dropping it (AC-004)', () => {
         const packet = `---
-status: needs-human
+decision: pending
 ---
 ## Requirement coverage
 
-| ID | Result | Evidence | Human attention |
-|---|---|---|---|
-| AC-001 | Pass | x | no |
+| ID | Assessment | Evidence |
+|---|---|---|
+| AC-001 | Supported | x |
 
 \`\`\`verify id=AC-001 cmd="a test" result=maybe
 output
@@ -237,13 +243,13 @@ output
 
     it('surfaces a duplicate verify block keyed to the same id (AC-004)', () => {
         const packet = `---
-status: needs-human
+decision: pending
 ---
 ## Requirement coverage
 
-| ID | Result | Evidence | Human attention |
-|---|---|---|---|
-| AC-001 | Pass | x | no |
+| ID | Assessment | Evidence |
+|---|---|---|
+| AC-001 | Supported | x |
 
 \`\`\`verify id=AC-001 cmd="a test" result=pass
 out
@@ -261,13 +267,13 @@ out
 
     it('does not misread id/result tokens that sit inside the quoted cmd (AC-004)', () => {
         const packet = `---
-status: needs-human
+decision: pending
 ---
 ## Requirement coverage
 
-| ID | Result | Evidence | Human attention |
-|---|---|---|---|
-| AC-001 | Pass | x | no |
+| ID | Assessment | Evidence |
+|---|---|---|
+| AC-001 | Supported | x |
 
 \`\`\`verify id=AC-001 cmd="echo result=fail id=AC-999" result=pass
 out
@@ -282,7 +288,7 @@ out
 
     it('ignores a verify fence outside the coverage section', () => {
         const packet = `---
-status: needs-human
+decision: pending
 ---
 ## Summary
 
@@ -292,9 +298,9 @@ out
 
 ## Requirement coverage
 
-| ID | Result | Evidence | Human attention |
-|---|---|---|---|
-| AC-001 | Pass | x | no |
+| ID | Assessment | Evidence |
+|---|---|---|
+| AC-001 | Supported | x |
 `;
         expect(parse_review_packet(packet).verifyBlocks).toEqual([]);
     });
@@ -313,9 +319,9 @@ describe('parse_review_packet — markdown structure (#23)', () => {
             '',
             '```',
             '## Requirement coverage',
-            '| ID | Result | Evidence |',
+            '| ID | Assessment | Evidence |',
             '|---|---|---|',
-            '| AC-999 | Pass | leaked from a code block |',
+            '| AC-999 | Supported | leaked from a code block |',
             '```',
             '',
             '## Changed files',
@@ -334,13 +340,13 @@ describe('parse_review_packet — markdown structure (#23)', () => {
             '---',
             '',
             '## Requirement coverage',
-            '| ID | Result | Evidence |',
+            '| ID | Assessment | Evidence |',
             '|---|---|---|',
-            '| AC-001 | Pass | `grep x | wc -l` |',
+            '| AC-001 | Supported | `grep x | wc -l` |',
         ].join('\n');
         const row = parse_review_packet(packet).coverageRows[0];
         expect(row.id).toBe('AC-001');
-        expect(row.result).toBe('Pass');
+        expect(row.assessment).toBe('Supported');
         expect(row.evidence).toBe('`grep x | wc -l`');
     });
 
@@ -352,9 +358,9 @@ describe('parse_review_packet — markdown structure (#23)', () => {
             '---',
             '',
             '## Requirement coverage',
-            '| ID | Result | Evidence |',
+            '| ID | Assessment | Evidence |',
             '|---|---|---|',
-            '| AC-001 | Pass | see below |',
+            '| AC-001 | Supported | see below |',
             '',
             '```verify cmd="x" cmd="y id=AC-555" result=pass id=AC-001',
             'out',

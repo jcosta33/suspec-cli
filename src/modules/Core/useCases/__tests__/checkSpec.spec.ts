@@ -101,11 +101,11 @@ describe('check_spec', () => {
         expect(report.diagnostics.map((d) => d.code)).toContain('C003');
     });
 
-    it('returns a warning report when only a warning-level check fires (missing Non-goals)', () => {
-        const noNonGoals = CONFORMANT.replace(/## Non-goals\n\n- not redesigning the parser\.\n\n/, '');
-        const report = assertOk(check_spec({ source: noNonGoals, path: 'spec.md', exists: () => true }));
-        expect(report.level).toBe('warning');
-        expect(report.diagnostics.map((d) => d.code)).toContain('C005');
+    it('accepts the minimal Intent + Requirements shape without optional sections', () => {
+        const minimal = CONFORMANT.replace(/## Non-goals[\s\S]*$/, '');
+        const report = assertOk(check_spec({ source: minimal, path: 'spec.md', exists: () => true }));
+        expect(report.level).toBe('clean');
+        expect(report.diagnostics).toEqual([]);
     });
 
     it('surfaces a parse failure as an Err (maps to exit 2)', () => {
@@ -147,7 +147,7 @@ describe('check_spec — markdown structure (#31/#23)', () => {
         expect(report.level).toBe('clean');
     });
 
-    it('H2: a fenced `## Non-goals` example does not satisfy the C005 presence check', () => {
+    it('H2: a fenced `## Non-goals` example remains inert now that the section is optional', () => {
         const spec = [
             '---',
             'type: spec',
@@ -174,7 +174,8 @@ describe('check_spec — markdown structure (#31/#23)', () => {
             '- none',
         ].join('\n');
         const report = assertOk(check_spec({ source: spec, path: 'spec.md', exists: () => true }));
-        expect(report.diagnostics.some((d) => d.code === 'C005')).toBe(true);
+        expect(report.diagnostics).toEqual([]);
+        expect(report.level).toBe('clean');
     });
 
     it('H3: a strength word inside an inline-code span is not counted by C004', () => {
