@@ -132,21 +132,25 @@ function read_kind_and_preserves(
     return { kind, preserves };
 }
 
-// The leading cell of a markdown table row (`| ID | … |` → `ID`), trimmed; null for a non-row line
-// or the header separator (`|---|---|`).
+// The leading cell of a GFM table row (`| ID | … |` or `ID | …` → `ID`), trimmed; null for a
+// non-row line or a header separator (`| :--- | ---: |`).
 function first_cell(line: string): string | null {
-    if (!line.trimStart().startsWith('|')) {
+    const trimmed = line.trim();
+    if (!trimmed.includes('|')) {
         return null;
     }
-    const cells = line
-        .split('|')
-        .slice(1, -1)
-        .map((cell) => cell.trim());
+    const cells = trimmed.split('|').map((cell) => cell.trim());
+    if (cells[0] === '') {
+        cells.shift();
+    }
+    if (cells[cells.length - 1] === '') {
+        cells.pop();
+    }
     if (cells.length === 0) {
         return null;
     }
     const id = cells[0];
-    if (id.length === 0 || /^-+$/.test(id) || id.toLowerCase() === 'id') {
+    if (id.length === 0 || /^:?-+:?$/.test(id) || id.toLowerCase() === 'id') {
         return null;
     }
     return id;

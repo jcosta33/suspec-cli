@@ -134,6 +134,40 @@ id: X
         expect(plan.guaranteeIds).toEqual(['PG-001']);
     });
 
+    it('parses a GFM guarantees table with no outer pipes', () => {
+        const source = `---
+type: change-plan
+id: X
+---
+
+## Behavioral preservation guarantees
+
+ID | Behavior | Verify with
+--- | --- | ---
+PG-001 | local | \`t\`
+`;
+        const plan = assertOk(parse_change_plan({ source, path: 'p.md' }));
+        expect(plan.guaranteeIds).toEqual(['PG-001']);
+        expect(plan.preservedRefs.map((ref) => ref.raw)).toEqual(['PG-001']);
+    });
+
+    it('does not parse an aligned GFM delimiter as a preservation ref', () => {
+        const source = `---
+type: change-plan
+id: X
+---
+
+## Behavioral preservation guarantees
+
+| ID | Behavior | Verify with |
+| :--- | :---: | ---: |
+| PG-001 | local | \`t\` |
+`;
+        const plan = assertOk(parse_change_plan({ source, path: 'p.md' }));
+        expect(plan.guaranteeIds).toEqual(['PG-001']);
+        expect(plan.preservedRefs.map((ref) => ref.raw)).toEqual(['PG-001']);
+    });
+
     it('parses a block-style preserves list', () => {
         const block = `---
 type: change-plan
