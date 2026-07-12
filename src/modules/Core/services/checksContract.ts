@@ -533,7 +533,7 @@ export type VerifyBindingFinding = Readonly<{
 // normalize identically or a conformant block false-fires a cmd-mismatch. The note is
 // stripped before the backticks so the documented ``cmd`` (note) / ``cmd`` — note forms reduce cleanly to
 // the bare command. The dash form keys on an EM/EN dash (—/–), never the ASCII hyphen, so a real flag
-// like `npm test -- a.spec.ts` is never truncated (R4-ISS-11).
+// like `npm test -- a.spec.ts` is never truncated.
 export function normalize_cmd(value: string): string {
     return value
         .trim()

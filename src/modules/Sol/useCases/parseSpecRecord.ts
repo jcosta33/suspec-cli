@@ -72,14 +72,10 @@ const REQUIREMENT_HEADING = /^###\s+([A-Z][A-Z0-9]*-\d+)\b/;
 // word characters so the diagnostic quotes the whole token (`AC-004a_note`). ADR-0125 D3.
 const MALFORMED_REQUIREMENT_HEADING = /^###\s+([A-Z][A-Z0-9]*-\d+[a-z][A-Za-z0-9_]*)/;
 // A SOL (`format: sol`) requirement opens with `<KEYWORD> <ID>:` instead of a `### <ID>` markdown
-// heading. The verifiable obligation block types — REQ (AC-), CONSTRAINT (C-), INVARIANT (I-),
-// INTERFACE (IF-) — are all recognized so their ids parse and become scopeable + coverage-tracked
-// (R5-I09: a task scoping `C-001`/`I-001`/`IF-001` previously hit a false `scope≠spec` + `orphan`
-// because the spec parsed to zero requirements). QUESTION (Q-) is intentionally NOT a requirement — it
-// is an open question, not an obligation. Recognized only for `format: sol` specs so the CORE checks
-// (C001 id-unique, C003 verify-present, C007 no-TBD, C012 coverage) run on them — without it a SOL spec
-// parses to zero requirements and `suspec check` returns a false "clean" on any broken SOL spec
-// (R4-ISS-01). The SOL-specific structural codes (SOL-S/P/M/V/O) are a larger grammar still to come.
+// heading. The obligation block types — REQ (AC-), CONSTRAINT (C-), INVARIANT (I-), and INTERFACE
+// (IF-) — share the requirement record consumed by the core checks. QUESTION (Q-) is an open
+// question, not an obligation. Restrict this syntax to SOL specs so ordinary prose cannot become a
+// requirement accidentally.
 const SOL_REQUIREMENT_OPENER = /^(?:REQ|CONSTRAINT|INVARIANT|INTERFACE)\s+([A-Z][A-Z0-9]*-\d+)\s*:/;
 const SECTION_HEADING = /^##\s+(.+?)\s*$/;
 const MARKDOWN_LINK = /\]\(([^)\s#]+)/g;

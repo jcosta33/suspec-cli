@@ -243,9 +243,8 @@ Verify with: a test.
         expect(record.nonGoalsBody).toBe('');
     });
 
-    it('parses SOL `REQ <ID>:` requirement openers + their VERIFY BY command for format: sol (R4-ISS-01)', () => {
-        // Without this a format: sol spec parsed to ZERO requirements, so suspec check returned a false
-        // "clean" on any broken SOL spec — the core checks (id/verify/coverage) never saw the requirements.
+    it('parses SOL `REQ <ID>:` requirement openers and their VERIFY BY command', () => {
+        // SOL obligations feed the same requirement record used by id, verify, and coverage checks.
         const source = `---\ntype: spec\nid: SPEC-led\nstatus: ready\nformat: sol\n---\n\n# Ledger\n\n## Requirements\n\nREQ AC-001:\nWHEN a client POSTs THE service MUST append\nVERIFY BY test:unit:cmdTest:lib#append\n\nREQ AC-002:\nWHEN a client GETs THE service MUST respond\nVERIFY BY test:unit:cmdTest:lib#read\n`;
         const record = assertOk(parse_spec_record({ source, path: 'led.md' }));
         expect(record.requirements.map((r) => r.id)).toEqual(['AC-001', 'AC-002']);

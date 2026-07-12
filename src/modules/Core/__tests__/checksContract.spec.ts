@@ -262,7 +262,7 @@ describe('normalize_cmd (ADR-0083)', () => {
     it('keeps genuinely different commands distinct', () => {
         expect(normalize_cmd('`npm test -- a`')).not.toBe(normalize_cmd('`npm test -- b`'));
     });
-    it('strips a trailing em/en-dash note clause but never an ASCII `--` flag (R4-ISS-11)', () => {
+    it('strips a trailing em/en-dash note clause but never an ASCII `--` flag', () => {
         // The em-dash note form (`cmd` — note) must reduce to the same bare command as the parenthetical
         // form, so switching note delimiters does not flip every coverage row to a C013 cmd-mismatch...
         expect(normalize_cmd(`\`${bare}\` — the refresh path`)).toBe(bare);

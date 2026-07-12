@@ -61,8 +61,8 @@ The frontmatter `type:` selects the check face:
 - `change-plan`: preservation-reference and transformation-wave checks
 - `review`: reconciliation against the explicit companion files
 
-Another type has no checker face and returns a clean "nothing to validate" report. A type-less file
-takes the spec parser path so malformed legacy input is not silently skipped.
+Another type has no checker face and returns a clean "nothing to validate" report. A file without
+`type:` takes the spec parser path so malformed input is not silently skipped.
 
 Several specs or change plans can share one invocation. Each is checked, the process exit code is the
 highest result level, and duplicate frontmatter IDs across the supplied set are diagnosed. Review

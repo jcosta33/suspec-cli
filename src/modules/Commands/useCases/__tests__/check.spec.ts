@@ -272,7 +272,7 @@ describe('check command — spec checking (frontmatter-sniffed)', () => {
         }
     );
 
-    it('a type-less file (no `type:` frontmatter, the legacy spec shape) takes the spec path, never the "no checks" skip', () => {
+    it('a type-less file takes the spec path, never the "no checks" skip', () => {
         const typeless = CONFORMANT.replace('type: spec\n', '');
         const good = write('typeless.md', typeless);
         const goodRun = capture(() => run([good]));
@@ -510,9 +510,9 @@ describe('check command — review packets need explicit companions (ADR-0143 D3
         expect(err).toContain('--spec companion must have `type: spec`');
     });
 
-    it('accepts a type-less legacy --spec companion through the documented spec parser path', () => {
+    it('accepts a type-less --spec companion through the documented spec parser path', () => {
         const review = write('review.md', CLEAN_REVIEW);
-        const specPath = write('legacy-spec.md', CONFORMANT.replace('type: spec\n', ''));
+        const specPath = write('type-less-spec.md', CONFORMANT.replace('type: spec\n', ''));
         const taskPath = write('task.md', TASK);
         const { code, out } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
         expect(code).toBe(0);

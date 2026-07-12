@@ -33,8 +33,8 @@ import { format_check_report } from '../services/renderCheckReport.ts';
 // The frontmatter `type:` scalar from an artifact's leading `---` fence — the kind sniff the
 // dispatch keys on. Scans the fenced block only (however long, never the body) and reads the value
 // as YAML would (normalize_scalar: quotes, inline comments), so `type: "review"` dispatches like
-// `type: review`. null when no `type:` is present (the legacy type-less spec shape the spec parser
-// owns rejecting).
+// `type: review`. null when no `type:` is present; type-less input takes the spec parser path so
+// malformed input is not silently skipped.
 function artifact_type(source: string): string | null {
     const text = source.charCodeAt(0) === 0xfeff ? source.slice(1) : source; // BOM-tolerant, like read_frontmatter
     const lines = text.split(/\r\n|[\r\n]/);
@@ -218,8 +218,8 @@ export function run(argv: string[]): number {
         }
         // An artifact whose `type:` has no check face must not fall through to the spec checks.
         // Say so cleanly and exit 0: nothing to validate
-        // is not a defect. A `type: spec` file and a type-less file (the legacy shape the spec
-        // parser owns rejecting) take the spec path below.
+        // is not a defect. A `type: spec` file and a type-less file take the spec path below so
+        // malformed input is not silently skipped.
         if (type !== null && type !== 'spec') {
             return project({
                 result: ok({ level: 'clean' as const, path: file, type, checked: false }),

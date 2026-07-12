@@ -97,11 +97,7 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
     }
     const specType = fm_scalar(specFrontmatter.type);
     if (specType !== undefined && specType !== 'spec') {
-        return err(
-            usage_error(
-                `--spec companion must have \`type: spec\` or omit \`type:\` for supported legacy input; received ${specType}`
-            )
-        );
+        return err(usage_error(`--spec companion must have \`type: spec\` or omit \`type:\`; received ${specType}`));
     }
 
     const report = (diagnostics: Diagnostic[]): Result<CheckReviewFileReport, AppError> =>
