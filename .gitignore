@@ -12,29 +12,10 @@ build/
 # OS files
 .DS_Store
 
-# Agent state and logs
-.agents/state.json
-.agents/locks.json
-.agents/logs/
-.agents/locks/
-.agents/*.db
-.claude/*.lock
-
 # Cache
 .vite/
 .vite-temp/
 *.cache
 
-# Local reports
-lint-results.json
-
 # Coverage
 coverage
-
-# Agent scratch
-.agents/tmp/
-tmp/
-.worktrees/
-
-# Generated local agent definitions
-.codex/
