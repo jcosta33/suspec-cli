@@ -47,6 +47,19 @@ describe('parse_spec_record', () => {
         expect(record.frontmatter.sources).toEqual(['ADR-0077', '../suspec/docs/adrs/0077.md', 'JIRA-9']);
     });
 
+    it('normalizes quotes and inline comments in source-list items', () => {
+        const source = `---
+type: spec
+id: SPEC-sources
+sources:
+  - "docs/source.md" # primary
+  - 'ADR-0077'
+---
+`;
+        const record = assertOk(parse_spec_record({ source, path: 'spec.md' }));
+        expect(record.frontmatter.sources).toEqual(['docs/source.md', 'ADR-0077']);
+    });
+
     it('tolerates CRLF line endings and a leading UTF-8 BOM (a BOM-saved spec still parses)', () => {
         const bom =
             '﻿---\r\ntype: spec\r\nid: SPEC-bom\r\nstatus: ready\r\nsources:\r\n  - self\r\n---\r\n\r\n## Requirements\r\n';

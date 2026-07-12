@@ -102,7 +102,7 @@ function extract_verify_command(body: string): string | null {
 function source_tokens(entry: string): string[] {
     return entry
         .split(',')
-        .map((segment) => segment.trim().split(/\s+/)[0])
+        .map((segment) => normalize_scalar(segment).split(/\s+/)[0])
         .filter((token) => token.length > 0);
 }
 

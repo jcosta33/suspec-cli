@@ -182,6 +182,20 @@ preserves:
         expect(plan.preservedRefs.map((ref) => ref.raw)).toEqual(['SPEC-a#AC-001', 'PG-002']);
     });
 
+    it('normalizes quotes and inline comments in preserves-list items', () => {
+        const source = `---
+type: change-plan
+id: X
+preserves:
+  - "SPEC-a#AC-001" # primary
+  - 'PG-002'
+---
+# x
+`;
+        const plan = assertOk(parse_change_plan({ source, path: 'p.md' }));
+        expect(plan.preservedRefs.map((ref) => ref.raw)).toEqual(['SPEC-a#AC-001', 'PG-002']);
+    });
+
     it('a fenced `## ` heading is not a section switch; a fenced numbered item is not a wave', () => {
         const fenced = `---
 type: change-plan

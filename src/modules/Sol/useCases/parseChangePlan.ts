@@ -76,7 +76,7 @@ function ref_tokens(value: string): string[] {
     const inner = value.trim().replace(/^\[/, '').replace(/\]$/, '');
     return inner
         .split(',')
-        .map((segment) => segment.trim().split(/\s+/)[0])
+        .map((segment) => normalize_scalar(segment).split(/\s+/)[0])
         .filter((token) => token.length > 0);
 }
 
