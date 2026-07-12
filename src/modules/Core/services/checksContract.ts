@@ -281,7 +281,7 @@ export function check_verify_with(spec: ParsedSpec): Diagnostic[] {
 // ADR-0126 (contract 0.12.0): the requirement is AT LEAST one binding word — zero binds on nothing
 // (the defect); more than one is a split-candidate ADVISORY under the same id, advice-framed, never
 // "expected exactly one" (the exactly-one bar was the measured dominant authoring friction with no
-// measured benefit.
+// measured benefit).
 export function check_one_strength_word(spec: ParsedSpec): Diagnostic[] {
     const diagnostics: Diagnostic[] = [];
     const isSol = spec.frontmatter.format === 'sol';
