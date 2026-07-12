@@ -25,6 +25,11 @@ describe('read_frontmatter', () => {
         });
     });
 
+    it('normalizes quotes and inline comments in block-list items', () => {
+        const source = '---\nsource:\n  - "SPEC-x" # primary\n  - \'CHANGE-x\'\n---\n';
+        expect(read_frontmatter(source)).toEqual({ source: ['SPEC-x', 'CHANGE-x'] });
+    });
+
     it('handles a single-item block list and resumes scalar parsing after it', () => {
         // The task-packet shape: a `# - CHANGE` comment line is not a list item and ends the list.
         const source = '---\nsource:\n  - SPEC-x\n  # - CHANGE-x (when a change-plan applies)\nstatus: ready\n---\n';

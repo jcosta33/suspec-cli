@@ -61,7 +61,7 @@ export function read_frontmatter(source: string): Frontmatter {
             if (itemMatch === null) {
                 break;
             }
-            const item = itemMatch[1].trim();
+            const item = normalize_scalar(itemMatch[1]);
             if (item.length > 0) {
                 items.push(item);
             }
