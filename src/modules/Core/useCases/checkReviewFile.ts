@@ -48,7 +48,7 @@ export type CheckReviewFileReport = Readonly<{
 }>;
 
 export function check_review_file(input: CheckReviewFileInput): Result<CheckReviewFileReport, AppError> {
-    const reviewResult = parse_review_packet(input.reviewSource);
+    const reviewResult = parse_review_packet(input.reviewSource, true);
     if (!isOk(reviewResult)) {
         return reviewResult;
     }

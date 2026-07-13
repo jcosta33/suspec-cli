@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { existsSync, mkdtempSync, mkdirSync, symlinkSync, writeFileSync, rmSync } from 'fs';
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, symlinkSync, writeFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -170,6 +170,24 @@ function write(name: string, content: string): string {
     return path;
 }
 
+const unreadableFilesAreEnforced = (() => {
+    const probeDir = mkdtempSync(join(tmpdir(), 'suspec-check-unreadable-probe-'));
+    const probe = join(probeDir, 'probe.md');
+    try {
+        writeFileSync(probe, 'probe');
+        chmodSync(probe, 0o000);
+        try {
+            readFileSync(probe, 'utf8');
+            return false;
+        } catch {
+            return true;
+        }
+    } finally {
+        chmodSync(probe, 0o600);
+        rmSync(probeDir, { recursive: true, force: true });
+    }
+})();
+
 describe('check command — invocation shapes (ADR-0143)', () => {
     it('no artifact named → exit 2 with the usage on stderr', () => {
         const { code, err } = capture(() => run([]));
@@ -229,6 +247,82 @@ describe('check command — invocation shapes (ADR-0143)', () => {
         const { code, out } = capture(() => run([review, join(dir, 'nope.md'), '--json']));
         expect(code).toBe(2);
         expect(JSON.parse(out)).toMatchObject({ error: 'Usage' }); // throws on concatenated documents
+    });
+
+    it.skipIf(!unreadableFilesAreEnforced)('an unreadable primary emits structured JSON and exits 2', () => {
+        const file = write('unreadable.md', CONFORMANT);
+        chmodSync(file, 0o000);
+        try {
+            const { code, out } = capture(() => run([file, '--json']));
+            expect(code).toBe(2);
+            expect(JSON.parse(out)).toMatchObject({ error: 'Usage', message: expect.stringContaining('cannot read') });
+        } finally {
+            chmodSync(file, 0o600);
+        }
+    });
+
+    it.each([
+        {
+            name: 'primary stat',
+            argv: ['/virtual/spec.md', '--json'],
+            isDirectory: () => {
+                throw new Error('injected stat failure');
+            },
+            read: () => CONFORMANT,
+        },
+        {
+            name: 'primary read',
+            argv: ['/virtual/spec.md', '--json'],
+            isDirectory: () => false,
+            read: () => {
+                throw new Error('injected read failure');
+            },
+        },
+        {
+            name: 'companion stat',
+            argv: ['/virtual/review.md', '--spec', '/virtual/spec.md', '--json'],
+            isDirectory: (path: string) => {
+                if (path.endsWith('/spec.md')) throw new Error('injected stat failure');
+                return false;
+            },
+            read: () => CLEAN_REVIEW.replace('task: TASK-feat\n', ''),
+        },
+        {
+            name: 'companion read',
+            argv: ['/virtual/review.md', '--spec', '/virtual/spec.md', '--json'],
+            isDirectory: () => false,
+            read: (path: string) => {
+                if (path.endsWith('/spec.md')) throw new Error('injected read failure');
+                return CLEAN_REVIEW.replace('task: TASK-feat\n', '');
+            },
+        },
+    ])('$name failure emits the normal structured JSON error and exits 2', ({ argv, isDirectory, read }) => {
+        const { code, out } = capture(() =>
+            run(argv, {
+                exists: () => true,
+                identity: (path) => path,
+                isDirectory,
+                read,
+            })
+        );
+        expect(code).toBe(2);
+        expect(JSON.parse(out)).toMatchObject({ error: 'Usage', message: expect.stringContaining('cannot') });
+    });
+
+    it('keeps an injected read failure on the plain stderr-only error path', () => {
+        const { code, out, err } = capture(() =>
+            run(['/virtual/spec.md'], {
+                exists: () => true,
+                identity: (path) => path,
+                isDirectory: () => false,
+                read: () => {
+                    throw new Error('injected read failure');
+                },
+            })
+        );
+        expect(code).toBe(2);
+        expect(out).toBe('');
+        expect(err).toContain('cannot read');
     });
 });
 
@@ -746,6 +840,44 @@ ok
         const report = JSON.parse(out) as { level: string; diagnostics: { code: string }[] };
         expect(report.level).toBe('warning');
         expect(report.diagnostics.some((d) => d.code === 'C012')).toBe(true);
+    });
+
+    it.each([
+        ['empty id', (source: string) => source.replace('id: REVIEW-feat', 'id: ""')],
+        ['invalid decision', (source: string) => source.replace('decision: pending', 'decision: approved')],
+        [
+            'inexact coverage section',
+            (source: string) => source.replace('## Requirement coverage', '## requirement coverage'),
+        ],
+        ['invalid assessment', (source: string) => source.replace('| Supported |', '| Passing |')],
+        [
+            'waiver before acceptance',
+            (source: string) => source.replace('decision: pending', 'decision: pending\nwaivers: [AC-001]'),
+        ],
+        [
+            'missing accepted waiver',
+            (source: string) =>
+                source.replace('decision: pending', 'decision: accepted').replace('| Supported |', '| Unverified |'),
+        ],
+        [
+            'unrelated accepted waiver',
+            (source: string) => source.replace('decision: pending', 'decision: accepted\nwaivers: [AC-099]'),
+        ],
+        [
+            'accepted open decision',
+            (source: string) =>
+                `${source.replace('decision: pending', 'decision: accepted')}\n## Open decisions\n\nChoose a rollout.\n`,
+        ],
+    ])('a structural review error ($name) emits AppError JSON, not a C-code report', (_name, mutate) => {
+        const review = write('review.md', mutate(CLEAN_REVIEW));
+        const specPath = write('spec.md', CONFORMANT);
+        const taskPath = write('task.md', TASK);
+        const { code, out } = capture(() => run([review, '--spec', specPath, '--task', taskPath, '--json']));
+        expect(code).toBe(2);
+        const error = JSON.parse(out) as { error: string; message: string; diagnostics?: unknown };
+        expect(error.error).toBe('ParseFailure');
+        expect(error.message.length).toBeGreaterThan(0);
+        expect(error.diagnostics).toBeUndefined();
     });
 });
 

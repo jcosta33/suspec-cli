@@ -46,8 +46,11 @@ export type ReviewPacket = Readonly<{
 }>;
 
 const SECTION_HEADING = /^##\s+(.+?)\s*$/;
-const COVERAGE_HEADING = /^##\s+Requirement coverage\s*$/i;
+const COVERAGE_HEADING = /^## Requirement coverage[ \t]*$/;
+const OPEN_DECISIONS_HEADING = /^## Open decisions[ \t]*$/;
 const REQUIREMENT_ID = /^[A-Z][A-Z0-9]*-\d+$/;
+const REVIEW_DECISIONS = new Set(['pending', 'accepted', 'changes-requested', 'deferred']);
+const ASSESSMENTS = new Set(['Supported', 'Unsupported', 'Unverified', 'Blocked']);
 
 // A verify block opens with ```` ```verify <info-string> ```` (ADR-0083): the `verify` language token
 // then the info-string (the fenced body is verbatim and unparsed). scan_markdown exposes an opening
@@ -115,7 +118,7 @@ function parse_verify_info(info: string): VerifyBlock {
     return { id, cmd, result, malformed };
 }
 
-export function parse_review_packet(source: string): Result<ReviewPacket, AppError> {
+export function parse_review_packet(source: string, enforceContract = false): Result<ReviewPacket, AppError> {
     const lines = source.split(/\r\n|[\r\n]/);
     const parsedFrontmatter = parse_frontmatter(source);
     if (isErr(parsedFrontmatter)) {
@@ -141,11 +144,16 @@ export function parse_review_packet(source: string): Result<ReviewPacket, AppErr
         );
     }
     const decision = scalar_field(fields, 'decision') ?? null;
+    const id = scalar_field(fields, 'id') ?? null;
+    const waivers = list_field(fields, 'waivers') ?? [];
 
     const sectionTitles: string[] = [];
     const coverageRows: CoverageRow[] = [];
     const verifyBlocks: VerifyBlock[] = [];
     let inCoverage = false;
+    let coverageSectionCount = 0;
+    let inOpenDecisions = false;
+    let openDecisionsBody = '';
 
     for (const scanned of scan_markdown(lines)) {
         // Fenced content is verbatim (ADR-0083) — never section/table structure, so a `## Requirement
@@ -153,6 +161,9 @@ export function parse_review_packet(source: string): Result<ReviewPacket, AppErr
         // read from a fence is a ```verify info-string opening inside the coverage section; its body
         // stays unparsed (scan_markdown marks every body line inFence, so it is skipped here).
         if (scanned.inFence) {
+            if (inOpenDecisions) {
+                openDecisionsBody += `${scanned.text}\n`;
+            }
             if (scanned.opensFence && inCoverage) {
                 const verifyMatch = VERIFY_INFO.exec(scanned.fenceInfo);
                 if (verifyMatch !== null) {
@@ -165,13 +176,25 @@ export function parse_review_packet(source: string): Result<ReviewPacket, AppErr
         if (COVERAGE_HEADING.test(line)) {
             sectionTitles.push('Requirement coverage');
             inCoverage = true;
+            coverageSectionCount += 1;
+            inOpenDecisions = false;
+            continue;
+        }
+        if (OPEN_DECISIONS_HEADING.test(line)) {
+            sectionTitles.push('Open decisions');
+            inCoverage = false;
+            inOpenDecisions = true;
             continue;
         }
         const heading = SECTION_HEADING.exec(line);
         if (heading !== null) {
             sectionTitles.push(heading[1]);
             inCoverage = false;
+            inOpenDecisions = false;
             continue;
+        }
+        if (inOpenDecisions) {
+            openDecisionsBody += `${line}\n`;
         }
         if (!inCoverage) {
             continue;
@@ -190,11 +213,62 @@ export function parse_review_packet(source: string): Result<ReviewPacket, AppErr
         }
     }
 
+    const contractError = (message: string): Result<ReviewPacket, AppError> =>
+        err(
+            createAppError('ParseFailure', message, {
+                reason: 'invalid-review-contract',
+                line: null,
+            })
+        );
+    if (enforceContract) {
+        if (id === null || id.trim().length === 0) {
+            return contractError('review `id:` must be a non-empty scalar');
+        }
+        if (decision === null || !REVIEW_DECISIONS.has(decision)) {
+            return contractError('review `decision:` must be pending, accepted, changes-requested, or deferred');
+        }
+        if (coverageSectionCount !== 1) {
+            return contractError('review must contain exactly one `## Requirement coverage` section');
+        }
+        const invalidAssessment = coverageRows.find((row) => !ASSESSMENTS.has(row.assessment));
+        if (invalidAssessment !== undefined) {
+            return contractError(
+                `review coverage row ${invalidAssessment.id} assessment must be Supported, Unsupported, Unverified, or Blocked`
+            );
+        }
+        if (decision !== 'accepted' && fields.waivers !== undefined) {
+            return contractError('review `waivers:` must be absent unless `decision: accepted`');
+        }
+        if (decision === 'accepted') {
+            const blocked = coverageRows.filter((row) => row.assessment === 'Blocked').map((row) => row.id);
+            if (blocked.length > 0) {
+                return contractError(`accepted review contains blocked assessments for ${blocked.join(', ')}`);
+            }
+            const requiredWaivers = new Set(
+                coverageRows
+                    .filter((row) => row.assessment === 'Unsupported' || row.assessment === 'Unverified')
+                    .map((row) => row.id)
+            );
+            const waiverSet = new Set(waivers);
+            const missing = [...requiredWaivers].filter((waiver) => !waiverSet.has(waiver));
+            if (missing.length > 0) {
+                return contractError(`accepted review is missing waivers for ${missing.join(', ')}`);
+            }
+            const unrelated = [...waiverSet].filter((waiver) => !requiredWaivers.has(waiver));
+            if (unrelated.length > 0) {
+                return contractError(`accepted review contains unrelated waivers for ${unrelated.join(', ')}`);
+            }
+            if (openDecisionsBody.trim().length > 0) {
+                return contractError('accepted review must not contain a non-empty `## Open decisions` section');
+            }
+        }
+    }
+
     return ok({
         decision,
-        id: scalar_field(fields, 'id') ?? null,
+        id,
         task: scalar_field(fields, 'task') ?? null,
-        waivers: list_field(fields, 'waivers') ?? [],
+        waivers,
         sectionTitles,
         coverageRows,
         verifyBlocks,

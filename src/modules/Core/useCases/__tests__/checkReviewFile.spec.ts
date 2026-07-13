@@ -376,3 +376,125 @@ describe('check_review_file — C016 supported-needs-evidence', () => {
         expect(report.level).toBe('blocking');
     });
 });
+
+describe('check_review_file — structural review packet contract', () => {
+    it.each([
+        ['missing', (source: string) => source.replace('id: REVIEW-feat\n', '')],
+        ['empty', (source: string) => source.replace('id: REVIEW-feat', 'id: ""')],
+    ])('rejects a %s review id through AppError', (_name, mutate) => {
+        expect(assertErr(check({ reviewSource: mutate(review('| AC-001 | Unverified |  |')) })).message).toContain(
+            '`id:` must be a non-empty scalar'
+        );
+    });
+
+    it.each(['pending', 'accepted', 'changes-requested', 'deferred'])('accepts decision value %s', (decision) => {
+        let source = review('| AC-001 | Supported | evidence |\n| AC-002 | Supported | evidence |').replace(
+            'decision: pending',
+            `decision: ${decision}`
+        );
+        if (decision === 'accepted') {
+            source = source.replace('decision: accepted\n', 'decision: accepted\nwaivers: []\n');
+        }
+        expect(check({ reviewSource: source }).ok).toBe(true);
+    });
+
+    it.each(['missing', 'Accepted', 'changes_requested', 'rejected'])('rejects decision value %s', (decision) => {
+        const source =
+            decision === 'missing'
+                ? review('| AC-001 | Unverified |  |').replace('decision: pending\n', '')
+                : review('| AC-001 | Unverified |  |').replace('decision: pending', `decision: ${decision}`);
+        expect(assertErr(check({ reviewSource: source })).message).toContain(
+            '`decision:` must be pending, accepted, changes-requested, or deferred'
+        );
+    });
+
+    it.each([
+        ['missing', (source: string) => source.replace('## Requirement coverage', '## Findings')],
+        ['wrong case', (source: string) => source.replace('## Requirement coverage', '## requirement coverage')],
+        ['duplicate', (source: string) => `${source}\n## Requirement coverage\n`],
+    ])('requires exactly one exact Requirement coverage section: %s', (_name, mutate) => {
+        expect(assertErr(check({ reviewSource: mutate(review('| AC-001 | Unverified |  |')) })).message).toContain(
+            'exactly one `## Requirement coverage` section'
+        );
+    });
+
+    it.each(['Supported', 'Unsupported', 'Unverified', 'Blocked'])('accepts assessment value %s', (assessment) => {
+        expect(check({ reviewSource: review(`| AC-001 | ${assessment} | evidence |`) }).ok).toBe(true);
+    });
+
+    it.each(['supported', 'Pass', 'Unknown', ''])('rejects assessment value %s', (assessment) => {
+        expect(assertErr(check({ reviewSource: review(`| AC-001 | ${assessment} | evidence |`) })).message).toContain(
+            'assessment must be Supported, Unsupported, Unverified, or Blocked'
+        );
+    });
+
+    it.each(['pending', 'changes-requested', 'deferred'])(
+        'requires waivers to be absent at decision %s',
+        (decision) => {
+            const source = review('| AC-001 | Unverified |  |').replace(
+                'decision: pending',
+                `decision: ${decision}\nwaivers: [AC-001]`
+            );
+            expect(assertErr(check({ reviewSource: source })).message).toContain(
+                '`waivers:` must be absent unless `decision: accepted`'
+            );
+        }
+    );
+
+    it('requires accepted waivers to equal the Unsupported and Unverified row ids', () => {
+        const accepted = review('| AC-001 | Unsupported | evidence |\n| AC-002 | Unverified |  |').replace(
+            'decision: pending',
+            'decision: accepted'
+        );
+        expect(assertErr(check({ reviewSource: accepted })).message).toContain('missing waivers for AC-001, AC-002');
+        expect(
+            assertErr(
+                check({ reviewSource: accepted.replace('decision: accepted', 'decision: accepted\nwaivers: [AC-001]') })
+            ).message
+        ).toContain('missing waivers for AC-002');
+        expect(
+            assertErr(
+                check({
+                    reviewSource: accepted.replace(
+                        'decision: accepted',
+                        'decision: accepted\nwaivers: [AC-001, AC-002, AC-099]'
+                    ),
+                })
+            ).message
+        ).toContain('unrelated waivers for AC-099');
+
+        const exact = accepted.replace('decision: accepted', 'decision: accepted\nwaivers: [AC-001, AC-002]');
+        expect(check({ reviewSource: exact }).ok).toBe(true);
+    });
+
+    it('rejects acceptance while any assessment is Blocked', () => {
+        const accepted = review('| AC-001 | Blocked | dependency unavailable |').replace(
+            'decision: pending',
+            'decision: accepted'
+        );
+        expect(assertErr(check({ reviewSource: accepted })).message).toContain(
+            'accepted review contains blocked assessments for AC-001'
+        );
+    });
+
+    it.each(['Choose the release window.', '```text\nChoose the release window.\n```'])(
+        'blocks acceptance on non-empty Open decisions content: %s',
+        (content) => {
+            const accepted = review('| AC-001 | Supported | evidence |\n| AC-002 | Supported | evidence |').replace(
+                'decision: pending',
+                'decision: accepted'
+            );
+            expect(
+                assertErr(check({ reviewSource: `${accepted}\n## Open decisions\n\n${content}\n` })).message
+            ).toContain('accepted review must not contain a non-empty `## Open decisions` section');
+        }
+    );
+
+    it('permits an empty Open decisions section at acceptance', () => {
+        const accepted = review('| AC-001 | Supported | evidence |\n| AC-002 | Supported | evidence |').replace(
+            'decision: pending',
+            'decision: accepted'
+        );
+        expect(check({ reviewSource: `${accepted}\n## Open decisions\n\n` }).ok).toBe(true);
+    });
+});

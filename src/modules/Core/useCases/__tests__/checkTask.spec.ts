@@ -86,11 +86,31 @@ describe('check_task', () => {
         expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C023');
     });
 
-    it('accepts a CI link or explicitly justified n/a without pasted output', () => {
-        for (const verify of ['CI: https://ci.example.test/runs/1', 'n/a: verified by external release process']) {
+    it('accepts an explicit CI field or explicitly justified n/a without pasted output', () => {
+        for (const verify of [
+            'CI: https://ci.example.test/runs/1',
+            'CI link: https://ci.example.test/runs/2',
+            'n/a: verified by external release process',
+        ]) {
             const report = assertOk(check_task(task('review-ready', verify), 'task.md'));
             expect(report.diagnostics.filter((diagnostic) => diagnostic.code === 'C023')).toEqual([]);
         }
+    });
+
+    it.each([
+        'Build log: https://ci.example.test/runs/1',
+        'See https://ci.example.test/runs/1',
+        'https://ci.example.test/runs/1',
+    ])('rejects a URL that is not on an explicit CI field: %s', (verify) => {
+        const report = assertOk(check_task(task('review-ready', verify), 'task.md'));
+        expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C023');
+    });
+
+    it('accepts the canonical numeric Exit status field with fenced output', () => {
+        const report = assertOk(
+            check_task(task('review-ready', 'Exit status: 0\n\n```text\n1 test passed\n```'), 'task.md')
+        );
+        expect(report.diagnostics.filter((diagnostic) => diagnostic.code === 'C023')).toEqual([]);
     });
 
     it('ignores placeholders in fenced raw output but rejects them in visible Verify prose', () => {
@@ -121,6 +141,15 @@ describe('check_task', () => {
         'Blocked questions: choose an API',
     ])('C024 rejects a closed task containing %s', (blocker) => {
         const report = assertOk(check_task(task('closed', 'n/a: documentation-only change', blocker), 'task.md'));
+        expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C024');
+    });
+
+    it.each([
+        '1. Blocking: choose an API',
+        '2) Open question (blocking): choose an API',
+        '10. Blocked questions: choose an API',
+    ])('C024 recognizes an ordered-list canonical blocker: %s', (finding) => {
+        const report = assertOk(check_task(task('closed', 'n/a: documentation-only change', finding), 'task.md'));
         expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C024');
     });
 

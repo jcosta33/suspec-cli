@@ -31,6 +31,23 @@ import { parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import { format_check_report } from '../services/renderCheckReport.ts';
 
+type CheckFileSystem = Readonly<{
+    exists: (path: string) => boolean;
+    identity: (path: string) => string;
+    isDirectory: (path: string) => boolean;
+    read: (path: string) => string;
+}>;
+
+const nodeFileSystem: CheckFileSystem = {
+    exists: existsSync,
+    identity: (path) => {
+        const stats = statSync(path, { bigint: true });
+        return `${stats.dev}:${stats.ino}`;
+    },
+    isDirectory: (path) => statSync(path).isDirectory(),
+    read: (path) => readFileSync(path, 'utf8'),
+};
+
 const RECOGNIZED_TYPES = new Set([
     'spec',
     'task',
@@ -42,7 +59,56 @@ const RECOGNIZED_TYPES = new Set([
     'inspection',
 ]);
 
-export function run(argv: string[]): number {
+function caught_message(caught: unknown): string {
+    return caught instanceof Error ? caught.message : String(caught);
+}
+
+function load_artifact_source(fileSystem: CheckFileSystem, path: string, flag?: string) {
+    let exists: boolean;
+    try {
+        exists = fileSystem.exists(path);
+    } catch (caught) {
+        return err(
+            usage_error(
+                `cannot stat ${flag === undefined ? 'file' : `${flag} file`}: ${path}: ${caught_message(caught)}`
+            )
+        );
+    }
+    if (!exists) {
+        return err(usage_error(`${flag === undefined ? '' : `${flag} `}file not found: ${path}`));
+    }
+
+    let isDirectory: boolean;
+    try {
+        isDirectory = fileSystem.isDirectory(path);
+    } catch (caught) {
+        return err(
+            usage_error(
+                `cannot stat ${flag === undefined ? 'file' : `${flag} file`}: ${path}: ${caught_message(caught)}`
+            )
+        );
+    }
+    if (isDirectory) {
+        const message =
+            flag === undefined
+                ? `not an artifact file (it is a directory): ${path} — point at the file inside it`
+                : `${flag} is not an artifact file (it is a directory): ${path} — point at the file inside it`;
+        return err(usage_error(message));
+    }
+
+    try {
+        return ok(fileSystem.read(path));
+    } catch (caught) {
+        return err(
+            usage_error(
+                `cannot read ${flag === undefined ? 'file' : `${flag} file`}: ${path}: ${caught_message(caught)}`
+            )
+        );
+    }
+}
+
+export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem): number {
+    const fileSystem = typeof cwdOrFileSystem === 'object' ? cwdOrFileSystem : nodeFileSystem;
     const { positional, flags, unknown } = parse_flags(argv, {
         booleans: ['--json', '--contract'],
         strings: ['--spec', '--task'],
@@ -97,8 +163,7 @@ export function run(argv: string[]): number {
     const paths = positional.filter((file) => {
         let key: string;
         try {
-            const stats = statSync(file, { bigint: true });
-            key = `${stats.dev}:${stats.ino}`;
+            key = fileSystem.identity(file);
         } catch {
             key = resolve(file); // not statable — the per-file load pass below diagnoses it
         }
@@ -110,23 +175,12 @@ export function run(argv: string[]): number {
     });
     const loaded: { path: string; source: string; type: string }[] = [];
     for (const file of paths) {
-        if (!existsSync(file)) {
-            bump(project({ result: err(usage_error(`file not found: ${file}`)), json, render: format_check_report }));
+        const sourceResult = load_artifact_source(fileSystem, file);
+        if (!sourceResult.ok) {
+            bump(emit_error(sourceResult.error, json));
             continue;
         }
-        if (statSync(file).isDirectory()) {
-            bump(
-                project({
-                    result: err(
-                        usage_error(`not an artifact file (it is a directory): ${file} — point at the file inside it`)
-                    ),
-                    json,
-                    render: format_check_report,
-                })
-            );
-            continue;
-        }
-        const source = readFileSync(file, 'utf8');
+        const source = sourceResult.value;
         const parsed = parse_frontmatter(source);
         if (!parsed.ok) {
             bump(emit_error(parsed.error, json));
@@ -191,26 +245,21 @@ export function run(argv: string[]): number {
             if (taskPath !== undefined) {
                 companions.push({ flag: '--task', path: taskPath });
             }
+            const companionSources = new Map<string, string>();
             for (const companion of companions) {
-                if (!existsSync(companion.path)) {
-                    return emit_error(usage_error(`${companion.flag} file not found: ${companion.path}`), json);
+                const sourceResult = load_artifact_source(fileSystem, companion.path, companion.flag);
+                if (!sourceResult.ok) {
+                    return emit_error(sourceResult.error, json);
                 }
-                if (statSync(companion.path).isDirectory()) {
-                    return emit_error(
-                        usage_error(
-                            `${companion.flag} is not an artifact file (it is a directory): ${companion.path} — point at the file inside it`
-                        ),
-                        json
-                    );
-                }
+                companionSources.set(companion.flag, sourceResult.value);
             }
             return project({
                 result: check_review_file({
                     reviewSource: source,
                     reviewPath: file,
-                    specSource: readFileSync(specPath, 'utf8'),
+                    specSource: companionSources.get('--spec') ?? '',
                     specPath,
-                    taskSource: taskPath === undefined ? undefined : readFileSync(taskPath, 'utf8'),
+                    taskSource: taskPath === undefined ? undefined : companionSources.get('--task'),
                 }),
                 json,
                 render: format_check_report,

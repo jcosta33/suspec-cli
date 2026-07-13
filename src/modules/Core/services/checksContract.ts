@@ -398,7 +398,7 @@ export function check_task_evidence(task: TaskCheckRecord): Diagnostic[] {
     const visibleVerify = visible_text(scan_markdown(verifyLines));
     const hasExitStatus = /^[ \t>*+-]*Exit status\s*:\s*\d+[ \t]*$/im.test(visibleVerify);
     const hasPastedOutput = hasExitStatus && has_nonempty_fenced_block(verifyLines);
-    const hasCiLink = /https?:\/\/\S+/i.test(visibleVerify);
+    const hasCiLink = /^[ \t>*+-]*(?:CI|CI link)\s*:\s*https?:\/\/\S+[ \t]*$/im.test(visibleVerify);
     const hasJustifiedNa = /\bn\/a\s*(?::|-)[ \t]*\S+/i.test(visibleVerify);
     const hasPlaceholder = /\{\{[^}]+\}\}|\b(?:TBD|TODO)\b|\?\?\?/.test(visibleVerify);
     return verify.length > 0 && !hasPlaceholder && (hasPastedOutput || hasCiLink || hasJustifiedNa)
@@ -406,7 +406,7 @@ export function check_task_evidence(task: TaskCheckRecord): Diagnostic[] {
         : [
               diagnostic(
                   'C023',
-                  'task `## Verify` must contain a numeric `Exit status:` plus non-empty fenced raw output, a CI link, or `n/a` with a reason',
+                  'task `## Verify` must contain a numeric `Exit status:` plus non-empty fenced raw output, an explicit `CI:`/`CI link:` field, or `n/a` with a reason',
                   null
               ),
           ];
@@ -416,7 +416,10 @@ export function check_task_evidence(task: TaskCheckRecord): Diagnostic[] {
 export function check_closed_task_resolved(task: TaskCheckRecord): Diagnostic[] {
     if (task.status !== 'closed') return [];
     const unresolvedNamedBlocker = task.bodyText.split(/\r\n|[\r\n]/).some((line) => {
-        const match = /^[ \t>*+-]*(?:Blocking|Open question \(blocking\)|Blocked questions):[ \t]*(.*)$/i.exec(line);
+        const match =
+            /^[ \t>]*(?:(?:[*+-]|\d+[.)])[ \t]+)?(?:Blocking|Open question \(blocking\)|Blocked questions):[ \t]*(.*)$/i.exec(
+                line
+            );
         if (match === null) return false;
         const value = match[1].trim().toLowerCase();
         return value.length > 0 && value !== 'none' && value !== 'n/a';

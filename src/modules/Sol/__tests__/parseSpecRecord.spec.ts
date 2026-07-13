@@ -350,6 +350,15 @@ Verify with:
 });
 
 describe('parse_spec_record — fenced examples (#23/#31)', () => {
+    it('does not enter fence state for a backtick opener with a backtick in its info string', () => {
+        const source = SPEC.replace(
+            '### AC-002 — second',
+            '```markdown `invalid`\n### AC-099 — visible because the opener is invalid\nThe tool must expose it.\nVerify with: a test.\n```\n\n### AC-002 — second'
+        );
+        const parsed = assertOk(parse_spec_record({ source, path: 'spec.md' }));
+        expect(parsed.requirements.map((requirement) => requirement.id)).toContain('AC-099');
+    });
+
     it('A2: a `### AC-NNN` inside a code fence is not registered as a real requirement', () => {
         const spec = [
             '---',

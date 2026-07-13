@@ -44,8 +44,9 @@ function strip_html_comments(line: string, startsInComment: boolean): { text: st
 }
 
 // Classify every line by whether it sits inside a fenced code block. An opening run of >= 3 of the
-// same marker char (``` or ~~~) opens a fence; the next line that is only that marker char, run
-// length >= the opener's, closes it (CommonMark). The fence delimiter lines are themselves marked
+// same marker char (``` or ~~~) opens a fence, except that a backtick fence's info string cannot
+// contain a backtick; the next line that is only that marker char, run length >= the opener's,
+// closes it (CommonMark). The fence delimiter lines are themselves marked
 // inFence so a caller skipping inFence lines never mis-reads a delimiter as structure — but the
 // opening line still exposes its `fenceInfo` so a caller (the review packet) can read a
 // ```verify …``` info-string before skipping the verbatim body.
@@ -59,7 +60,8 @@ export function scan_markdown(lines: readonly string[]): ScannedLine[] {
             // A real fence opener at the start of a visible line wins before HTML-comment scanning;
             // comment-looking text in its info string and body is verbatim raw output.
             const open = inHtmlComment ? null : FENCE.exec(rawText);
-            if (open !== null) {
+            const hasInvalidBacktickInfo = open !== null && open[2].startsWith('`') && open[3].includes('`');
+            if (open !== null && !hasInvalidBacktickInfo) {
                 marker = open[2][0];
                 runLen = open[2].length;
                 out.push({

@@ -26,6 +26,18 @@ describe('scan_markdown', () => {
         expect(s.map((l) => l.inFence)).toEqual([true, true, true, false]);
     });
 
+    it('rejects a backtick fence opener whose info string contains a backtick', () => {
+        const s = scan_markdown(['```md `invalid`', '## visible', '```']);
+        expect(s[0]).toMatchObject({ inFence: false, opensFence: false });
+        expect(s[1]).toMatchObject({ text: '## visible', inFence: false });
+    });
+
+    it('keeps tilde fence info strings containing backticks valid', () => {
+        const s = scan_markdown(['~~~md `valid`', '## fenced', '~~~', '## visible']);
+        expect(s.map((line) => line.inFence)).toEqual([true, true, true, false]);
+        expect(s[0]).toMatchObject({ opensFence: true, fenceInfo: 'md `valid`' });
+    });
+
     it('treats HTML comments as inert while preserving visible text around them', () => {
         const s = scan_markdown([
             'before <!-- hidden --> after',
