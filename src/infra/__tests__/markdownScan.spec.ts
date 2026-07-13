@@ -1,6 +1,17 @@
 import { describe, it, expect } from 'vitest';
 
-import { scan_markdown, strip_inline_code, visible_text } from '../markdownScan.ts';
+import { atx_heading_level, scan_markdown, strip_inline_code, visible_text } from '../markdownScan.ts';
+
+describe('atx_heading_level', () => {
+    it('recognizes CommonMark ATX heading levels without accepting deep indentation or glued hashes', () => {
+        expect(atx_heading_level('# one')).toBe(1);
+        expect(atx_heading_level('   ### three')).toBe(3);
+        expect(atx_heading_level('###### six')).toBe(6);
+        expect(atx_heading_level('    ## code')).toBeNull();
+        expect(atx_heading_level('##glued')).toBeNull();
+        expect(atx_heading_level('plain')).toBeNull();
+    });
+});
 
 describe('scan_markdown', () => {
     it('marks fenced content (and the delimiters) inFence, plain lines not', () => {

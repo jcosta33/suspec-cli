@@ -15,6 +15,11 @@ export type ScannedLine = Readonly<{
 
 const FENCE = /^( {0,3})(`{3,}|~{3,})(.*)$/;
 const CLOSING_FENCE = /^( {0,3})(`{3,}|~{3,})[ \t]*$/;
+const ATX_HEADING = /^ {0,3}(#{1,6})(?:[ \t]+|$)/;
+
+export function atx_heading_level(line: string): number | null {
+    return ATX_HEADING.exec(line)?.[1].length ?? null;
+}
 
 function strip_html_comments(line: string, startsInComment: boolean): { text: string; inComment: boolean } {
     let text = '';

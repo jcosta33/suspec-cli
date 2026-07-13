@@ -13,7 +13,7 @@
 import { type Result, ok, err, isErr } from '../../../infra/errors/result.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { list_field, parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
-import { scan_markdown } from '../../../infra/markdownScan.ts';
+import { atx_heading_level, scan_markdown } from '../../../infra/markdownScan.ts';
 
 // A preserved-behavior id: either a cross-spec reference (`SPEC-checkout#AC-002`) or a plan-local
 // guarantee id (`PG-001`). Sourced from the frontmatter `preserves:` list or the guarantees table.
@@ -176,6 +176,13 @@ export function parse_change_plan(input: ParseChangePlanInput): ParseChangePlanR
             } else {
                 section = 'other';
             }
+            waveContinuation = false;
+            continue;
+        }
+
+        const headingLevel = atx_heading_level(line);
+        if (headingLevel !== null && headingLevel <= 2) {
+            section = 'other';
             waveContinuation = false;
             continue;
         }

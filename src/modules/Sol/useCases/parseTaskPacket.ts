@@ -1,7 +1,7 @@
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { err, isErr, ok, type Result } from '../../../infra/errors/result.ts';
 import { list_field, parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
-import { scan_markdown, visible_text } from '../../../infra/markdownScan.ts';
+import { atx_heading_level, scan_markdown, visible_text } from '../../../infra/markdownScan.ts';
 
 export type TaskPacket = Readonly<{
     frontmatter: Readonly<{
@@ -66,6 +66,11 @@ export function parse_task_packet(source: string): ParseTaskPacketResult {
         if (heading !== null) {
             sectionTitles.push(heading[1]);
             inVerify = heading[1].toLowerCase() === 'verify';
+            continue;
+        }
+        const headingLevel = atx_heading_level(line.text);
+        if (headingLevel !== null && headingLevel <= 2) {
+            inVerify = false;
             continue;
         }
         if (inVerify) {

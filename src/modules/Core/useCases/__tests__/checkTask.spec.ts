@@ -74,7 +74,7 @@ describe('check_task', () => {
         expect(report.diagnostics.filter((diagnostic) => diagnostic.code === 'C023')).toEqual([]);
     });
 
-    it.each(['tests passed', 'TESTS PASSED.', 'Implementation Complete', 'checks succeeded!', 'done'])(
+    it.each(['tests passed', 'TEST PASSED.', 'all checks succeeded', 'CHECKS SUCCEEDED.'])(
         'rejects numeric Exit status plus a sole generic completion claim: %s',
         (claim) => {
             const verify = `Exit status: 0\n\n\`\`\`text\n\n${claim}\n\n\`\`\``;
@@ -83,17 +83,27 @@ describe('check_task', () => {
         }
     );
 
-    it.each(['PASS src/auth.spec.ts (3 tests)', 'Tests: 12 passed, 12 total', 'tests passed\nDuration: 1.2s'])(
-        'retains deterministic raw output that is not a sole generic completion claim: %s',
-        (output) => {
-            const verify = `Exit status: 0\n\n\`\`\`text\n${output}\n\`\`\``;
-            const report = assertOk(check_task(task('review-ready', verify), 'task.md'));
-            expect(report.diagnostics.filter((diagnostic) => diagnostic.code === 'C023')).toEqual([]);
-        }
-    );
+    it.each([
+        'PASS src/auth.spec.ts (3 tests)',
+        'Tests: 12 passed, 12 total',
+        'tests passed\nDuration: 1.2s',
+        'Implementation Complete',
+        'checks succeeded!',
+        'done',
+    ])('retains deterministic raw output that is not a sole generic completion claim: %s', (output) => {
+        const verify = `Exit status: 0\n\n\`\`\`text\n${output}\n\`\`\``;
+        const report = assertOk(check_task(task('review-ready', verify), 'task.md'));
+        expect(report.diagnostics.filter((diagnostic) => diagnostic.code === 'C023')).toEqual([]);
+    });
 
     it('requires a non-empty fenced raw-output block with the numeric Exit status', () => {
         const report = assertOk(check_task(task('review-ready', 'Exit status: 0\n\n```text\n```'), 'task.md'));
+        expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C023');
+    });
+
+    it('does not let an H1 extend the Verify section', () => {
+        const verify = '# Outside Verify\n\nExit status: 0\n\n```text\n1 test passed\n```';
+        const report = assertOk(check_task(task('review-ready', verify), 'task.md'));
         expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C023');
     });
 
@@ -150,21 +160,17 @@ describe('check_task', () => {
         expect(assertOk(check_task(commentedEvidence, 'task.md')).diagnostics.map((d) => d.code)).toContain('C023');
     });
 
-    it.each([
-        'TBD',
-        'TODO',
-        '???',
-        'Blocking: choose an API',
-        'Open question (blocking): choose an API',
-        'Blocked questions: choose an API',
-    ])('C024 rejects a closed task containing %s', (blocker) => {
+    it.each(['TBD', 'TODO', '???'])('C024 rejects a closed task containing %s', (blocker) => {
         const report = assertOk(check_task(task('closed', 'n/a: documentation-only change', blocker), 'task.md'));
         expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C024');
     });
 
     it.each([
+        '- Blocking: choose an API',
+        '* Open question (blocking): choose an API',
+        '+ Blocked questions: choose an API',
         '1. Blocking: choose an API',
-        '2) Open question (blocking): choose an API',
+        '2. Open question (blocking): choose an API',
         '10. Blocked questions: choose an API',
     ])('C024 recognizes an ordered-list canonical blocker: %s', (finding) => {
         const report = assertOk(check_task(task('closed', 'n/a: documentation-only change', finding), 'task.md'));
@@ -172,12 +178,22 @@ describe('check_task', () => {
     });
 
     it.each([
-        'Blocking:',
-        'Blocking: none',
-        'Blocking: n/a',
-        'Open question (blocking): none',
-        'Blocked questions: none',
+        '- Blocking:',
+        '- Blocking: none',
+        '1. Blocking: n/a',
+        '* Open question (blocking): none',
+        '+ Blocked questions: none',
     ])('C024 exempts resolved canonical blocker value %s', (finding) => {
+        const report = assertOk(check_task(task('closed', 'n/a: documentation-only change', finding), 'task.md'));
+        expect(report.diagnostics.filter((diagnostic) => diagnostic.code === 'C024')).toEqual([]);
+    });
+
+    it.each([
+        'Blocking: choose an API',
+        'Open question (blocking): choose an API',
+        'Blocked questions: choose an API',
+        '2) Blocking: choose an API',
+    ])('C024 ignores a canonical label outside the contracted list-item shape: %s', (finding) => {
         const report = assertOk(check_task(task('closed', 'n/a: documentation-only change', finding), 'task.md'));
         expect(report.diagnostics.filter((diagnostic) => diagnostic.code === 'C024')).toEqual([]);
     });

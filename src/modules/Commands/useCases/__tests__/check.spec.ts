@@ -416,7 +416,7 @@ describe('check command — spec checking (frontmatter-sniffed)', () => {
     });
 
     it.each(['inventory', 'audit', 'research', 'inspection'])(
-        'a type: %s file gets a clean "no checks for type" note (exit 0), never spec-check category errors',
+        'a type: %s file gets a clean "no checks for type" note (exit 0), never spec checker errors',
         (artifactType) => {
             const file = write(`a-${artifactType}.md`, `---\ntype: ${artifactType}\nid: X-001\n---\n\n# body\n`);
             const { code, out } = capture(() => run([file]));
@@ -520,7 +520,7 @@ describe('check command — task checking (C022-C024)', () => {
         expect(out).toContain('C022');
     });
 
-    it.each(['tests passed', 'IMPLEMENTATION COMPLETE.', 'checks succeeded!', 'done'])(
+    it.each(['tests passed', 'TEST PASSED.', 'all checks succeeded', 'CHECKS SUCCEEDED.'])(
         'C023 rejects a numeric exit plus a sole generic fenced claim: %s',
         (claim) => {
             const file = write('task.md', TASK.replace('Tests: 12 passed, 12 total', claim));
@@ -545,7 +545,7 @@ describe('check command — task checking (C022-C024)', () => {
             'task.md',
             TASK.replace('status: review-ready', 'status: closed').replace(
                 '## Findings\n\nNone.',
-                '## Findings\n\nBlocking: choose an API.'
+                '## Findings\n\n- Blocking: choose an API.'
             )
         );
         const { code, out } = capture(() => run([file]));
@@ -726,7 +726,6 @@ describe('check command — review packets need explicit companions (ADR-0143 D3
     it.each([
         ['draft', CONFORMANT.replace('status: ready', 'status: draft')],
         ['missing', CONFORMANT.replace('status: ready\n', '')],
-        ['wrong case', CONFORMANT.replace('status: ready', 'status: Ready')],
     ])('rejects a --spec companion whose status is %s', (_name, specSource) => {
         const review = write('review.md', CLEAN_REVIEW);
         const specPath = write('spec.md', specSource);
@@ -734,6 +733,15 @@ describe('check command — review packets need explicit companions (ADR-0143 D3
         const { code, err } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
         expect(code).toBe(2);
         expect(err).toContain('--spec companion must have `status: ready`');
+    });
+
+    it('rejects an invalid --spec status option before companion reconciliation', () => {
+        const review = write('review.md', CLEAN_REVIEW);
+        const specPath = write('spec.md', CONFORMANT.replace('status: ready', 'status: Ready'));
+        const taskPath = write('task.md', TASK);
+        const { code, err } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
+        expect(code).toBe(2);
+        expect(err).toContain('frontmatter `status:` must be draft or ready');
     });
 
     it.each([

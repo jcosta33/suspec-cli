@@ -384,12 +384,10 @@ export function check_task_shape(task: TaskCheckRecord): Diagnostic[] {
 }
 
 // --- C023 task-evidence -------------------------------------------------------------------------
-const GENERIC_COMPLETION_CLAIMS = new Set(['tests passed', 'implementation complete', 'checks succeeded', 'done']);
+const GENERIC_COMPLETION_CLAIM = /^(?:all )?(?:tests?|checks?) (?:pass(?:ed)?|succeeded)\.?$/i;
 
-// Exact C023 claim-only predicate: a closed fence is rejected when its body has exactly one nonblank
-// line and that line, after trim + lowercase + removal of trailing `.`/`!`, is one of the four
-// GENERIC_COMPLETION_CLAIMS above. Multiple nonblank lines and all other single lines remain raw
-// output; CI fields and justified n/a records take their independent paths below.
+// Exact C023 claim-only predicate: a closed fence is rejected only when its entire trimmed body
+// matches the contract regex. Every other non-empty body remains raw output.
 function has_deterministic_fenced_output(lines: readonly string[]): boolean {
     let body: string[] | null = null;
     for (const line of scan_markdown(lines)) {
@@ -398,10 +396,9 @@ function has_deterministic_fenced_output(lines: readonly string[]): boolean {
             continue;
         }
         if (line.closesFence) {
-            const nonblank = (body ?? []).map((entry) => entry.trim()).filter((entry) => entry.length > 0);
-            const normalized = nonblank[0]?.toLowerCase().replace(/[.!]+$/, '') ?? '';
-            const claimOnly = nonblank.length === 1 && GENERIC_COMPLETION_CLAIMS.has(normalized);
-            if (nonblank.length > 0 && !claimOnly) {
+            const trimmedBody = (body ?? []).join('\n').trim();
+            const claimOnly = GENERIC_COMPLETION_CLAIM.test(trimmedBody);
+            if (trimmedBody.length > 0 && !claimOnly) {
                 return true;
             }
             body = null;
@@ -442,7 +439,7 @@ export function check_closed_task_resolved(task: TaskCheckRecord): Diagnostic[] 
     if (task.status !== 'closed') return [];
     const unresolvedNamedBlocker = task.bodyText.split(/\r\n|[\r\n]/).some((line) => {
         const match =
-            /^[ \t>]*(?:(?:[*+-]|\d+[.)])[ \t]+)?(?:Blocking|Open question \(blocking\)|Blocked questions):[ \t]*(.*)$/i.exec(
+            /^[ \t>]*(?:[*+-]|\d+\.)[ \t]+(?:Blocking|Open question \(blocking\)|Blocked questions):[ \t]*(.*)$/i.exec(
                 line
             );
         if (match === null) return false;

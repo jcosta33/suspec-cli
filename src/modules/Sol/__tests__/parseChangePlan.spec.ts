@@ -72,6 +72,14 @@ describe('parse_change_plan', () => {
         expect(plan.waves[2].text).toContain('the full suite');
     });
 
+    it('does not let an H1 extend the Transformation waves section', () => {
+        const source = PLAN.replace(
+            '1. Create the new schema; dual-write. Green check: `npm test -- inventory.spec.ts`.',
+            '# Outside waves\n\n1. This list item is not a wave. Green check: `false`.'
+        );
+        expect(assertOk(parse_change_plan({ source, path: 'change-plan.md' })).waves).toEqual([]);
+    });
+
     it('marks a wave that names no check, and an absent waves section as no waves', () => {
         const noCheck = assertOk(
             parse_change_plan({

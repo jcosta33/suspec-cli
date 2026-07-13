@@ -912,8 +912,8 @@ describe('drift guard against the sibling suspec/checks/checks.yaml', () => {
         );
     }
     const guardName = present
-        ? 'pins the same version and core-check table'
-        : 'pins the same version and core-check table (SKIPPED: no sibling suspec canon)';
+        ? 'pins the machine-owned artifact, option, and check contract'
+        : 'pins the machine-owned artifact, option, and check contract (SKIPPED: no sibling suspec canon)';
 
     (present ? it : it.skip)(guardName, () => {
         const text = readFileSync(contractPath, 'utf8');
@@ -928,6 +928,27 @@ describe('drift guard against the sibling suspec/checks/checks.yaml', () => {
         const coreChecksBlock = text.match(/^core_checks:\n([\s\S]*?)(?=^\S|$(?![\r\n]))/m)?.[1] ?? '';
         const canonIds = [...coreChecksBlock.matchAll(/\bid:\s*(C\d+)/g)].map((m) => m[1]);
         expect([...canonIds].sort()).toEqual(CORE_CHECKS.map((c) => c.id).sort());
+        for (const contractLine of [
+            'checked: [spec, task, review, change-plan]',
+            'recognized_unchecked: [inventory, audit, research, inspection]',
+            'missing_type: hard-error',
+            'unknown_type: hard-error',
+            'status_enum: [draft, ready]',
+            'format_enum: [sol]',
+            'status_enum: [ready, running, review-ready, closed]',
+            'source_spec_status: ready',
+            'decision_enum: [pending, accepted, changes-requested, deferred]',
+            'sections: [Requirement coverage, Change-plan coverage]',
+            'columns: [ID, Assessment, Evidence]',
+            'assessment_enum: [Supported, Unsupported, Unverified, Blocked]',
+            '^(all )?(tests?|checks?) (pass(ed)?|succeeded)\\.?$',
+            'C005 and C006 are RETIRED',
+            'C014 is RETIRED',
+            'C017 is RETIRED',
+            'C018 is RESERVED',
+        ]) {
+            expect(text).toContain(contractLine);
+        }
     });
 });
 

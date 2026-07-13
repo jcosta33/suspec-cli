@@ -158,12 +158,18 @@ ok
 
     it.each([
         ['draft', SPEC.replace('status: ready', 'status: draft')],
-        ['review-ready', SPEC.replace('status: ready', 'status: review-ready')],
         ['missing', SPEC.replace('status: ready\n', '')],
-        ['wrong case', SPEC.replace('status: ready', 'status: Ready')],
     ])('rejects a companion spec whose status is %s', (_name, specSource) => {
         const error = assertErr(check({ reviewSource: review('| AC-001 | Supported | p |'), specSource }));
         expect(error.message).toContain('--spec companion must have `status: ready`');
+    });
+
+    it.each([
+        ['review-ready', SPEC.replace('status: ready', 'status: review-ready')],
+        ['wrong case', SPEC.replace('status: ready', 'status: Ready')],
+    ])('rejects an invalid companion spec status option: %s', (_name, specSource) => {
+        const error = assertErr(check({ reviewSource: review('| AC-001 | Supported | p |'), specSource }));
+        expect(error.message).toContain('frontmatter `status:` must be draft or ready');
     });
 
     it('keys coverage on the task scope — an out-of-scope spec AC is not demanded', () => {
@@ -397,13 +403,10 @@ describe('check_review_file — structural review packet contract', () => {
     });
 
     it.each(['pending', 'accepted', 'changes-requested', 'deferred'])('accepts decision value %s', (decision) => {
-        let source = review('| AC-001 | Supported | evidence |\n| AC-002 | Supported | evidence |').replace(
+        const source = review('| AC-001 | Supported | evidence |\n| AC-002 | Supported | evidence |').replace(
             'decision: pending',
             `decision: ${decision}`
         );
-        if (decision === 'accepted') {
-            source = source.replace('decision: accepted\n', 'decision: accepted\nwaivers: []\n');
-        }
         expect(check({ reviewSource: source }).ok).toBe(true);
     });
 
@@ -475,6 +478,25 @@ describe('check_review_file — structural review packet contract', () => {
         );
     });
 
+    it.each([
+        ['wrong header', '| Identifier | Assessment | Evidence |\n|---|---|---|\n| PG-001 | Supported | evidence |'],
+        ['short row', '| ID | Assessment | Evidence |\n|---|---|---|\n| PG-001 | Supported |'],
+        ['long row', '| ID | Assessment | Evidence |\n|---|---|---|\n| PG-001 | Supported | evidence | extra |'],
+    ])('rejects malformed Change-plan coverage: %s', (_name, table) => {
+        const source = `${review('| AC-001 | Supported | evidence |')}\n\n## Change-plan coverage\n\n${table}\n`;
+        expect(check({ reviewSource: source }).ok).toBe(false);
+    });
+
+    it('does not let an H1 extend Requirement coverage', () => {
+        const source = review('| AC-001 | Supported | evidence |').replace(
+            '| AC-001 | Supported | evidence |',
+            '# Outside review\n\n| AC-001 | Supported | evidence |'
+        );
+        expect(assertErr(check({ reviewSource: source })).message).toContain(
+            'at least one valid Requirement coverage data row'
+        );
+    });
+
     it.each(['pending', 'changes-requested', 'deferred'])(
         'requires waivers to be absent at decision %s',
         (decision) => {
@@ -487,6 +509,16 @@ describe('check_review_file — structural review packet contract', () => {
             );
         }
     );
+
+    it('requires waivers to be absent from accepted reviews with no waivable requirement row', () => {
+        const source = review('| AC-001 | Supported | evidence |\n| AC-002 | Supported | evidence |').replace(
+            'decision: pending',
+            'decision: accepted\nwaivers: []'
+        );
+        expect(assertErr(check({ reviewSource: source })).message).toContain(
+            '`waivers:` must be absent when no requirement row needs a waiver'
+        );
+    });
 
     it('requires accepted waivers to equal the Unsupported and Unverified row ids', () => {
         const accepted = review('| AC-001 | Unsupported | evidence |\n| AC-002 | Unverified |  |').replace(

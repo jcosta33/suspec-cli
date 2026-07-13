@@ -9,7 +9,7 @@
 // are real-looking; the engine only parses a packet a real run produced. Rows whose first cell is
 // not requirement-ID-shaped are outside the coverage record consumed by the checks.
 
-import { scan_markdown, strip_inline_code } from '../../../infra/markdownScan.ts';
+import { atx_heading_level, scan_markdown, strip_inline_code } from '../../../infra/markdownScan.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { err, isErr, ok, type Result } from '../../../infra/errors/result.ts';
 import { list_field, parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
@@ -156,7 +156,10 @@ export function parse_review_packet(source: string, enforceContract = false): Re
     const verifyBlocks: VerifyBlock[] = [];
     let coverageKind: 'requirement' | 'change-plan' | null = null;
     let coverageSectionCount = 0;
+    let changePlanCoverageSectionCount = 0;
     let canonicalRequirementHeaderCount = 0;
+    let canonicalChangePlanHeaderCount = 0;
+    let malformedCoverageRow: { id: string; section: 'Requirement' | 'Change-plan' } | null = null;
     let inOpenDecisions = false;
     let openDecisionsBody = '';
 
@@ -188,6 +191,7 @@ export function parse_review_packet(source: string, enforceContract = false): Re
         if (CHANGE_PLAN_COVERAGE_HEADING.test(line)) {
             sectionTitles.push('Change-plan coverage');
             coverageKind = 'change-plan';
+            changePlanCoverageSectionCount += 1;
             inOpenDecisions = false;
             continue;
         }
@@ -200,6 +204,12 @@ export function parse_review_packet(source: string, enforceContract = false): Re
         const heading = SECTION_HEADING.exec(line);
         if (heading !== null) {
             sectionTitles.push(heading[1]);
+            coverageKind = null;
+            inOpenDecisions = false;
+            continue;
+        }
+        const headingLevel = atx_heading_level(line);
+        if (headingLevel !== null && headingLevel <= 2) {
             coverageKind = null;
             inOpenDecisions = false;
             continue;
@@ -223,6 +233,8 @@ export function parse_review_packet(source: string, enforceContract = false): Re
         if (isCanonicalHeader) {
             if (coverageKind === 'requirement') {
                 canonicalRequirementHeaderCount += 1;
+            } else {
+                canonicalChangePlanHeaderCount += 1;
             }
             continue;
         }
@@ -233,6 +245,12 @@ export function parse_review_packet(source: string, enforceContract = false): Re
         }
         // A data row keys on a requirement id in column 1; read ID + Assessment + Evidence.
         if (REQUIREMENT_ID.test(cells[0])) {
+            if (cells.length !== CANONICAL_COVERAGE_HEADER.length) {
+                malformedCoverageRow = {
+                    id: cells[0],
+                    section: coverageKind === 'requirement' ? 'Requirement' : 'Change-plan',
+                };
+            }
             const row = { id: cells[0], assessment: cells[1] ?? '', evidence: cells[2] ?? '' };
             if (coverageKind === 'requirement') {
                 coverageRows.push(row);
@@ -264,6 +282,16 @@ export function parse_review_packet(source: string, enforceContract = false): Re
                 'review Requirement coverage must contain exactly one canonical `| ID | Assessment | Evidence |` header'
             );
         }
+        if (changePlanCoverageSectionCount > 0 && canonicalChangePlanHeaderCount !== changePlanCoverageSectionCount) {
+            return contractError(
+                'review Change-plan coverage must contain one canonical `| ID | Assessment | Evidence |` header per section'
+            );
+        }
+        if (malformedCoverageRow !== null) {
+            return contractError(
+                `review ${malformedCoverageRow.section} coverage row ${malformedCoverageRow.id} must contain exactly ID, Assessment, and Evidence cells`
+            );
+        }
         if (coverageRows.length === 0) {
             return contractError('review must contain at least one valid Requirement coverage data row');
         }
@@ -291,6 +319,9 @@ export function parse_review_packet(source: string, enforceContract = false): Re
                     .filter((row) => row.assessment === 'Unsupported' || row.assessment === 'Unverified')
                     .map((row) => row.id)
             );
+            if (requiredWaivers.size === 0 && fields.waivers !== undefined) {
+                return contractError('review `waivers:` must be absent when no requirement row needs a waiver');
+            }
             const waiverSet = new Set(waivers);
             const missing = [...requiredWaivers].filter((waiver) => !waiverSet.has(waiver));
             if (missing.length > 0) {

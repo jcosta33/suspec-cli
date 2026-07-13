@@ -8,7 +8,13 @@
 import { type Result, ok, err, isErr } from '../../../infra/errors/result.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
-import { scan_markdown, visible_text, strip_inline_code, type ScannedLine } from '../../../infra/markdownScan.ts';
+import {
+    atx_heading_level,
+    scan_markdown,
+    visible_text,
+    strip_inline_code,
+    type ScannedLine,
+} from '../../../infra/markdownScan.ts';
 
 export type SpecRecordRequirement = Readonly<{
     id: string;
@@ -80,6 +86,7 @@ const SOL_REQUIREMENT_OPENER = /^(?:REQ|CONSTRAINT|INVARIANT|INTERFACE)\s+([A-Z]
 const SOL_QUESTION_OPENER = /^QUESTION (Q-\d+) \[(blocking|non-blocking)\]:[ \t]*$/;
 const SOL_QUESTION_CANDIDATE = /^[ \t]*QUESTION\b/i;
 const SECTION_HEADING = /^##\s+(.+?)\s*$/;
+const SPEC_STATUSES = new Set(['draft', 'ready']);
 const MARKDOWN_LINK = /\]\(([^)\s#]+)/g;
 const WIKI_LINK = /\[\[([^\]]+)\]\]/g;
 
@@ -183,13 +190,31 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
             })
         );
     }
+    const status = scalar_field(fields, 'status') ?? null;
+    if (status !== null && !SPEC_STATUSES.has(status)) {
+        return err(
+            createAppError('ParseFailure', 'frontmatter `status:` must be draft or ready', {
+                reason: 'invalid-spec-contract',
+                line: null,
+            })
+        );
+    }
+    const format = scalar_field(fields, 'format') ?? null;
+    if (format !== null && format !== 'sol') {
+        return err(
+            createAppError('ParseFailure', 'frontmatter `format:` must be sol when present', {
+                reason: 'invalid-spec-contract',
+                line: null,
+            })
+        );
+    }
     const sourceValue = fields.sources;
     const sourceEntries = sourceValue ?? [];
     const frontmatter: SpecRecordFrontmatter = {
         type: scalar_field(fields, 'type') ?? null,
         id: scalar_field(fields, 'id') ?? null,
-        status: scalar_field(fields, 'status') ?? null,
-        format: scalar_field(fields, 'format') ?? null,
+        status,
+        format,
         sources: sourceEntries.flatMap(source_tokens),
     };
 
@@ -293,8 +318,10 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
             continue;
         }
 
-        // An H3 group heading (e.g. `### The check engine`) closes any open requirement/section body.
-        if (line.startsWith('### ')) {
+        // A higher-level heading closes the section it exits. H1/H2 close an H2 body; H1-H3 close
+        // an H3 requirement. Lower headings remain nested content.
+        const headingLevel = atx_heading_level(line);
+        if (headingLevel !== null && headingLevel <= 3) {
             flush_requirement();
             in_non_goals = false;
             in_intent = false;

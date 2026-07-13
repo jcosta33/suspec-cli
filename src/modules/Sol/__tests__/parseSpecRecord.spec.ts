@@ -47,6 +47,32 @@ describe('parse_spec_record', () => {
         expect(record.frontmatter.sources).toEqual(['ADR-0077', '../suspec/docs/adrs/0077.md', 'JIRA-9']);
     });
 
+    it.each([
+        ['unknown status', SPEC.replace('status: ready', 'status: published'), '`status:` must be draft or ready'],
+        ['wrong-case status', SPEC.replace('status: ready', 'status: Ready'), '`status:` must be draft or ready'],
+        ['unknown format', SPEC.replace('status: ready', 'status: ready\nformat: markdown'), '`format:` must be sol'],
+    ])('rejects a present %s option', (_name, source, message) => {
+        expect(assertErr(parse_spec_record({ source, path: 'spec.md' })).message).toContain(message);
+    });
+
+    it('closes an Intent section at an H1 boundary', () => {
+        const source = `---
+type: spec
+id: SPEC-intent-boundary
+status: draft
+---
+
+## Intent
+
+# Outside the Intent section
+
+This text must not satisfy Intent.
+
+## Requirements
+`;
+        expect(assertOk(parse_spec_record({ source, path: 'spec.md' })).intentBody.trim()).toBe('');
+    });
+
     it('normalizes quotes and inline comments in source-list items', () => {
         const source = `---
 type: spec
