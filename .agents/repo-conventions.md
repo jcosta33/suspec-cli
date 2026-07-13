@@ -1,51 +1,44 @@
-# suspec-cli Repository Conventions
+# Repository conventions
 
-Load this guide when changing TypeScript, module boundaries, or build configuration in this
-repository.
+Load this guide for TypeScript, module boundaries, or build configuration.
 
-## Module Boundaries
+## Modules
 
-- Cross-module imports target the destination module's `useCases/index.ts` barrel.
-- Imports within a module target concrete files by relative path; a module does not import its own
-  barrel.
-- A barrel exports only functions another module consumes. Types declared by a use case remain
-  private; consumers use a local structural type, `ReturnType`, or `Parameters` when needed.
-- `models`, `services`, and `testing` are module-private. Do not re-export private helpers to make a
-  dependency rule pass.
-- `src/infra` contains shared leaf-level utilities and must not import `src/modules`.
-- A use-case file owns one exported operation. Keep parsing helpers and pure contract rules in
-  private services when they do not form a cross-module operation.
+- Cross-module imports target the destination `useCases/index.ts`.
+- Intra-module imports target concrete relative files; never import the module's own barrel.
+- Export only cross-module operations. Keep `models`, `services`, and `testing` private.
+- Keep `src/infra` leaf-only.
+- Give each use-case file one exported operation.
+- Inject filesystem predicates into Core; keep discovery at Commands boundaries.
 
-Run `pnpm deps:validate` after changing imports or module structure.
+```bash
+pnpm deps:validate
+```
 
-## Checker Boundary
+## Ownership
 
-The CLI accepts explicit paths and performs read-only checks. It owns no project state, configuration,
-artifact store, agent loop, or review judgment.
+- Commands: reads, arguments, rendering.
+- Core: deterministic check semantics and structured results.
+- Sol: Markdown and frontmatter parsing.
+- Terminal: option parsing.
+- Unix outcome helpers: stdout, stderr, and exit mapping.
 
-- Commands own filesystem reads, argument handling, and rendering.
-- Core owns check semantics and returns structured results.
-- Sol owns Markdown and frontmatter parsing.
-- Terminal owns option parsing.
-- Inject filesystem predicates into Core when a contract check must resolve an artifact-relative
-  reference. Do not hide path discovery inside a pure check.
-- Write data to stdout and diagnostics about invocation failures to stderr through the Unix outcome
-  helpers.
+The CLI accepts explicit paths, writes nothing, and owns no project state, configuration, store,
+agent loop, or review judgment.
 
 ## TypeScript
 
-- Prefer `type` to `interface`, `as const` objects to enums, and explicit type imports.
-- Use named exports. Module functions use descriptive `snake_case` names and function declarations.
-- Functions with several inputs take one object argument with a nearby named input type.
-- Use guard clauses, braces on every control-flow body, and no nested ternaries.
-- Do not silence errors with `any`, unjustified assertions, or suppression comments. Narrow `unknown`
-  values at I/O boundaries.
-- Preserve explicit `.ts` extensions on source imports under NodeNext resolution.
+- Files use `camelCase.ts`; types and classes use `PascalCase`.
+- Exported module functions use descriptive `snake_case` declarations.
+- Local names use `camelCase`; error types end in `Error`.
+- Prefer domain names over `data`, `item`, and abbreviations.
+- Use named exports, explicit type imports, `type`, discriminated unions, and `Readonly`.
+- Use one object argument for several inputs.
+- Order imports built-in, external, parent, sibling; preserve explicit `.ts` extensions.
+- Use braces, guard clauses, strict equality, and explicit conversion.
+- Reject nested ternaries, default exports, enums, `any`, unjustified assertions, and suppressions.
+- Narrow `unknown` at I/O boundaries.
 
-## Verification
+## Verify
 
-Run the narrowest relevant test while editing, then `pnpm gate` before handoff. The gate checks
-formatting, types, lint, dependency boundaries, unused code, coverage, and the production build.
-
-Inspect every file before staging it. Do not use destructive git operations or rewrite unrelated
-work.
+Run the narrow test while editing, then `pnpm gate`.

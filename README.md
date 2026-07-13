@@ -1,18 +1,12 @@
 # suspec-cli
 
-The reference command-line checker for the [Suspec methodology](https://github.com/jcosta33/suspec).
-It implements the contract in
-[`checks/checks.yaml`](https://github.com/jcosta33/suspec/blob/main/checks/checks.yaml) and reports
-structural diagnostics without making a review judgment.
+The reference deterministic checker for [Suspec](https://github.com/jcosta33/suspec). It implements
+[`checks/checks.yaml`](https://github.com/jcosta33/suspec/blob/main/checks/checks.yaml), reports
+structural facts, and renders no review judgment.
 
-## Requirements
+## Install
 
-- Node.js 22.6 or newer
-- pnpm 10
-
-## Install From Source
-
-suspec-cli is not published to npm.
+Requires Node.js 22.6 or newer and pnpm 10. The package is not published.
 
 ```bash
 git clone https://github.com/jcosta33/suspec-cli
@@ -22,79 +16,65 @@ pnpm build
 pnpm link --global
 ```
 
-`bin/suspec.js` runs the bundled `dist/index.js` after a build. In a source checkout it can also run
-`src/index.ts` through Node's native type stripping, so `node bin/suspec.js <command>` works without
-building first.
+`bin/suspec.js` runs `dist/index.js` after build. In a source checkout it can run `src/index.ts`
+through Node native type stripping, so `node bin/suspec.js <command>` works before build.
 
-## Usage
+## Commands
 
 ```bash
-suspec check <path> [<path>...]                                    # specs, tasks, or change plans
-suspec check <review-path> --spec <spec-path> [--task <task-path>] # review reconciliation
-suspec check --contract                                            # contract JSON
+suspec check <path> [<path>...]
+suspec check <review-path> --spec <spec-path> [--task <task-path>]
+suspec check --contract
 ```
 
-### Results
+A review always requires `--spec`. `--task` is required exactly when review frontmatter names a
+task. Several specs, tasks, or change plans may share one invocation; reviews run alone because
+companion flags belong to one target.
 
-- Exit `0`: clean
-- Exit `1`: warning
-- Exit `2`: blocking diagnostic or usage error
-- `--json`: machine-readable reports on stdout; errors are also explained on stderr
+## Inputs
 
-A single report under `--json` is ordinary JSON. An invocation that produces several reports emits
-one compact JSON value per line (JSON Lines), in processing order. Consumers must parse each
-non-empty line independently rather than parse the entire stream as one JSON document.
+Paths may be absolute or current-working-directory-relative. Use absolute paths for agent handoffs.
 
-Every per-artifact JSON report repeats its recognized `type`. Checked reports carry `diagnostics`;
-recognized unchecked reports carry `checked: false`. The optional final `(file set)` C002 report is
-not an artifact and has no `type`.
+Frontmatter `type:` selects behavior:
 
-### Inputs
+| Type                             | Result                                     |
+| -------------------------------- | ------------------------------------------ |
+| `spec`                           | spec checks                                |
+| `task`                           | shape, evidence, and closure checks        |
+| `change-plan`                    | preservation and wave checks               |
+| `review`                         | reconciliation against explicit companions |
+| `inventory`, `audit`, `research` | recognized with `checked: false`           |
 
-The checker reads each primary path named on the command line. A review always requires its source
-spec through `--spec`; `--task` is required when the review frontmatter names a task and rejected when
-the review names none.
+Missing, empty, misspelled, and unknown types block.
 
-Inputs may be absolute paths or paths relative to the process's current working directory. Agent
-handoffs should use full absolute paths so their meaning does not depend on an implicit working
-directory.
+The strict frontmatter subset accepts top-level string scalars, flat inline or block string lists,
+optional UTF-8 BOM, and comments outside quotes. It rejects duplicate keys, nesting, maps, multiline
+scalars, anchors, aliases, tags, malformed delimiters, quotes, or lists, empty list heads, and
+field-shape mismatches. Values are never coerced. `type` and `id` remain scalars.
 
-The frontmatter `type:` selects the check face:
+## References
 
-- `spec`: spec contract checks
-- `task`: task shape, evidence, and closure checks
-- `change-plan`: preservation-reference and transformation-wave checks
-- `review`: reconciliation against the explicit companion files
+The CLI discovers no repository, workspace, configuration, or artifact store.
 
-`inventory`, `audit`, and `research` are recognized and return an honest
-`checked: false` report. Missing, empty, misspelled, and unknown types are blocking usage errors.
+- Spec source paths resolve from the spec directory.
+- Spec citations resolve against its named `sources.md`.
+- Change-plan preservation references use the contract's bounded sibling-spec rule.
 
-Frontmatter uses Suspec's strict flat subset: top-level scalar fields, flat inline lists, and flat
-block lists. Duplicate keys, nesting, multiline scalars, anchors, aliases, tags, malformed quotes,
-and malformed lists are rejected. Values remain strings; no boolean, number, or null coercion occurs.
-Every recognized artifact keeps `type` and `id` scalar.
+The conventional `~/.agents/artifacts/<workspace>/` root has no special runtime meaning.
 
-Several specs, tasks, or change plans can share one invocation. Each is checked, the process exit code is the
-highest result level, and duplicate frontmatter IDs across the supplied set are diagnosed. Review
-packets are checked one at a time because their companion flags apply to that packet.
+## Output
 
-### Reference Resolution
+| Exit | Meaning                            |
+| ---- | ---------------------------------- |
+| `0`  | clean                              |
+| `1`  | warning                            |
+| `2`  | blocking diagnostic or usage error |
 
-The CLI does not discover a repository root, workspace, configuration file, or artifact store.
-References with filesystem semantics resolve from explicit artifact locations:
+`--json` writes structured reports to stdout and explains usage failures on stderr. One report is
+ordinary JSON. Several reports are one compact JSON value per line, in processing order.
 
-Ordinary Suspec artifacts conventionally live under
-`~/.agents/artifacts/<workspace>/`, but that root has no special meaning to the CLI; callers pass
-the same absolute paths they would pass from any other directory.
-
-- A spec source path resolves from that spec's directory.
-- A spec citation resolves against the `sources.md` named by that spec.
-- A change-plan preservation reference resolves against specs beside the plan according to the
-  contract's sibling-spec rule.
-
-These bounded lookups are part of the check. They are not project-root discovery.
-
-## Examples
+Every artifact report repeats its recognized `type`. Checked reports carry `diagnostics`; unchecked
+reports carry `checked: false`. The optional final `(file set)` C002 report has no artifact type.
 
 ```bash
 suspec check specs/checkout/spec.md
@@ -102,23 +82,15 @@ suspec check plans/payment-change.md --json
 suspec check reviews/checkout.md --spec specs/checkout/spec.md --task tasks/checkout.md
 ```
 
-## Boundary
+The CLI reads and reports. It does not author artifacts, run commands or agents, prove evidence,
+accept work, or own merge policy.
 
-suspec-cli reports facts and severity levels. It does not author records, run agents, decide whether
-work passes review, or block a merge by itself. The caller decides how exit codes participate in its
-workflow.
-
-The implementation is drift-guarded against the canon contract when a sibling Suspec checkout is
-available. CI provides that checkout so contract divergence fails the repository gate.
-
-## Development
+## Develop
 
 ```bash
 pnpm install
 pnpm gate
 ```
 
-- [Architecture](docs/05-architecture.md)
-- [Testing](docs/06-testing.md)
-- [Conventions](docs/07-conventions.md)
-- [Agent guidance](AGENTS.md)
+See [architecture](docs/05-architecture.md), [testing](docs/06-testing.md),
+[conventions](docs/07-conventions.md), and [agent guidance](AGENTS.md).
