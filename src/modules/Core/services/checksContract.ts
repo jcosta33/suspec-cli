@@ -419,12 +419,17 @@ export function check_task_evidence(task: TaskCheckRecord): Diagnostic[] {
     }
     const verify = task.verifyBody.trim();
     const verifyLines = verify.split(/\r\n|[\r\n]/);
-    const visibleVerify = visible_text(scan_markdown(verifyLines));
+    const scannedVerify = scan_markdown(verifyLines);
+    const visibleVerify = visible_text(scannedVerify);
+    const nonFencedVerify = scannedVerify
+        .filter((line) => !line.inFence)
+        .map((line) => line.text)
+        .join('\n');
     const hasExitStatus = /^[ \t>*+-]*Exit status\s*:\s*\d+[ \t]*$/im.test(visibleVerify);
     const hasPastedOutput = hasExitStatus && has_deterministic_fenced_output(verifyLines);
     const hasCiLink = /^[ \t>*+-]*(?:CI|CI link)\s*:\s*https?:\/\/\S+[ \t]*$/im.test(visibleVerify);
     const hasJustifiedNa = /\bn\/a\s*(?::|-)[ \t]*\S+/i.test(visibleVerify);
-    const hasPlaceholder = /\{\{[^}]+\}\}|\b(?:TBD|TODO)\b|\?\?\?/.test(visibleVerify);
+    const hasPlaceholder = /\{\{[^}]+\}\}|\b(?:TBD|TODO)\b|\?\?\?/.test(nonFencedVerify);
     return verify.length > 0 && !hasPlaceholder && (hasPastedOutput || hasCiLink || hasJustifiedNa)
         ? []
         : [

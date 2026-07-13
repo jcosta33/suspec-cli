@@ -123,6 +123,21 @@ describe('check_task', () => {
         expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C023');
     });
 
+    it('rejects canonical template placeholders inside inline code', () => {
+        const verify = [
+            '- Command: `{{exact source check}}`',
+            '- Working directory: `{{absolute path}}`',
+            '- State: `{{commit or stable snapshot}}`',
+            '- Exit status: 0',
+            '- Raw output:',
+            '  ```text',
+            '  PASS src/auth.spec.ts (3 tests)',
+            '  ```',
+        ].join('\n');
+        const report = assertOk(check_task(task('review-ready', verify), 'task.md'));
+        expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C023');
+    });
+
     it('accepts an explicit CI field or explicitly justified n/a without pasted output', () => {
         for (const verify of [
             'CI: https://ci.example.test/runs/1',
