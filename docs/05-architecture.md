@@ -48,7 +48,7 @@ root or read hidden configuration.
 
 ### Sol
 
-`src/modules/Sol` parses frontmatter and Markdown into structural records used by Core. It does not
+`src/modules/Sol` parses artifact Markdown into structural records used by Core. It does not
 decide severity or render output.
 
 ### Terminal
@@ -58,8 +58,8 @@ covered by its tests and changes to flag rejection are API changes.
 
 ### Infra
 
-`src/infra` supplies the shared `Result`/`AppError` algebra, Markdown scanning, and YAML-scalar
-normalization. It is a leaf and imports no module code.
+`src/infra` supplies the shared `Result`/`AppError` algebra, strict frontmatter parser, and Markdown
+scanner. It is a leaf and imports no module code.
 
 ## Dependency Rules
 

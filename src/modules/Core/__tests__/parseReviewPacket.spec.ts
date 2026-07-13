@@ -2,6 +2,12 @@ import { describe, it, expect } from 'vitest';
 
 import { parse_review_packet } from '../services/parseReviewPacket.ts';
 
+function parse_review(source: string) {
+    const result = parse_review_packet(source);
+    if (!result.ok) throw result.error;
+    return result.value;
+}
+
 const PACKET = `---
 type: review
 id: REVIEW-feat
@@ -11,7 +17,7 @@ decision: pending
 
 # Review: feat
 
-## Summary
+## Method notes
 
 what changed.
 
@@ -37,13 +43,17 @@ Block until AC-002 has evidence.
 
 describe('parse_review_packet', () => {
     it('reads the frontmatter decision', () => {
-        expect(parse_review_packet(PACKET).decision).toBe('pending');
-        expect(parse_review_packet('no frontmatter\n').decision).toBeNull();
+        expect(parse_review(PACKET).decision).toBe('pending');
+        expect(parse_review_packet('no frontmatter\n').ok).toBe(false);
+    });
+
+    it('reads the frontmatter decision after a UTF-8 BOM', () => {
+        expect(parse_review(`\uFEFF${PACKET}`).decision).toBe('pending');
     });
 
     it('reads the H2 section titles', () => {
-        expect(parse_review_packet(PACKET).sectionTitles).toEqual([
-            'Summary',
+        expect(parse_review(PACKET).sectionTitles).toEqual([
+            'Method notes',
             'Changed files',
             'Requirement coverage',
             'Open decisions',
@@ -52,7 +62,7 @@ describe('parse_review_packet', () => {
     });
 
     it('reads the coverage rows (id / result / evidence), skipping header + separator', () => {
-        expect(parse_review_packet(PACKET).coverageRows).toEqual([
+        expect(parse_review(PACKET).coverageRows).toEqual([
             { id: 'AC-001', assessment: 'Supported', evidence: '`pnpm test` output pasted' },
             { id: 'AC-002', assessment: 'Unverified', evidence: '' },
         ]);
@@ -71,7 +81,7 @@ AC-002 | Supported | trailing only |
 AC-003 | Supported | neither
 | AC-004 | Supported | both |
 `;
-        expect(parse_review_packet(packet).coverageRows).toEqual([
+        expect(parse_review(packet).coverageRows).toEqual([
             { id: 'AC-001', assessment: 'Supported', evidence: 'leading only' },
             { id: 'AC-002', assessment: 'Supported', evidence: 'trailing only' },
             { id: 'AC-003', assessment: 'Supported', evidence: 'neither' },
@@ -95,9 +105,7 @@ status: draft
 |---|---|
 | AC-099 | Supported |
 `;
-        expect(parse_review_packet(noisy).coverageRows).toEqual([
-            { id: 'AC-001', assessment: 'Supported', evidence: 'x' },
-        ]);
+        expect(parse_review(noisy).coverageRows).toEqual([{ id: 'AC-001', assessment: 'Supported', evidence: 'x' }]);
     });
 
     it('drops a coverage-table row whose ID cell is not requirement-id-shaped (lowercase / prose)', () => {
@@ -114,7 +122,7 @@ status: draft
 | ac-002 | Supported | x |
 | notes | see below | | |
 `;
-        expect(parse_review_packet(malformed).coverageRows).toEqual([
+        expect(parse_review(malformed).coverageRows).toEqual([
             { id: 'AC-001', assessment: 'Supported', evidence: 'x' },
         ]);
     });
@@ -135,17 +143,17 @@ status: draft
 id=AC-001 cmd="a test" result=pass
 \`\`\`
 `;
-        const parsed = parse_review_packet(plainFence);
+        const parsed = parse_review(plainFence);
         expect(parsed.verifyBlocks).toEqual([]);
         expect(parsed.coverageRows).toEqual([{ id: 'AC-001', assessment: 'Supported', evidence: 'x' }]);
     });
 
     it('a frontmatter with no status reads null', () => {
-        expect(parse_review_packet('---\ntask: TASK-x\n---\n# r\n').decision).toBeNull();
+        expect(parse_review('---\ntask: TASK-x\n---\n# r\n').decision).toBeNull();
     });
 
     it('an empty status value reads null', () => {
-        expect(parse_review_packet('---\ndecision:\ntask: TASK-x\n---\n# r\n').decision).toBeNull();
+        expect(parse_review_packet('---\ndecision:\ntask: TASK-x\n---\n# r\n').ok).toBe(false);
     });
 
     it('a short coverage row (missing Assessment/Evidence columns) reads empty for the absent cells', () => {
@@ -158,7 +166,7 @@ status: draft
 |---|---|---|
 | AC-001 |
 `;
-        expect(parse_review_packet(short).coverageRows).toEqual([{ id: 'AC-001', assessment: '', evidence: '' }]);
+        expect(parse_review(short).coverageRows).toEqual([{ id: 'AC-001', assessment: '', evidence: '' }]);
     });
 
     it('an empty pipe-only line in the coverage section is skipped, not a crash', () => {
@@ -170,9 +178,7 @@ status: draft
 |
 | AC-001 | Supported | p |
 `;
-        expect(parse_review_packet(empty).coverageRows).toEqual([
-            { id: 'AC-001', assessment: 'Supported', evidence: 'p' },
-        ]);
+        expect(parse_review(empty).coverageRows).toEqual([{ id: 'AC-001', assessment: 'Supported', evidence: 'p' }]);
     });
 
     it('parses a verify block into {id, cmd, result} and leaves the body unparsed (AC-004)', () => {
@@ -194,7 +200,7 @@ result=fail and id=AC-999 in the body must NOT be parsed
 ## Open decisions
 x
 `;
-        const parsed = parse_review_packet(packet);
+        const parsed = parse_review(packet);
         expect(parsed.verifyBlocks).toEqual([
             { id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'pass', malformed: false },
         ]);
@@ -229,7 +235,7 @@ output
 output
 \`\`\`
 `;
-        const parsed = parse_review_packet(packet);
+        const parsed = parse_review(packet);
         // result=maybe is outside the {pass,fail} enum → result null, malformed. The id-less block →
         // id null, malformed. A block with no cmd="…" token at all → cmd null, malformed. A block with
         // no result= token at all → result null, malformed. All surfaced, none dropped.
@@ -259,7 +265,7 @@ out
 out
 \`\`\`
 `;
-        const parsed = parse_review_packet(packet);
+        const parsed = parse_review(packet);
         // Both blocks are kept (the duplicate is the surfaced fact, downstream in C013) — not dropped.
         expect(parsed.verifyBlocks).toHaveLength(2);
         expect(parsed.verifyBlocks.every((b) => b.id === 'AC-001')).toBe(true);
@@ -281,7 +287,7 @@ out
 `;
         // The `result=fail` and `id=AC-999` inside the quoted cmd must not override the binding's own
         // `id=AC-001` / `result=pass`.
-        expect(parse_review_packet(packet).verifyBlocks).toEqual([
+        expect(parse_review(packet).verifyBlocks).toEqual([
             { id: 'AC-001', cmd: 'echo result=fail id=AC-999', result: 'pass', malformed: false },
         ]);
     });
@@ -290,7 +296,7 @@ out
         const packet = `---
 decision: pending
 ---
-## Summary
+## Method notes
 
 \`\`\`verify id=AC-001 cmd="a test" result=pass
 out
@@ -302,7 +308,7 @@ out
 |---|---|---|
 | AC-001 | Supported | x |
 `;
-        expect(parse_review_packet(packet).verifyBlocks).toEqual([]);
+        expect(parse_review(packet).verifyBlocks).toEqual([]);
     });
 });
 
@@ -314,7 +320,7 @@ describe('parse_review_packet — markdown structure (#23)', () => {
             'status: draft',
             '---',
             '',
-            '## Summary',
+            '## Method notes',
             'Example coverage table:',
             '',
             '```',
@@ -327,7 +333,7 @@ describe('parse_review_packet — markdown structure (#23)', () => {
             '## Changed files',
             '- src/x.ts',
         ].join('\n');
-        const parsed = parse_review_packet(packet);
+        const parsed = parse_review(packet);
         expect(parsed.coverageRows).toEqual([]);
         expect(parsed.sectionTitles).not.toContain('Requirement coverage');
     });
@@ -344,7 +350,7 @@ describe('parse_review_packet — markdown structure (#23)', () => {
             '|---|---|---|',
             '| AC-001 | Supported | `grep x | wc -l` |',
         ].join('\n');
-        const row = parse_review_packet(packet).coverageRows[0];
+        const row = parse_review(packet).coverageRows[0];
         expect(row.id).toBe('AC-001');
         expect(row.assessment).toBe('Supported');
         expect(row.evidence).toBe('`grep x | wc -l`');
@@ -366,7 +372,7 @@ describe('parse_review_packet — markdown structure (#23)', () => {
             'out',
             '```',
         ].join('\n');
-        const block = parse_review_packet(packet).verifyBlocks[0];
+        const block = parse_review(packet).verifyBlocks[0];
         expect(block.id).toBe('AC-001');
         expect(block.result).toBe('pass');
     });

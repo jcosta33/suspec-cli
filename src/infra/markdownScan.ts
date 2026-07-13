@@ -2,17 +2,46 @@
 // (review packet, spec record, change plan) and the body-text checks (C004 strength words, C007
 // TBD-at-ready) route their line scanning through this so a `## Requirement coverage` heading, a
 // `### AC-001`, a `| … |` table row, a strength word, or a `TODO` marker that appears INSIDE a
-// fenced code block or an inline-code span is read as verbatim example text, never as live
-// structure. No markdown dependency — a small linear state machine. Pure.
+// fenced code block, HTML comment, or inline-code span is read as verbatim example text, never as
+// live structure. No markdown dependency — a small linear state machine. Pure.
 
 export type ScannedLine = Readonly<{
-    text: string; // the line, verbatim
+    text: string; // verbatim in fences; otherwise with HTML comments removed
     inFence: boolean; // the line is a fence delimiter or fenced content (verbatim, not structure)
     opensFence: boolean; // this line opens a fenced code block
+    closesFence: boolean; // this line closes a fenced code block
     fenceInfo: string; // the info string after an opening fence marker (e.g. `verify id=…`); '' otherwise
 }>;
 
-const FENCE = /^(\s*)(`{3,}|~{3,})(.*)$/;
+const FENCE = /^( {0,3})(`{3,}|~{3,})(.*)$/;
+const CLOSING_FENCE = /^( {0,3})(`{3,}|~{3,})[ \t]*$/;
+
+function strip_html_comments(line: string, startsInComment: boolean): { text: string; inComment: boolean } {
+    let text = '';
+    let cursor = 0;
+    let inComment = startsInComment;
+    const searchable = strip_inline_code(line);
+    while (cursor < line.length) {
+        if (inComment) {
+            const close = line.indexOf('-->', cursor);
+            if (close < 0) {
+                return { text, inComment: true };
+            }
+            cursor = close + 3;
+            inComment = false;
+            continue;
+        }
+        const open = searchable.indexOf('<!--', cursor);
+        if (open < 0) {
+            text += line.slice(cursor);
+            break;
+        }
+        text += line.slice(cursor, open);
+        cursor = open + 4;
+        inComment = true;
+    }
+    return { text, inComment };
+}
 
 // Classify every line by whether it sits inside a fenced code block. An opening run of >= 3 of the
 // same marker char (``` or ~~~) opens a fence; the next line that is only that marker char, run
@@ -24,28 +53,58 @@ export function scan_markdown(lines: readonly string[]): ScannedLine[] {
     const out: ScannedLine[] = [];
     let marker: string | null = null; // the open fence's char ('`' or '~'), or null when not in a fence
     let runLen = 0;
-    for (const text of lines) {
+    let inHtmlComment = false;
+    for (const rawText of lines) {
         if (marker === null) {
-            const open = FENCE.exec(text);
+            // A real fence opener at the start of a visible line wins before HTML-comment scanning;
+            // comment-looking text in its info string and body is verbatim raw output.
+            const open = inHtmlComment ? null : FENCE.exec(rawText);
             if (open !== null) {
                 marker = open[2][0];
                 runLen = open[2].length;
-                out.push({ text, inFence: true, opensFence: true, fenceInfo: open[3].trim() });
+                out.push({
+                    text: rawText,
+                    inFence: true,
+                    opensFence: true,
+                    closesFence: false,
+                    fenceInfo: open[3].trim(),
+                });
                 continue;
             }
-            out.push({ text, inFence: false, opensFence: false, fenceInfo: '' });
+            const visible = strip_html_comments(rawText, inHtmlComment);
+            inHtmlComment = visible.inComment;
+            out.push({ text: visible.text, inFence: false, opensFence: false, closesFence: false, fenceInfo: '' });
             continue;
         }
-        // Inside a fence: a closing fence is a line of only the marker char, run length >= the opener.
-        const trimmed = text.trim();
-        const isClose = trimmed.length >= runLen && trimmed.length > 0 && [...trimmed].every((ch) => ch === marker);
-        out.push({ text, inFence: true, opensFence: false, fenceInfo: '' });
+        // Inside a fence: a closing fence uses the same marker, reaches the opener's length, and
+        // carries no content. CommonMark permits at most three leading spaces.
+        const close = CLOSING_FENCE.exec(rawText);
+        const closeRun = close?.[2];
+        const isClose = closeRun?.startsWith(marker) === true && closeRun.length >= runLen;
+        out.push({ text: rawText, inFence: true, opensFence: false, closesFence: isClose, fenceInfo: '' });
         if (isClose) {
             marker = null;
             runLen = 0;
         }
     }
     return out;
+}
+
+export function has_nonempty_fenced_block(lines: readonly string[]): boolean {
+    let hasContent = false;
+    for (const line of scan_markdown(lines)) {
+        if (line.opensFence) {
+            hasContent = false;
+        } else if (line.closesFence) {
+            if (hasContent) {
+                return true;
+            }
+            hasContent = false;
+        } else if (line.inFence && line.text.trim().length > 0) {
+            hasContent = true;
+        }
+    }
+    return false;
 }
 
 // Blank out inline-code spans (`` `…` ``, including multi-backtick runs) with equal-length spaces,

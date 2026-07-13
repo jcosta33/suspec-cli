@@ -17,6 +17,10 @@ sources:
   - ADR-0077
 ---
 
+## Intent
+
+Reject malformed input.
+
 ## Requirements
 
 ### AC-001 — the tool rejects bad input
@@ -112,6 +116,15 @@ describe('check_spec', () => {
         const failure = assertErr(check_spec({ source: 'no frontmatter here', path: 'spec.md', exists: () => true }));
         expect(failure._tag).toBe('ParseFailure');
     });
+
+    it('does not let a commented Intent heading or body satisfy C021', () => {
+        const commented = CONFORMANT.replace(
+            '## Intent\n\nReject malformed input.',
+            '<!--\n## Intent\n\nReject malformed input.\n-->'
+        );
+        const report = assertOk(check_spec({ source: commented, path: 'spec.md', exists: () => true }));
+        expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C021');
+    });
 });
 
 describe('check_spec — markdown structure (#31/#23)', () => {
@@ -126,6 +139,9 @@ describe('check_spec — markdown structure (#31/#23)', () => {
             'sources:',
             '  - ADR-0077',
             '---',
+            '',
+            '## Intent',
+            'Exercise fenced content.',
             '',
             '## Requirements',
             '',
@@ -159,6 +175,9 @@ describe('check_spec — markdown structure (#31/#23)', () => {
             '  - ADR-0077',
             '---',
             '',
+            '## Intent',
+            'Exercise fenced headings.',
+            '',
             '## Requirements',
             '',
             '### AC-001 — emits a scaffold',
@@ -189,6 +208,9 @@ describe('check_spec — markdown structure (#31/#23)', () => {
             'sources:',
             '  - ADR-0077',
             '---',
+            '',
+            '## Intent',
+            'Exercise inline code.',
             '',
             '## Requirements',
             '',

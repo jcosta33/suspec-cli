@@ -8,7 +8,7 @@ structural diagnostics without making a review judgment.
 ## Requirements
 
 - Node.js 22.6 or newer
-- npm for source installation; `pnpm` for repository development
+- pnpm 10
 
 ## Install From Source
 
@@ -17,9 +17,9 @@ suspec-cli is not published to npm.
 ```bash
 git clone https://github.com/jcosta33/suspec-cli
 cd suspec-cli
-npm install
-npm run build
-npm link
+pnpm install --frozen-lockfile
+pnpm build
+pnpm link --global
 ```
 
 `bin/suspec.js` runs the bundled `dist/index.js` after a build. In a source checkout it can also run
@@ -29,7 +29,7 @@ building first.
 ## Usage
 
 ```bash
-suspec check <path> [<path>...]                                    # specs or change plans
+suspec check <path> [<path>...]                                    # specs, tasks, or change plans
 suspec check <review-path> --spec <spec-path> [--task <task-path>] # review reconciliation
 suspec check --contract                                            # contract JSON
 ```
@@ -58,13 +58,18 @@ directory.
 The frontmatter `type:` selects the check face:
 
 - `spec`: spec contract checks
+- `task`: task shape, evidence, and closure checks
 - `change-plan`: preservation-reference and transformation-wave checks
 - `review`: reconciliation against the explicit companion files
 
-Another type has no checker face and returns a clean "nothing to validate" report. A file without
-`type:` takes the spec parser path so malformed input is not silently skipped.
+`inventory`, `audit`, `research`, and `inspection` are recognized and return an honest
+`checked: false` report. Missing, empty, misspelled, and unknown types are blocking usage errors.
 
-Several specs or change plans can share one invocation. Each is checked, the process exit code is the
+Frontmatter uses Suspec's strict flat subset: top-level scalar fields, flat inline lists, and flat
+block lists. Duplicate keys, nesting, multiline scalars, anchors, aliases, tags, malformed quotes,
+and malformed lists are rejected. Values remain strings; no boolean, number, or null coercion occurs.
+
+Several specs, tasks, or change plans can share one invocation. Each is checked, the process exit code is the
 highest result level, and duplicate frontmatter IDs across the supplied set are diagnosed. Review
 packets are checked one at a time because their companion flags apply to that packet.
 

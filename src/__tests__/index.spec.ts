@@ -35,6 +35,10 @@ sources:
   - ADR-0077
 ---
 
+## Intent
+
+Exercise command dispatch.
+
 ## Requirements
 
 ### AC-001 — does it

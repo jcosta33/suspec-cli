@@ -2,15 +2,15 @@
 // and the dispatcher's COMMANDS map is cross-checked against this list by test (index.spec.ts). The surface is the
 // single check verb (ADR-0143): the CLI reads exactly the files it is handed — the primary
 // artifact's kind comes from its own frontmatter, companions are explicit flags. The only lookups
-// beyond the handed files are artifact-relative reference resolution (C009/C015 beside the spec,
-// C010's sibling specs beside the plan) — never a tree walk, never an inferred root.
+// beyond the handed files are artifact-relative reference resolution (C009/C015 from the artifact
+// directory, C010's bounded sibling-spec scan) — never a tree walk, never an inferred root.
 export const COMMAND_CATALOG = [
     {
         name: 'check',
-        description: 'Validate Suspec artifacts by their frontmatter type — spec, change-plan, or review',
+        description: 'Validate Suspec artifacts by explicit frontmatter type',
         usage: [
             'suspec check <artifact> [<artifact>...]',
-            '  <artifact>                a spec or change-plan file (type read from its own frontmatter);',
+            '  <artifact>                a spec, task, or change-plan file (type read from frontmatter);',
             '                            several files run in one process — exit = the max across files',
             'suspec check <review-path> --spec <spec-path> [--task <task-path>]',
             '  <review-path>             a review packet; --spec is always required',

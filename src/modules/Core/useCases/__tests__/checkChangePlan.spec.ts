@@ -33,7 +33,7 @@ preserves: ${preserves}
 
 # Change Plan
 
-## Behavioral preservation guarantees
+## Preservation guarantees
 
 | ID | Behavior | Verify with |
 |---|---|---|
@@ -74,6 +74,18 @@ describe('check_change_plan — C010/C011 (AC-001/002/003)', () => {
         expect(codes(report.diagnostics)).toEqual(['C010']);
         expect(report.diagnostics[0].message).toContain('SPEC-checkout#AC-999');
         expect(report.level).toBe('blocking');
+    });
+
+    it('C010 reads unresolved refs from the canonical Preservation guarantees heading', () => {
+        const report = assertOk(
+            check_change_plan({
+                source: plan({ preserves: '[]', guarantees: '| SPEC-missing#AC-999 | nope | `t` |' }),
+                path: 'p.md',
+                spec_ref_resolves: () => false,
+            })
+        );
+        expect(codes(report.diagnostics)).toEqual(['C010']);
+        expect(report.diagnostics[0].message).toContain('SPEC-missing#AC-999');
     });
 
     it('AC-002: a PG-NNN plan-local id produces no C010 finding', () => {
@@ -189,7 +201,7 @@ describe('check_change_plan — wave continuation (#23 A4)', () => {
             'created: 2026-06-19',
             '---',
             '',
-            '## Behavioral preservation guarantees',
+            '## Preservation guarantees',
             '',
             '| ID | Behavior | Verify with |',
             '|---|---|---|',

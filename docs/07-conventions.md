@@ -13,12 +13,8 @@ dependency-cruiser enforce the machine-checkable parts.
   `data`, `item`, or abbreviations.
 
 ```ts
-type BuildSourceExistsInput = {
-    artifactPath: string;
-};
-
-export function build_source_exists(input: BuildSourceExistsInput): (ref: string) => boolean {
-    const artifactDirectory = dirname(input.artifactPath);
+export function build_source_exists(artifactPath: string): (ref: string) => boolean {
+    const artifactDirectory = dirname(artifactPath);
     return (ref) => existsSync(resolve(artifactDirectory, ref));
 }
 ```

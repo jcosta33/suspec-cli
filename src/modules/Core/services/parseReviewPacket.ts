@@ -9,8 +9,10 @@
 // are real-looking; the engine only parses a packet a real run produced. Rows whose first cell is
 // not requirement-ID-shaped are outside the coverage record consumed by the checks.
 
-import { normalize_scalar } from '../../../infra/yamlScalar.ts';
 import { scan_markdown, strip_inline_code } from '../../../infra/markdownScan.ts';
+import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
+import { err, isErr, ok, type Result } from '../../../infra/errors/result.ts';
+import { list_field, parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
 
 // --- The review-packet shape the structural + coverage checks key on ----------------------------
 
@@ -35,13 +37,14 @@ export type VerifyBlock = Readonly<{
 
 export type ReviewPacket = Readonly<{
     decision: string | null; // frontmatter decision (or null when absent)
+    id: string | null;
+    task: string | null;
+    waivers: readonly string[];
     sectionTitles: readonly string[];
     coverageRows: readonly CoverageRow[];
     verifyBlocks: readonly VerifyBlock[]; // the structured-evidence blocks in the coverage section
 }>;
 
-const FRONTMATTER_FENCE = '---';
-const DECISION_KEY = /^decision:\s*(.*)$/;
 const SECTION_HEADING = /^##\s+(.+?)\s*$/;
 const COVERAGE_HEADING = /^##\s+Requirement coverage\s*$/i;
 const REQUIREMENT_ID = /^[A-Z][A-Z0-9]*-\d+$/;
@@ -92,20 +95,6 @@ function is_separator_row(cells: readonly string[]): boolean {
     return cells.length > 0 && cells.every((cell) => /^:?-+:?$/.test(cell));
 }
 
-function read_frontmatter_decision(lines: readonly string[]): string | null {
-    if (lines[0] !== FRONTMATTER_FENCE) {
-        return null;
-    }
-    for (let index = 1; index < lines.length && lines[index] !== FRONTMATTER_FENCE; index += 1) {
-        const match = DECISION_KEY.exec(lines[index]);
-        if (match !== null) {
-            const value = normalize_scalar(match[1]);
-            return value.length > 0 ? value : null;
-        }
-    }
-    return null;
-}
-
 // Parse a verify block's info-string (the text after ```` ```verify ````) into the closed-value
 // binding (AC-004). The fenced body is NEVER read — only this info-string. A block missing any of the
 // three closed-value fields (id / a quoted cmd / a `pass`|`fail` result) is `malformed`: surfaced,
@@ -126,9 +115,32 @@ function parse_verify_info(info: string): VerifyBlock {
     return { id, cmd, result, malformed };
 }
 
-export function parse_review_packet(source: string): ReviewPacket {
+export function parse_review_packet(source: string): Result<ReviewPacket, AppError> {
     const lines = source.split(/\r\n|[\r\n]/);
-    const decision = read_frontmatter_decision(lines);
+    const parsedFrontmatter = parse_frontmatter(source);
+    if (isErr(parsedFrontmatter)) {
+        return err(parsedFrontmatter.error);
+    }
+    const fields = parsedFrontmatter.value.fields;
+    for (const key of ['type', 'id', 'decision', 'task', 'pr', 'reviewer'] as const) {
+        if (fields[key] !== undefined && typeof fields[key] !== 'string') {
+            return err(
+                createAppError('ParseFailure', `frontmatter \`${key}:\` must be a scalar`, {
+                    reason: 'unparseable-frontmatter',
+                    line: null,
+                })
+            );
+        }
+    }
+    if (fields.waivers !== undefined && !Array.isArray(fields.waivers)) {
+        return err(
+            createAppError('ParseFailure', 'frontmatter `waivers:` must be a list', {
+                reason: 'unparseable-frontmatter',
+                line: null,
+            })
+        );
+    }
+    const decision = scalar_field(fields, 'decision') ?? null;
 
     const sectionTitles: string[] = [];
     const coverageRows: CoverageRow[] = [];
@@ -178,5 +190,13 @@ export function parse_review_packet(source: string): ReviewPacket {
         }
     }
 
-    return { decision, sectionTitles, coverageRows, verifyBlocks };
+    return ok({
+        decision,
+        id: scalar_field(fields, 'id') ?? null,
+        task: scalar_field(fields, 'task') ?? null,
+        waivers: list_field(fields, 'waivers') ?? [],
+        sectionTitles,
+        coverageRows,
+        verifyBlocks,
+    });
 }

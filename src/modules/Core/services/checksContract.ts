@@ -1,29 +1,33 @@
-// The checks contract (suspec/checks/checks.yaml + docs/reference/checks.md), implemented in code.
-// checks.yaml sanctions implementing the reference directly ("Read the rules from checks.yaml, or
-// implement the checks reference directly — they must agree over the core checks"). We pin the
+// The machine contract in suspec/checks/checks.yaml, implemented in code. The human reference in
+// docs/reference/checks.md explains the same rules and must agree with it. We pin the
 // contract version and the C-code table here; a drift-guard test asserts they match a sibling
 // Suspec canon checkout when one is present, so the CLI stays hermetic while catching divergence.
 //
 // These rule functions are PURE over a ParsedSpec record — the parser (Sol) extracts the structure;
-// this module owns the contract semantics (strength words, the Verify-line shape, link
+// this module implements the contract semantics (strength words, the Verify-line shape, link
 // classification). C009's filesystem check takes an injected `exists` predicate so it stays pure;
 // C010 takes an injected `spec_ref_resolves` predicate for the same reason (the command reads the
 // files). C002 (cross-file id collision) keys on the file set passed in one invocation and lives
 // with the file-set checker (checkArtifactSet).
 
 import type { OutcomeLevel } from '../useCases/unixOutcome.ts';
-import { strip_inline_code } from '../../../infra/markdownScan.ts';
+import {
+    has_nonempty_fenced_block,
+    scan_markdown,
+    strip_inline_code,
+    visible_text,
+} from '../../../infra/markdownScan.ts';
 
 // Pinned to suspec/checks/checks.yaml `version:`; the drift-guard test fails if the sibling diverges.
-export const CONTRACT_VERSION = '0.17.0';
+export const CONTRACT_VERSION = '0.18.0';
 
 export type CheckSeverity = 'hard-error' | 'warning';
 
 // prettier-ignore
 export type CheckId =
     | 'C001' | 'C002' | 'C003' | 'C004'
-    | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C012' | 'C013' | 'C014' | 'C015'
-    | 'C016' | 'C019' | 'C020';
+    | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C012' | 'C013' | 'C015'
+    | 'C016' | 'C019' | 'C020' | 'C021' | 'C022' | 'C023' | 'C024';
 
 // Severity per check, the single source inside suspec-cli; a total Record so the lookup needs no
 // fallback. The drift guard reconciles it against suspec/checks/checks.yaml.
@@ -39,10 +43,6 @@ const SEVERITY_BY_ID: Record<CheckId, CheckSeverity> = {
     C011: 'warning',
     C012: 'warning',
     C013: 'warning',
-    // C014 do-not-change-touched is checklist-level (docs/reference/checks.md): it needs the live
-    // diff, which a path-agnostic checker never sees — the reviewer's own re-run is the honest
-    // backstop. The contract rule rides these tables; no engine rule function computes it.
-    C014: 'warning',
     C015: 'warning',
     // C016 supported-needs-evidence: the contract pins it hard-error (checks.yaml review_file content_rule).
     // An empty-Evidence Supported is a structural contradiction, not a judgment call; see ADR-0097.
@@ -53,6 +53,10 @@ const SEVERITY_BY_ID: Record<CheckId, CheckSeverity> = {
     // review that can't be tied to its spec/task is structurally unverifiable, not a judgment call
     // (mirrors C016) — blocking severity at check time; the human owns what blocks a merge (ADR-0143).
     C020: 'hard-error',
+    C021: 'hard-error',
+    C022: 'hard-error',
+    C023: 'hard-error',
+    C024: 'hard-error',
 };
 
 export function severity_of(id: CheckId): CheckSeverity {
@@ -72,11 +76,14 @@ export const CORE_CHECKS: readonly { id: CheckId; name: string; severity: CheckS
     { id: 'C011', name: 'waves-present', severity: severity_of('C011') },
     { id: 'C012', name: 'coverage', severity: severity_of('C012') },
     { id: 'C013', name: 'verify-evidence-binding', severity: severity_of('C013') },
-    { id: 'C014', name: 'do-not-change-touched', severity: severity_of('C014') },
     { id: 'C015', name: 'citation-resolves', severity: severity_of('C015') },
     { id: 'C016', name: 'supported-needs-evidence', severity: severity_of('C016') },
     { id: 'C019', name: 'malformed-requirement-heading', severity: severity_of('C019') },
     { id: 'C020', name: 'unresolvable-ref', severity: severity_of('C020') },
+    { id: 'C021', name: 'intent-present', severity: severity_of('C021') },
+    { id: 'C022', name: 'task-shape', severity: severity_of('C022') },
+    { id: 'C023', name: 'task-evidence', severity: severity_of('C023') },
+    { id: 'C024', name: 'closed-task-resolved', severity: severity_of('C024') },
 ];
 
 // --- C020 unresolvable-ref (ADR-0128, re-scoped by ADR-0143) --------------------------------------
@@ -113,9 +120,9 @@ const STRENGTH_WORDS = ['must not', 'must', 'should not', 'should', 'may'] as co
 
 const STRENGTH_WORD_PATTERN = new RegExp(`\\b(?:${STRENGTH_WORDS.join('|')})\\b`, 'gi');
 
-// The Verify line a requirement must carry (C003) — `Verify with:` (simple form) or `VERIFY BY`
-// (SOL form). Anchored to a line start so it is the requirement's own line, not prose.
-const VERIFY_LINE_PATTERN = /^[ \t>-]*(?:Verify with:|VERIFY BY)/m;
+// The non-empty Verify line a requirement must carry (C003): `Verify with:` followed by content,
+// or `VERIFY BY` followed by a separated command. Anchored to the requirement's own line.
+const VERIFY_LINE_PATTERN = /^[ \t>-]*(?:Verify with:[ \t]*\S|VERIFY BY[ \t]+\S)/m;
 
 // At `status: ready`, none of these may remain (C007). At draft they are fine.
 const UNRESOLVED_MARKER_PATTERN = /\b(?:TBD|TODO)\b|\?\?\?/;
@@ -151,6 +158,7 @@ export type ParsedSpec = Readonly<{
     frontmatter: SpecFrontmatter;
     requirements: readonly Requirement[];
     sectionTitles: readonly string[];
+    intentBody: string;
     nonGoalsBody: string;
     openQuestionsPresent: boolean;
     bodyText: string;
@@ -266,7 +274,11 @@ export function check_verify_with(spec: ParsedSpec): Diagnostic[] {
     for (const requirement of spec.requirements) {
         if (!VERIFY_LINE_PATTERN.test(requirement.body)) {
             diagnostics.push(
-                diagnostic('C003', `requirement ${requirement.id} has no "Verify with:" line`, requirement.line)
+                diagnostic(
+                    'C003',
+                    `requirement ${requirement.id} has no non-empty "Verify with:" line`,
+                    requirement.line
+                )
             );
         }
     }
@@ -324,6 +336,94 @@ export function check_no_tbd_at_ready(spec: ParsedSpec): Diagnostic[] {
         diagnostics.push(diagnostic('C007', 'an unresolved blocking open question remains at status: ready', null));
     }
     return diagnostics;
+}
+
+// --- C021 intent-present -------------------------------------------------------------------------
+export function check_intent_present(spec: ParsedSpec): Diagnostic[] {
+    return spec.intentBody.trim().length > 0
+        ? []
+        : [diagnostic('C021', 'spec must contain a non-empty `## Intent` section', null)];
+}
+
+export type TaskCheckRecord = Readonly<{
+    type: string | null;
+    id: string | null;
+    source: readonly string[];
+    scope: readonly string[];
+    status: string | null;
+    sectionTitles: readonly string[];
+    verifyBody: string;
+    bodyText: string;
+}>;
+
+const TASK_STATUSES = new Set(['ready', 'running', 'review-ready', 'closed']);
+const TASK_SECTIONS = [
+    'Source',
+    'Scope',
+    'Do not change',
+    'Affected areas',
+    'Verify',
+    'Agent instructions',
+    'Findings',
+    'Run summary',
+] as const;
+
+// --- C022 task-shape ----------------------------------------------------------------------------
+export function check_task_shape(task: TaskCheckRecord): Diagnostic[] {
+    const failures: string[] = [];
+    if (task.type !== 'task') failures.push('`type:` must equal `task`');
+    if (task.id === null || task.id.trim().length === 0) failures.push('`id:` must be a non-empty scalar');
+    if (task.source.length === 0) failures.push('`source:` must be a non-empty list');
+    if (task.scope.length === 0) failures.push('`scope:` must be a non-empty list');
+    if (task.status === null || !TASK_STATUSES.has(task.status)) {
+        failures.push('`status:` must be ready, running, review-ready, or closed');
+    }
+    const counts = new Map<string, number>();
+    for (const title of task.sectionTitles) counts.set(title, (counts.get(title) ?? 0) + 1);
+    for (const title of TASK_SECTIONS) {
+        const count = counts.get(title) ?? 0;
+        if (count === 0) failures.push(`missing \`## ${title}\``);
+        if (count > 1) failures.push(`\`## ${title}\` appears more than once`);
+    }
+    return failures.length === 0 ? [] : [diagnostic('C022', failures.join('; '), null)];
+}
+
+// --- C023 task-evidence -------------------------------------------------------------------------
+export function check_task_evidence(task: TaskCheckRecord): Diagnostic[] {
+    if (task.status !== 'review-ready' && task.status !== 'closed') {
+        return [];
+    }
+    const verify = task.verifyBody.trim();
+    const verifyLines = verify.split(/\r\n|[\r\n]/);
+    const visibleVerify = visible_text(scan_markdown(verifyLines));
+    const hasExitStatus = /^[ \t>*+-]*Exit status\s*:\s*\d+[ \t]*$/im.test(visibleVerify);
+    const hasPastedOutput = hasExitStatus && has_nonempty_fenced_block(verifyLines);
+    const hasCiLink = /https?:\/\/\S+/i.test(visibleVerify);
+    const hasJustifiedNa = /\bn\/a\s*(?::|-)[ \t]*\S+/i.test(visibleVerify);
+    const hasPlaceholder = /\{\{[^}]+\}\}|\b(?:TBD|TODO)\b|\?\?\?/.test(visibleVerify);
+    return verify.length > 0 && !hasPlaceholder && (hasPastedOutput || hasCiLink || hasJustifiedNa)
+        ? []
+        : [
+              diagnostic(
+                  'C023',
+                  'task `## Verify` must contain a numeric `Exit status:` plus non-empty fenced raw output, a CI link, or `n/a` with a reason',
+                  null
+              ),
+          ];
+}
+
+// --- C024 closed-task-resolved ------------------------------------------------------------------
+export function check_closed_task_resolved(task: TaskCheckRecord): Diagnostic[] {
+    if (task.status !== 'closed') return [];
+    const unresolvedNamedBlocker = task.bodyText.split(/\r\n|[\r\n]/).some((line) => {
+        const match = /^[ \t>*+-]*(?:Blocking|Open question \(blocking\)|Blocked questions):[ \t]*(.*)$/i.exec(line);
+        if (match === null) return false;
+        const value = match[1].trim().toLowerCase();
+        return value.length > 0 && value !== 'none' && value !== 'n/a';
+    });
+    return UNRESOLVED_MARKER_PATTERN.test(task.bodyText) || unresolvedNamedBlocker
+        ? [diagnostic('C024', 'closed task contains an unresolved blocking decision', null)]
+        : [];
 }
 
 // --- C008 sources-named --------------------------------------------------------------------------
@@ -751,6 +851,7 @@ export function run_spec_checks(input: RunSpecChecksInput): Diagnostic[] {
         ...check_verify_with(input.spec),
         ...check_one_strength_word(input.spec),
         ...check_no_tbd_at_ready(input.spec),
+        ...check_intent_present(input.spec),
         ...check_sources_named(input.spec),
         ...check_broken_source_link({ spec: input.spec, exists: input.exists }),
         ...check_citation_resolves(input.spec, anchor_resolves),

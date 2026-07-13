@@ -1,58 +1,58 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { parse_task_packet } from '../useCases/parseTaskPacket.ts';
 
-function packet(scopeLine: string): string {
+function packet(scope: string): string {
     return `---
 type: task
 id: TASK-feat
-${scopeLine}
+source: [SPEC-feat]
+${scope}
 status: review-ready
 ---
 
 # Task
+
+## Verify
+
+\`\`\`text
+ok
+\`\`\`
 `;
 }
 
+function parse(source: string) {
+    const result = parse_task_packet(source);
+    if (!result.ok) throw result.error;
+    return result.value;
+}
+
 describe('parse_task_packet', () => {
-    it('splits a flow-style scope into requirement ids', () => {
-        expect(parse_task_packet(packet('scope: [AC-001, AC-002, C-003]')).scope).toEqual([
+    it('reads inline and block list scopes', () => {
+        expect(parse(packet('scope: [AC-001, AC-002, C-003]')).frontmatter.scope).toEqual([
             'AC-001',
             'AC-002',
             'C-003',
         ]);
+        expect(parse(packet('scope:\n  - AC-001\n  - AC-002')).frontmatter.scope).toEqual(['AC-001', 'AC-002']);
     });
 
-    it('reads a bare scalar scope', () => {
-        expect(parse_task_packet(packet('scope: AC-007')).scope).toEqual(['AC-007']);
+    it('preserves comments outside list values', () => {
+        expect(parse(packet('scope: [AC-001] # current slice')).frontmatter.scope).toEqual(['AC-001']);
+        expect(parse(packet('scope:\n  # current slice\n  - AC-001')).frontmatter.scope).toEqual(['AC-001']);
     });
 
-    it('reads wrapped, next-line, and block-style scopes', () => {
-        expect(parse_task_packet(packet('scope: [AC-001,\n  AC-002,\n  AC-003]')).scope).toEqual([
-            'AC-001',
-            'AC-002',
-            'AC-003',
-        ]);
-        expect(parse_task_packet(packet('scope:\n  [AC-001, AC-002, PG-001]')).scope).toEqual([
-            'AC-001',
-            'AC-002',
-            'PG-001',
-        ]);
-        expect(parse_task_packet(packet('scope:\n  - AC-001\n  - AC-002')).scope).toEqual(['AC-001', 'AC-002']);
+    it('reads sections, Verify content, and visible body text', () => {
+        const parsed = parse(packet('scope: [AC-001]'));
+        expect(parsed.sectionTitles).toContain('Verify');
+        expect(parsed.verifyBody).toContain('ok');
+        expect(parsed.bodyText).toContain('# Task');
     });
 
-    it('ignores requirement-shaped ids in YAML comments', () => {
-        expect(parse_task_packet(packet('scope: [AC-001] # retired AC-999')).scope).toEqual(['AC-001']);
-        expect(parse_task_packet(packet('scope:\n  # retired AC-999\n  - AC-001')).scope).toEqual(['AC-001']);
-    });
-
-    it('stops a scalar at the next frontmatter key', () => {
-        expect(parse_task_packet(packet('scope: AC-007')).scope).toEqual(['AC-007']);
-    });
-
-    it('returns an empty scope for absent, empty, or unparseable frontmatter', () => {
-        expect(parse_task_packet(packet('scope: []')).scope).toEqual([]);
-        expect(parse_task_packet(packet('owner: Jane')).scope).toEqual([]);
-        expect(parse_task_packet('# Task\n').scope).toEqual([]);
+    it('rejects scalar, wrapped, absent, and malformed scope', () => {
+        expect(parse_task_packet(packet('scope: AC-007')).ok).toBe(false);
+        expect(parse_task_packet(packet('scope: [AC-001,\n  AC-002]')).ok).toBe(false);
+        expect(parse_task_packet(packet('owner: Jane')).ok).toBe(true);
+        expect(parse_task_packet('# Task\n').ok).toBe(false);
     });
 });

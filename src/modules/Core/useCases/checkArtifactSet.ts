@@ -3,10 +3,11 @@
 // passed set (ADR-0143: the CLI reads exactly the files it is handed; there is no tree to scan).
 // PURE over the handed sources; the command reads the files and passes them here.
 
-import { ok, type Result } from '../../../infra/errors/result.ts';
+import { err, ok, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
 import { duplicate_id_diagnostic, level_for, type Diagnostic } from '../services/checksContract.ts';
-import { read_frontmatter, fm_scalar } from '../services/readFrontmatter.ts';
+import { parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
+import { createAppError } from '../../../infra/errors/createAppError.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
 export type CheckArtifactSetInput = Readonly<{
@@ -23,7 +24,19 @@ export function check_artifact_set(input: CheckArtifactSetInput): Result<Artifac
     const diagnostics: Diagnostic[] = [];
     const firstPathById = new Map<string, string>();
     for (const artifact of input.artifacts) {
-        const id = fm_scalar(read_frontmatter(artifact.source).id);
+        const parsed = parse_frontmatter(artifact.source);
+        if (!parsed.ok) {
+            return err(parsed.error);
+        }
+        if (Array.isArray(parsed.value.fields.id)) {
+            return err(
+                createAppError('ParseFailure', 'frontmatter `id:` must be a scalar', {
+                    reason: 'unparseable-frontmatter',
+                    line: null,
+                })
+            );
+        }
+        const id = scalar_field(parsed.value.fields, 'id');
         if (id === undefined) {
             continue; // no identity claimed — nothing to collide
         }

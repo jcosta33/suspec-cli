@@ -27,7 +27,7 @@ describe('format_check_report', () => {
                 { code: 'C008', severity: 'warning', message: 'no sources', line: null },
             ],
         });
-        expect(text).toContain('1 errors, 1 warnings');
+        expect(text).toContain('1 error, 1 warning');
         expect(text).toContain('C003');
         expect(text).toContain(':12');
         expect(text).toContain('C008');

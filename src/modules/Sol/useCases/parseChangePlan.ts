@@ -4,16 +4,15 @@
 //
 // What it reads (the canonical change-plan shape — the canon's transformation fixture is the exemplar):
 //   - `kind` and the `preserves:` ref list from the frontmatter;
-//   - the `## Behavioral preservation guarantees` table — every row's id and its `Verify with` cell;
+//   - the `## Preservation guarantees` table — every row's id and its `Verify with` cell;
 //   - the `## Transformation waves` section — each wave entry and whether it names a green check.
 //
 // The record is deliberately structural — the check engine (Core) defines its own view and the
 // assignability check at the call site catches drift at compile time (model isolation).
 
 import { type Result, ok, err, isErr } from '../../../infra/errors/result.ts';
-import { type AppError } from '../../../infra/errors/createAppError.ts';
-import { split_frontmatter } from '../services/frontmatter.ts';
-import { normalize_scalar } from '../../../infra/yamlScalar.ts';
+import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
+import { list_field, parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
 import { scan_markdown } from '../../../infra/markdownScan.ts';
 
 // A preserved-behavior id: either a cross-spec reference (`SPEC-checkout#AC-002`) or a plan-local
@@ -67,16 +66,15 @@ const PLAN_LOCAL_ID = /^PG-\d+$/;
 // evidence by itself.
 const NAMES_CHECK = /\bgreen check\b|\bverify(?: with| by)?\b|\bthe full suite\b|\b(?:run|rerun|re-run)\s+`[^`]+`/i;
 
-const GUARANTEES_TITLE = 'behavioral preservation guarantees';
+const GUARANTEES_TITLE = 'preservation guarantees';
 const WAVES_TITLE = 'transformation waves';
 
 // One frontmatter list value can carry a ref plus trailing prose; keep the leading token. A
 // flow-style `preserves: [a, b]` is split on commas; a bracket pair is stripped first.
 function ref_tokens(value: string): string[] {
-    const inner = value.trim().replace(/^\[/, '').replace(/\]$/, '');
-    return inner
+    return value
         .split(',')
-        .map((segment) => normalize_scalar(segment).split(/\s+/)[0])
+        .map((segment) => segment.trim().split(/\s+/)[0])
         .filter((token) => token.length > 0);
 }
 
@@ -88,48 +86,6 @@ function classify_ref(raw: string, line: number): PreservedRef {
         return { raw, specId: match[1], acId: match[2], line };
     }
     return { raw, specId: null, acId: null, line };
-}
-
-function read_kind_and_preserves(
-    lines: readonly string[],
-    end_line: number
-): { kind: string | null; preserves: PreservedRef[] } {
-    let kind: string | null = null;
-    const preserves: PreservedRef[] = [];
-    let collecting_preserves = false;
-
-    for (let index = 1; index < end_line - 1; index += 1) {
-        const line = lines[index];
-        const list_match = /^\s+-\s+(.*)$/.exec(line);
-        if (collecting_preserves && list_match !== null) {
-            for (const token of ref_tokens(list_match[1])) {
-                preserves.push(classify_ref(token, index + 1));
-            }
-            continue;
-        }
-        const key_match = /^(\w[\w-]*):\s*(.*)$/.exec(line);
-        if (key_match === null) {
-            continue;
-        }
-        collecting_preserves = false;
-        const key = key_match[1];
-        const rest = normalize_scalar(key_match[2]);
-        if (key === 'kind') {
-            kind = rest.length > 0 ? rest : null;
-            continue;
-        }
-        if (key === 'preserves') {
-            if (rest.length === 0) {
-                collecting_preserves = true;
-            } else {
-                for (const token of ref_tokens(rest)) {
-                    preserves.push(classify_ref(token, index + 1));
-                }
-            }
-            continue;
-        }
-    }
-    return { kind, preserves };
 }
 
 // The leading cell of a GFM table row (`| ID | … |` or `ID | …` → `ID`), trimmed; null for a
@@ -157,13 +113,37 @@ function first_cell(line: string): string | null {
 }
 
 export function parse_change_plan(input: ParseChangePlanInput): ParseChangePlanResult {
-    const split = split_frontmatter(input.source);
-    if (isErr(split)) {
-        return err(split.error);
+    const parsedFrontmatter = parse_frontmatter(input.source);
+    if (isErr(parsedFrontmatter)) {
+        return err(parsedFrontmatter.error);
     }
 
-    const { lines, frontmatter_end_line } = split.value;
-    const { kind, preserves } = read_kind_and_preserves(lines, frontmatter_end_line);
+    const { fields, lines, frontmatterEndLine: frontmatter_end_line } = parsedFrontmatter.value;
+    for (const key of ['type', 'id', 'title', 'status', 'kind', 'owner'] as const) {
+        if (fields[key] !== undefined && typeof fields[key] !== 'string') {
+            return err(
+                createAppError('ParseFailure', `frontmatter \`${key}:\` must be a scalar`, {
+                    reason: 'unparseable-frontmatter',
+                    line: null,
+                })
+            );
+        }
+    }
+    for (const key of ['sources', 'preserves'] as const) {
+        if (fields[key] !== undefined && !Array.isArray(fields[key])) {
+            return err(
+                createAppError('ParseFailure', `frontmatter \`${key}:\` must be a list`, {
+                    reason: 'unparseable-frontmatter',
+                    line: null,
+                })
+            );
+        }
+    }
+    const kind = scalar_field(fields, 'kind') ?? null;
+    const preservesLine = lines.findIndex((line) => line.startsWith('preserves:')) + 1;
+    const preserves = (list_field(fields, 'preserves') ?? []).flatMap((entry) =>
+        ref_tokens(entry).map((token) => classify_ref(token, preservesLine || 1))
+    );
 
     const body_lines = lines.slice(frontmatter_end_line);
     const body_start_line = frontmatter_end_line + 1; // 1-based source line of the first body line
@@ -177,7 +157,7 @@ export function parse_change_plan(input: ParseChangePlanInput): ParseChangePlanR
 
     const scanned = scan_markdown(body_lines);
     for (let offset = 0; offset < body_lines.length; offset += 1) {
-        const line = body_lines[offset];
+        const line = scanned[offset].text;
         const source_line = body_start_line + offset;
 
         // A fenced code block is verbatim — a `## …` heading or a `1.` list item quoted in a code

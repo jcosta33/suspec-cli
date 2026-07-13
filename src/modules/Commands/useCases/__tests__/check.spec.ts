@@ -14,6 +14,10 @@ sources:
   - ADR-0077
 ---
 
+## Intent
+
+Prove the checker behavior.
+
 ## Requirements
 
 ### AC-001 — does it
@@ -47,7 +51,41 @@ status: review-ready
 
 # Task
 
+## Source
+
+SPEC-x
+
+## Scope
+
+AC-001, AC-002
+
+## Do not change
+
+None.
+
+## Affected areas
+
+Checker tests.
+
+## Verify
+
+Exit status: 0
+
+\`\`\`text
+tests passed
+\`\`\`
+
+## Agent instructions
+
+Implement the scoped work.
+
+## Findings
+
+None.
+
 ## Run summary
+
+Verification is recorded above.
 `;
 
 // A review whose Supported rows carry consistent verify blocks (cmd matches the spec's `a test.`).
@@ -86,7 +124,7 @@ preserves: [${ref}]
 
 # Change Plan
 
-## Behavioral preservation guarantees
+## Preservation guarantees
 
 | ID | Behavior | Verify with |
 |---|---|---|
@@ -144,6 +182,14 @@ describe('check command — invocation shapes (ADR-0143)', () => {
         const { code, err } = capture(() => run([join(dir, 'nope.md')]));
         expect(code).toBe(2);
         expect(err).toContain('file not found');
+    });
+
+    it('an unknown option fails before artifact loading', () => {
+        const missing = join(dir, 'never-read.md');
+        const { code, err } = capture(() => run(['--definitely-unknown', missing]));
+        expect(code).toBe(2);
+        expect(err).toContain('unknown option: --definitely-unknown');
+        expect(err).not.toContain('file not found');
     });
 
     it('a directory arg → exit 2 with a clean message, not an EISDIR crash', () => {
@@ -231,6 +277,13 @@ describe('check command — spec checking (frontmatter-sniffed)', () => {
         expect(code).toBe(2);
     });
 
+    it('a spec missing Intent → exit 2 (C021 hard-error)', () => {
+        const file = write('bad-intent.md', CONFORMANT.replace('## Intent\n\nProve the checker behavior.\n\n', ''));
+        const { code, out } = capture(() => run([file]));
+        expect(code).toBe(2);
+        expect(out).toContain('C021');
+    });
+
     it('--json emits the machine report', () => {
         const file = write('ok.md', CONFORMANT);
         const { code, out } = capture(() => run([file, '--json']));
@@ -254,7 +307,7 @@ describe('check command — spec checking (frontmatter-sniffed)', () => {
         expect(out).toContain('C009');
     });
 
-    it.each(['task', 'adr', 'intake', 'inventory'])(
+    it.each(['inventory', 'audit', 'research', 'inspection'])(
         'a type: %s file gets a clean "no checks for type" note (exit 0), never spec-check category errors',
         (artifactType) => {
             const file = write(`a-${artifactType}.md`, `---\ntype: ${artifactType}\nid: X-001\n---\n\n# body\n`);
@@ -265,18 +318,19 @@ describe('check command — spec checking (frontmatter-sniffed)', () => {
         }
     );
 
-    it('a type-less file takes the spec path, never the "no checks" skip', () => {
+    it('rejects a type-less file instead of guessing a checker face', () => {
         const typeless = CONFORMANT.replace('type: spec\n', '');
-        const good = write('typeless.md', typeless);
-        const goodRun = capture(() => run([good]));
-        expect(goodRun.code).toBe(0);
-        expect(goodRun.out).toContain('clean');
-        expect(goodRun.out).not.toContain('no checks for type');
-        // a malformed type-less file gets the normal spec diagnostics, not a silent exit-0 skip
-        const bad = write('typeless-bad.md', typeless.replace('Verify with: a test.\n\n### AC-002', '\n### AC-002'));
-        const badRun = capture(() => run([bad]));
-        expect(badRun.code).toBe(2);
-        expect(badRun.out).toContain('C003');
+        const file = write('typeless.md', typeless);
+        const result = capture(() => run([file]));
+        expect(result.code).toBe(2);
+        expect(result.err).toContain('must declare a non-empty `type:`');
+    });
+
+    it('rejects unknown artifact types', () => {
+        const file = write('unknown.md', '---\ntype: specc\nid: X\n---\n');
+        const result = capture(() => run([file]));
+        expect(result.code).toBe(2);
+        expect(result.err).toContain('unknown type `specc`');
     });
 });
 
@@ -309,12 +363,11 @@ describe('check command — the type sniff reads the whole frontmatter fence as 
         expect(out).not.toContain('no checks for type');
     });
 
-    it('a `type: ""` whose scalar normalizes empty is type-less — the spec path, never an empty-string dispatch', () => {
+    it('rejects an empty quoted type', () => {
         const file = write('empty-type.md', CONFORMANT.replace('type: spec', 'type: ""'));
-        const { code, out } = capture(() => run([file]));
-        expect(code).toBe(0);
-        expect(out).toContain('clean');
-        expect(out).not.toContain('no checks for type');
+        const { code, err } = capture(() => run([file]));
+        expect(code).toBe(2);
+        expect(err).toContain('must declare a non-empty `type:`');
     });
 
     it('a `type:` past the 12th line of a long frontmatter still dispatches (exit 2 naming --spec)', () => {
@@ -325,21 +378,58 @@ describe('check command — the type sniff reads the whole frontmatter fence as 
         expect(err).toContain('missing --spec');
     });
 
-    it('a `type:` line in the body (outside the fence) never hijacks the dispatch', () => {
+    it('a `type:` line in the body cannot satisfy the required frontmatter type', () => {
         const typeless = CONFORMANT.replace('type: spec\n', '');
         const file = write('body-type.md', `${typeless}\ntype: review\n`);
         const { code, err } = capture(() => run([file]));
-        expect(code).toBe(0);
+        expect(code).toBe(2);
         expect(err).not.toContain('missing --spec');
+        expect(err).toContain('must declare a non-empty `type:`');
     });
 
-    it('a fence-less file is type-less — the spec parser owns rejecting it, never a review dispatch', () => {
+    it('rejects a fence-less file through the strict parser', () => {
         const file = write('nofence.md', 'type: review\n\n# not frontmatter\n');
         const { code, err, out } = capture(() => run([file]));
         expect(code).toBe(2);
         expect(err).not.toContain('missing --spec');
         expect(out).not.toContain('no checks for type');
         expect(err).toContain('frontmatter fence');
+    });
+});
+
+describe('check command — task checking (C022-C024)', () => {
+    it('checks a complete task directly', () => {
+        const file = write('task.md', TASK);
+        const { code, out } = capture(() => run([file]));
+        expect(code).toBe(0);
+        expect(out).toContain('clean');
+    });
+
+    it('C022 rejects missing required structure', () => {
+        const file = write('task.md', TASK.replace('## Source\n\nSPEC-x\n\n', ''));
+        const { code, out } = capture(() => run([file]));
+        expect(code).toBe(2);
+        expect(out).toContain('C022');
+    });
+
+    it('C023 rejects a bare verification claim', () => {
+        const file = write('task.md', TASK.replace('```text\ntests passed\n```', 'tests passed'));
+        const { code, out } = capture(() => run([file]));
+        expect(code).toBe(2);
+        expect(out).toContain('C023');
+    });
+
+    it('C024 rejects an unresolved blocking decision at closed', () => {
+        const file = write(
+            'task.md',
+            TASK.replace('status: review-ready', 'status: closed').replace(
+                '## Findings\n\nNone.',
+                '## Findings\n\nBlocking: choose an API.'
+            )
+        );
+        const { code, out } = capture(() => run([file]));
+        expect(code).toBe(2);
+        expect(out).toContain('C024');
     });
 });
 
@@ -384,7 +474,7 @@ describe('check command — multiple positionals (exit = max severity; C002 acro
 
     it('clean + warning → exit 1', () => {
         const good = write('good.md', CONFORMANT);
-        const warn = write('warn.md', spec('SPEC-y').replace('  - ADR-0077\n', ''));
+        const warn = write('warn.md', spec('SPEC-y').replace('sources:\n  - ADR-0077', 'sources: []'));
         expect(capture(() => run([good, warn])).code).toBe(1);
     });
 
@@ -503,13 +593,13 @@ describe('check command — review packets need explicit companions (ADR-0143 D3
         expect(err).toContain('--spec companion must have `type: spec`');
     });
 
-    it('accepts a type-less --spec companion through the documented spec parser path', () => {
+    it('rejects a type-less --spec companion', () => {
         const review = write('review.md', CLEAN_REVIEW);
         const specPath = write('type-less-spec.md', CONFORMANT.replace('type: spec\n', ''));
         const taskPath = write('task.md', TASK);
-        const { code, out } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
-        expect(code).toBe(0);
-        expect(out).toContain('clean');
+        const { code, err } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
+        expect(code).toBe(2);
+        expect(err).toContain('--spec companion must have `type: spec`');
     });
 
     it.each([
@@ -518,35 +608,35 @@ describe('check command — review packets need explicit companions (ADR-0143 D3
             reviewSource: CLEAN_REVIEW.replace('task: TASK-feat', 'task:\n  - TASK-feat\n  - TASK-other'),
             specSource: CONFORMANT,
             taskSource: TASK,
-            message: 'review `task:` must be a single scalar',
+            message: 'frontmatter `task:` must be a scalar',
         },
         {
             name: 'spec type',
             reviewSource: CLEAN_REVIEW,
             specSource: CONFORMANT.replace('type: spec', 'type:\n  - spec\n  - task'),
             taskSource: TASK,
-            message: '--spec `type:` must be a single scalar',
+            message: 'frontmatter `type:` must be a scalar',
         },
         {
             name: 'spec id',
             reviewSource: CLEAN_REVIEW,
             specSource: CONFORMANT.replace('id: SPEC-x', 'id:\n  - SPEC-x\n  - SPEC-other'),
             taskSource: TASK,
-            message: '--spec `id:` must be a single scalar',
+            message: 'frontmatter `id:` must be a scalar',
         },
         {
             name: 'task type',
             reviewSource: CLEAN_REVIEW,
             specSource: CONFORMANT,
             taskSource: TASK.replace('type: task', 'type:\n  - task\n  - review'),
-            message: '--task `type:` must be a single scalar',
+            message: 'frontmatter `type:` must be a scalar',
         },
         {
             name: 'task id',
             reviewSource: CLEAN_REVIEW,
             specSource: CONFORMANT,
             taskSource: TASK.replace('id: TASK-feat', 'id:\n  - TASK-feat\n  - TASK-other'),
-            message: '--task `id:` must be a single scalar',
+            message: 'frontmatter `id:` must be a scalar',
         },
     ])('rejects a list-shaped singular companion field: $name', ({ reviewSource, specSource, taskSource, message }) => {
         const review = write('review.md', reviewSource);

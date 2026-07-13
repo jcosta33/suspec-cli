@@ -76,6 +76,15 @@ sources:
         expect(record.requirements[0].line).toBeGreaterThan(0);
     });
 
+    it('does not parse a requirement heading and body inside an HTML comment', () => {
+        const source = SPEC.replace(
+            '### AC-001 — first\nThe tool must do X.\nVerify with: a test.',
+            '<!--\n### AC-001 — first\nThe tool must do X.\nVerify with: a test.\n-->'
+        );
+        const record = assertOk(parse_spec_record({ source, path: 'spec.md' }));
+        expect(record.requirements.map((requirement) => requirement.id)).toEqual(['AC-002']);
+    });
+
     it('captures section titles, the Non-goals body, and Open-questions presence', () => {
         const record = assertOk(parse_spec_record({ source: SPEC, path: 'spec.md' }));
         expect(record.sectionTitles).toEqual(['Requirements', 'Non-goals', 'Open questions']);
@@ -279,13 +288,9 @@ Verify with: a test.
         expect(record.requirements.map((r) => r.id)).toEqual(['AC-001', 'C-001', 'I-001', 'IF-001']);
     });
 
-    it('tolerates orphan list lines and blank lines in frontmatter, and absent scalars', () => {
+    it('rejects orphan list lines in frontmatter', () => {
         const source = `---\n  - orphan list line\n\nsources: [only.md]\n---\n\nbody\n`;
-        const record = assertOk(parse_spec_record({ source, path: 'x.md' }));
-        expect(record.frontmatter.type).toBeNull();
-        expect(record.frontmatter.id).toBeNull();
-        expect(record.frontmatter.status).toBeNull();
-        expect(record.frontmatter.sources).toEqual(['only.md']);
+        expect(assertErr(parse_spec_record({ source, path: 'x.md' }))._tag).toBe('ParseFailure');
     });
 
     it('fails when the source has no frontmatter fence', () => {

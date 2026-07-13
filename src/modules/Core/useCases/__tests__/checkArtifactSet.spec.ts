@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import { check_artifact_set } from '../checkArtifactSet.ts';
 import { assertOk } from '../../../../infra/errors/testing/assertOk.ts';
+import { assertErr } from '../../../../infra/errors/testing/assertErr.ts';
 
 const withId = (id: string) => `---\ntype: spec\nid: ${id}\n---\n# body\n`;
 
@@ -53,12 +54,24 @@ describe('check_artifact_set — C002 duplicate-id across the passed set', () =>
         const report = assertOk(
             check_artifact_set({
                 artifacts: [
-                    { path: 'a.md', source: '# no frontmatter\n' },
-                    { path: 'b.md', source: '---\ntype: note\n---\n# no id\n' },
+                    { path: 'a.md', source: '---\ntype: audit\n---\n# no id\n' },
+                    { path: 'b.md', source: '---\ntype: research\n---\n# no id\n' },
                     { path: 'c.md', source: withId('SPEC-x') },
                 ],
             })
         );
         expect(report.diagnostics).toEqual([]);
+    });
+
+    it('a list-shaped id is malformed, not a scalar identity claim', () => {
+        const failure = assertErr(
+            check_artifact_set({
+                artifacts: [
+                    { path: 'a.md', source: '---\ntype: spec\nid:\n  - SPEC-x\n---\n# body\n' },
+                    { path: 'b.md', source: withId('SPEC-x') },
+                ],
+            })
+        );
+        expect(failure._tag).toBe('ParseFailure');
     });
 });

@@ -29,6 +29,10 @@ function format_diagnostic(diagnostic: RenderDiagnostic): string {
     return `  ${icon}  ${color.bold(diagnostic.code)}  ${diagnostic.message}${where}`;
 }
 
+function format_count(count: number, noun: string): string {
+    return `${String(count)} ${noun}${count === 1 ? '' : 's'}`;
+}
+
 export function format_check_report(report: {
     path: string;
     level: RenderLevel;
@@ -36,7 +40,7 @@ export function format_check_report(report: {
 }): string {
     const errors = report.diagnostics.filter((d) => d.severity === 'hard-error').length;
     const warnings = report.diagnostics.length - errors;
-    const head = `${color.bold(report.path)}  ${format_level(report.level)}  ${color.dim(`${String(errors)} errors, ${String(warnings)} warnings`)}`;
+    const head = `${color.bold(report.path)}  ${format_level(report.level)}  ${color.dim(`${format_count(errors, 'error')}, ${format_count(warnings, 'warning')}`)}`;
     if (report.diagnostics.length === 0) {
         return head;
     }

@@ -20,7 +20,7 @@ created: 2026-06-11
 
 # Change Plan: x
 
-## Behavioral preservation guarantees
+## Preservation guarantees
 
 | ID | Behavior | Verify with |
 |---|---|---|
@@ -57,6 +57,12 @@ describe('parse_change_plan', () => {
         const pg = plan.preservedRefs.find((ref) => ref.raw === 'PG-001');
         expect(pg?.specId).toBeNull();
         expect(pg?.acId).toBeNull();
+    });
+
+    it('does not recognize the obsolete longer guarantees heading', () => {
+        const obsolete = PLAN.replace('## Preservation guarantees', '## Behavioral preservation guarantees');
+        const plan = assertOk(parse_change_plan({ source: obsolete, path: 'change-plan.md' }));
+        expect(plan.guaranteeIds).toEqual([]);
     });
 
     it('reads the transformation waves and whether each names a green check', () => {
@@ -123,7 +129,7 @@ type: change-plan
 id: X
 ---
 
-## Behavioral preservation guarantees
+## Preservation guarantees
 
 | ID | Behavior | Verify with |
 |---|---|---|
@@ -140,7 +146,7 @@ type: change-plan
 id: X
 ---
 
-## Behavioral preservation guarantees
+## Preservation guarantees
 
 ID | Behavior | Verify with
 --- | --- | ---
@@ -157,7 +163,7 @@ type: change-plan
 id: X
 ---
 
-## Behavioral preservation guarantees
+## Preservation guarantees
 
 | ID | Behavior | Verify with |
 | :--- | :---: | ---: |
@@ -202,7 +208,7 @@ type: change-plan
 id: X
 ---
 
-## Behavioral preservation guarantees
+## Preservation guarantees
 
 | ID | Behavior | Verify with |
 |---|---|---|

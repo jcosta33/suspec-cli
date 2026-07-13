@@ -11,6 +11,7 @@ export { project, emit_error, usage_error } from './unixOutcome.ts';
 // artifact-relative).
 export { check_spec } from './checkSpec.ts';
 export { check_review_file } from './checkReviewFile.ts';
+export { check_task } from './checkTask.ts';
 export { check_change_plan } from './checkChangePlan.ts';
 export { check_artifact_set } from './checkArtifactSet.ts';
 export { build_spec_ref_resolver } from './resolveSpecRef.ts';

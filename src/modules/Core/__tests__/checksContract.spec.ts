@@ -51,7 +51,8 @@ function spec(
             ...frontmatter,
         },
         requirements: [],
-        sectionTitles: ['Non-goals', 'Open questions'],
+        sectionTitles: ['Intent', 'Non-goals', 'Open questions'],
+        intentBody: 'purpose',
         nonGoalsBody: 'what this does not change',
         openQuestionsPresent: true,
         bodyText: '',
@@ -81,11 +82,14 @@ describe('severity_of', () => {
         expect(severity_of('C011')).toBe('warning');
         expect(severity_of('C012')).toBe('warning');
         expect(severity_of('C013')).toBe('warning');
-        expect(severity_of('C014')).toBe('warning');
         expect(severity_of('C015')).toBe('warning');
         expect(severity_of('C016')).toBe('hard-error'); // an empty-Evidence Supported blocks
         expect(severity_of('C019')).toBe('warning');
         expect(severity_of('C020')).toBe('hard-error'); // a review tied to nothing blocks (ADR-0128)
+        expect(severity_of('C021')).toBe('hard-error');
+        expect(severity_of('C022')).toBe('hard-error');
+        expect(severity_of('C023')).toBe('hard-error');
+        expect(severity_of('C024')).toBe('hard-error');
     });
 });
 
@@ -625,6 +629,9 @@ describe('C003 verify-with', () => {
         expect(check_verify_with(spec({ requirements: [req('C-001', 'IT MUST X.\nVERIFY BY test')] }))).toEqual([]);
         const missing = check_verify_with(spec({ requirements: [req('AC-002', 'It must X with no check line.')] }));
         expect(codes(missing)).toEqual(['C003']);
+        const empty = check_verify_with(spec({ requirements: [req('AC-003', 'It must X.\nVerify with:   ')] }));
+        expect(codes(empty)).toEqual(['C003']);
+        expect(empty[0].message).toContain('non-empty');
     });
 });
 

@@ -136,6 +136,25 @@ describe('check_review_file — C012 coverage against the handed spec + task', (
         expect(report.level).toBe('clean');
     });
 
+    it('does not count a commented heading, coverage rows, or verify blocks', () => {
+        const commented = review(`<!--
+## Requirement coverage
+| AC-001 | Supported | p |
+| AC-002 | Supported | p |
+
+\`\`\`verify id=AC-001 cmd="a test." result=pass
+ok
+\`\`\`
+        -->`);
+        const report = assertOk(check({ reviewSource: commented }));
+        const coverageMessages = report.diagnostics
+            .filter((diagnostic) => diagnostic.code === 'C012')
+            .map((diagnostic) => diagnostic.message);
+        expect(coverageMessages.some((message) => message.includes('AC-001'))).toBe(true);
+        expect(coverageMessages.some((message) => message.includes('AC-002'))).toBe(true);
+        expect(report.diagnostics.filter((diagnostic) => diagnostic.code === 'C013')).toEqual([]);
+    });
+
     it('a draft source spec exempts the review (the scope guard)', () => {
         const report = assertOk(
             check({

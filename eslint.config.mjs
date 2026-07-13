@@ -129,7 +129,7 @@ export default tseslint.config(
                 },
             ],
 
-            // No namespace imports (AGENTS.md L149).
+            // No namespace imports (AGENTS.md and docs/07-conventions.md).
             'no-restricted-syntax': [
                 'error',
                 {

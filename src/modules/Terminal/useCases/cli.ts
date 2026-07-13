@@ -7,11 +7,12 @@ export type FlagSpec = Readonly<{ booleans: readonly string[]; strings: readonly
 export function parse_flags(
     argv: string[],
     spec: FlagSpec
-): { positional: string[]; flags: Map<string, string | boolean> } {
+): { positional: string[]; flags: Map<string, string | boolean>; unknown: string[] } {
     const booleans = new Set(spec.booleans);
     const strings = new Set(spec.strings);
     const flags = new Map<string, string | boolean>();
     const positional: string[] = [];
+    const unknown: string[] = [];
     const key = (arg: string) => arg.replace(/^-+/, '');
 
     for (let i = 0; i < argv.length; i++) {
@@ -26,6 +27,10 @@ export function parse_flags(
         if (arg.startsWith('--') && eq > -1) {
             const flagKey = arg.slice(2, eq);
             const value = arg.slice(eq + 1);
+            if (!booleans.has(`--${flagKey}`) && !strings.has(`--${flagKey}`)) {
+                unknown.push(arg);
+                continue;
+            }
             // A declared boolean in `--flag=value` form coerces to a boolean — otherwise `--json=true`
             // reads as the string "true" and `flags.get('json') === true` silently fails (JSON off).
             flags.set(flagKey, booleans.has(`--${flagKey}`) ? value !== 'false' : value);
@@ -48,9 +53,10 @@ export function parse_flags(
             continue;
         }
         if (arg.startsWith('-')) {
-            continue; // an unknown flag — ignore rather than mistake it for a positional
+            unknown.push(arg);
+            continue;
         }
         positional.push(arg);
     }
-    return { positional, flags };
+    return { positional, flags, unknown };
 }

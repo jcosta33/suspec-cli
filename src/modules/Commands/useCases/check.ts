@@ -3,7 +3,7 @@
 // `suspec check` — the whole command surface (ADR-0143). The CLI reads exactly the files it is
 // handed: the primary artifact's kind comes from its own frontmatter `type:`, companions are
 // explicit flags, and nothing resolves a store, a config, a repo root, or a workspace tree.
-//   suspec check <artifact> [<artifact>...]                    spec / change-plan files (exit = max)
+//   suspec check <artifact> [<artifact>...]                    spec / task / change-plan (exit = max)
 //   suspec check <review-path> --spec <path> [--task <path>]   reconcile a review packet
 //   suspec check --contract                                    the checks contract as JSON
 // Direct output + exit codes flow through the shared unixOutcome contract.
@@ -13,6 +13,7 @@ import { resolve } from 'node:path';
 
 import {
     check_spec,
+    check_task,
     check_review_file,
     check_change_plan,
     check_artifact_set,
@@ -26,33 +27,23 @@ import {
     usage_error,
 } from '../../Core/useCases/index.ts';
 import { err, ok } from '../../../infra/errors/result.ts';
-import { normalize_scalar } from '../../../infra/yamlScalar.ts';
+import { parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import { format_check_report } from '../services/renderCheckReport.ts';
 
-// The frontmatter `type:` scalar from an artifact's leading `---` fence — the kind sniff the
-// dispatch keys on. Scans the fenced block only (however long, never the body) and reads the value
-// as YAML would (normalize_scalar: quotes, inline comments), so `type: "review"` dispatches like
-// `type: review`. null when no `type:` is present; type-less input takes the spec parser path so
-// malformed input is not silently skipped.
-function artifact_type(source: string): string | null {
-    const text = source.charCodeAt(0) === 0xfeff ? source.slice(1) : source; // BOM-tolerant, like read_frontmatter
-    const lines = text.split(/\r\n|[\r\n]/);
-    if (lines[0] !== '---') {
-        return null;
-    }
-    for (let index = 1; index < lines.length && lines[index] !== '---'; index += 1) {
-        const match = /^type:\s*(.+)$/.exec(lines[index]);
-        if (match !== null) {
-            const value = normalize_scalar(match[1]);
-            return value.length > 0 ? value : null;
-        }
-    }
-    return null;
-}
+const RECOGNIZED_TYPES = new Set([
+    'spec',
+    'task',
+    'review',
+    'inventory',
+    'change-plan',
+    'audit',
+    'research',
+    'inspection',
+]);
 
 export function run(argv: string[]): number {
-    const { positional, flags } = parse_flags(argv, {
+    const { positional, flags, unknown } = parse_flags(argv, {
         booleans: ['--json', '--contract'],
         strings: ['--spec', '--task'],
     });
@@ -61,6 +52,10 @@ export function run(argv: string[]): number {
     const taskFlag = flags.get('task');
     const specPath = typeof specFlag === 'string' ? specFlag : undefined;
     const taskPath = typeof taskFlag === 'string' ? taskFlag : undefined;
+
+    if (unknown.length > 0) {
+        return emit_error(usage_error(`unknown option: ${unknown.join(', ')}`), json);
+    }
 
     // `--contract`: dump the checks contract as JSON — its own invocation: no artifacts, no
     // companions. `--json` is accepted here too; it changes nothing because the dump is already
@@ -113,7 +108,7 @@ export function run(argv: string[]): number {
         seen.add(key);
         return true;
     });
-    const loaded: { path: string; source: string; type: string | null }[] = [];
+    const loaded: { path: string; source: string; type: string }[] = [];
     for (const file of paths) {
         if (!existsSync(file)) {
             bump(project({ result: err(usage_error(`file not found: ${file}`)), json, render: format_check_report }));
@@ -132,7 +127,26 @@ export function run(argv: string[]): number {
             continue;
         }
         const source = readFileSync(file, 'utf8');
-        loaded.push({ path: file, source, type: artifact_type(source) });
+        const parsed = parse_frontmatter(source);
+        if (!parsed.ok) {
+            bump(emit_error(parsed.error, json));
+            continue;
+        }
+        const rawType = parsed.value.fields.type;
+        if (Array.isArray(rawType)) {
+            bump(emit_error(usage_error(`artifact \`${file}\` must declare \`type:\` as a scalar`), json));
+            continue;
+        }
+        const type = scalar_field(parsed.value.fields, 'type');
+        if (type === undefined || type.length === 0) {
+            bump(emit_error(usage_error(`artifact \`${file}\` must declare a non-empty \`type:\``), json));
+            continue;
+        }
+        if (!RECOGNIZED_TYPES.has(type)) {
+            bump(emit_error(usage_error(`artifact \`${file}\` declares unknown type \`${type}\``), json));
+            continue;
+        }
+        loaded.push({ path: file, source, type });
     }
     if (loaded.length < paths.length) {
         return status;
@@ -158,7 +172,7 @@ export function run(argv: string[]): number {
 
     // Check one loaded artifact: dispatch by its frontmatter `type:` and render its report. Returns
     // the file's exit code (the shared unixOutcome contract via `project`).
-    const check_one_file = (file: string, source: string, type: string | null): number => {
+    const check_one_file = (file: string, source: string, type: string): number => {
         // A review packet reconciles against the spec it is checked against — always handed
         // explicitly (ADR-0143 D3). The task is a conditional split slice (ADR-0134): --task is
         // required iff the review references a task — the engine refuses a task-referencing review
@@ -216,16 +230,16 @@ export function run(argv: string[]): number {
                 render: format_check_report,
             });
         }
-        // An artifact whose `type:` has no check face must not fall through to the spec checks.
-        // Say so cleanly and exit 0: nothing to validate
-        // is not a defect. A `type: spec` file and a type-less file take the spec path below so
-        // malformed input is not silently skipped.
-        if (type !== null && type !== 'spec') {
+        if (type === 'task') {
+            return project({ result: check_task(source, file), json, render: format_check_report });
+        }
+        // A recognized artifact with no deterministic face reports that fact and exits clean.
+        if (type !== 'spec') {
             return project({
                 result: ok({ level: 'clean' as const, path: file, type, checked: false }),
                 json,
                 render: () =>
-                    `${file} — no checks for type ${type} (check faces: spec, review, change-plan); nothing to validate`,
+                    `${file} — no checks for type ${type} (check faces: spec, task, review, change-plan); nothing to validate`,
             });
         }
         // C009 resolves a source ref artifact-relative (against the spec's own directory, ADR-0143

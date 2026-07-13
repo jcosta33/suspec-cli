@@ -25,6 +25,42 @@ describe('scan_markdown', () => {
         const s = scan_markdown(['~~~', 'x', '~~~', 'y']);
         expect(s.map((l) => l.inFence)).toEqual([true, true, true, false]);
     });
+
+    it('treats HTML comments as inert while preserving visible text around them', () => {
+        const s = scan_markdown([
+            'before <!-- hidden --> after',
+            '<!--',
+            '## Hidden heading',
+            '```',
+            '-->',
+            '## Vis<!-- split -->ible',
+        ]);
+        expect(s.map((line) => line.text)).toEqual(['before  after', '', '', '', '', '## Visible']);
+        expect(s.every((line) => !line.inFence)).toBe(true);
+        expect(visible_text(s)).toContain('before  after');
+        expect(visible_text(s)).toContain('## Visible');
+        expect(visible_text(s)).not.toContain('Hidden heading');
+    });
+
+    it('keeps HTML comment markers verbatim inside backtick and tilde fences', () => {
+        const s = scan_markdown(['```text', '<!-- TODO -->', '```', '~~~text', '<!-- TBD -->', '~~~']);
+        expect(s.map((line) => line.inFence)).toEqual([true, true, true, true, true, true]);
+        expect(s[1].text).toBe('<!-- TODO -->');
+        expect(s[4].text).toBe('<!-- TBD -->');
+    });
+
+    it('does not open an HTML comment from a marker inside inline code', () => {
+        const s = scan_markdown(['`<!--` remains literal', '## Visible']);
+        expect(visible_text(s)).toBe('       remains literal\n## Visible');
+    });
+
+    it('accepts up to three leading spaces and rejects deeper indentation', () => {
+        const s = scan_markdown(['   ```', 'inside', '    ```', 'still inside', '   ```', 'outside']);
+        expect(s.map((l) => l.inFence)).toEqual([true, true, true, true, true, false]);
+
+        const indented = scan_markdown(['    ```', 'plain']);
+        expect(indented.map((l) => l.inFence)).toEqual([false, false]);
+    });
 });
 
 describe('strip_inline_code', () => {
@@ -60,5 +96,10 @@ describe('visible_text', () => {
         expect(v.includes('TODO fenced')).toBe(false);
         expect(v.includes('TODO')).toBe(false); // the inline-code one is blanked
         expect(v.includes('tail')).toBe(true);
+    });
+
+    it('drops tilde-fenced and HTML-commented text', () => {
+        const s = scan_markdown(['visible', '~~~text', 'TODO fenced', '~~~', '<!-- TODO commented -->', 'tail']);
+        expect(visible_text(s)).toBe('visible\n\ntail');
     });
 });

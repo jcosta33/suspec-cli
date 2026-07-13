@@ -6,9 +6,8 @@
 // and the assignability check at the call site catches any drift at compile time (model isolation).
 
 import { type Result, ok, err, isErr } from '../../../infra/errors/result.ts';
-import { type AppError } from '../../../infra/errors/createAppError.ts';
-import { split_frontmatter } from '../services/frontmatter.ts';
-import { normalize_scalar } from '../../../infra/yamlScalar.ts';
+import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
+import { parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
 import { scan_markdown, visible_text, strip_inline_code, type ScannedLine } from '../../../infra/markdownScan.ts';
 
 export type SpecRecordRequirement = Readonly<{
@@ -39,6 +38,7 @@ export type SpecRecord = Readonly<{
     frontmatter: SpecRecordFrontmatter;
     requirements: readonly SpecRecordRequirement[];
     sectionTitles: readonly string[];
+    intentBody: string;
     nonGoalsBody: string;
     openQuestionsPresent: boolean;
     bodyText: string;
@@ -102,48 +102,8 @@ function extract_verify_command(body: string): string | null {
 function source_tokens(entry: string): string[] {
     return entry
         .split(',')
-        .map((segment) => normalize_scalar(segment).split(/\s+/)[0])
+        .map((segment) => segment.trim().split(/\s+/)[0])
         .filter((token) => token.length > 0);
-}
-
-function parse_frontmatter(lines: readonly string[], end_line: number): SpecRecordFrontmatter {
-    const scalars = new Map<string, string>();
-    const sources: string[] = [];
-    let collecting_sources = false;
-
-    for (let index = 1; index < end_line - 1; index += 1) {
-        const line = lines[index];
-        const list_match = /^\s+-\s+(.*)$/.exec(line);
-        if (collecting_sources && list_match !== null) {
-            sources.push(...source_tokens(list_match[1]));
-            continue;
-        }
-        const key_match = /^(\w[\w-]*):\s*(.*)$/.exec(line);
-        if (key_match === null) {
-            continue;
-        }
-        collecting_sources = false;
-        const key = key_match[1];
-        const rest = normalize_scalar(key_match[2]);
-        if (key === 'sources') {
-            if (rest.length === 0) {
-                collecting_sources = true;
-            } else {
-                const inline = rest.replace(/^\[/, '').replace(/\]$/, '');
-                sources.push(...source_tokens(inline));
-            }
-            continue;
-        }
-        scalars.set(key, rest);
-    }
-
-    return {
-        type: scalars.get('type') ?? null,
-        id: scalars.get('id') ?? null,
-        status: scalars.get('status') ?? null,
-        format: scalars.get('format') ?? null,
-        sources,
-    };
 }
 
 function extract_links(scanned: readonly ScannedLine[], body_start_line: number): SpecRecordLink[] {
@@ -197,13 +157,39 @@ function extract_citations(scanned: readonly ScannedLine[]): string[] {
 }
 
 export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordResult {
-    const split = split_frontmatter(input.source);
-    if (isErr(split)) {
-        return err(split.error);
+    const parsedFrontmatter = parse_frontmatter(input.source);
+    if (isErr(parsedFrontmatter)) {
+        return err(parsedFrontmatter.error);
     }
 
-    const { lines, frontmatter_end_line } = split.value;
-    const frontmatter = parse_frontmatter(lines, frontmatter_end_line);
+    const { fields, lines, frontmatterEndLine: frontmatter_end_line } = parsedFrontmatter.value;
+    for (const key of ['type', 'id', 'title', 'status', 'owner', 'format'] as const) {
+        if (fields[key] !== undefined && typeof fields[key] !== 'string') {
+            return err(
+                createAppError('ParseFailure', `frontmatter \`${key}:\` must be a scalar`, {
+                    reason: 'unparseable-frontmatter',
+                    line: null,
+                })
+            );
+        }
+    }
+    if (fields.sources !== undefined && !Array.isArray(fields.sources)) {
+        return err(
+            createAppError('ParseFailure', 'frontmatter `sources:` must be a list', {
+                reason: 'unparseable-frontmatter',
+                line: null,
+            })
+        );
+    }
+    const sourceValue = fields.sources;
+    const sourceEntries = sourceValue ?? [];
+    const frontmatter: SpecRecordFrontmatter = {
+        type: scalar_field(fields, 'type') ?? null,
+        id: scalar_field(fields, 'id') ?? null,
+        status: scalar_field(fields, 'status') ?? null,
+        format: scalar_field(fields, 'format') ?? null,
+        sources: sourceEntries.flatMap(source_tokens),
+    };
 
     const body_lines = lines.slice(frontmatter_end_line);
     const body_start_line = frontmatter_end_line + 1; // 1-based source line of the first body line
@@ -212,11 +198,13 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
     const sectionTitles: string[] = [];
     const malformedRequirementHeadings: { heading: string; line: number }[] = [];
     let nonGoalsBody = '';
+    let intentBody = '';
     let openQuestionsPresent = false;
 
     const isSol = frontmatter.format === 'sol';
     let current_requirement: { id: string; line: number; bodyLines: string[] } | null = null;
     let in_non_goals = false;
+    let in_intent = false;
 
     const flush_requirement = () => {
         if (current_requirement !== null) {
@@ -233,7 +221,7 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
 
     const scanned = scan_markdown(body_lines);
     for (let offset = 0; offset < body_lines.length; offset += 1) {
-        const line = body_lines[offset];
+        const line = scanned[offset].text;
         const source_line = body_start_line + offset;
 
         // A fenced code block is verbatim example text — never a requirement/section heading and never
@@ -247,6 +235,7 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
         if (requirement_match !== null) {
             flush_requirement();
             in_non_goals = false;
+            in_intent = false;
             current_requirement = { id: requirement_match[1], line: source_line, bodyLines: [] };
             continue;
         }
@@ -265,6 +254,7 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
             if (sol_match !== null) {
                 flush_requirement();
                 in_non_goals = false;
+                in_intent = false;
                 current_requirement = { id: sol_match[1], line: source_line, bodyLines: [] };
                 continue;
             }
@@ -277,6 +267,7 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
             sectionTitles.push(title);
             const normalized = title.toLowerCase();
             in_non_goals = normalized === 'non-goals';
+            in_intent = normalized === 'intent';
             if (normalized === 'open questions') {
                 openQuestionsPresent = true;
             }
@@ -287,6 +278,7 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
         if (line.startsWith('### ')) {
             flush_requirement();
             in_non_goals = false;
+            in_intent = false;
             continue;
         }
 
@@ -294,6 +286,8 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
             current_requirement.bodyLines.push(line);
         } else if (in_non_goals) {
             nonGoalsBody += `${line}\n`;
+        } else if (in_intent) {
+            intentBody += `${line}\n`;
         }
     }
     flush_requirement();
@@ -302,6 +296,7 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
         frontmatter,
         requirements,
         sectionTitles,
+        intentBody,
         nonGoalsBody,
         openQuestionsPresent,
         bodyText: visible_text(scanned),

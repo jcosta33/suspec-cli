@@ -13,8 +13,7 @@ checker implementation, its command surface, and its tests.
   `~/.agents/artifacts/<workspace>/` and are handed to every consumer by absolute path.
 - Do not invent a command for an empty command slot. Ask when a required command cannot be resolved.
 - Review your diff before handoff. Do not issue a review judgment on work you implemented yourself.
-- The local implementation guide is `.agents/skills/implement-task/SKILL.md`. Repository-specific
-  guides live beside it.
+- Repository-specific guides live under `.agents/skills/`.
 
 ## Checker Contract
 
@@ -42,8 +41,8 @@ suspec check --contract
 - `src/modules/Commands`: command orchestration, usage, and human-readable rendering.
 - `src/modules/Terminal`: argument parsing.
 - `src/modules/Core`: checks, review reconciliation, reference resolution, and Unix outcome mapping.
-- `src/modules/Sol`: Markdown and frontmatter parsing.
-- `src/infra`: shared `Result`/`AppError`, Markdown scanning, and YAML-scalar helpers.
+- `src/modules/Sol`: artifact record parsing.
+- `src/infra`: shared errors, strict frontmatter parsing, and Markdown scanning.
 - Cross-module imports go through the destination module's `useCases/index.ts`. Imports inside a
   module use relative paths to concrete files.
 - A module's `models`, `services`, and `testing` directories are private. `src/infra` never imports
