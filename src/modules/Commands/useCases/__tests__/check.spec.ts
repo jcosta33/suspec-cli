@@ -401,15 +401,15 @@ describe('check command — spec checking (frontmatter-sniffed)', () => {
 
     it('C009 resolves artifact-relative: a ref beside the spec resolves; a root-style ref does not', () => {
         mkdirSync(join(dir, 'specs', 'feat'), { recursive: true });
-        mkdirSync(join(dir, 'intake'), { recursive: true });
-        writeFileSync(join(dir, 'intake', 'sup-204.md'), 'ticket\n');
-        // artifact-relative: ../../intake/sup-204.md resolves from specs/feat/spec.md → clean
+        mkdirSync(join(dir, 'sources'), { recursive: true });
+        writeFileSync(join(dir, 'sources', 'sup-204.md'), 'ticket\n');
+        // artifact-relative: ../../sources/sup-204.md resolves from specs/feat/spec.md → clean
         const good = join(dir, 'specs', 'feat', 'spec.md');
-        writeFileSync(good, CONFORMANT.replace('- ADR-0077', '- ../../intake/sup-204.md'));
+        writeFileSync(good, CONFORMANT.replace('- ADR-0077', '- ../../sources/sup-204.md'));
         expect(capture(() => run([good])).code).toBe(0);
         // a bare root-style ref is NOT resolved against any inferred root → C009 blocking
         const bad = join(dir, 'specs', 'feat', 'spec2.md');
-        writeFileSync(bad, spec('SPEC-y').replace('- ADR-0077', '- intake/sup-204.md'));
+        writeFileSync(bad, spec('SPEC-y').replace('- ADR-0077', '- sources/sup-204.md'));
         const { code, out } = capture(() => run([bad]));
         expect(code).toBe(2);
         expect(out).toContain('C009');
@@ -606,6 +606,23 @@ describe('check command — multiple positionals (exit = max severity; C002 acro
         expect(documents).toHaveLength(1);
         expect(documents[0]).toMatchObject({ error: 'ParseFailure' });
         expect(documents.some((document) => document.checked === false)).toBe(false);
+    });
+
+    it('surfaces a malformed file-set identity even when each artifact type is unchecked', () => {
+        const malformed = write('audit.md', '---\ntype: audit\nid: [AUDIT-x]\n---\n');
+        const valid = write('research.md', '---\ntype: research\nid: RESEARCH-x\n---\n');
+        const { code, out } = capture(() => run([malformed, valid, '--json']));
+        const documents = out
+            .split('\n')
+            .filter((line) => line.length > 0)
+            .map((line) => JSON.parse(line) as Record<string, unknown>);
+
+        expect(code).toBe(2);
+        expect(documents).toHaveLength(1);
+        expect(documents[0]).toMatchObject({
+            error: 'ParseFailure',
+            message: 'frontmatter `id:` must be a scalar',
+        });
     });
 
     it('clean + warning → exit 1', () => {

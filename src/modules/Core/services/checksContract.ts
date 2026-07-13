@@ -385,9 +385,10 @@ export function check_task_shape(task: TaskCheckRecord): Diagnostic[] {
 
 // --- C023 task-evidence -------------------------------------------------------------------------
 const GENERIC_COMPLETION_CLAIM = /^(?:all )?(?:tests?|checks?) (?:pass(?:ed)?|succeeded)\.?$/i;
+const UNFILLED_FENCED_EVIDENCE = /^(?:pending|tbd|todo|\?\?\?|\{\{[^}\r\n]+\}\})\.?$/i;
 
-// Exact C023 claim-only predicate: a closed fence is rejected only when its entire trimmed body
-// matches the contract regex. Every other non-empty body remains raw output.
+// Exact C023 exclusions: reject only a whole-body generic claim or untouched template sentinel.
+// Other non-empty bodies remain raw output, including logs that happen to mention placeholder words.
 function has_deterministic_fenced_output(lines: readonly string[]): boolean {
     let body: string[] | null = null;
     for (const line of scan_markdown(lines)) {
@@ -398,7 +399,8 @@ function has_deterministic_fenced_output(lines: readonly string[]): boolean {
         if (line.closesFence) {
             const trimmedBody = (body ?? []).join('\n').trim();
             const claimOnly = GENERIC_COMPLETION_CLAIM.test(trimmedBody);
-            if (trimmedBody.length > 0 && !claimOnly) {
+            const placeholder = UNFILLED_FENCED_EVIDENCE.test(trimmedBody);
+            if (trimmedBody.length > 0 && !claimOnly && !placeholder) {
                 return true;
             }
             body = null;

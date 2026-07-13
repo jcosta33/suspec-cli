@@ -83,6 +83,15 @@ describe('check_task', () => {
         }
     );
 
+    it.each(['pending', 'PENDING.', 'TBD', 'TODO', '???', '{{output}}'])(
+        'rejects numeric Exit status plus an untouched fenced placeholder: %s',
+        (placeholder) => {
+            const verify = `Exit status: 0\n\n\`\`\`text\n${placeholder}\n\`\`\``;
+            const report = assertOk(check_task(task('review-ready', verify), 'task.md'));
+            expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C023');
+        }
+    );
+
     it.each([
         'PASS src/auth.spec.ts (3 tests)',
         'Tests: 12 passed, 12 total',

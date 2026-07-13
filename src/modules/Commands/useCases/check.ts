@@ -363,7 +363,7 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
     // artifacts ride one invocation; a clean set prints nothing (no noise on the happy path).
     if (loaded.length > 1) {
         const set = check_artifact_set({ artifacts: loaded });
-        if (set.ok && set.value.diagnostics.length > 0) {
+        if (!set.ok || set.value.diagnostics.length > 0) {
             outcomes.push(capture_result(set, format_check_report));
         }
     }
