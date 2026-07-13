@@ -1,7 +1,7 @@
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { err, isErr, ok, type Result } from '../../../infra/errors/result.ts';
 import { list_field, parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
-import { atx_heading_level, scan_markdown, visible_text } from '../../../infra/markdownScan.ts';
+import { atx_heading_level, scan_markdown } from '../../../infra/markdownScan.ts';
 
 export type TaskPacket = Readonly<{
     frontmatter: Readonly<{
@@ -13,7 +13,7 @@ export type TaskPacket = Readonly<{
     }>;
     sectionTitles: readonly string[];
     verifyBody: string;
-    bodyText: string;
+    resolutionText: string;
 }>;
 
 export type ParseTaskPacketResult = Result<
@@ -88,6 +88,9 @@ export function parse_task_packet(source: string): ParseTaskPacketResult {
         },
         sectionTitles,
         verifyBody,
-        bodyText: visible_text(scanned),
+        resolutionText: scanned
+            .filter((line) => !line.inFence)
+            .map((line) => line.text)
+            .join('\n'),
     });
 }

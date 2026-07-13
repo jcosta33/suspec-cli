@@ -11,6 +11,7 @@ import {
 import type { OutcomeLevel } from './unixOutcome.ts';
 
 export type TaskCheckReport = Readonly<{
+    type: 'task';
     level: OutcomeLevel;
     path: string;
     diagnostics: readonly Diagnostic[];
@@ -26,12 +27,12 @@ export function check_task(source: string, path: string): Result<TaskCheckReport
         ...packet.frontmatter,
         sectionTitles: packet.sectionTitles,
         verifyBody: packet.verifyBody,
-        bodyText: packet.bodyText,
+        resolutionText: packet.resolutionText,
     };
     const diagnostics = [
         ...check_task_shape(record),
         ...check_task_evidence(record),
         ...check_closed_task_resolved(record),
     ];
-    return ok({ level: level_for(diagnostics), path, diagnostics });
+    return ok({ type: 'task', level: level_for(diagnostics), path, diagnostics });
 }

@@ -348,7 +348,7 @@ export type TaskCheckRecord = Readonly<{
     status: string | null;
     sectionTitles: readonly string[];
     verifyBody: string;
-    bodyText: string;
+    resolutionText: string;
 }>;
 
 const TASK_STATUSES = new Set(['ready', 'running', 'review-ready', 'closed']);
@@ -387,10 +387,14 @@ export function check_task_shape(task: TaskCheckRecord): Diagnostic[] {
 const GENERIC_COMPLETION_CLAIM = /^(?:all )?(?:tests?|checks?) (?:pass(?:ed)?|succeeded)\.?$/i;
 const UNFILLED_FENCED_EVIDENCE = /^(?:pending|tbd|todo|\?\?\?|\{\{[^}\r\n]+\}\})\.?$/i;
 
-// Exact C023 exclusions: reject only a whole-body generic claim or untouched template sentinel.
-// Other non-empty bodies remain raw output, including logs that happen to mention placeholder words.
-function has_deterministic_fenced_output(lines: readonly string[]): boolean {
+type FencedEvidenceState = Readonly<{ hasOutput: boolean; hasPlaceholder: boolean }>;
+
+// Inspect every fence. One valid output fence cannot hide a separate untouched placeholder fence.
+// Placeholder words inside real logs remain raw output unless the whole fence is a template sentinel.
+function inspect_fenced_evidence(lines: readonly string[]): FencedEvidenceState {
     let body: string[] | null = null;
+    let hasOutput = false;
+    let hasPlaceholder = false;
     for (const line of scan_markdown(lines)) {
         if (line.opensFence) {
             body = [];
@@ -400,8 +404,9 @@ function has_deterministic_fenced_output(lines: readonly string[]): boolean {
             const trimmedBody = (body ?? []).join('\n').trim();
             const claimOnly = GENERIC_COMPLETION_CLAIM.test(trimmedBody);
             const placeholder = UNFILLED_FENCED_EVIDENCE.test(trimmedBody);
+            hasPlaceholder ||= placeholder;
             if (trimmedBody.length > 0 && !claimOnly && !placeholder) {
-                return true;
+                hasOutput = true;
             }
             body = null;
             continue;
@@ -410,7 +415,7 @@ function has_deterministic_fenced_output(lines: readonly string[]): boolean {
             body.push(line.text);
         }
     }
-    return false;
+    return { hasOutput, hasPlaceholder };
 }
 
 export function check_task_evidence(task: TaskCheckRecord): Diagnostic[] {
@@ -425,11 +430,13 @@ export function check_task_evidence(task: TaskCheckRecord): Diagnostic[] {
         .filter((line) => !line.inFence)
         .map((line) => line.text)
         .join('\n');
+    const fenced = inspect_fenced_evidence(verifyLines);
     const hasExitStatus = /^[ \t>*+-]*Exit status\s*:\s*\d+[ \t]*$/im.test(visibleVerify);
-    const hasPastedOutput = hasExitStatus && has_deterministic_fenced_output(verifyLines);
+    const hasPastedOutput = hasExitStatus && fenced.hasOutput;
     const hasCiLink = /^[ \t>*+-]*(?:CI|CI link)\s*:\s*https?:\/\/\S+[ \t]*$/im.test(visibleVerify);
     const hasJustifiedNa = /\bn\/a\s*(?::|-)[ \t]*\S+/i.test(visibleVerify);
-    const hasPlaceholder = /\{\{[^}]+\}\}|\b(?:TBD|TODO)\b|\?\?\?/.test(nonFencedVerify);
+    const hasPlaceholder =
+        fenced.hasPlaceholder || /\{\{[^}]+\}\}|\b(?:pending|tbd|todo)\b|\?\?\?/i.test(nonFencedVerify);
     return verify.length > 0 && !hasPlaceholder && (hasPastedOutput || hasCiLink || hasJustifiedNa)
         ? []
         : [
@@ -444,7 +451,7 @@ export function check_task_evidence(task: TaskCheckRecord): Diagnostic[] {
 // --- C024 closed-task-resolved ------------------------------------------------------------------
 export function check_closed_task_resolved(task: TaskCheckRecord): Diagnostic[] {
     if (task.status !== 'closed') return [];
-    const unresolvedNamedBlocker = task.bodyText.split(/\r\n|[\r\n]/).some((line) => {
+    const unresolvedNamedBlocker = task.resolutionText.split(/\r\n|[\r\n]/).some((line) => {
         const match =
             /^[ \t>]*(?:[*+-]|\d+\.)[ \t]+(?:Blocking|Open question \(blocking\)|Blocked questions):[ \t]*(.*)$/i.exec(
                 line
@@ -453,7 +460,7 @@ export function check_closed_task_resolved(task: TaskCheckRecord): Diagnostic[] 
         const value = match[1].trim().toLowerCase();
         return value.length > 0 && value !== 'none' && value !== 'n/a';
     });
-    return UNRESOLVED_MARKER_PATTERN.test(task.bodyText) || unresolvedNamedBlocker
+    return UNRESOLVED_MARKER_PATTERN.test(task.resolutionText) || unresolvedNamedBlocker
         ? [diagnostic('C024', 'closed task contains an unresolved blocking decision', null)]
         : [];
 }

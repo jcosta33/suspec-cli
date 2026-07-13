@@ -92,6 +92,22 @@ describe('check_task', () => {
         }
     );
 
+    it('rejects a placeholder fence even when another fence contains valid raw output', () => {
+        const verify = [
+            'Exit status: 0',
+            '',
+            '```text',
+            '{{output}}',
+            '```',
+            '',
+            '```text',
+            'PASS src/auth.spec.ts (3 tests)',
+            '```',
+        ].join('\n');
+        const report = assertOk(check_task(task('review-ready', verify), 'task.md'));
+        expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C023');
+    });
+
     it.each([
         'PASS src/auth.spec.ts (3 tests)',
         'Tests: 12 passed, 12 total',
@@ -173,6 +189,13 @@ describe('check_task', () => {
         expect(assertOk(check_task(prose, 'task.md')).diagnostics.map((d) => d.code)).toContain('C023');
     });
 
+    it.each(['pending', 'todo'])('rejects lowercase visible placeholder prose: %s', (placeholder) => {
+        const verify = `${placeholder}\n\nExit status: 0\n\n\`\`\`text\nok\n\`\`\``;
+        expect(assertOk(check_task(task('review-ready', verify), 'task.md')).diagnostics.map((d) => d.code)).toContain(
+            'C023'
+        );
+    });
+
     it('does not accept commented task sections or commented evidence', () => {
         const commentedSection = task('ready', 'Pending.').replace(
             '## Agent instructions\nMake the change.',
@@ -187,6 +210,19 @@ describe('check_task', () => {
     it.each(['TBD', 'TODO', '???'])('C024 rejects a closed task containing %s', (blocker) => {
         const report = assertOk(check_task(task('closed', 'n/a: documentation-only change', blocker), 'task.md'));
         expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C024');
+    });
+
+    it('C024 rejects an unresolved marker inside inline code', () => {
+        const report = assertOk(
+            check_task(task('closed', 'n/a: documentation-only change', 'Open item: `TODO`'), 'task.md')
+        );
+        expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C024');
+    });
+
+    it('C024 still ignores unresolved-looking raw fenced output', () => {
+        const findings = '```text\nTODO is fixture output\n```';
+        const report = assertOk(check_task(task('closed', 'n/a: documentation-only change', findings), 'task.md'));
+        expect(report.diagnostics.filter((diagnostic) => diagnostic.code === 'C024')).toEqual([]);
     });
 
     it.each([

@@ -42,11 +42,17 @@ describe('parse_task_packet', () => {
         expect(parse(packet('scope:\n  # current slice\n  - AC-001')).frontmatter.scope).toEqual(['AC-001']);
     });
 
-    it('reads sections, Verify content, and visible body text', () => {
+    it('reads sections, Verify content, and resolution text', () => {
         const parsed = parse(packet('scope: [AC-001]'));
         expect(parsed.sectionTitles).toContain('Verify');
         expect(parsed.verifyBody).toContain('ok');
-        expect(parsed.bodyText).toContain('# Task');
+        expect(parsed.resolutionText).toContain('# Task');
+    });
+
+    it('keeps inline code but drops fenced output from resolution text', () => {
+        const parsed = parse(`${packet('scope: [AC-001]')}\nOpen item: \`TODO\`\n\n\`\`\`text\nTBD\n\`\`\`\n`);
+        expect(parsed.resolutionText).toContain('`TODO`');
+        expect(parsed.resolutionText).not.toContain('TBD');
     });
 
     it('rejects scalar, wrapped, absent, and malformed scope', () => {

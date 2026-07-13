@@ -1,6 +1,5 @@
-# The full verification gate: typecheck · lint · deps:validate · coverage · build — plus the canon
-# drift guards, which bite here because the suspec canon is checked out as a sibling (the contract
-# pin and the transformation-fixture oracle skip loudly without one).
+# Pushes and pull requests run the repository-local gate. A manual integration snapshot adds the
+# canon sibling so contract and transformation-fixture drift checks can execute.
 name: gate
 
 on:
@@ -30,7 +29,8 @@ permissions:
   contents: read
 
 jobs:
-  gate:
+  local-gate:
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,19 +38,35 @@ jobs:
           path: repo
           persist-credentials: false
 
-      # The canon sibling: the drift guards resolve it at ../suspec (or any canon-shaped sibling).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Gate
+        working-directory: repo
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm gate
+
+  integration-gate:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+          persist-credentials: false
       - uses: actions/checkout@v4
         with:
           repository: jcosta33/suspec
           ref: "${{ inputs.canon_ref || 'main' }}"
           path: suspec
           persist-credentials: false
-
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-
-      - name: Gate
+      - name: Integration gate
         working-directory: repo
         run: |
           corepack enable

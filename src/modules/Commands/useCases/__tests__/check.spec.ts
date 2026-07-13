@@ -396,7 +396,7 @@ describe('check command — spec checking (frontmatter-sniffed)', () => {
         const file = write('ok.md', CONFORMANT);
         const { code, out } = capture(() => run([file, '--json']));
         expect(code).toBe(0);
-        expect(JSON.parse(out)).toMatchObject({ level: 'clean', diagnostics: [] });
+        expect(JSON.parse(out)).toMatchObject({ type: 'spec', level: 'clean', diagnostics: [] });
     });
 
     it('C009 resolves artifact-relative: a ref beside the spec resolves; a root-style ref does not', () => {
@@ -540,12 +540,40 @@ describe('check command — task checking (C022-C024)', () => {
         expect(out).toContain('C023');
     });
 
+    it('C023 rejects a placeholder fence even when another fence carries valid output', () => {
+        const evidence = ['```text', '{{output}}', '```', '', '```text', 'PASS 12 tests', '```'].join('\n');
+        const file = write('task.md', TASK.replace('```text\nTests: 12 passed, 12 total\n```', evidence));
+        const { code, out } = capture(() => run([file]));
+        expect(code).toBe(2);
+        expect(out).toContain('C023');
+    });
+
+    it('C023 rejects a lowercase pending marker beside otherwise valid output', () => {
+        const file = write('task.md', TASK.replace('## Verify\n\n', '## Verify\n\npending\n\n'));
+        const { code, out } = capture(() => run([file]));
+        expect(code).toBe(2);
+        expect(out).toContain('C023');
+    });
+
     it('C024 rejects an unresolved blocking decision at closed', () => {
         const file = write(
             'task.md',
             TASK.replace('status: review-ready', 'status: closed').replace(
                 '## Findings\n\nNone.',
                 '## Findings\n\n- Blocking: choose an API.'
+            )
+        );
+        const { code, out } = capture(() => run([file]));
+        expect(code).toBe(2);
+        expect(out).toContain('C024');
+    });
+
+    it('C024 rejects an unresolved marker written as inline code', () => {
+        const file = write(
+            'task.md',
+            TASK.replace('status: review-ready', 'status: closed').replace(
+                '## Findings\n\nNone.',
+                '## Findings\n\nOpen item: `TODO`'
             )
         );
         const { code, out } = capture(() => run([file]));
@@ -621,7 +649,33 @@ describe('check command — multiple positionals (exit = max severity; C002 acro
         expect(documents).toHaveLength(1);
         expect(documents[0]).toMatchObject({
             error: 'ParseFailure',
-            message: 'frontmatter `id:` must be a scalar',
+            message: expect.stringContaining('`id:`'),
+        });
+    });
+
+    it('rejects a list-shaped id on one unchecked artifact', () => {
+        const malformed = write('audit.md', '---\ntype: audit\nid: [AUDIT-x]\n---\n');
+        const { code, out } = capture(() => run([malformed, '--json']));
+        expect(code).toBe(2);
+        expect(JSON.parse(out)).toMatchObject({
+            error: 'ParseFailure',
+            message: expect.stringContaining('`id:`'),
+        });
+    });
+
+    it('emits one structured error for a malformed checked id in a batch', () => {
+        const malformed = write('bad.md', CONFORMANT.replace('id: SPEC-x', 'id: [SPEC-x]'));
+        const valid = write('good.md', spec('SPEC-y'));
+        const { code, out } = capture(() => run([malformed, valid, '--json']));
+        const documents = out
+            .trim()
+            .split('\n')
+            .map((line) => JSON.parse(line) as Record<string, unknown>);
+        expect(code).toBe(2);
+        expect(documents).toHaveLength(1);
+        expect(documents[0]).toMatchObject({
+            error: 'ParseFailure',
+            message: expect.stringContaining('`id:`'),
         });
     });
 

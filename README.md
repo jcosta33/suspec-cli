@@ -45,6 +45,10 @@ A single report under `--json` is ordinary JSON. An invocation that produces sev
 one compact JSON value per line (JSON Lines), in processing order. Consumers must parse each
 non-empty line independently rather than parse the entire stream as one JSON document.
 
+Every per-artifact JSON report repeats its recognized `type`. Checked reports carry `diagnostics`;
+recognized unchecked reports carry `checked: false`. The optional final `(file set)` C002 report is
+not an artifact and has no `type`.
+
 ### Inputs
 
 The checker reads each primary path named on the command line. A review always requires its source
@@ -68,6 +72,7 @@ The frontmatter `type:` selects the check face:
 Frontmatter uses Suspec's strict flat subset: top-level scalar fields, flat inline lists, and flat
 block lists. Duplicate keys, nesting, multiline scalars, anchors, aliases, tags, malformed quotes,
 and malformed lists are rejected. Values remain strings; no boolean, number, or null coercion occurs.
+Every recognized artifact keeps `type` and `id` scalar.
 
 Several specs, tasks, or change plans can share one invocation. Each is checked, the process exit code is the
 highest result level, and duplicate frontmatter IDs across the supplied set are diagnosed. Review

@@ -2,17 +2,14 @@ import { describe, it, expect } from 'vitest';
 
 import { check_artifact_set } from '../checkArtifactSet.ts';
 import { assertOk } from '../../../../infra/errors/testing/assertOk.ts';
-import { assertErr } from '../../../../infra/errors/testing/assertErr.ts';
-
-const withId = (id: string) => `---\ntype: spec\nid: ${id}\n---\n# body\n`;
 
 describe('check_artifact_set — C002 duplicate-id across the passed set', () => {
     it('distinct frontmatter ids → clean', () => {
         const report = assertOk(
             check_artifact_set({
                 artifacts: [
-                    { path: 'a.md', source: withId('SPEC-a') },
-                    { path: 'b.md', source: withId('SPEC-b') },
+                    { path: 'a.md', id: 'SPEC-a' },
+                    { path: 'b.md', id: 'SPEC-b' },
                 ],
             })
         );
@@ -24,8 +21,8 @@ describe('check_artifact_set — C002 duplicate-id across the passed set', () =>
         const report = assertOk(
             check_artifact_set({
                 artifacts: [
-                    { path: 'a.md', source: withId('SPEC-x') },
-                    { path: 'b.md', source: withId('SPEC-x') },
+                    { path: 'a.md', id: 'SPEC-x' },
+                    { path: 'b.md', id: 'SPEC-x' },
                 ],
             })
         );
@@ -40,9 +37,9 @@ describe('check_artifact_set — C002 duplicate-id across the passed set', () =>
         const report = assertOk(
             check_artifact_set({
                 artifacts: [
-                    { path: 'a.md', source: withId('SPEC-x') },
-                    { path: 'b.md', source: withId('SPEC-x') },
-                    { path: 'c.md', source: withId('SPEC-x') },
+                    { path: 'a.md', id: 'SPEC-x' },
+                    { path: 'b.md', id: 'SPEC-x' },
+                    { path: 'c.md', id: 'SPEC-x' },
                 ],
             })
         );
@@ -54,24 +51,12 @@ describe('check_artifact_set — C002 duplicate-id across the passed set', () =>
         const report = assertOk(
             check_artifact_set({
                 artifacts: [
-                    { path: 'a.md', source: '---\ntype: audit\n---\n# no id\n' },
-                    { path: 'b.md', source: '---\ntype: research\n---\n# no id\n' },
-                    { path: 'c.md', source: withId('SPEC-x') },
+                    { path: 'a.md', id: null },
+                    { path: 'b.md', id: null },
+                    { path: 'c.md', id: 'SPEC-x' },
                 ],
             })
         );
         expect(report.diagnostics).toEqual([]);
-    });
-
-    it('a list-shaped id is malformed, not a scalar identity claim', () => {
-        const failure = assertErr(
-            check_artifact_set({
-                artifacts: [
-                    { path: 'a.md', source: '---\ntype: spec\nid:\n  - SPEC-x\n---\n# body\n' },
-                    { path: 'b.md', source: withId('SPEC-x') },
-                ],
-            })
-        );
-        expect(failure._tag).toBe('ParseFailure');
     });
 });

@@ -42,6 +42,7 @@ export type CheckReviewFileInput = Readonly<{
 }>;
 
 export type CheckReviewFileReport = Readonly<{
+    type: 'review';
     path: string;
     level: OutcomeLevel;
     diagnostics: readonly Diagnostic[];
@@ -90,7 +91,7 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
     }
 
     const report = (diagnostics: Diagnostic[]): Result<CheckReviewFileReport, AppError> =>
-        ok({ path: input.reviewPath, level: level_for(diagnostics), diagnostics });
+        ok({ type: 'review', path: input.reviewPath, level: level_for(diagnostics), diagnostics });
 
     // C020 (ADR-0128): the review's `task:` ref must resolve to the handed task packet. A review
     // naming task X reconciled against a packet identifying as Y is keyed on the wrong slice —

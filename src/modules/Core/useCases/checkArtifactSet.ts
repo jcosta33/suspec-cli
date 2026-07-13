@@ -1,17 +1,15 @@
 // CheckEngine, file-set scope: the cross-file checks over the artifacts passed in ONE invocation.
 // C002 (duplicate-id) is cross-file by nature — frontmatter `id:` uniqueness — so it keys on the
 // passed set (ADR-0143: the CLI reads exactly the files it is handed; there is no tree to scan).
-// PURE over the handed sources; the command reads the files and passes them here.
+// PURE over identities already parsed and shape-checked once by the command.
 
-import { err, ok, type Result } from '../../../infra/errors/result.ts';
+import { ok, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';
 import { duplicate_id_diagnostic, level_for, type Diagnostic } from '../services/checksContract.ts';
-import { parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
-import { createAppError } from '../../../infra/errors/createAppError.ts';
 import type { OutcomeLevel } from './unixOutcome.ts';
 
 export type CheckArtifactSetInput = Readonly<{
-    artifacts: readonly Readonly<{ path: string; source: string }>[];
+    artifacts: readonly Readonly<{ path: string; id: string | null }>[];
 }>;
 
 export type ArtifactSetReport = Readonly<{
@@ -24,28 +22,15 @@ export function check_artifact_set(input: CheckArtifactSetInput): Result<Artifac
     const diagnostics: Diagnostic[] = [];
     const firstPathById = new Map<string, string>();
     for (const artifact of input.artifacts) {
-        const parsed = parse_frontmatter(artifact.source);
-        if (!parsed.ok) {
-            return err(parsed.error);
-        }
-        if (Array.isArray(parsed.value.fields.id)) {
-            return err(
-                createAppError('ParseFailure', 'frontmatter `id:` must be a scalar', {
-                    reason: 'unparseable-frontmatter',
-                    line: null,
-                })
-            );
-        }
-        const id = scalar_field(parsed.value.fields, 'id');
-        if (id === undefined) {
+        if (artifact.id === null) {
             continue; // no identity claimed — nothing to collide
         }
-        const first = firstPathById.get(id);
+        const first = firstPathById.get(artifact.id);
         if (first !== undefined) {
-            diagnostics.push(duplicate_id_diagnostic(id, first, artifact.path));
+            diagnostics.push(duplicate_id_diagnostic(artifact.id, first, artifact.path));
             continue;
         }
-        firstPathById.set(id, artifact.path);
+        firstPathById.set(artifact.id, artifact.path);
     }
     return ok({ path: '(file set)', level: level_for(diagnostics), diagnostics });
 }

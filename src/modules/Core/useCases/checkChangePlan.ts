@@ -28,6 +28,7 @@ export type CheckChangePlanInput = Readonly<{
 }>;
 
 export type ChangePlanCheckReport = Readonly<{
+    type: 'change-plan';
     level: OutcomeLevel;
     path: string;
     diagnostics: readonly Diagnostic[];
@@ -50,5 +51,5 @@ export function check_change_plan(input: CheckChangePlanInput): Result<ChangePla
             waves: plan.waves.map((wave) => ({ namesCheck: wave.namesCheck, line: wave.line })),
         }),
     ];
-    return ok({ level: level_for(diagnostics), path: input.path, diagnostics });
+    return ok({ type: 'change-plan', level: level_for(diagnostics), path: input.path, diagnostics });
 }

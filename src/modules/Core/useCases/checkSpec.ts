@@ -25,6 +25,7 @@ export type CheckSpecInput = Readonly<{
 }>;
 
 export type SpecCheckReport = Readonly<{
+    type: 'spec';
     level: OutcomeLevel;
     path: string;
     diagnostics: readonly Diagnostic[];
@@ -40,5 +41,5 @@ export function check_spec(input: CheckSpecInput): Result<SpecCheckReport, AppEr
         exists: input.exists,
         anchor_resolves: input.anchor_resolves,
     });
-    return ok({ level: level_for(diagnostics), path: input.path, diagnostics });
+    return ok({ type: 'spec', level: level_for(diagnostics), path: input.path, diagnostics });
 }

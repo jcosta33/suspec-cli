@@ -26,7 +26,7 @@ import {
     emit_error,
     usage_error,
 } from '../../Core/useCases/index.ts';
-import type { AppError } from '../../../infra/errors/createAppError.ts';
+import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { err, ok, type Result } from '../../../infra/errors/result.ts';
 import { parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
@@ -218,7 +218,7 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
         seen.add(key);
         return true;
     });
-    const loaded: { path: string; source: string; type: string }[] = [];
+    const loaded: { path: string; source: string; type: string; id: string | null }[] = [];
     for (const file of paths) {
         const sourceResult = load_artifact_source(fileSystem, file);
         if (!sourceResult.ok) {
@@ -245,7 +245,20 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
             bump(emit_error(usage_error(`artifact \`${file}\` declares unknown type \`${type}\``), json));
             continue;
         }
-        loaded.push({ path: file, source, type });
+        const rawId = parsed.value.fields.id;
+        if (Array.isArray(rawId)) {
+            bump(
+                emit_error(
+                    createAppError('ParseFailure', `frontmatter \`id:\` in \`${file}\` must be a scalar`, {
+                        reason: 'unparseable-frontmatter',
+                        line: null,
+                    }),
+                    json
+                )
+            );
+            continue;
+        }
+        loaded.push({ path: file, source, type, id: scalar_field(parsed.value.fields, 'id') ?? null });
     }
     if (loaded.length < paths.length) {
         return status;
