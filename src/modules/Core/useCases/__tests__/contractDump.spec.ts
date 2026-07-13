@@ -21,7 +21,7 @@ describe('contract_dump — the `--contract` projection', () => {
         }
     });
 
-    it('projects the 0.17 review contract without reusing retired IDs', () => {
+    it('projects the 0.18 review contract without reusing retired IDs', () => {
         const dump = contract_dump();
         expect(dump.version).toBe('0.18.0');
         expect(dump.checks.map((check) => check.id)).not.toContain('C005');

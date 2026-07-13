@@ -16,7 +16,7 @@ if (existsSync(sourceEntry)) {
     // (type stripping is unsupported under node_modules anyway).
     const [major, minor] = process.versions.node.split('.').map(Number);
     if (major < 22 || (major === 22 && minor < 6)) {
-        console.error('Error: running suspec-cli from source needs Node.js >= 22.6 (or run `npm run build`).');
+        console.error('Error: running suspec-cli from source needs Node.js >= 22.6 (or run `pnpm build`).');
         console.error(`Current version: ${process.versions.node}`);
         process.exit(1);
     }

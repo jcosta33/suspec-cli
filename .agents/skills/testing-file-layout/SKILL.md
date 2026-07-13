@@ -15,7 +15,7 @@ All Vitest specs live in **`__tests__/`** directories **inside** the folder that
 | `repositories/config.ts` | `repositories/__tests__/config.spec.ts`  |
 | `services/render.ts`     | `__tests__/render.spec.ts` (module root) |
 
-## Reproduction First (Empirical Proof)
+## Reproduce First
 
 Before fixing a bug or modifying application behavior, you MUST write a failing test or a reproduction script first. If you cannot empirically prove the bug exists or the behavior is missing in a vacuum, you are not allowed to fix it. This forces you to understand the actual execution path rather than guessing based on static code reading.
 
