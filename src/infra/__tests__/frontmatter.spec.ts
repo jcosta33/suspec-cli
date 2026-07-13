@@ -21,10 +21,11 @@ describe('parse_frontmatter', () => {
     });
 
     it('keeps scalar text as text', () => {
-        expect(fields('---\nzero: 0\ntruth: true\nnothing: null\n---\n')).toEqual({
+        expect(fields('---\nzero: 0\ntruth: true\nnothing: null\nlabel: TASK-[beta]{one}\n---\n')).toEqual({
             zero: '0',
             truth: 'true',
             nothing: 'null',
+            label: 'TASK-[beta]{one}',
         });
     });
 
@@ -74,6 +75,11 @@ describe('parse_frontmatter', () => {
         ['unbalanced quote', '---\nid: "X\n---\n'],
         ['partial quoted scalar', '---\nid: "X" tail\n---\n'],
         ['embedded scalar quote', '---\nid: X "tail"\n---\n'],
+        ['unmatched closing bracket', '---\nid: TASK-x]\n---\n'],
+        ['unmatched opening bracket', '---\nid: TASK-x[\n---\n'],
+        ['unmatched closing brace', '---\nid: TASK-x}\n---\n'],
+        ['unmatched opening brace', '---\nid: TASK-x{\n---\n'],
+        ['crossed delimiters', '---\nid: TASK-[x}\n---\n'],
         ['unbalanced list', '---\nscope: [AC-001\n---\n'],
         ['nested list', '---\nscope: [[AC-001]]\n---\n'],
         ['empty inline item', '---\nscope: [AC-001, ]\n---\n'],

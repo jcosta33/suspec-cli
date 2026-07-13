@@ -26,7 +26,8 @@ import {
     emit_error,
     usage_error,
 } from '../../Core/useCases/index.ts';
-import { err, ok } from '../../../infra/errors/result.ts';
+import type { AppError } from '../../../infra/errors/createAppError.ts';
+import { err, ok, type Result } from '../../../infra/errors/result.ts';
 import { parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import { format_check_report } from '../services/renderCheckReport.ts';
@@ -36,6 +37,13 @@ type CheckFileSystem = Readonly<{
     identity: (path: string) => string;
     isDirectory: (path: string) => boolean;
     read: (path: string) => string;
+}>;
+
+type BufferedOutcome = Readonly<{
+    code: number;
+    stdout: string;
+    stderr: string;
+    structuredError: boolean;
 }>;
 
 const nodeFileSystem: CheckFileSystem = {
@@ -164,6 +172,38 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
             status = code;
         }
     };
+    const capture_error = (error: AppError): BufferedOutcome => {
+        let stdout = '';
+        let stderr = '';
+        const code = emit_error(error, json, {
+            out: (text) => {
+                stdout += text;
+            },
+            err: (text) => {
+                stderr += text;
+            },
+        });
+        return { code, stdout, stderr, structuredError: true };
+    };
+    const capture_result = <TValue extends { readonly level: 'clean' | 'warning' | 'blocking' }>(
+        result: Result<TValue, AppError>,
+        render: (value: TValue) => string
+    ): BufferedOutcome => {
+        let stdout = '';
+        let stderr = '';
+        const code = project(
+            { result, json, render },
+            {
+                out: (text) => {
+                    stdout += text;
+                },
+                err: (text) => {
+                    stderr += text;
+                },
+            }
+        );
+        return { code, stdout, stderr, structuredError: !result.ok };
+    };
     const seen = new Set<string>();
     const paths = positional.filter((file) => {
         let key: string;
@@ -229,9 +269,9 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
         );
     }
 
-    // Check one loaded artifact: dispatch by its frontmatter `type:` and render its report. Returns
-    // the file's exit code (the shared unixOutcome contract via `project`).
-    const check_one_file = (file: string, source: string, type: string): number => {
+    // Check one loaded artifact without emitting. Multi-path output is committed only after every
+    // result is known, so one invocation can never mix reports with structured errors.
+    const check_one_file = (file: string, source: string, type: string): BufferedOutcome => {
         // A review packet reconciles against the spec it is checked against — always handed
         // explicitly (ADR-0143 D3). The task is a conditional split slice (ADR-0134): --task is
         // required iff the review references a task — the engine refuses a task-referencing review
@@ -239,11 +279,10 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
         // floor's strongest checks (C012/C013/C020) are never silently skippable.
         if (type === 'review') {
             if (specPath === undefined) {
-                return emit_error(
+                return capture_error(
                     usage_error(
                         'a review packet needs its source spec: missing --spec — usage: suspec check <review-path> --spec <spec-path> [--task <task-path>]'
-                    ),
-                    json
+                    )
                 );
             }
             const companions: { flag: string; path: string }[] = [{ flag: '--spec', path: specPath }];
@@ -254,77 +293,79 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
             for (const companion of companions) {
                 const sourceResult = load_artifact_source(fileSystem, companion.path, companion.flag);
                 if (!sourceResult.ok) {
-                    return emit_error(sourceResult.error, json);
+                    return capture_error(sourceResult.error);
                 }
                 companionSources.set(companion.flag, sourceResult.value);
             }
-            return project({
-                result: check_review_file({
+            return capture_result(
+                check_review_file({
                     reviewSource: source,
                     reviewPath: file,
                     specSource: companionSources.get('--spec') ?? '',
                     specPath,
                     taskSource: taskPath === undefined ? undefined : companionSources.get('--task'),
                 }),
-                json,
-                render: format_check_report,
-            });
+                format_check_report
+            );
         }
         // A change plan (`type: change-plan`) runs C010/C011. C010 resolves `SPEC-x#AC-NNN` refs
         // artifact-relative — against the plan's sibling `*/spec.md` files (contract C010:
         // refs resolve against the plan's sibling specs; checks.yaml).
         if (type === 'change-plan') {
-            return project({
-                result: check_change_plan({
+            return capture_result(
+                check_change_plan({
                     source,
                     path: file,
                     spec_ref_resolves: build_spec_ref_resolver(find_sibling_spec_files(file)),
                 }),
-                json,
-                render: format_check_report,
-            });
+                format_check_report
+            );
         }
         if (type === 'task') {
-            return project({ result: check_task(source, file), json, render: format_check_report });
+            return capture_result(check_task(source, file), format_check_report);
         }
         // A recognized artifact with no deterministic face reports that fact and exits clean.
         if (type !== 'spec') {
-            return project({
-                result: ok({ level: 'clean' as const, path: file, type, checked: false }),
-                json,
-                render: () =>
-                    `${file} — no checks for type ${type} (check faces: spec, task, review, change-plan); nothing to validate`,
-            });
+            return capture_result(
+                ok({ level: 'clean' as const, path: file, type, checked: false }),
+                () =>
+                    `${file} — no checks for type ${type} (check faces: spec, task, review, change-plan); nothing to validate`
+            );
         }
         // C009 resolves a source ref artifact-relative (against the spec's own directory, ADR-0143
         // D4). The C015 resolver is built from the spec's named sources.md (read here, so the
         // engine stays pure); it admits every key when no sources.md is resolvable — the ADR-0087
         // no-false-flag rule.
-        return project({
-            result: check_spec({
+        return capture_result(
+            check_spec({
                 source,
                 path: file,
                 exists: build_source_exists(file),
                 anchor_resolves: build_anchor_resolver(source, file),
             }),
-            json,
-            render: format_check_report,
-        });
+            format_check_report
+        );
     };
 
     // Check EVERY named file in ONE process — a caller batching a staged set pays the ~0.15s startup
     // floor once, not per file. The exit code is the max across files (the shared unixOutcome
     // ordering: 0 clean < 1 warning < 2 blocking).
-    for (const artifact of loaded) {
-        bump(check_one_file(artifact.path, artifact.source, artifact.type));
-    }
+    const outcomes = loaded.map((artifact) => check_one_file(artifact.path, artifact.source, artifact.type));
     // The cross-file checks over the passed set (C002 duplicate-id) — only meaningful when several
     // artifacts ride one invocation; a clean set prints nothing (no noise on the happy path).
     if (loaded.length > 1) {
         const set = check_artifact_set({ artifacts: loaded });
         if (set.ok && set.value.diagnostics.length > 0) {
-            bump(project({ result: set, json, render: format_check_report }));
+            outcomes.push(capture_result(set, format_check_report));
         }
+    }
+    const selected = outcomes.some((outcome) => outcome.structuredError)
+        ? outcomes.filter((outcome) => outcome.structuredError)
+        : outcomes;
+    for (const outcome of selected) {
+        process.stdout.write(outcome.stdout);
+        process.stderr.write(outcome.stderr);
+        bump(outcome.code);
     }
     return status;
 }

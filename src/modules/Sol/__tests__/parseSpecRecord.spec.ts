@@ -73,6 +73,26 @@ This text must not satisfy Intent.
         expect(assertOk(parse_spec_record({ source, path: 'spec.md' })).intentBody.trim()).toBe('');
     });
 
+    it('keeps H3 subsection content inside Intent', () => {
+        const source = `---
+type: spec
+id: SPEC-intent-subsection
+status: draft
+---
+
+## Intent
+
+### User outcome
+
+Users finish checkout without duplicate charges.
+
+## Requirements
+`;
+        expect(assertOk(parse_spec_record({ source, path: 'spec.md' })).intentBody).toContain(
+            'Users finish checkout without duplicate charges.'
+        );
+    });
+
     it('normalizes quotes and inline comments in source-list items', () => {
         const source = `---
 type: spec

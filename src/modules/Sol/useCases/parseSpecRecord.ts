@@ -323,8 +323,10 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
         const headingLevel = atx_heading_level(line);
         if (headingLevel !== null && headingLevel <= 3) {
             flush_requirement();
-            in_non_goals = false;
-            in_intent = false;
+            if (headingLevel <= 2) {
+                in_non_goals = false;
+                in_intent = false;
+            }
             continue;
         }
 

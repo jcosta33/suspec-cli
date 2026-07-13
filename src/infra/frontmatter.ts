@@ -49,6 +49,18 @@ function strip_comment(raw: string, line: number): Result<string, FrontmatterFai
     return ok(raw.trim());
 }
 
+function has_balanced_delimiters(value: string): boolean {
+    const stack: string[] = [];
+    for (const character of value) {
+        if (character === '[') stack.push(']');
+        else if (character === '{') stack.push('}');
+        else if (character === ']' || character === '}') {
+            if (stack.pop() !== character) return false;
+        }
+    }
+    return stack.length === 0;
+}
+
 function parse_scalar(raw: string, line: number): Result<string, FrontmatterFailure> {
     const withoutComment = strip_comment(raw, line);
     if (!withoutComment.ok) {
@@ -79,6 +91,9 @@ function parse_scalar(raw: string, line: number): Result<string, FrontmatterFail
     }
     if (value.startsWith('[') || value.startsWith('{')) {
         return err(failure('frontmatter scalar contains unsupported nested or list syntax', line));
+    }
+    if (!has_balanced_delimiters(value)) {
+        return err(failure('frontmatter scalar contains unbalanced bracket or brace delimiters', line));
     }
     if (/^[>|&*!]/.test(value)) {
         return err(failure('frontmatter contains unsupported multiline, anchor, alias, or tag syntax', line));

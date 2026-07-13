@@ -593,6 +593,21 @@ describe('check command — multiple positionals (exit = max severity; C002 acro
         ]);
     });
 
+    it('--json emits structured errors only when one artifact cannot produce a report', () => {
+        const invalid = write('invalid.md', CONFORMANT.replace('status: ready', 'status: published'));
+        const unchecked = write('audit.md', '---\ntype: audit\nid: AUDIT-x\n---\n');
+        const { code, out } = capture(() => run([invalid, unchecked, '--json']));
+        const documents = out
+            .split('\n')
+            .filter((line) => line.length > 0)
+            .map((line) => JSON.parse(line) as Record<string, unknown>);
+
+        expect(code).toBe(2);
+        expect(documents).toHaveLength(1);
+        expect(documents[0]).toMatchObject({ error: 'ParseFailure' });
+        expect(documents.some((document) => document.checked === false)).toBe(false);
+    });
+
     it('clean + warning → exit 1', () => {
         const good = write('good.md', CONFORMANT);
         const warn = write('warn.md', spec('SPEC-y').replace('sources:\n  - ADR-0077', 'sources: []'));
