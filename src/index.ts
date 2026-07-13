@@ -8,7 +8,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
-import { run_check, print_usage } from './modules/Commands/useCases/index.ts';
+import { CHECK_FLAG_SPEC, run_check, print_usage } from './modules/Commands/useCases/index.ts';
+import { parse_flags } from './modules/Terminal/useCases/index.ts';
 
 function is_record(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
@@ -66,10 +67,13 @@ export async function dispatch(argv: string[], cwd: string = process.cwd()): Pro
     }
 
     const rest = argv.slice(1);
-    // Respect the `--` end-of-options marker parse_flags honors: a dash-leading positional after `--`
-    // must not be read as a help request.
-    const optionZone = rest.includes('--') ? rest.slice(0, rest.indexOf('--')) : rest;
-    if (optionZone.includes('--help') || optionZone.includes('-h')) {
+    // Parse help with the command's real option arity. A help token in a missing string option's value
+    // position (`--spec --help`) is an arity error, while a real command-level help flag succeeds.
+    const helpParse = parse_flags(rest, {
+        booleans: [...CHECK_FLAG_SPEC.booleans, '--help', '-h'],
+        strings: CHECK_FLAG_SPEC.strings,
+    });
+    if (helpParse.errors.length === 0 && (helpParse.flags.get('help') === true || helpParse.flags.get('h') === true)) {
         print_usage();
         return 0;
     }

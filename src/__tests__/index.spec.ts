@@ -101,6 +101,13 @@ describe('dispatch — the single-verb router (ADR-0143)', () => {
         expect(out).toContain('--contract');
     });
 
+    it.each(['--spec', '--task'])('does not treat `suspec check file %s --help` as help', async (flag) => {
+        const { code, out, err } = await capture(() => dispatch(['check', 'review.md', flag, '--help']));
+        expect(code).toBe(2);
+        expect(out).not.toContain('suspec check <artifact>');
+        expect(err).toContain(`option ${flag} requires a value`);
+    });
+
     it('routes `check` to the check command (a conformant spec → exit 0)', async () => {
         const dir = mkdtempSync(join(tmpdir(), 'suspec-dispatch-'));
         try {

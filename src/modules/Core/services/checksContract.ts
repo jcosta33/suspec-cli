@@ -11,12 +11,7 @@
 // with the file-set checker (checkArtifactSet).
 
 import type { OutcomeLevel } from '../useCases/unixOutcome.ts';
-import {
-    has_nonempty_fenced_block,
-    scan_markdown,
-    strip_inline_code,
-    visible_text,
-} from '../../../infra/markdownScan.ts';
+import { scan_markdown, strip_inline_code, visible_text } from '../../../infra/markdownScan.ts';
 
 // Pinned to suspec/checks/checks.yaml `version:`; the drift-guard test fails if the sibling diverges.
 export const CONTRACT_VERSION = '0.18.0';
@@ -389,6 +384,36 @@ export function check_task_shape(task: TaskCheckRecord): Diagnostic[] {
 }
 
 // --- C023 task-evidence -------------------------------------------------------------------------
+const GENERIC_COMPLETION_CLAIMS = new Set(['tests passed', 'implementation complete', 'checks succeeded', 'done']);
+
+// Exact C023 claim-only predicate: a closed fence is rejected when its body has exactly one nonblank
+// line and that line, after trim + lowercase + removal of trailing `.`/`!`, is one of the four
+// GENERIC_COMPLETION_CLAIMS above. Multiple nonblank lines and all other single lines remain raw
+// output; CI fields and justified n/a records take their independent paths below.
+function has_deterministic_fenced_output(lines: readonly string[]): boolean {
+    let body: string[] | null = null;
+    for (const line of scan_markdown(lines)) {
+        if (line.opensFence) {
+            body = [];
+            continue;
+        }
+        if (line.closesFence) {
+            const nonblank = (body ?? []).map((entry) => entry.trim()).filter((entry) => entry.length > 0);
+            const normalized = nonblank[0]?.toLowerCase().replace(/[.!]+$/, '') ?? '';
+            const claimOnly = nonblank.length === 1 && GENERIC_COMPLETION_CLAIMS.has(normalized);
+            if (nonblank.length > 0 && !claimOnly) {
+                return true;
+            }
+            body = null;
+            continue;
+        }
+        if (line.inFence && body !== null) {
+            body.push(line.text);
+        }
+    }
+    return false;
+}
+
 export function check_task_evidence(task: TaskCheckRecord): Diagnostic[] {
     if (task.status !== 'review-ready' && task.status !== 'closed') {
         return [];
@@ -397,7 +422,7 @@ export function check_task_evidence(task: TaskCheckRecord): Diagnostic[] {
     const verifyLines = verify.split(/\r\n|[\r\n]/);
     const visibleVerify = visible_text(scan_markdown(verifyLines));
     const hasExitStatus = /^[ \t>*+-]*Exit status\s*:\s*\d+[ \t]*$/im.test(visibleVerify);
-    const hasPastedOutput = hasExitStatus && has_nonempty_fenced_block(verifyLines);
+    const hasPastedOutput = hasExitStatus && has_deterministic_fenced_output(verifyLines);
     const hasCiLink = /^[ \t>*+-]*(?:CI|CI link)\s*:\s*https?:\/\/\S+[ \t]*$/im.test(visibleVerify);
     const hasJustifiedNa = /\bn\/a\s*(?::|-)[ \t]*\S+/i.test(visibleVerify);
     const hasPlaceholder = /\{\{[^}]+\}\}|\b(?:TBD|TODO)\b|\?\?\?/.test(visibleVerify);
@@ -406,7 +431,7 @@ export function check_task_evidence(task: TaskCheckRecord): Diagnostic[] {
         : [
               diagnostic(
                   'C023',
-                  'task `## Verify` must contain a numeric `Exit status:` plus non-empty fenced raw output, an explicit `CI:`/`CI link:` field, or `n/a` with a reason',
+                  'task `## Verify` must contain a numeric `Exit status:` plus non-claim-only fenced raw output, an explicit `CI:`/`CI link:` field, or `n/a` with a reason',
                   null
               ),
           ];

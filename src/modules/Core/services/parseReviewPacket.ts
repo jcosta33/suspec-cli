@@ -41,16 +41,19 @@ export type ReviewPacket = Readonly<{
     task: string | null;
     waivers: readonly string[];
     sectionTitles: readonly string[];
-    coverageRows: readonly CoverageRow[];
+    coverageRows: readonly CoverageRow[]; // Requirement coverage only (C012/C013 and waivers)
+    changePlanCoverageRows: readonly CoverageRow[];
     verifyBlocks: readonly VerifyBlock[]; // the structured-evidence blocks in the coverage section
 }>;
 
 const SECTION_HEADING = /^##\s+(.+?)\s*$/;
 const COVERAGE_HEADING = /^## Requirement coverage[ \t]*$/;
+const CHANGE_PLAN_COVERAGE_HEADING = /^## Change-plan coverage[ \t]*$/;
 const OPEN_DECISIONS_HEADING = /^## Open decisions[ \t]*$/;
 const REQUIREMENT_ID = /^[A-Z][A-Z0-9]*-\d+$/;
 const REVIEW_DECISIONS = new Set(['pending', 'accepted', 'changes-requested', 'deferred']);
 const ASSESSMENTS = new Set(['Supported', 'Unsupported', 'Unverified', 'Blocked']);
+const CANONICAL_COVERAGE_HEADER = ['ID', 'Assessment', 'Evidence'] as const;
 
 // A verify block opens with ```` ```verify <info-string> ```` (ADR-0083): the `verify` language token
 // then the info-string (the fenced body is verbatim and unparsed). scan_markdown exposes an opening
@@ -149,9 +152,11 @@ export function parse_review_packet(source: string, enforceContract = false): Re
 
     const sectionTitles: string[] = [];
     const coverageRows: CoverageRow[] = [];
+    const changePlanCoverageRows: CoverageRow[] = [];
     const verifyBlocks: VerifyBlock[] = [];
-    let inCoverage = false;
+    let coverageKind: 'requirement' | 'change-plan' | null = null;
     let coverageSectionCount = 0;
+    let canonicalRequirementHeaderCount = 0;
     let inOpenDecisions = false;
     let openDecisionsBody = '';
 
@@ -164,7 +169,7 @@ export function parse_review_packet(source: string, enforceContract = false): Re
             if (inOpenDecisions) {
                 openDecisionsBody += `${scanned.text}\n`;
             }
-            if (scanned.opensFence && inCoverage) {
+            if (scanned.opensFence && coverageKind === 'requirement') {
                 const verifyMatch = VERIFY_INFO.exec(scanned.fenceInfo);
                 if (verifyMatch !== null) {
                     verifyBlocks.push(parse_verify_info(verifyMatch[1]));
@@ -175,41 +180,65 @@ export function parse_review_packet(source: string, enforceContract = false): Re
         const line = scanned.text;
         if (COVERAGE_HEADING.test(line)) {
             sectionTitles.push('Requirement coverage');
-            inCoverage = true;
+            coverageKind = 'requirement';
             coverageSectionCount += 1;
+            inOpenDecisions = false;
+            continue;
+        }
+        if (CHANGE_PLAN_COVERAGE_HEADING.test(line)) {
+            sectionTitles.push('Change-plan coverage');
+            coverageKind = 'change-plan';
             inOpenDecisions = false;
             continue;
         }
         if (OPEN_DECISIONS_HEADING.test(line)) {
             sectionTitles.push('Open decisions');
-            inCoverage = false;
+            coverageKind = null;
             inOpenDecisions = true;
             continue;
         }
         const heading = SECTION_HEADING.exec(line);
         if (heading !== null) {
             sectionTitles.push(heading[1]);
-            inCoverage = false;
+            coverageKind = null;
             inOpenDecisions = false;
             continue;
         }
         if (inOpenDecisions) {
             openDecisionsBody += `${line}\n`;
         }
-        if (!inCoverage) {
+        if (coverageKind === null) {
             continue;
         }
         const cells = table_cells(line);
         if (cells === null || cells.length === 0) {
             continue;
         }
-        // Skip the header row (`ID | Assessment | …`) and the `|---|` separator.
-        if (is_separator_row(cells) || cells[0].toLowerCase() === 'id') {
+        if (is_separator_row(cells)) {
+            continue;
+        }
+        const isCanonicalHeader =
+            cells.length === CANONICAL_COVERAGE_HEADER.length &&
+            cells.every((cell, index) => cell === CANONICAL_COVERAGE_HEADER[index]);
+        if (isCanonicalHeader) {
+            if (coverageKind === 'requirement') {
+                canonicalRequirementHeaderCount += 1;
+            }
+            continue;
+        }
+        // A malformed header is not a data row. Contract mode rejects it below when the required
+        // canonical Requirement-coverage header count is not exactly one.
+        if (cells[0].toLowerCase() === 'id') {
             continue;
         }
         // A data row keys on a requirement id in column 1; read ID + Assessment + Evidence.
         if (REQUIREMENT_ID.test(cells[0])) {
-            coverageRows.push({ id: cells[0], assessment: cells[1] ?? '', evidence: cells[2] ?? '' });
+            const row = { id: cells[0], assessment: cells[1] ?? '', evidence: cells[2] ?? '' };
+            if (coverageKind === 'requirement') {
+                coverageRows.push(row);
+            } else {
+                changePlanCoverageRows.push(row);
+            }
         }
     }
 
@@ -230,17 +259,30 @@ export function parse_review_packet(source: string, enforceContract = false): Re
         if (coverageSectionCount !== 1) {
             return contractError('review must contain exactly one `## Requirement coverage` section');
         }
-        const invalidAssessment = coverageRows.find((row) => !ASSESSMENTS.has(row.assessment));
+        if (canonicalRequirementHeaderCount !== 1) {
+            return contractError(
+                'review Requirement coverage must contain exactly one canonical `| ID | Assessment | Evidence |` header'
+            );
+        }
+        if (coverageRows.length === 0) {
+            return contractError('review must contain at least one valid Requirement coverage data row');
+        }
+        const allCoverageRows = [...coverageRows, ...changePlanCoverageRows];
+        const invalidAssessment = allCoverageRows.find((row) => !ASSESSMENTS.has(row.assessment));
         if (invalidAssessment !== undefined) {
             return contractError(
                 `review coverage row ${invalidAssessment.id} assessment must be Supported, Unsupported, Unverified, or Blocked`
             );
         }
+        const duplicateWaivers = [...new Set(waivers.filter((waiver, index) => waivers.indexOf(waiver) !== index))];
+        if (duplicateWaivers.length > 0) {
+            return contractError(`review contains duplicate waiver ids: ${duplicateWaivers.join(', ')}`);
+        }
         if (decision !== 'accepted' && fields.waivers !== undefined) {
             return contractError('review `waivers:` must be absent unless `decision: accepted`');
         }
         if (decision === 'accepted') {
-            const blocked = coverageRows.filter((row) => row.assessment === 'Blocked').map((row) => row.id);
+            const blocked = allCoverageRows.filter((row) => row.assessment === 'Blocked').map((row) => row.id);
             if (blocked.length > 0) {
                 return contractError(`accepted review contains blocked assessments for ${blocked.join(', ')}`);
             }
@@ -271,6 +313,7 @@ export function parse_review_packet(source: string, enforceContract = false): Re
         waivers,
         sectionTitles,
         coverageRows,
+        changePlanCoverageRows,
         verifyBlocks,
     });
 }

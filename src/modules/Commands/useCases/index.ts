@@ -2,5 +2,5 @@
 // the command surface through THIS barrel, not deep imports: the check command's run(), the usage
 // renderer, and the dispatchable catalog (test-pinned to the dispatcher).
 export { COMMAND_CATALOG } from './catalog.ts';
-export { run as run_check } from './check.ts';
+export { CHECK_FLAG_SPEC, run as run_check } from './check.ts';
 export { print_usage } from './usage.ts';

@@ -82,6 +82,12 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
     if (specType !== 'spec') {
         return err(usage_error(`--spec companion must have \`type: spec\`; received ${specType ?? 'no type'}`));
     }
+    const sourceSpecStatus = parsed.value.frontmatter.status;
+    if (sourceSpecStatus !== 'ready') {
+        return err(
+            usage_error(`--spec companion must have \`status: ready\`; received ${sourceSpecStatus ?? 'no status'}`)
+        );
+    }
 
     const report = (diagnostics: Diagnostic[]): Result<CheckReviewFileReport, AppError> =>
         ok({ path: input.reviewPath, level: level_for(diagnostics), diagnostics });
@@ -123,8 +129,6 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
     const namedCommandById = new Map(
         parsed.value.requirements.map((requirement) => [requirement.id, requirement.verifyCommand])
     );
-    const sourceSpecStatus = parsed.value.frontmatter.status;
-
     // C012 (ADR-0079): the coverage reconcile. The task-keyed path narrows the in-scope id set to
     // the task's declared scope; the spec-keyed (task-less 1:1) path keys on the spec's full set.
     const coverage = check_coverage({
@@ -142,6 +146,6 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
         coverageRows: review.coverageRows,
         verifyBlocks: review.verifyBlocks,
     });
-    const supportedEvidence = check_supported_evidence(review.coverageRows);
+    const supportedEvidence = check_supported_evidence([...review.coverageRows, ...review.changePlanCoverageRows]);
     return report([...coverage, ...verifyBinding, ...supportedEvidence]);
 }

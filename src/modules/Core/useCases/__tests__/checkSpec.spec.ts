@@ -230,6 +230,46 @@ describe('check_spec — markdown structure (#31/#23)', () => {
     });
 });
 
+describe('check_spec — SOL QUESTION readiness', () => {
+    function solQuestion(kind: 'blocking' | 'non-blocking'): string {
+        return `---
+type: spec
+id: SPEC-question
+status: ready
+format: sol
+sources: [ADR-0077]
+---
+
+## Intent
+
+Pin SOL question readiness.
+
+## Requirements
+
+REQ AC-001:
+THE parser MUST recognize the question boundary
+VERIFY BY pnpm test
+
+QUESTION Q-001 [${kind}]:
+Should the release wait?
+`;
+    }
+
+    it('emits C007 for a valid blocking question at ready', () => {
+        const report = assertOk(
+            check_spec({ source: solQuestion('blocking'), path: 'blocking.sol.md', exists: () => true })
+        );
+        expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C007');
+    });
+
+    it('allows a valid non-blocking question at ready', () => {
+        const report = assertOk(
+            check_spec({ source: solQuestion('non-blocking'), path: 'non-blocking.sol.md', exists: () => true })
+        );
+        expect(report.diagnostics.filter((diagnostic) => diagnostic.code === 'C007')).toEqual([]);
+    });
+});
+
 // The frozen payment-5xx fixture is the oracle for C007's blocking-open-question clause — its
 // EXPECTED.md pins "C007 fires" on BOTH surfaces (`spec.md` and `spec.sol.md`) with every other
 // core check passing. Reached the same way the contract drift-guard reaches the sibling suspec

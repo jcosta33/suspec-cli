@@ -376,4 +376,25 @@ describe('parse_review_packet — markdown structure (#23)', () => {
         expect(block.id).toBe('AC-001');
         expect(block.result).toBe('pass');
     });
+
+    it('parses Change-plan coverage into a separate row collection and ignores its verify fences', () => {
+        const packet = `${PACKET}
+
+## Change-plan coverage
+
+| ID | Assessment | Evidence |
+|---|---|---|
+| PG-001 | Supported | plan evidence |
+
+\`\`\`verify id=PG-001 cmd="plan check" result=pass
+claim only
+\`\`\`
+`;
+        const parsed = parse_review(packet);
+        expect(parsed.coverageRows.map((row) => row.id)).toEqual(['AC-001', 'AC-002']);
+        expect(parsed.changePlanCoverageRows).toEqual([
+            { id: 'PG-001', assessment: 'Supported', evidence: 'plan evidence' },
+        ]);
+        expect(parsed.verifyBlocks.some((block) => block.id === 'PG-001')).toBe(false);
+    });
 });

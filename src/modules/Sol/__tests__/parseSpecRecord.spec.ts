@@ -283,9 +283,59 @@ Verify with: a test.
     it('parses SOL CONSTRAINT (C-) / INVARIANT (I-) / INTERFACE (IF-) openers, not just REQ (R5-I09)', () => {
         // Their ids must parse as requirements so a task can scope C-/I-/IF- and the coverage reconcile
         // does not false-fire orphan / scope≠spec on them. QUESTION (Q-) is intentionally NOT a requirement.
-        const source = `---\ntype: spec\nid: SPEC-pol\nstatus: ready\nformat: sol\n---\n\n# Policy\n\n## Requirements\n\nREQ AC-001:\nTHE service MUST authorize\nVERIFY BY test:a\n\nCONSTRAINT C-001:\nTHE store MUST be append-only\nVERIFY BY test:b\n\nINVARIANT I-001:\nTHE balance MUST never go negative\nVERIFY BY test:c\n\nINTERFACE IF-001:\nTHE API MUST expose GET /check\nVERIFY BY test:d\n\nQUESTION Q-001:\nshould retries be capped?\n`;
+        const source = `---\ntype: spec\nid: SPEC-pol\nstatus: ready\nformat: sol\n---\n\n# Policy\n\n## Requirements\n\nREQ AC-001:\nTHE service MUST authorize\nVERIFY BY test:a\n\nCONSTRAINT C-001:\nTHE store MUST be append-only\nVERIFY BY test:b\n\nINVARIANT I-001:\nTHE balance MUST never go negative\nVERIFY BY test:c\n\nINTERFACE IF-001:\nTHE API MUST expose GET /check\nVERIFY BY test:d\n\nQUESTION Q-001 [non-blocking]:\nshould retries be capped?\n`;
         const record = assertOk(parse_spec_record({ source, path: 'pol.md' }));
         expect(record.requirements.map((r) => r.id)).toEqual(['AC-001', 'C-001', 'I-001', 'IF-001']);
+    });
+
+    it.each(['blocking', 'non-blocking'])('treats a valid SOL QUESTION [%s] header as a block boundary', (kind) => {
+        const source = `---
+type: spec
+id: SPEC-question
+status: ready
+format: sol
+---
+
+## Requirements
+
+REQ AC-001:
+THE service MUST preserve the requirement body
+VERIFY BY test:requirement
+
+QUESTION Q-001 [${kind}]:
+Should this question stay outside the requirement?
+`;
+        const record = assertOk(parse_spec_record({ source, path: 'question.md' }));
+        expect(record.requirements).toHaveLength(1);
+        expect(record.requirements[0].body).not.toContain('QUESTION Q-001');
+        expect(record.requirements[0].body).not.toContain('Should this question');
+        expect(record.openQuestionsPresent).toBe(true);
+    });
+
+    it.each([
+        'QUESTION Q-001 [blocking]',
+        'QUESTION Q-001 [blocked]:',
+        'QUESTION AC-001 [blocking]:',
+        'QUESTION Q-001 [non-blocking]: extra',
+        'QUESTION Q-001:',
+        'question Q-001 [blocking]:',
+        ' QUESTION Q-001 [blocking]:',
+    ])('rejects a malformed SOL question header: %s', (header) => {
+        const source = `---
+type: spec
+id: SPEC-question
+status: ready
+format: sol
+---
+
+## Requirements
+
+${header}
+Question body.
+`;
+        const error = assertErr(parse_spec_record({ source, path: 'question.md' }));
+        expect(error._tag).toBe('ParseFailure');
+        expect(error.message).toContain('QUESTION Q-NNN [blocking]:');
     });
 
     it('rejects orphan list lines in frontmatter', () => {

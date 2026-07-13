@@ -59,6 +59,11 @@ const RECOGNIZED_TYPES = new Set([
     'inspection',
 ]);
 
+export const CHECK_FLAG_SPEC = {
+    booleans: ['--json', '--contract'],
+    strings: ['--spec', '--task'],
+} as const;
+
 function caught_message(caught: unknown): string {
     return caught instanceof Error ? caught.message : String(caught);
 }
@@ -109,16 +114,16 @@ function load_artifact_source(fileSystem: CheckFileSystem, path: string, flag?: 
 
 export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem): number {
     const fileSystem = typeof cwdOrFileSystem === 'object' ? cwdOrFileSystem : nodeFileSystem;
-    const { positional, flags, unknown } = parse_flags(argv, {
-        booleans: ['--json', '--contract'],
-        strings: ['--spec', '--task'],
-    });
+    const { positional, flags, unknown, errors } = parse_flags(argv, CHECK_FLAG_SPEC);
     const json = flags.get('json') === true;
     const specFlag = flags.get('spec');
     const taskFlag = flags.get('task');
     const specPath = typeof specFlag === 'string' ? specFlag : undefined;
     const taskPath = typeof taskFlag === 'string' ? taskFlag : undefined;
 
+    if (errors.length > 0) {
+        return emit_error(usage_error(errors.join('; ')), json);
+    }
     if (unknown.length > 0) {
         return emit_error(usage_error(`unknown option: ${unknown.join(', ')}`), json);
     }

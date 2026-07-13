@@ -92,23 +92,6 @@ export function scan_markdown(lines: readonly string[]): ScannedLine[] {
     return out;
 }
 
-export function has_nonempty_fenced_block(lines: readonly string[]): boolean {
-    let hasContent = false;
-    for (const line of scan_markdown(lines)) {
-        if (line.opensFence) {
-            hasContent = false;
-        } else if (line.closesFence) {
-            if (hasContent) {
-                return true;
-            }
-            hasContent = false;
-        } else if (line.inFence && line.text.trim().length > 0) {
-            hasContent = true;
-        }
-    }
-    return false;
-}
-
 // Blank out inline-code spans (`` `…` ``, including multi-backtick runs) with equal-length spaces,
 // so a downstream scan (strength words, a `|` table delimiter, a TBD marker) never matches inside a
 // code span. Length is preserved so a caller can map a position in the result back onto the original

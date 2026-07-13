@@ -72,7 +72,7 @@ Checker tests.
 Exit status: 0
 
 \`\`\`text
-tests passed
+Tests: 12 passed, 12 total
 \`\`\`
 
 ## Agent instructions
@@ -207,6 +207,20 @@ describe('check command — invocation shapes (ADR-0143)', () => {
         const { code, err } = capture(() => run(['--definitely-unknown', missing]));
         expect(code).toBe(2);
         expect(err).toContain('unknown option: --definitely-unknown');
+        expect(err).not.toContain('file not found');
+    });
+
+    it.each([
+        ['terminal --spec', ['review.md', '--spec'], '--spec'],
+        ['terminal --task', ['review.md', '--task'], '--task'],
+        ['--spec followed by another option', ['review.md', '--spec', '--task', 'task.md'], '--spec'],
+        ['--task followed by help', ['review.md', '--task', '--help'], '--task'],
+        ['empty --spec assignment', ['review.md', '--spec='], '--spec'],
+        ['empty --task assignment', ['review.md', '--task='], '--task'],
+    ])('%s fails as a missing option value before artifact loading', (_name, argv, flag) => {
+        const { code, err } = capture(() => run(argv));
+        expect(code).toBe(2);
+        expect(err).toContain(`option ${flag} requires a value`);
         expect(err).not.toContain('file not found');
     });
 
@@ -506,8 +520,21 @@ describe('check command — task checking (C022-C024)', () => {
         expect(out).toContain('C022');
     });
 
-    it('C023 rejects a bare verification claim', () => {
-        const file = write('task.md', TASK.replace('```text\ntests passed\n```', 'tests passed'));
+    it.each(['tests passed', 'IMPLEMENTATION COMPLETE.', 'checks succeeded!', 'done'])(
+        'C023 rejects a numeric exit plus a sole generic fenced claim: %s',
+        (claim) => {
+            const file = write('task.md', TASK.replace('Tests: 12 passed, 12 total', claim));
+            const { code, out } = capture(() => run([file]));
+            expect(code).toBe(2);
+            expect(out).toContain('C023');
+        }
+    );
+
+    it('C023 still rejects an unfenced bare verification claim', () => {
+        const file = write(
+            'task.md',
+            TASK.replace('```text\nTests: 12 passed, 12 total\n```', 'Tests: 12 passed, 12 total')
+        );
         const { code, out } = capture(() => run([file]));
         expect(code).toBe(2);
         expect(out).toContain('C023');
@@ -697,6 +724,19 @@ describe('check command — review packets need explicit companions (ADR-0143 D3
     });
 
     it.each([
+        ['draft', CONFORMANT.replace('status: ready', 'status: draft')],
+        ['missing', CONFORMANT.replace('status: ready\n', '')],
+        ['wrong case', CONFORMANT.replace('status: ready', 'status: Ready')],
+    ])('rejects a --spec companion whose status is %s', (_name, specSource) => {
+        const review = write('review.md', CLEAN_REVIEW);
+        const specPath = write('spec.md', specSource);
+        const taskPath = write('task.md', TASK);
+        const { code, err } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
+        expect(code).toBe(2);
+        expect(err).toContain('--spec companion must have `status: ready`');
+    });
+
+    it.each([
         {
             name: 'review task ref',
             reviewSource: CLEAN_REVIEW.replace('task: TASK-feat', 'task:\n  - TASK-feat\n  - TASK-other'),
@@ -862,6 +902,13 @@ ok
         [
             'unrelated accepted waiver',
             (source: string) => source.replace('decision: pending', 'decision: accepted\nwaivers: [AC-099]'),
+        ],
+        [
+            'duplicate accepted waiver',
+            (source: string) =>
+                source
+                    .replace('decision: pending', 'decision: accepted\nwaivers: [AC-001, AC-001]')
+                    .replace('| Supported |', '| Unsupported |'),
         ],
         [
             'accepted open decision',

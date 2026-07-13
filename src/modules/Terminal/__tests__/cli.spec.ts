@@ -30,14 +30,15 @@ describe('parse_flags', () => {
         expect(flags.get('i')).toBe(true);
     });
 
-    it('a string flag consumes the next token even when it looks like a flag (POSIX), no silent drop', () => {
-        const captured = parse_flags(['--from', '--unknown', 'pos'], SPEC);
-        expect(captured.flags.get('from')).toBe('--unknown'); // captured, not dropped (the command validates it)
-        expect(captured.positional).toEqual(['pos']);
-        // a string flag at the very end of argv has no value to consume
-        const dangling = parse_flags(['task', '--from'], SPEC);
-        expect(dangling.flags.has('from')).toBe(false);
-        expect(dangling.positional).toEqual(['task']);
+    it.each([
+        ['terminal flag', ['task', '--from']],
+        ['another declared option', ['task', '--from', '--force']],
+        ['help option', ['task', '--from', '--help']],
+        ['empty assigned value', ['task', '--from=']],
+    ])('reports a missing string value for a %s', (_name, argv) => {
+        const parsed = parse_flags(argv, SPEC);
+        expect(parsed.flags.has('from')).toBe(false);
+        expect(parsed.errors).toContain('option --from requires a value');
     });
 
     it('coerces a declared boolean in --flag=value form; a string flag keeps its value', () => {

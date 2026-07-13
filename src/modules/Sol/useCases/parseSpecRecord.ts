@@ -77,6 +77,8 @@ const MALFORMED_REQUIREMENT_HEADING = /^###\s+([A-Z][A-Z0-9]*-\d+[a-z][A-Za-z0-9
 // question, not an obligation. Restrict this syntax to SOL specs so ordinary prose cannot become a
 // requirement accidentally.
 const SOL_REQUIREMENT_OPENER = /^(?:REQ|CONSTRAINT|INVARIANT|INTERFACE)\s+([A-Z][A-Z0-9]*-\d+)\s*:/;
+const SOL_QUESTION_OPENER = /^QUESTION (Q-\d+) \[(blocking|non-blocking)\]:[ \t]*$/;
+const SOL_QUESTION_CANDIDATE = /^[ \t]*QUESTION\b/i;
 const SECTION_HEADING = /^##\s+(.+?)\s*$/;
 const MARKDOWN_LINK = /\]\(([^)\s#]+)/g;
 const WIKI_LINK = /\[\[([^\]]+)\]\]/g;
@@ -257,6 +259,23 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
                 in_intent = false;
                 current_requirement = { id: sol_match[1], line: source_line, bodyLines: [] };
                 continue;
+            }
+            const questionMatch = SOL_QUESTION_OPENER.exec(line);
+            if (questionMatch !== null) {
+                flush_requirement();
+                in_non_goals = false;
+                in_intent = false;
+                openQuestionsPresent = true;
+                continue;
+            }
+            if (SOL_QUESTION_CANDIDATE.test(line)) {
+                return err(
+                    createAppError(
+                        'ParseFailure',
+                        'SOL question header must be exactly `QUESTION Q-NNN [blocking]:` or `QUESTION Q-NNN [non-blocking]:`',
+                        { reason: 'invalid-sol-question-header', line: source_line }
+                    )
+                );
             }
         }
 

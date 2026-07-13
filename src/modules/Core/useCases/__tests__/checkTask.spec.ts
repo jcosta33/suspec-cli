@@ -74,6 +74,24 @@ describe('check_task', () => {
         expect(report.diagnostics.filter((diagnostic) => diagnostic.code === 'C023')).toEqual([]);
     });
 
+    it.each(['tests passed', 'TESTS PASSED.', 'Implementation Complete', 'checks succeeded!', 'done'])(
+        'rejects numeric Exit status plus a sole generic completion claim: %s',
+        (claim) => {
+            const verify = `Exit status: 0\n\n\`\`\`text\n\n${claim}\n\n\`\`\``;
+            const report = assertOk(check_task(task('review-ready', verify), 'task.md'));
+            expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C023');
+        }
+    );
+
+    it.each(['PASS src/auth.spec.ts (3 tests)', 'Tests: 12 passed, 12 total', 'tests passed\nDuration: 1.2s'])(
+        'retains deterministic raw output that is not a sole generic completion claim: %s',
+        (output) => {
+            const verify = `Exit status: 0\n\n\`\`\`text\n${output}\n\`\`\``;
+            const report = assertOk(check_task(task('review-ready', verify), 'task.md'));
+            expect(report.diagnostics.filter((diagnostic) => diagnostic.code === 'C023')).toEqual([]);
+        }
+    );
+
     it('requires a non-empty fenced raw-output block with the numeric Exit status', () => {
         const report = assertOk(check_task(task('review-ready', 'Exit status: 0\n\n```text\n```'), 'task.md'));
         expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C023');

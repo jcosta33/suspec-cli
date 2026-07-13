@@ -145,7 +145,8 @@ describe('check_review_file — C012 coverage against the handed spec + task', (
 \`\`\`verify id=AC-001 cmd="a test." result=pass
 ok
 \`\`\`
-        -->`);
+        -->
+| AC-009 | Unverified | actual row keeps the packet structurally valid |`);
         const report = assertOk(check({ reviewSource: commented }));
         const coverageMessages = report.diagnostics
             .filter((diagnostic) => diagnostic.code === 'C012')
@@ -155,14 +156,14 @@ ok
         expect(report.diagnostics.filter((diagnostic) => diagnostic.code === 'C013')).toEqual([]);
     });
 
-    it('a draft source spec exempts the review (the scope guard)', () => {
-        const report = assertOk(
-            check({
-                reviewSource: review('| AC-001 | Supported | p |'),
-                specSource: SPEC.replace('status: ready', 'status: draft'),
-            })
-        );
-        expect(report.diagnostics).toEqual([]);
+    it.each([
+        ['draft', SPEC.replace('status: ready', 'status: draft')],
+        ['review-ready', SPEC.replace('status: ready', 'status: review-ready')],
+        ['missing', SPEC.replace('status: ready\n', '')],
+        ['wrong case', SPEC.replace('status: ready', 'status: Ready')],
+    ])('rejects a companion spec whose status is %s', (_name, specSource) => {
+        const error = assertErr(check({ reviewSource: review('| AC-001 | Supported | p |'), specSource }));
+        expect(error.message).toContain('--spec companion must have `status: ready`');
     });
 
     it('keys coverage on the task scope — an out-of-scope spec AC is not demanded', () => {
@@ -308,20 +309,6 @@ describe('check_review_file — C013 verify-evidence-binding', () => {
         expect(report.level).toBe('warning');
     });
 
-    it('a draft source spec exempts C013 even with a mismatched block (the scope guard)', () => {
-        const report = assertOk(
-            check({
-                reviewSource: reviewWithVerify([
-                    { id: 'AC-001', assessment: 'Supported', verifyLine: 'verify id=AC-001 cmd="wrong" result=fail' },
-                    { id: 'AC-002', assessment: 'Supported', verify: true },
-                ]),
-                specSource: SPEC.replace('status: ready', 'status: draft'),
-            })
-        );
-        expect(report.diagnostics).toEqual([]);
-        expect(report.level).toBe('clean');
-    });
-
     it('the C013 fact is verdict-free (a diagnostic + a level, never a review result)', () => {
         const report = assertOk(
             check({ reviewSource: review('| AC-001 | Supported | p |\n| AC-002 | Supported | p |') })
@@ -330,6 +317,22 @@ describe('check_review_file — C013 verify-evidence-binding', () => {
         const json = JSON.stringify(report);
         expect(json).not.toMatch(/"(verdict|decision|suggestedDecision|mergeDecision)":/);
         expect(report.level).toBe('warning');
+    });
+
+    it('keeps C012 and C013 scoped to Requirement coverage rows', () => {
+        const reviewSource = `${reviewWithVerify([
+            { id: 'AC-001', assessment: 'Supported', verify: true },
+            { id: 'AC-002', assessment: 'Supported', verify: true },
+        ])}
+
+## Change-plan coverage
+
+| ID | Assessment | Evidence |
+|---|---|---|
+| PG-001 | Supported | plan output |
+`;
+        const report = assertOk(check({ reviewSource }));
+        expect(report.diagnostics.filter((d) => d.code === 'C012' || d.code === 'C013')).toEqual([]);
     });
 });
 
@@ -363,16 +366,22 @@ describe('check_review_file — C016 supported-needs-evidence', () => {
         expect(report.diagnostics.filter((d) => d.code === 'C016')).toEqual([]);
     });
 
-    it('C016 fires even when the source spec is DRAFT — unlike C012/C013, it is not draft-guarded', () => {
-        // An empty-evidence Supported is a structural contradiction in the review's OWN rows, independent
-        // of the source spec's maturity. Drafting the spec exempts C012/C013, isolating the C016.
+    it('C016 also checks Change-plan coverage rows', () => {
         const report = assertOk(
             check({
-                reviewSource: review('| AC-001 | Supported |  |'),
-                specSource: SPEC.replace('status: ready', 'status: draft'),
+                reviewSource: `${review('| AC-001 | Unverified |  |\n| AC-002 | Unverified |  |')}
+
+## Change-plan coverage
+
+| ID | Assessment | Evidence |
+|---|---|---|
+| PG-001 | Supported |  |
+`,
             })
         );
-        expect(report.diagnostics.map((d) => d.code)).toEqual(['C016']);
+        expect(report.diagnostics.filter((d) => d.code === 'C016').map((d) => d.message)).toEqual([
+            expect.stringContaining('PG-001'),
+        ]);
         expect(report.level).toBe('blocking');
     });
 });
@@ -418,12 +427,50 @@ describe('check_review_file — structural review packet contract', () => {
         );
     });
 
+    it.each([
+        ['missing header', (source: string) => source.replace('| ID | Assessment | Evidence |\n', '')],
+        [
+            'wrong-case header',
+            (source: string) => source.replace('| ID | Assessment | Evidence |', '| Id | Assessment | Evidence |'),
+        ],
+        [
+            'extra-column header',
+            (source: string) =>
+                source.replace('| ID | Assessment | Evidence |', '| ID | Assessment | Evidence | Notes |'),
+        ],
+    ])('requires the canonical Requirement coverage header: %s', (_name, mutate) => {
+        expect(
+            assertErr(check({ reviewSource: mutate(review('| AC-001 | Unverified | evidence |')) })).message
+        ).toContain('canonical `| ID | Assessment | Evidence |` header');
+    });
+
+    it('requires at least one valid Requirement coverage data row', () => {
+        const source = review('| not-an-id | Supported | evidence |');
+        expect(assertErr(check({ reviewSource: source })).message).toContain(
+            'at least one valid Requirement coverage data row'
+        );
+    });
+
     it.each(['Supported', 'Unsupported', 'Unverified', 'Blocked'])('accepts assessment value %s', (assessment) => {
         expect(check({ reviewSource: review(`| AC-001 | ${assessment} | evidence |`) }).ok).toBe(true);
     });
 
     it.each(['supported', 'Pass', 'Unknown', ''])('rejects assessment value %s', (assessment) => {
         expect(assertErr(check({ reviewSource: review(`| AC-001 | ${assessment} | evidence |`) })).message).toContain(
+            'assessment must be Supported, Unsupported, Unverified, or Blocked'
+        );
+    });
+
+    it.each(['supported', 'Pass', 'Unknown', ''])('rejects Change-plan assessment value %s', (assessment) => {
+        const source = `${review('| AC-001 | Unverified | evidence |')}
+
+## Change-plan coverage
+
+| ID | Assessment | Evidence |
+|---|---|---|
+| PG-001 | ${assessment} | evidence |
+`;
+        expect(assertErr(check({ reviewSource: source })).message).toContain(
             'assessment must be Supported, Unsupported, Unverified, or Blocked'
         );
     });
@@ -467,6 +514,29 @@ describe('check_review_file — structural review packet contract', () => {
         expect(check({ reviewSource: exact }).ok).toBe(true);
     });
 
+    it('rejects duplicate accepted waiver ids', () => {
+        const accepted = review('| AC-001 | Unsupported | evidence |').replace(
+            'decision: pending',
+            'decision: accepted\nwaivers: [AC-001, AC-001]'
+        );
+        expect(assertErr(check({ reviewSource: accepted })).message).toContain('duplicate waiver ids: AC-001');
+    });
+
+    it('keeps accepted waivers Requirement-coverage-only', () => {
+        const accepted = `${review('| AC-001 | Supported | evidence |\n| AC-002 | Supported | evidence |').replace(
+            'decision: pending',
+            'decision: accepted'
+        )}
+
+## Change-plan coverage
+
+| ID | Assessment | Evidence |
+|---|---|---|
+| PG-001 | Unsupported | plan gap |
+`;
+        expect(check({ reviewSource: accepted }).ok).toBe(true);
+    });
+
     it('rejects acceptance while any assessment is Blocked', () => {
         const accepted = review('| AC-001 | Blocked | dependency unavailable |').replace(
             'decision: pending',
@@ -474,6 +544,23 @@ describe('check_review_file — structural review packet contract', () => {
         );
         expect(assertErr(check({ reviewSource: accepted })).message).toContain(
             'accepted review contains blocked assessments for AC-001'
+        );
+    });
+
+    it('rejects acceptance while a Change-plan coverage assessment is Blocked', () => {
+        const accepted = `${review('| AC-001 | Supported | evidence |\n| AC-002 | Supported | evidence |').replace(
+            'decision: pending',
+            'decision: accepted'
+        )}
+
+## Change-plan coverage
+
+| ID | Assessment | Evidence |
+|---|---|---|
+| PG-001 | Blocked | dependency unavailable |
+`;
+        expect(assertErr(check({ reviewSource: accepted })).message).toContain(
+            'accepted review contains blocked assessments for PG-001'
         );
     });
 
