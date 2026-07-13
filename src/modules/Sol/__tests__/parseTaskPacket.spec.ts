@@ -49,6 +49,12 @@ describe('parse_task_packet', () => {
         expect(parsed.resolutionText).toContain('# Task');
     });
 
+    it('reads an indented Verify heading with closing hashes', () => {
+        const parsed = parse(packet('scope: [AC-001]').replace('## Verify', '   ## Verify ##'));
+        expect(parsed.sectionTitles).toContain('Verify');
+        expect(parsed.verifyBody).toContain('ok');
+    });
+
     it('keeps inline code but drops fenced output from resolution text', () => {
         const parsed = parse(`${packet('scope: [AC-001]')}\nOpen item: \`TODO\`\n\n\`\`\`text\nTBD\n\`\`\`\n`);
         expect(parsed.resolutionText).toContain('`TODO`');

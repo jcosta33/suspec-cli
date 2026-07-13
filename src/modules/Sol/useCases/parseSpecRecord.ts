@@ -9,7 +9,7 @@ import { type Result, ok, err, isErr } from '../../../infra/errors/result.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
 import {
-    atx_heading_level,
+    atx_heading,
     scan_markdown,
     visible_text,
     strip_inline_code,
@@ -68,7 +68,7 @@ export type ParseSpecRecordResult = Result<
     AppError<'ParseFailure', { reason: string; line: number | null }>
 >;
 
-const REQUIREMENT_HEADING = /^###\s+([A-Z][A-Z0-9]*-\d+)\b/;
+const REQUIREMENT_TITLE = /^([A-Z][A-Z0-9]*-\d+)\b/;
 // The near-miss the real heading regex silently drops: an id-shaped `###` heading whose number
 // carries a letter suffix (`AC-004a`). It parses as plain prose, so the requirement vanishes from
 // scope and coverage with no signal — C019 exists to make that disappearance visible. Requirement
@@ -76,7 +76,7 @@ const REQUIREMENT_HEADING = /^###\s+([A-Z][A-Z0-9]*-\d+)\b/;
 // Lowercase split-suffix only (`AC-004a`): the uppercase-continuation shape is prose
 // (`### UTF-16LE handling`, `### C-3PO example`) and false-fires; the capture runs through
 // word characters so the diagnostic quotes the whole token (`AC-004a_note`). ADR-0125 D3.
-const MALFORMED_REQUIREMENT_HEADING = /^###\s+([A-Z][A-Z0-9]*-\d+[a-z][A-Za-z0-9_]*)/;
+const MALFORMED_REQUIREMENT_TITLE = /^([A-Z][A-Z0-9]*-\d+[a-z][A-Za-z0-9_]*)/;
 // A SOL (`format: sol`) requirement opens with `<KEYWORD> <ID>:` instead of a `### <ID>` markdown
 // heading. The obligation block types — REQ (AC-), CONSTRAINT (C-), INVARIANT (I-), and INTERFACE
 // (IF-) — share the requirement record consumed by the core checks. QUESTION (Q-) is an open
@@ -85,7 +85,6 @@ const MALFORMED_REQUIREMENT_HEADING = /^###\s+([A-Z][A-Z0-9]*-\d+[a-z][A-Za-z0-9
 const SOL_REQUIREMENT_OPENER = /^(?:REQ|CONSTRAINT|INVARIANT|INTERFACE)\s+([A-Z][A-Z0-9]*-\d+)\s*:/;
 const SOL_QUESTION_OPENER = /^QUESTION (Q-\d+) \[(blocking|non-blocking)\]:[ \t]*$/;
 const SOL_QUESTION_CANDIDATE = /^[ \t]*QUESTION\b/i;
-const SECTION_HEADING = /^##\s+(.+?)\s*$/;
 const SPEC_STATUSES = new Set(['draft', 'ready']);
 const MARKDOWN_LINK = /\]\(([^)\s#]+)/g;
 const WIKI_LINK = /\[\[([^\]]+)\]\]/g;
@@ -258,7 +257,8 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
             continue;
         }
 
-        const requirement_match = REQUIREMENT_HEADING.exec(line);
+        const heading = atx_heading(line);
+        const requirement_match = heading?.level === 3 ? REQUIREMENT_TITLE.exec(heading.title) : null;
         if (requirement_match !== null) {
             flush_requirement();
             in_non_goals = false;
@@ -267,7 +267,7 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
             continue;
         }
 
-        const malformed_match = MALFORMED_REQUIREMENT_HEADING.exec(line);
+        const malformed_match = heading?.level === 3 ? MALFORMED_REQUIREMENT_TITLE.exec(heading.title) : null;
         if (malformed_match !== null) {
             malformedRequirementHeadings.push({ heading: malformed_match[1], line: source_line });
             // fall through: the heading still closes any open requirement via the generic H3 branch
@@ -304,10 +304,9 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
             }
         }
 
-        const section_match = SECTION_HEADING.exec(line);
-        if (section_match !== null) {
+        if (heading?.level === 2 && heading.title.length > 0) {
             flush_requirement();
-            const title = section_match[1];
+            const title = heading.title;
             sectionTitles.push(title);
             const normalized = title.toLowerCase();
             in_non_goals = normalized === 'non-goals';
@@ -320,7 +319,7 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
 
         // A higher-level heading closes the section it exits. H1/H2 close an H2 body; H1-H3 close
         // an H3 requirement. Lower headings remain nested content.
-        const headingLevel = atx_heading_level(line);
+        const headingLevel = heading?.level ?? null;
         if (headingLevel !== null && headingLevel <= 3) {
             flush_requirement();
             if (headingLevel <= 2) {

@@ -72,6 +72,16 @@ describe('parse_change_plan', () => {
         expect(plan.waves[2].text).toContain('the full suite');
     });
 
+    it('reads indented section headings with closing hashes', () => {
+        const source = PLAN.replace('## Preservation guarantees', '   ## Preservation guarantees ##').replace(
+            '## Transformation waves',
+            '   ## Transformation waves ##'
+        );
+        const plan = assertOk(parse_change_plan({ source, path: 'change-plan.md' }));
+        expect(plan.guaranteeIds).toContain('PG-001');
+        expect(plan.waves).toHaveLength(3);
+    });
+
     it('does not let an H1 extend the Transformation waves section', () => {
         const source = PLAN.replace(
             '1. Create the new schema; dual-write. Green check: `npm test -- inventory.spec.ts`.',

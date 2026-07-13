@@ -61,6 +61,13 @@ describe('parse_review_packet', () => {
         ]);
     });
 
+    it('reads indented H2 sections with closing hashes', () => {
+        const packet = PACKET.replace(/^## (.+)$/gm, '   ## $1 ##');
+        const review = parse_review(packet);
+        expect(review.sectionTitles).toContain('Requirement coverage');
+        expect(review.coverageRows).toHaveLength(2);
+    });
+
     it('reads the coverage rows (id / result / evidence), skipping header + separator', () => {
         expect(parse_review(PACKET).coverageRows).toEqual([
             { id: 'AC-001', assessment: 'Supported', evidence: '`pnpm test` output pasted' },

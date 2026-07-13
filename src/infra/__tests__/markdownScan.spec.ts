@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { atx_heading_level, scan_markdown, strip_inline_code, visible_text } from '../markdownScan.ts';
+import { atx_heading, atx_heading_level, scan_markdown, strip_inline_code, visible_text } from '../markdownScan.ts';
 
 describe('atx_heading_level', () => {
     it('recognizes CommonMark ATX heading levels without accepting deep indentation or glued hashes', () => {
@@ -10,6 +10,12 @@ describe('atx_heading_level', () => {
         expect(atx_heading_level('    ## code')).toBeNull();
         expect(atx_heading_level('##glued')).toBeNull();
         expect(atx_heading_level('plain')).toBeNull();
+    });
+
+    it('returns a normalized title for indented headings with optional closing hashes', () => {
+        expect(atx_heading('   ## Intent ##')).toEqual({ level: 2, title: 'Intent' });
+        expect(atx_heading('### ###')).toEqual({ level: 3, title: '' });
+        expect(atx_heading('## literal###')).toEqual({ level: 2, title: 'literal###' });
     });
 });
 

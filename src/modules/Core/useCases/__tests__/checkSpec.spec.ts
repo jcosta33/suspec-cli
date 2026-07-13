@@ -105,6 +105,15 @@ describe('check_spec', () => {
         expect(report.diagnostics.map((d) => d.code)).toContain('C003');
     });
 
+    it('checks three-space-indented requirements and normalizes closing hashes on sections', () => {
+        const source = CONFORMANT.replace('## Intent', '   ## Intent ##')
+            .replace('### AC-001', '   ### AC-001')
+            .replace('Verify with: a unit test over the parser.\n', '');
+        const report = assertOk(check_spec({ source, path: 'spec.md', exists: () => true }));
+        expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C003');
+        expect(report.diagnostics.map((diagnostic) => diagnostic.code)).not.toContain('C021');
+    });
+
     it('accepts the minimal Intent + Requirements shape without optional sections', () => {
         const minimal = CONFORMANT.replace(/## Non-goals[\s\S]*$/, '');
         const report = assertOk(check_spec({ source: minimal, path: 'spec.md', exists: () => true }));

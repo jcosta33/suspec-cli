@@ -9,7 +9,7 @@
 // are real-looking; the engine only parses a packet a real run produced. Rows whose first cell is
 // not requirement-ID-shaped are outside the coverage record consumed by the checks.
 
-import { atx_heading_level, scan_markdown, strip_inline_code } from '../../../infra/markdownScan.ts';
+import { atx_heading, scan_markdown, strip_inline_code } from '../../../infra/markdownScan.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { err, isErr, ok, type Result } from '../../../infra/errors/result.ts';
 import { list_field, parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
@@ -46,10 +46,6 @@ export type ReviewPacket = Readonly<{
     verifyBlocks: readonly VerifyBlock[]; // the structured-evidence blocks in the coverage section
 }>;
 
-const SECTION_HEADING = /^##\s+(.+?)\s*$/;
-const COVERAGE_HEADING = /^## Requirement coverage[ \t]*$/;
-const CHANGE_PLAN_COVERAGE_HEADING = /^## Change-plan coverage[ \t]*$/;
-const OPEN_DECISIONS_HEADING = /^## Open decisions[ \t]*$/;
 const REQUIREMENT_ID = /^[A-Z][A-Z0-9]*-\d+$/;
 const REVIEW_DECISIONS = new Set(['pending', 'accepted', 'changes-requested', 'deferred']);
 const ASSESSMENTS = new Set(['Supported', 'Unsupported', 'Unverified', 'Blocked']);
@@ -181,34 +177,34 @@ export function parse_review_packet(source: string, enforceContract = false): Re
             continue;
         }
         const line = scanned.text;
-        if (COVERAGE_HEADING.test(line)) {
+        const heading = atx_heading(line);
+        if (heading?.level === 2 && heading.title === 'Requirement coverage') {
             sectionTitles.push('Requirement coverage');
             coverageKind = 'requirement';
             coverageSectionCount += 1;
             inOpenDecisions = false;
             continue;
         }
-        if (CHANGE_PLAN_COVERAGE_HEADING.test(line)) {
+        if (heading?.level === 2 && heading.title === 'Change-plan coverage') {
             sectionTitles.push('Change-plan coverage');
             coverageKind = 'change-plan';
             changePlanCoverageSectionCount += 1;
             inOpenDecisions = false;
             continue;
         }
-        if (OPEN_DECISIONS_HEADING.test(line)) {
+        if (heading?.level === 2 && heading.title === 'Open decisions') {
             sectionTitles.push('Open decisions');
             coverageKind = null;
             inOpenDecisions = true;
             continue;
         }
-        const heading = SECTION_HEADING.exec(line);
-        if (heading !== null) {
-            sectionTitles.push(heading[1]);
+        if (heading?.level === 2 && heading.title.length > 0) {
+            sectionTitles.push(heading.title);
             coverageKind = null;
             inOpenDecisions = false;
             continue;
         }
-        const headingLevel = atx_heading_level(line);
+        const headingLevel = heading?.level ?? null;
         if (headingLevel !== null && headingLevel <= 2) {
             coverageKind = null;
             inOpenDecisions = false;

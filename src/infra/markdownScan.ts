@@ -15,10 +15,25 @@ export type ScannedLine = Readonly<{
 
 const FENCE = /^( {0,3})(`{3,}|~{3,})(.*)$/;
 const CLOSING_FENCE = /^( {0,3})(`{3,}|~{3,})[ \t]*$/;
-const ATX_HEADING = /^ {0,3}(#{1,6})(?:[ \t]+|$)/;
+const ATX_HEADING = /^ {0,3}(#{1,6})(?:[ \t]+(.*)|[ \t]*)$/;
+
+export type AtxHeading = Readonly<{
+    level: number;
+    title: string;
+}>;
+
+export function atx_heading(line: string): AtxHeading | null {
+    const match = ATX_HEADING.exec(line);
+    if (match === null) {
+        return null;
+    }
+    const rawTitle = match[2] ?? '';
+    const title = rawTitle.replace(/(?:[ \t]+|^)#+[ \t]*$/, '').trim();
+    return { level: match[1].length, title };
+}
 
 export function atx_heading_level(line: string): number | null {
-    return ATX_HEADING.exec(line)?.[1].length ?? null;
+    return atx_heading(line)?.level ?? null;
 }
 
 function strip_html_comments(line: string, startsInComment: boolean): { text: string; inComment: boolean } {

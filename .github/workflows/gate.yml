@@ -52,6 +52,8 @@ jobs:
   integration-gate:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    env:
+      SUSPEC_CANON: "${{ github.workspace }}/suspec"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -69,6 +71,7 @@ jobs:
       - name: Integration gate
         working-directory: repo
         run: |
+          test -f "$SUSPEC_CANON/checks/checks.yaml"
           corepack enable
           pnpm install --frozen-lockfile --ignore-scripts
           pnpm gate

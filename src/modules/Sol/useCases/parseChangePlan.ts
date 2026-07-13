@@ -13,7 +13,7 @@
 import { type Result, ok, err, isErr } from '../../../infra/errors/result.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { list_field, parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
-import { atx_heading_level, scan_markdown } from '../../../infra/markdownScan.ts';
+import { atx_heading, scan_markdown } from '../../../infra/markdownScan.ts';
 
 // A preserved-behavior id: either a cross-spec reference (`SPEC-checkout#AC-002`) or a plan-local
 // guarantee id (`PG-001`). Sourced from the frontmatter `preserves:` list or the guarantees table.
@@ -56,7 +56,6 @@ export type ParseChangePlanResult = Result<
     AppError<'ParseFailure', { reason: string; line: number | null }>
 >;
 
-const SECTION_HEADING = /^##\s+(.+?)\s*$/;
 // A guarantees / preserves id: a cross-spec ref `SPEC-x#AC-002` or a plan-local id `PG-001`. The
 // spec part is `WORD-...`; the anchor after `#` is `AC-`/`C-`/`I-`-style (letters, dash, digits).
 const SPEC_REF = /^([A-Za-z][\w-]*)#([A-Za-z][\w-]*-\d+)$/;
@@ -166,9 +165,9 @@ export function parse_change_plan(input: ParseChangePlanInput): ParseChangePlanR
             continue;
         }
 
-        const section_match = SECTION_HEADING.exec(line);
-        if (section_match !== null) {
-            const title = section_match[1].toLowerCase();
+        const heading = atx_heading(line);
+        if (heading?.level === 2 && heading.title.length > 0) {
+            const title = heading.title.toLowerCase();
             if (title === GUARANTEES_TITLE) {
                 section = 'guarantees';
             } else if (title === WAVES_TITLE) {
@@ -180,7 +179,7 @@ export function parse_change_plan(input: ParseChangePlanInput): ParseChangePlanR
             continue;
         }
 
-        const headingLevel = atx_heading_level(line);
+        const headingLevel = heading?.level ?? null;
         if (headingLevel !== null && headingLevel <= 2) {
             section = 'other';
             waveContinuation = false;

@@ -1,7 +1,7 @@
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { err, isErr, ok, type Result } from '../../../infra/errors/result.ts';
 import { list_field, parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
-import { atx_heading_level, scan_markdown } from '../../../infra/markdownScan.ts';
+import { atx_heading, scan_markdown } from '../../../infra/markdownScan.ts';
 
 export type TaskPacket = Readonly<{
     frontmatter: Readonly<{
@@ -20,8 +20,6 @@ export type ParseTaskPacketResult = Result<
     TaskPacket,
     AppError<'ParseFailure', { reason: string; line: number | null }>
 >;
-
-const SECTION_HEADING = /^##\s+(.+?)\s*$/;
 
 export function parse_task_packet(source: string): ParseTaskPacketResult {
     const parsedFrontmatter = parse_frontmatter(source);
@@ -62,13 +60,13 @@ export function parse_task_packet(source: string): ParseTaskPacketResult {
             }
             continue;
         }
-        const heading = SECTION_HEADING.exec(line.text);
-        if (heading !== null) {
-            sectionTitles.push(heading[1]);
-            inVerify = heading[1].toLowerCase() === 'verify';
+        const heading = atx_heading(line.text);
+        if (heading?.level === 2 && heading.title.length > 0) {
+            sectionTitles.push(heading.title);
+            inVerify = heading.title.toLowerCase() === 'verify';
             continue;
         }
-        const headingLevel = atx_heading_level(line.text);
+        const headingLevel = heading?.level ?? null;
         if (headingLevel !== null && headingLevel <= 2) {
             inVerify = false;
             continue;
