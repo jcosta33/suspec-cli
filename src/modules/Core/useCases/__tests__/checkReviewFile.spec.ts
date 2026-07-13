@@ -71,18 +71,18 @@ ${rows}
 function reviewWithVerify(
     rows: readonly { id: string; assessment: string; verify?: boolean; verifyLine?: string }[]
 ): string {
-    const rowsTable = rows
-        .map((r) => {
-            const row = `| ${r.id} | ${r.assessment} | p |`;
+    const rowsTable = rows.map((r) => `| ${r.id} | ${r.assessment} | p |`).join('\n');
+    const verifyBlocks = rows
+        .flatMap((r) => {
             if (r.verifyLine !== undefined) {
-                return `${row}\n\n\`\`\`${r.verifyLine}\nout\n\`\`\`\n`;
+                return [`\`\`\`${r.verifyLine}\nout\n\`\`\``];
             }
             return r.verify === true
-                ? `${row}\n\n\`\`\`verify id=${r.id} cmd="a test." result=pass\nok (1 passed)\n\`\`\`\n`
-                : row;
+                ? [`\`\`\`verify id=${r.id} cmd="a test." result=pass\nok (1 passed)\n\`\`\``]
+                : [];
         })
-        .join('\n');
-    return review(rowsTable);
+        .join('\n\n');
+    return review(`${rowsTable}${verifyBlocks.length > 0 ? `\n\n${verifyBlocks}` : ''}`);
 }
 
 // The engine is pure over the handed sources (ADR-0143) — every case passes explicit spec/task
@@ -137,7 +137,9 @@ describe('check_review_file — C012 coverage against the handed spec + task', (
     });
 
     it('does not count a commented heading, coverage rows, or verify blocks', () => {
-        const commented = review(`<!--
+        const commented = review(`| AC-009 | Unverified | actual row keeps the packet structurally valid |
+
+<!--
 ## Requirement coverage
 | AC-001 | Supported | p |
 | AC-002 | Supported | p |
@@ -145,8 +147,7 @@ describe('check_review_file — C012 coverage against the handed spec + task', (
 \`\`\`verify id=AC-001 cmd="a test." result=pass
 ok
 \`\`\`
-        -->
-| AC-009 | Unverified | actual row keeps the packet structurally valid |`);
+        -->`);
         const report = assertOk(check({ reviewSource: commented }));
         const coverageMessages = report.diagnostics
             .filter((diagnostic) => diagnostic.code === 'C012')
@@ -304,6 +305,23 @@ describe('check_review_file — C013 verify-evidence-binding', () => {
         expect(report.diagnostics.map((d) => d.code)).toEqual(['C013']);
         expect(report.diagnostics[0].message).toContain('result=fail');
         expect(report.level).toBe('warning');
+    });
+
+    it('reports C013 for a result token with a valid prefix and invalid suffix', () => {
+        const report = assertOk(
+            check({
+                reviewSource: reviewWithVerify([
+                    {
+                        id: 'AC-001',
+                        assessment: 'Supported',
+                        verifyLine: 'verify id=AC-001 cmd="a test." result=pass-junk',
+                    },
+                    { id: 'AC-002', assessment: 'Supported', verify: true },
+                ]),
+            })
+        );
+        expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C013');
+        expect(report.diagnostics.some((diagnostic) => diagnostic.message.includes('malformed'))).toBe(true);
     });
 
     it('reports C013 free-form-only for a Supported row with no verify block (non-draft spec)', () => {

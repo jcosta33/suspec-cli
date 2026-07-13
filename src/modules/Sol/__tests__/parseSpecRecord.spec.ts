@@ -11,7 +11,8 @@ title: Demo
 status: ready
 owner: Jane
 sources:
-  - ADR-0077, ../suspec/docs/adrs/0077.md
+  - ADR-0077
+  - ../suspec/docs/adrs/0077.md
   - JIRA-9
 ---
 
@@ -104,6 +105,17 @@ sources:
 `;
         const record = assertOk(parse_spec_record({ source, path: 'spec.md' }));
         expect(record.frontmatter.sources).toEqual(['docs/source.md', 'ADR-0077']);
+    });
+
+    it('preserves spaces inside a quoted source path', () => {
+        const source = `---
+type: spec
+id: SPEC-spaced-source
+sources: ["missing dir/ticket,one.md"]
+---
+`;
+        const record = assertOk(parse_spec_record({ source, path: 'spec.md' }));
+        expect(record.frontmatter.sources).toEqual(['missing dir/ticket,one.md']);
     });
 
     it('tolerates CRLF line endings and a leading UTF-8 BOM (a BOM-saved spec still parses)', () => {

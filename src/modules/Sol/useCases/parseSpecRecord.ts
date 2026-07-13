@@ -105,13 +105,11 @@ function extract_verify_command(body: string): string | null {
     return command.length > 0 ? command : null;
 }
 
-// One comma-segment of a frontmatter `sources:` item can carry a path plus trailing prose
-// ("../x/spec.md (a note)"); keep only the leading whitespace-delimited token (the ref itself).
+// One list item is one ref. The frontmatter parser already splits inline lists and removes balanced
+// quotes, so preserve all internal characters; quoted paths may contain spaces or commas.
 function source_tokens(entry: string): string[] {
-    return entry
-        .split(',')
-        .map((segment) => segment.trim().split(/\s+/)[0])
-        .filter((token) => token.length > 0);
+    const token = entry.trim();
+    return token.length === 0 ? [] : [token];
 }
 
 function extract_links(scanned: readonly ScannedLine[], body_start_line: number): SpecRecordLink[] {

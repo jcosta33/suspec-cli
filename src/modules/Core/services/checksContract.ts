@@ -126,7 +126,8 @@ const UNRESOLVED_MARKER_PATTERN = /\b(?:TBD|TODO)\b|\?\?\?/;
 // blocking open question"): a `Blocking:` bullet (the plain-form record) or a SOL
 // `QUESTION Q-NNN [blocking]` header — two surfaces of one record (the payment-5xx equivalence
 // pair pins both). A question downgraded to `[non-blocking]` matches neither alternative.
-const BLOCKING_QUESTION_PATTERN = /^[ \t>*+-]*Blocking:|^QUESTION\s+[A-Z][A-Z0-9]*-\d+\s*\[blocking\]/im;
+const BLOCKING_QUESTION_PATTERN =
+    /^(?:[ \t]*(?:>|[-+*]|\d{1,9}[.)])[ \t]+)*[ \t]*Blocking:|^QUESTION\s+[A-Z][A-Z0-9]*-\d+\s*\[blocking\]/im;
 
 // --- The records the rules key on (the parser produces a structurally-compatible value) ----------
 

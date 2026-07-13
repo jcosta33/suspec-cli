@@ -940,6 +940,8 @@ describe('drift guard against the sibling suspec/checks/checks.yaml', () => {
             'decision_enum: [pending, accepted, changes-requested, deferred]',
             'sections: [Requirement coverage, Change-plan coverage]',
             'columns: [ID, Assessment, Evidence]',
+            'delimiter_row: required-immediately-after-header',
+            'rows: contiguous',
             'assessment_enum: [Supported, Unsupported, Unverified, Blocked]',
             '^(all )?(tests?|checks?) (pass(ed)?|succeeded)\\.?$',
             'C005 and C006 are RETIRED',

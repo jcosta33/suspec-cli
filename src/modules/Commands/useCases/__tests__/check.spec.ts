@@ -101,12 +101,11 @@ decision: pending
 | ID | Assessment | Evidence |
 |---|---|---|
 | AC-001 | Supported | p |
+| AC-002 | Supported | p |
 
 \`\`\`verify id=AC-001 cmd="a test." result=pass
 ok
 \`\`\`
-
-| AC-002 | Supported | p |
 
 \`\`\`verify id=AC-002 cmd="a test." result=pass
 ok

@@ -16,6 +16,7 @@ export type ScannedLine = Readonly<{
 const FENCE = /^( {0,3})(`{3,}|~{3,})(.*)$/;
 const CLOSING_FENCE = /^( {0,3})(`{3,}|~{3,})[ \t]*$/;
 const ATX_HEADING = /^ {0,3}(#{1,6})(?:[ \t]+(.*)|[ \t]*)$/;
+const LIST_ITEM = /^( {0,3})([-+*]|\d{1,9}[.)])([ \t]+)(.*)$/;
 
 export type AtxHeading = Readonly<{
     level: number;
@@ -75,11 +76,32 @@ export function scan_markdown(lines: readonly string[]): ScannedLine[] {
     let marker: string | null = null; // the open fence's char ('`' or '~'), or null when not in a fence
     let runLen = 0;
     let inHtmlComment = false;
+    let listContentIndent: number | null = null;
+    let fenceContainerIndent = 0;
     for (const rawText of lines) {
         if (marker === null) {
+            const listItem = LIST_ITEM.exec(rawText);
+            let structuralText = rawText;
+            if (listItem !== null) {
+                listContentIndent = listItem[1].length + listItem[2].length + Math.min(listItem[3].length, 4);
+                structuralText = listItem[4];
+                fenceContainerIndent = rawText.length - structuralText.length;
+            } else if (rawText.trim().length === 0) {
+                fenceContainerIndent = 0;
+            } else {
+                const leadingSpaces = /^ */.exec(rawText)?.[0].length ?? 0;
+                if (listContentIndent !== null && leadingSpaces >= listContentIndent) {
+                    structuralText = rawText.slice(listContentIndent);
+                    fenceContainerIndent = listContentIndent;
+                } else {
+                    listContentIndent = null;
+                    fenceContainerIndent = 0;
+                }
+            }
             // A real fence opener at the start of a visible line wins before HTML-comment scanning;
-            // comment-looking text in its info string and body is verbatim raw output.
-            const open = inHtmlComment ? null : FENCE.exec(rawText);
+            // comment-looking text in its info string and body is verbatim raw output. Up to three
+            // spaces are allowed relative to an active Markdown list container.
+            const open = inHtmlComment ? null : FENCE.exec(structuralText);
             const hasInvalidBacktickInfo = open !== null && open[2].startsWith('`') && open[3].includes('`');
             if (open !== null && !hasInvalidBacktickInfo) {
                 marker = open[2][0];
@@ -99,14 +121,19 @@ export function scan_markdown(lines: readonly string[]): ScannedLine[] {
             continue;
         }
         // Inside a fence: a closing fence uses the same marker, reaches the opener's length, and
-        // carries no content. CommonMark permits at most three leading spaces.
-        const close = CLOSING_FENCE.exec(rawText);
+        // carries no content. CommonMark permits at most three spaces relative to its list container.
+        const structuralText =
+            fenceContainerIndent > 0 && (/^ */.exec(rawText)?.[0].length ?? 0) >= fenceContainerIndent
+                ? rawText.slice(fenceContainerIndent)
+                : rawText;
+        const close = CLOSING_FENCE.exec(structuralText);
         const closeRun = close?.[2];
         const isClose = closeRun?.startsWith(marker) === true && closeRun.length >= runLen;
         out.push({ text: rawText, inFence: true, opensFence: false, closesFence: isClose, fenceInfo: '' });
         if (isClose) {
             marker = null;
             runLen = 0;
+            fenceContainerIndent = 0;
         }
     }
     return out;

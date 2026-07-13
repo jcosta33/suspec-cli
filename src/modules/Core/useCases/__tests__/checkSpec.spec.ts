@@ -134,6 +134,27 @@ describe('check_spec', () => {
         const report = assertOk(check_spec({ source: commented, path: 'spec.md', exists: () => true }));
         expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C021');
     });
+
+    it('reports C009 for a missing quoted source path containing spaces', () => {
+        const source = CONFORMANT.replace('  - ADR-0077', '  - "missing dir/ticket.md"');
+        const report = assertOk(check_spec({ source, path: 'spec.md', exists: () => false }));
+        expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C009');
+    });
+
+    it('reports C007 for an ordered-list blocking question', () => {
+        const source = CONFORMANT.replace('- none', '1. Blocking: Which API should be used?');
+        const report = assertOk(check_spec({ source, path: 'spec.md', exists: () => true }));
+        expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C007');
+    });
+
+    it('ignores unresolved markers inside a list-nested fence', () => {
+        const source = CONFORMANT.replace(
+            'Verify with: a unit test over the parser.',
+            'Verify with: a unit test over the parser.\n\n- Example:\n\n    ~~~text\n    TODO is literal output\n    ~~~'
+        );
+        const report = assertOk(check_spec({ source, path: 'spec.md', exists: () => true }));
+        expect(report.diagnostics.map((diagnostic) => diagnostic.code)).not.toContain('C007');
+    });
 });
 
 describe('check_spec — markdown structure (#31/#23)', () => {

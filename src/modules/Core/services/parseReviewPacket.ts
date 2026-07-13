@@ -59,7 +59,7 @@ const VERIFY_INFO = /^verify\b\s*(.*)$/;
 // and `result` are bare tokens.
 const INFO_ID = /\bid=([A-Z][A-Z0-9]*-\d+)\b/;
 const INFO_CMD = /\bcmd="([^"]*)"/;
-const INFO_RESULT = /\bresult=(\w+)\b/;
+const INFO_RESULT = /\bresult=([^\s]+)/;
 
 // The cells of a GFM table row (`| a | b | c |` or `a | b | c`), trimmed, with optional outer pipes
 // dropped. Splits only on a `|` OUTSIDE an inline-code span and not GFM-escaped (`\|`), so a piped
@@ -118,12 +118,12 @@ function parse_verify_info(info: string): VerifyBlock {
 }
 
 export function parse_review_packet(source: string, enforceContract = false): Result<ReviewPacket, AppError> {
-    const lines = source.split(/\r\n|[\r\n]/);
     const parsedFrontmatter = parse_frontmatter(source);
     if (isErr(parsedFrontmatter)) {
         return err(parsedFrontmatter.error);
     }
-    const fields = parsedFrontmatter.value.fields;
+    const { fields, lines, frontmatterEndLine } = parsedFrontmatter.value;
+    const bodyLines = lines.slice(frontmatterEndLine);
     for (const key of ['type', 'id', 'decision', 'task', 'pr', 'reviewer'] as const) {
         if (fields[key] !== undefined && typeof fields[key] !== 'string') {
             return err(
@@ -155,16 +155,23 @@ export function parse_review_packet(source: string, enforceContract = false): Re
     let changePlanCoverageSectionCount = 0;
     let canonicalRequirementHeaderCount = 0;
     let canonicalChangePlanHeaderCount = 0;
+    let canonicalRequirementSeparatorCount = 0;
+    let canonicalChangePlanSeparatorCount = 0;
+    let awaitingSeparator: 'requirement' | 'change-plan' | null = null;
+    let tableReadyFor: 'requirement' | 'change-plan' | null = null;
+    let rowOutsideCanonicalTable = false;
     let malformedCoverageRow: { id: string; section: 'Requirement' | 'Change-plan' } | null = null;
     let inOpenDecisions = false;
     let openDecisionsBody = '';
 
-    for (const scanned of scan_markdown(lines)) {
+    for (const scanned of scan_markdown(bodyLines)) {
         // Fenced content is verbatim (ADR-0083) — never section/table structure, so a `## Requirement
         // coverage` heading or a `| … |` row quoted inside a code block leaks nothing. The one thing
         // read from a fence is a ```verify info-string opening inside the coverage section; its body
         // stays unparsed (scan_markdown marks every body line inFence, so it is skipped here).
         if (scanned.inFence) {
+            awaitingSeparator = null;
+            tableReadyFor = null;
             if (inOpenDecisions) {
                 openDecisionsBody += `${scanned.text}\n`;
             }
@@ -181,6 +188,8 @@ export function parse_review_packet(source: string, enforceContract = false): Re
         if (heading?.level === 2 && heading.title === 'Requirement coverage') {
             sectionTitles.push('Requirement coverage');
             coverageKind = 'requirement';
+            awaitingSeparator = null;
+            tableReadyFor = null;
             coverageSectionCount += 1;
             inOpenDecisions = false;
             continue;
@@ -188,6 +197,8 @@ export function parse_review_packet(source: string, enforceContract = false): Re
         if (heading?.level === 2 && heading.title === 'Change-plan coverage') {
             sectionTitles.push('Change-plan coverage');
             coverageKind = 'change-plan';
+            awaitingSeparator = null;
+            tableReadyFor = null;
             changePlanCoverageSectionCount += 1;
             inOpenDecisions = false;
             continue;
@@ -195,18 +206,24 @@ export function parse_review_packet(source: string, enforceContract = false): Re
         if (heading?.level === 2 && heading.title === 'Open decisions') {
             sectionTitles.push('Open decisions');
             coverageKind = null;
+            awaitingSeparator = null;
+            tableReadyFor = null;
             inOpenDecisions = true;
             continue;
         }
         if (heading?.level === 2 && heading.title.length > 0) {
             sectionTitles.push(heading.title);
             coverageKind = null;
+            awaitingSeparator = null;
+            tableReadyFor = null;
             inOpenDecisions = false;
             continue;
         }
         const headingLevel = heading?.level ?? null;
         if (headingLevel !== null && headingLevel <= 2) {
             coverageKind = null;
+            awaitingSeparator = null;
+            tableReadyFor = null;
             inOpenDecisions = false;
             continue;
         }
@@ -217,10 +234,23 @@ export function parse_review_packet(source: string, enforceContract = false): Re
             continue;
         }
         const cells = table_cells(line);
+        if (awaitingSeparator !== null) {
+            const separatorKind = awaitingSeparator;
+            awaitingSeparator = null;
+            if (cells !== null && cells.length === CANONICAL_COVERAGE_HEADER.length && is_separator_row(cells)) {
+                if (separatorKind === 'requirement') canonicalRequirementSeparatorCount += 1;
+                else canonicalChangePlanSeparatorCount += 1;
+                tableReadyFor = separatorKind;
+                continue;
+            }
+            tableReadyFor = null;
+        }
         if (cells === null || cells.length === 0) {
+            tableReadyFor = null;
             continue;
         }
         if (is_separator_row(cells)) {
+            tableReadyFor = null;
             continue;
         }
         const isCanonicalHeader =
@@ -232,15 +262,19 @@ export function parse_review_packet(source: string, enforceContract = false): Re
             } else {
                 canonicalChangePlanHeaderCount += 1;
             }
+            awaitingSeparator = coverageKind;
+            tableReadyFor = null;
             continue;
         }
         // A malformed header is not a data row. Contract mode rejects it below when the required
         // canonical Requirement-coverage header count is not exactly one.
         if (cells[0].toLowerCase() === 'id') {
+            tableReadyFor = null;
             continue;
         }
         // A data row keys on a requirement id in column 1; read ID + Assessment + Evidence.
         if (REQUIREMENT_ID.test(cells[0])) {
+            if (tableReadyFor !== coverageKind) rowOutsideCanonicalTable = true;
             if (cells.length !== CANONICAL_COVERAGE_HEADER.length) {
                 malformedCoverageRow = {
                     id: cells[0],
@@ -253,7 +287,9 @@ export function parse_review_packet(source: string, enforceContract = false): Re
             } else {
                 changePlanCoverageRows.push(row);
             }
+            continue;
         }
+        tableReadyFor = null;
     }
 
     const contractError = (message: string): Result<ReviewPacket, AppError> =>
@@ -278,10 +314,26 @@ export function parse_review_packet(source: string, enforceContract = false): Re
                 'review Requirement coverage must contain exactly one canonical `| ID | Assessment | Evidence |` header'
             );
         }
+        if (canonicalRequirementSeparatorCount !== 1) {
+            return contractError(
+                'review Requirement coverage must place one three-column delimiter row immediately after its canonical header'
+            );
+        }
         if (changePlanCoverageSectionCount > 0 && canonicalChangePlanHeaderCount !== changePlanCoverageSectionCount) {
             return contractError(
                 'review Change-plan coverage must contain one canonical `| ID | Assessment | Evidence |` header per section'
             );
+        }
+        if (
+            changePlanCoverageSectionCount > 0 &&
+            canonicalChangePlanSeparatorCount !== changePlanCoverageSectionCount
+        ) {
+            return contractError(
+                'review Change-plan coverage must place one three-column delimiter row immediately after each canonical header'
+            );
+        }
+        if (rowOutsideCanonicalTable) {
+            return contractError('review coverage rows must belong to the canonical contiguous GFM table');
         }
         if (malformedCoverageRow !== null) {
             return contractError(

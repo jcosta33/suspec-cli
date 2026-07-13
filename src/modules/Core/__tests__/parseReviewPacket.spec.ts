@@ -51,6 +51,11 @@ describe('parse_review_packet', () => {
         expect(parse_review(`\uFEFF${PACKET}`).decision).toBe('pending');
     });
 
+    it('does not parse a frontmatter comment as a body heading', () => {
+        const packet = PACKET.replace('decision: pending\n---', 'decision: pending\n## Requirement coverage\n---');
+        expect(parse_review_packet(packet, true).ok).toBe(true);
+    });
+
     it('reads the H2 section titles', () => {
         expect(parse_review(PACKET).sectionTitles).toEqual([
             'Method notes',
@@ -73,6 +78,13 @@ describe('parse_review_packet', () => {
             { id: 'AC-001', assessment: 'Supported', evidence: '`pnpm test` output pasted' },
             { id: 'AC-002', assessment: 'Unverified', evidence: '' },
         ]);
+    });
+
+    it('rejects coverage rows without the canonical adjacent delimiter', () => {
+        const packet = PACKET.replace('|---|---|---|\n', '');
+        const result = parse_review_packet(packet, true);
+        expect(result.ok).toBe(false);
+        if (!result.ok) expect(result.error.message).toMatch(/delimiter row immediately after/);
     });
 
     it('reads GFM coverage rows when either outer pipe is omitted', () => {
@@ -252,6 +264,19 @@ output
             { id: 'AC-002', cmd: null, result: 'pass', malformed: true },
             { id: 'AC-003', cmd: 'a test', result: null, malformed: true },
         ]);
+    });
+
+    it('does not prefix-coerce a structured evidence result', () => {
+        const packet = PACKET.replace(
+            '## Open decisions',
+            '```verify id=AC-001 cmd="a test" result=pass-junk\noutput\n```\n\n## Open decisions'
+        );
+        expect(parse_review(packet).verifyBlocks).toContainEqual({
+            id: 'AC-001',
+            cmd: 'a test',
+            result: null,
+            malformed: true,
+        });
     });
 
     it('surfaces a duplicate verify block keyed to the same id (AC-004)', () => {

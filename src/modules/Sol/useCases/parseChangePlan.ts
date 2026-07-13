@@ -63,7 +63,14 @@ const PLAN_LOCAL_ID = /^PG-\d+$/;
 // A wave names verification through an explicit check/verify phrase, the full-suite shorthand, or
 // a run verb bound to an inline command. An arbitrary code span can be a path or symbol and is not
 // evidence by itself.
-const NAMES_CHECK = /\bgreen check\b|\bverify(?: with| by)?\b|\bthe full suite\b|\b(?:run|rerun|re-run)\s+`[^`]+`/i;
+const NAMES_CHECK =
+    /\bgreen check:\s*\S|\bverify (?:with|by)(?::|[ \t])\s*\S|\bthe full suite\b|\b(?:run|rerun|re-run)\s+`[^`]+`/i;
+const NEGATED_CHECK =
+    /\b(?:no|without)\s+(?:(?:named|defined|explicit|separate)\s+)?(?:verify|verification|check|test|suite)\b|\b(?:do|does|will|must)\s+not\s+(?:run|rerun|re-run|verify|check|test)\b|\bnever\s+(?:run|rerun|re-run|verify|check|test)\b/i;
+
+function names_check(text: string): boolean {
+    return NAMES_CHECK.test(text) && !NEGATED_CHECK.test(text);
+}
 
 const GUARANTEES_TITLE = 'preservation guarantees';
 const WAVES_TITLE = 'transformation waves';
@@ -202,14 +209,14 @@ export function parse_change_plan(input: ParseChangePlanInput): ParseChangePlanR
             // wave, which would mask a genuinely check-less wave from C011.
             const itemMatch = /^\s*(?:\d+\.|[-*])\s+(.*)$/.exec(line);
             if (itemMatch !== null) {
-                waves.push({ text: itemMatch[1], namesCheck: NAMES_CHECK.test(itemMatch[1]), line: source_line });
+                waves.push({ text: itemMatch[1], namesCheck: names_check(itemMatch[1]), line: source_line });
                 waveContinuation = true;
             } else if (line.trim().length === 0) {
                 waveContinuation = false;
             } else if (waveContinuation && waves.length > 0) {
                 const open = waves[waves.length - 1];
                 const text = `${open.text}\n${line}`;
-                waves[waves.length - 1] = { text, namesCheck: NAMES_CHECK.test(text), line: open.line };
+                waves[waves.length - 1] = { text, namesCheck: names_check(text), line: open.line };
             }
         }
     }

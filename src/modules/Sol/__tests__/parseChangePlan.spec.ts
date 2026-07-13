@@ -108,6 +108,15 @@ describe('parse_change_plan', () => {
         expect(empty.waves).toEqual([]);
     });
 
+    it('does not treat negated verification language as a named check', () => {
+        const source = PLAN.replace(
+            '1. Create the new schema; dual-write. Green check: `npm test -- inventory.spec.ts`.',
+            '1. Create the new schema; dual-write. No verify step is defined.'
+        );
+        const plan = assertOk(parse_change_plan({ source, path: 'change-plan.md' }));
+        expect(plan.waves[0].namesCheck).toBe(false);
+    });
+
     it('folds an indented continuation line into the open wave (a check named on a later line counts)', () => {
         const wrapped = `---
 type: change-plan

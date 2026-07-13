@@ -90,6 +90,14 @@ describe('scan_markdown', () => {
         const indented = scan_markdown(['    ```', 'plain']);
         expect(indented.map((l) => l.inFence)).toEqual([false, false]);
     });
+
+    it('recognizes fences nested under unordered and ordered list containers', () => {
+        const unordered = scan_markdown(['- Example:', '', '    ~~~text', '    TODO', '    ~~~', 'after']);
+        expect(unordered.map((line) => line.inFence)).toEqual([false, false, true, true, true, false]);
+
+        const ordered = scan_markdown(['10. ```text', '    TODO', '    ```']);
+        expect(ordered.map((line) => line.inFence)).toEqual([true, true, true]);
+    });
 });
 
 describe('strip_inline_code', () => {
