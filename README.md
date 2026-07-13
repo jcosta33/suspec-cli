@@ -66,7 +66,7 @@ The frontmatter `type:` selects the check face:
 - `change-plan`: preservation-reference and transformation-wave checks
 - `review`: reconciliation against the explicit companion files
 
-`inventory`, `audit`, `research`, and `inspection` are recognized and return an honest
+`inventory`, `audit`, and `research` are recognized and return an honest
 `checked: false` report. Missing, empty, misspelled, and unknown types are blocking usage errors.
 
 Frontmatter uses Suspec's strict flat subset: top-level scalar fields, flat inline lists, and flat

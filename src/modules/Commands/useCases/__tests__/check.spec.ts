@@ -414,7 +414,7 @@ describe('check command — spec checking (frontmatter-sniffed)', () => {
         expect(out).toContain('C009');
     });
 
-    it.each(['inventory', 'audit', 'research', 'inspection'])(
+    it.each(['inventory', 'audit', 'research'])(
         'a type: %s file gets a clean "no checks for type" note (exit 0), never spec checker errors',
         (artifactType) => {
             const file = write(`a-${artifactType}.md`, `---\ntype: ${artifactType}\nid: X-001\n---\n\n# body\n`);
@@ -433,11 +433,11 @@ describe('check command — spec checking (frontmatter-sniffed)', () => {
         expect(result.err).toContain('must declare a non-empty `type:`');
     });
 
-    it('rejects unknown artifact types', () => {
-        const file = write('unknown.md', '---\ntype: specc\nid: X\n---\n');
+    it.each(['specc', 'inspection'])('rejects unknown artifact type %s', (artifactType) => {
+        const file = write('unknown.md', `---\ntype: ${artifactType}\nid: X\n---\n`);
         const result = capture(() => run([file]));
         expect(result.code).toBe(2);
-        expect(result.err).toContain('unknown type `specc`');
+        expect(result.err).toContain(`unknown type \`${artifactType}\``);
     });
 });
 
