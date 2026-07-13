@@ -53,25 +53,19 @@ describe('build_spec_ref_resolver', () => {
         expect(resolves('SPEC-absent', 'AC-002')).toBe(false); // spec absent
     });
 
-    it('resolves the numeric shorthand SPEC-NNN to the unique SPEC-NNN-<slug> spec, never ambiguously', () => {
-        // Change-plan guarantee tables write `SPEC-001#AC-001` while the spec id is
-        // `SPEC-001-ai-rpg-dialogue` — the natural numeric shorthand must resolve to the unique extension.
+    it('requires the exact frontmatter spec id and never resolves a numeric prefix', () => {
         const a = join(dir, 'a.md');
         writeFileSync(a, SPEC.replace('id: SPEC-checkout', 'id: SPEC-001-ai-rpg-dialogue'));
         const resolves = build_spec_ref_resolver([a]);
-        expect(resolves('SPEC-001', 'AC-002')).toBe(true); // SPEC-001 → SPEC-001-ai-rpg-dialogue
-        expect(resolves('SPEC-001-ai-rpg-dialogue', 'AC-002')).toBe(true); // full id still resolves (exact)
-        expect(resolves('SPEC-001', 'AC-999')).toBe(false); // resolved spec, but anchor absent
-        // Ambiguous: two specs extend SPEC-002- → the shorthand does NOT resolve (never a guess).
+        expect(resolves('SPEC-001', 'AC-002')).toBe(false);
+        expect(resolves('SPEC-001-ai-rpg-dialogue', 'AC-002')).toBe(true);
+        expect(resolves('SPEC-001-ai-rpg-dialogue', 'AC-999')).toBe(false);
+
         const b = join(dir, 'b.md');
         const c = join(dir, 'c.md');
-        const d = join(dir, 'd.md');
         writeFileSync(b, SPEC.replace('id: SPEC-checkout', 'id: SPEC-002-alpha'));
         writeFileSync(c, SPEC.replace('id: SPEC-checkout', 'id: SPEC-002-beta'));
         expect(build_spec_ref_resolver([b, c])('SPEC-002', 'AC-002')).toBe(false);
-        // An EXACT id wins even when extensions also exist (no shorthand resolution needed).
-        writeFileSync(d, SPEC.replace('id: SPEC-checkout', 'id: SPEC-002'));
-        expect(build_spec_ref_resolver([b, c, d])('SPEC-002', 'AC-002')).toBe(true);
     });
 
     it('skips a spec that does not parse and one with no frontmatter id', () => {

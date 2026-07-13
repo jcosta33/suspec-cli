@@ -982,4 +982,24 @@ describe('check command — change-plan routing (C010/C011)', () => {
         expect(code).toBe(0);
         expect(JSON.parse(out)).toMatchObject({ level: 'clean', diagnostics: [] });
     });
+
+    it.skipIf(!unreadableFilesAreEnforced)('an unreadable sibling spec emits structured JSON and exits 2', () => {
+        mkdirSync(join(dir, 'cart'), { recursive: true });
+        const specPath = join(dir, 'cart', 'spec.md');
+        writeFileSync(specPath, spec('SPEC-cart'));
+        mkdirSync(join(dir, 'plans'), { recursive: true });
+        const planPath = join(dir, 'plans', 'change-plan.md');
+        writeFileSync(planPath, changePlan('SPEC-cart#AC-001'));
+        chmodSync(specPath, 0o000);
+        try {
+            const { code, out } = capture(() => run([planPath, '--json']));
+            expect(code).toBe(2);
+            expect(JSON.parse(out)).toMatchObject({
+                error: 'Usage',
+                message: expect.stringContaining('cannot resolve sibling specs'),
+            });
+        } finally {
+            chmodSync(specPath, 0o600);
+        }
+    });
 });

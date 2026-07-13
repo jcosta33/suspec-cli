@@ -312,11 +312,19 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
         // artifact-relative — against the plan's sibling `*/spec.md` files (contract C010:
         // refs resolve against the plan's sibling specs; checks.yaml).
         if (type === 'change-plan') {
+            let specRefResolves: (specId: string, acId: string) => boolean;
+            try {
+                specRefResolves = build_spec_ref_resolver(find_sibling_spec_files(file));
+            } catch (caught) {
+                return capture_error(
+                    usage_error(`cannot resolve sibling specs for change plan ${file}: ${caught_message(caught)}`)
+                );
+            }
             return capture_result(
                 check_change_plan({
                     source,
                     path: file,
-                    spec_ref_resolves: build_spec_ref_resolver(find_sibling_spec_files(file)),
+                    spec_ref_resolves: specRefResolves,
                 }),
                 format_check_report
             );
