@@ -10,4 +10,4 @@
 | primary path | positional artifact passed to `suspec check`            |
 | report       | structured result for one artifact or file set          |
 
-Add only stable repository-specific terms.
+Add only stable repository-specific terms. A glossary is not a synonym collection.

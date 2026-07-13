@@ -1,7 +1,8 @@
 # Conventions
 
-[`.agents/repo-conventions.md`](../.agents/repo-conventions.md) owns coding rules. ESLint, TypeScript,
-Prettier, Knip, and dependency-cruiser enforce their machine-checkable subset.
+[`.agents/repo-conventions.md`](../.agents/repo-conventions.md) owns coding rules. This page does not
+compete with it. ESLint, TypeScript, Prettier, Knip, and dependency-cruiser enforce their
+machine-checkable subset.
 
 Key boundaries:
 

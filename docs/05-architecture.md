@@ -1,7 +1,7 @@
 # Architecture
 
-suspec-cli is a read-only checker. Commands own explicit I/O; Core evaluates deterministic rules over
-parsed values.
+suspec-cli is a read-only checker. The world stays at the edge: Commands own explicit I/O; Core
+evaluates deterministic rules over parsed values.
 
 ```text
 bin/suspec.js
@@ -23,8 +23,8 @@ bin/suspec.js
 | `Sol`      | Markdown and frontmatter structural records                                   |
 | `infra`    | Result/AppError, strict frontmatter, Markdown scanning                        |
 
-Commands orchestrate; they do not define check semantics. Sol parses; it does not choose severity or
-render. Infra is a leaf and imports no module code.
+Commands orchestrate; they do not freelance check semantics. Sol parses; it does not choose severity
+or render. Infra is a leaf and imports no module code.
 
 ## Dependencies
 
@@ -44,12 +44,13 @@ predicates for:
 - spec-named citation files;
 - contract-defined sibling spec references.
 
-No runtime code discovers a project root, configuration, or store. Canon discovery is test-only
-through `SUSPEC_CANON`, conventional sibling location, or identifying sibling files.
+Explicit means explicit. No runtime code discovers a project root, configuration, or store. Canon
+discovery is test-only through `SUSPEC_CANON`, conventional sibling location, or identifying sibling
+files.
 
 ## Output
 
 Core returns levels and diagnostics. Commands render human output. Unix outcome helpers own stdout,
 stderr, and exit mapping. Invocation errors go to stderr; structured reports stay on stdout.
 
-The checker records no review judgment.
+The checker records no review judgment. Good. That decision belongs elsewhere.

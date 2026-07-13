@@ -1,7 +1,8 @@
 # AGENTS.md — suspec-cli
 
-This repository owns Suspec's deterministic CLI, command contract, implementation, and tests. Product
-decisions and the machine contract live in [Suspec](https://github.com/jcosta33/suspec).
+Facts in, diagnostics out. This repository owns Suspec's deterministic CLI, command contract,
+implementation, and tests. Product decisions and the machine contract live in
+[Suspec](https://github.com/jcosta33/suspec).
 
 ## Boundaries
 

@@ -1,6 +1,7 @@
 # Repository conventions
 
-Load this guide for TypeScript, module boundaries, or build configuration.
+Load this guide for TypeScript, module boundaries, or build configuration. Boundaries are
+architecture, not tasteful suggestions.
 
 ## Modules
 
@@ -24,7 +25,7 @@ pnpm deps:validate
 - Unix outcome helpers: stdout, stderr, and exit mapping.
 
 The CLI accepts explicit paths, writes nothing, and owns no project state, configuration, store,
-agent loop, or review judgment.
+agent loop, or review judgment. Scope creep gets no module.
 
 ## TypeScript
 

@@ -1,6 +1,7 @@
 # suspec-cli
 
-The reference deterministic checker for [Suspec](https://github.com/jcosta33/suspec). It implements
+The reference deterministic checker for [Suspec](https://github.com/jcosta33/suspec). No model, no
+vibes. It implements
 [`checks/checks.yaml`](https://github.com/jcosta33/suspec/blob/main/checks/checks.yaml), reports
 structural facts, and renders no review judgment.
 
@@ -35,7 +36,7 @@ companion flags belong to one target.
 
 Paths may be absolute or current-working-directory-relative. Use absolute paths for agent handoffs.
 
-Frontmatter `type:` selects behavior:
+Frontmatter `type:` selects behavior. The filename gets no vote:
 
 | Type                             | Result                                     |
 | -------------------------------- | ------------------------------------------ |
@@ -54,13 +55,15 @@ field-shape mismatches. Values are never coerced. `type` and `id` remain scalars
 
 ## References
 
-The CLI discovers no repository, workspace, configuration, or artifact store.
+The caller names the files. The CLI discovers no repository, workspace, configuration, or artifact
+store.
 
 - Spec source paths resolve from the spec directory.
 - Spec citations resolve against its named `sources.md`.
 - Change-plan preservation references use the contract's bounded sibling-spec rule.
 
-The conventional `~/.agents/artifacts/<workspace>/` root has no special runtime meaning.
+The conventional `~/.agents/artifacts/<workspace>/` root has no special runtime meaning. To the CLI,
+it is just a path.
 
 ## Output
 
@@ -83,7 +86,7 @@ suspec check reviews/checkout.md --spec specs/checkout/spec.md --task tasks/chec
 ```
 
 The CLI reads and reports. It does not author artifacts, run commands or agents, prove evidence,
-accept work, or own merge policy.
+accept work, or own merge policy. It has no mandate for any of that.
 
 ## Develop
 

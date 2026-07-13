@@ -1,6 +1,6 @@
 # Testing
 
-Vitest tests live beside their owner.
+Vitest tests live beside their owner. Keep ownership visible in the path.
 
 ```text
 src/modules/Core/useCases/checkSpec.ts
@@ -39,6 +39,7 @@ Use focused tests while editing, then `pnpm gate`.
 
 ## Quality
 
-Give each test one behavioral failure reason. Assert exact values, diagnostics, streams, and exits.
-Avoid real time, network, ordering, and unstable snapshots. Use filesystem fixtures only for
-filesystem behavior. A regression test must fail before its root-cause fix.
+One test, one behavioral reason to fail. A green vague assertion is still useless. Assert exact
+values, diagnostics, streams, and exits. Avoid real time, network, ordering, and unstable snapshots.
+Use filesystem fixtures only for filesystem behavior. A regression test must fail before its
+root-cause fix.
