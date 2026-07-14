@@ -37,9 +37,15 @@ export function parse_flags(
                 errors.push(`option --${flagKey} requires a value`);
                 continue;
             }
-            // A declared boolean in `--flag=value` form coerces to a boolean — otherwise `--json=true`
-            // reads as the string "true" and `flags.get('json') === true` silently fails (JSON off).
-            flags.set(flagKey, booleans.has(`--${flagKey}`) ? value !== 'false' : value);
+            if (booleans.has(`--${flagKey}`)) {
+                if (value !== 'true' && value !== 'false') {
+                    errors.push(`option --${flagKey} accepts only true or false`);
+                    continue;
+                }
+                flags.set(flagKey, value === 'true');
+            } else {
+                flags.set(flagKey, value);
+            }
             continue;
         }
         if (booleans.has(arg)) {

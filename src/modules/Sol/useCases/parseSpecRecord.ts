@@ -86,7 +86,7 @@ const SOL_REQUIREMENT_OPENER = /^(?:REQ|CONSTRAINT|INVARIANT|INTERFACE)\s+([A-Z]
 const SOL_QUESTION_OPENER = /^QUESTION (Q-\d+) \[(blocking|non-blocking)\]:[ \t]*$/;
 const SOL_QUESTION_CANDIDATE = /^[ \t]*QUESTION\b/i;
 const SPEC_STATUSES = new Set(['draft', 'ready']);
-const MARKDOWN_LINK = /\]\(([^)\s#]+)/g;
+const MARKDOWN_LINK = /\]\((?:<([^>\r\n]+)>|([^\s)]+))\)/g;
 const WIKI_LINK = /\[\[([^\]]+)\]\]/g;
 
 // The requirement's named verify command (AC-003): the text after a plain `Verify with:` line or a
@@ -124,10 +124,9 @@ function extract_links(scanned: readonly ScannedLine[], body_start_line: number)
         const line = strip_inline_code(scanned[offset].text);
         const source_line = body_start_line + offset;
         for (const match of line.matchAll(MARKDOWN_LINK)) {
-            links.push({ raw: match[1], line: source_line });
-        }
-        for (const match of line.matchAll(WIKI_LINK)) {
-            links.push({ raw: match[1], line: source_line });
+            const destination = match[1] ?? match[2];
+            const raw = destination.split('#', 1)[0];
+            if (raw.length > 0) links.push({ raw, line: source_line });
         }
     }
     return links;
@@ -168,13 +167,13 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
         return err(parsedFrontmatter.error);
     }
 
-    const { fields, lines, frontmatterEndLine: frontmatter_end_line } = parsedFrontmatter.value;
+    const { fields, fieldLines, lines, frontmatterEndLine: frontmatter_end_line } = parsedFrontmatter.value;
     for (const key of ['type', 'id', 'title', 'status', 'owner', 'format'] as const) {
         if (fields[key] !== undefined && typeof fields[key] !== 'string') {
             return err(
                 createAppError('ParseFailure', `frontmatter \`${key}:\` must be a scalar`, {
                     reason: 'unparseable-frontmatter',
-                    line: null,
+                    line: fieldLines[key] ?? null,
                 })
             );
         }
@@ -183,7 +182,7 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
         return err(
             createAppError('ParseFailure', 'frontmatter `sources:` must be a list', {
                 reason: 'unparseable-frontmatter',
-                line: null,
+                line: fieldLines.sources ?? null,
             })
         );
     }
@@ -192,7 +191,7 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
         return err(
             createAppError('ParseFailure', 'frontmatter `status:` must be draft or ready', {
                 reason: 'invalid-spec-contract',
-                line: null,
+                line: fieldLines.status ?? null,
             })
         );
     }
@@ -201,7 +200,7 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
         return err(
             createAppError('ParseFailure', 'frontmatter `format:` must be sol when present', {
                 reason: 'invalid-spec-contract',
-                line: null,
+                line: fieldLines.format ?? null,
             })
         );
     }
@@ -229,6 +228,7 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
     let current_requirement: { id: string; line: number; bodyLines: string[] } | null = null;
     let in_non_goals = false;
     let in_intent = false;
+    let in_requirements = false;
 
     const flush_requirement = () => {
         if (current_requirement !== null) {
@@ -256,7 +256,8 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
         }
 
         const heading = atx_heading(line);
-        const requirement_match = heading?.level === 3 ? REQUIREMENT_TITLE.exec(heading.title) : null;
+        const requirement_match =
+            in_requirements && heading?.level === 3 ? REQUIREMENT_TITLE.exec(heading.title) : null;
         if (requirement_match !== null) {
             flush_requirement();
             in_non_goals = false;
@@ -265,7 +266,8 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
             continue;
         }
 
-        const malformed_match = heading?.level === 3 ? MALFORMED_REQUIREMENT_TITLE.exec(heading.title) : null;
+        const malformed_match =
+            in_requirements && heading?.level === 3 ? MALFORMED_REQUIREMENT_TITLE.exec(heading.title) : null;
         if (malformed_match !== null) {
             malformedRequirementHeadings.push({ heading: malformed_match[1], line: source_line });
             // fall through: the heading still closes any open requirement via the generic H3 branch
@@ -276,7 +278,7 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
         // `extract_verify_command` lifts the `VERIFY BY` line for C003 just as it does for a plain spec.
         if (isSol) {
             const sol_match = SOL_REQUIREMENT_OPENER.exec(line);
-            if (sol_match !== null) {
+            if (in_requirements && sol_match !== null) {
                 flush_requirement();
                 in_non_goals = false;
                 in_intent = false;
@@ -309,6 +311,7 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
             const normalized = title.toLowerCase();
             in_non_goals = normalized === 'non-goals';
             in_intent = normalized === 'intent';
+            in_requirements = normalized === 'requirements';
             if (normalized === 'open questions') {
                 openQuestionsPresent = true;
             }
@@ -323,6 +326,7 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
             if (headingLevel <= 2) {
                 in_non_goals = false;
                 in_intent = false;
+                in_requirements = false;
             }
             continue;
         }

@@ -10,7 +10,7 @@ implementation, and tests. Product decisions and the machine contract live in
 - Preserve exit `0` clean, `1` warning, and `2` blocking or usage error.
 - Emit one JSON value per report; several reports form JSON Lines.
 - Keep check semantics pure over parsed inputs and injected predicates.
-- Keep filesystem reads at explicit-path command boundaries.
+- Limit filesystem reads to handed paths and local references they name.
 - Match the canon contract through `SUSPEC_CANON` and CI drift guards.
 
 Architecture, testing, and coding rules live under [`docs/`](docs/) and

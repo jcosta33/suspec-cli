@@ -18,6 +18,11 @@ status: review-ready
 \`\`\`text
 ok
 \`\`\`
+
+## Run order
+
+- Starts after: None
+- May run with: TASK-other
 `;
 }
 
@@ -42,10 +47,11 @@ describe('parse_task_packet', () => {
         expect(parse(packet('scope:\n  # current slice\n  - AC-001')).frontmatter.scope).toEqual(['AC-001']);
     });
 
-    it('reads sections, Verify content, and resolution text', () => {
+    it('reads sections, Verify content, Run order, and resolution text', () => {
         const parsed = parse(packet('scope: [AC-001]'));
         expect(parsed.sectionTitles).toContain('Verify');
         expect(parsed.verifyBody).toContain('ok');
+        expect(parsed.runOrderBody).toContain('Starts after: None');
         expect(parsed.resolutionText).toContain('# Task');
     });
 

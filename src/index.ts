@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-// The dispatcher. A thin in-process router over the single check verb (ADR-0143) — the CLI reads
-// exactly the files it is handed and resolves nothing else. `suspec` with no command prints usage;
-// `suspec check …` routes to the check command; an unknown command prints to stderr and exits 2.
+// The dispatcher. A thin in-process router over the single check verb (ADR-0143). `suspec` with no
+// command prints usage; `suspec check …` routes to the check command; an unknown command prints to
+// stderr and exits 2.
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -30,6 +30,7 @@ type CommandRun = (argv: string[], cwd?: string) => number | Promise<number>;
 const COMMANDS: Record<string, CommandRun> = {
     check: run_check,
 };
+const DISABLED_META_FLAGS = new Set(['--help=false', '-h=false', '--version=false', '-v=false']);
 
 // The dispatchable command names (excluding `help`, handled inline).
 export const COMMAND_NAMES = Object.keys(COMMANDS);
@@ -70,14 +71,37 @@ export async function dispatch(argv: string[], cwd: string = process.cwd()): Pro
     // Parse help with the command's real option arity. A help token in a missing string option's value
     // position (`--spec --help`) is an arity error, while a real command-level help flag succeeds.
     const helpParse = parse_flags(rest, {
-        booleans: [...CHECK_FLAG_SPEC.booleans, '--help', '-h'],
+        booleans: [...CHECK_FLAG_SPEC.booleans, '--help', '-h', '--version', '-v'],
         strings: CHECK_FLAG_SPEC.strings,
     });
-    if (helpParse.errors.length === 0 && (helpParse.flags.get('help') === true || helpParse.flags.get('h') === true)) {
+    const requestsMeta =
+        helpParse.flags.get('help') === true ||
+        helpParse.flags.get('h') === true ||
+        helpParse.flags.get('version') === true ||
+        helpParse.flags.get('v') === true;
+    if (helpParse.errors.length === 0 && helpParse.unknown.length > 0 && requestsMeta) {
+        return run(helpParse.unknown, cwd);
+    }
+    if (
+        helpParse.errors.length === 0 &&
+        helpParse.unknown.length === 0 &&
+        (helpParse.flags.get('help') === true || helpParse.flags.get('h') === true)
+    ) {
         print_usage();
         return 0;
     }
-    return run(rest, cwd);
+    if (
+        helpParse.errors.length === 0 &&
+        helpParse.unknown.length === 0 &&
+        (helpParse.flags.get('version') === true || helpParse.flags.get('v') === true)
+    ) {
+        print_version();
+        return 0;
+    }
+    return run(
+        rest.filter((token) => !DISABLED_META_FLAGS.has(token)),
+        cwd
+    );
 }
 
 /* v8 ignore start -- the process entry; dispatch() + is_main_module are unit-tested directly */

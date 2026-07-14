@@ -79,6 +79,12 @@ Tests: 12 passed, 12 total
 
 Implement the scoped work.
 
+## Run order
+
+- This packet: TASK-feat
+- Starts after: None
+- May run with: None
+
 ## Findings
 
 None.
@@ -92,7 +98,9 @@ Verification is recorded above.
 const CLEAN_REVIEW = `---
 type: review
 id: REVIEW-feat
+spec: SPEC-x
 task: TASK-feat
+reviewer: fixture-reviewer
 decision: pending
 ---
 
@@ -169,6 +177,11 @@ function write(name: string, content: string): string {
     return path;
 }
 
+function runTask(file: string) {
+    const specPath = write('task-source-spec.md', CONFORMANT);
+    return capture(() => run([file, '--spec', specPath]));
+}
+
 const unreadableFilesAreEnforced = (() => {
     const probeDir = mkdtempSync(join(tmpdir(), 'suspec-check-unreadable-probe-'));
     const probe = join(probeDir, 'probe.md');
@@ -230,12 +243,28 @@ describe('check command — invocation shapes (ADR-0143)', () => {
         expect(err).toContain('it is a directory');
     });
 
-    it('--spec/--task with a non-review primary → exit 2 (companions belong to a review)', () => {
+    it('--task with a non-review primary → exit 2', () => {
         const file = write('ok.md', CONFORMANT);
         const other = write('task.md', TASK);
         const { code, err } = capture(() => run([file, '--spec', other, '--task', other]));
         expect(code).toBe(2);
-        expect(err).toContain('--spec/--task accompany a review packet');
+        expect(err).toContain('--task accompanies one review packet');
+    });
+
+    it('--spec with a primary that is neither a task nor a review → exit 2', () => {
+        const file = write('ok.md', CONFORMANT);
+        const { code, err } = capture(() => run([file, '--spec', file]));
+        expect(code).toBe(2);
+        expect(err).toContain('--spec accompanies task paths or one review packet');
+    });
+
+    it('rejects a task mixed with any non-task primary', () => {
+        const task = write('task.md', TASK);
+        const other = write('spec.md', CONFORMANT);
+        const source = write('source.md', CONFORMANT);
+        const { code, err } = capture(() => run([task, other, '--spec', source]));
+        expect(code).toBe(2);
+        expect(err).toContain('task-only batch');
     });
 
     it('a review packet alongside another artifact → exit 2 (a review is checked alone)', () => {
@@ -505,16 +534,65 @@ describe('check command — the type sniff reads the whole frontmatter fence as 
 });
 
 describe('check command — task checking (C022-C024)', () => {
+    it('requires an explicit source spec', () => {
+        const file = write('task.md', TASK);
+        const { code, err } = capture(() => run([file]));
+        expect(code).toBe(2);
+        expect(err).toContain('missing --spec');
+    });
+
+    it('rejects a task whose source does not name the handed spec', () => {
+        const file = write('task.md', TASK);
+        const specPath = write('other-spec.md', spec('SPEC-other'));
+        const { code, err } = capture(() => run([file, '--spec', specPath]));
+        expect(code).toBe(2);
+        expect(err).toContain('does not name handed spec `SPEC-other`');
+    });
+
+    it('rejects a draft or hard-check-invalid source spec', () => {
+        const file = write('task.md', TASK);
+        const draftPath = write('draft-spec.md', CONFORMANT.replace('status: ready', 'status: draft'));
+        expect(capture(() => run([file, '--spec', draftPath])).err).toContain('must have `status: ready`');
+
+        const invalidPath = write(
+            'invalid-spec.md',
+            CONFORMANT.replace('## Intent\n\nProve the checker behavior.\n\n', '')
+        );
+        expect(capture(() => run([file, '--spec', invalidPath])).err).toContain('fails deterministic checks: C021');
+    });
+
+    it('checks several tasks against one shared source spec', () => {
+        const first = write('task-a.md', TASK);
+        const second = write('task-b.md', TASK.replace('id: TASK-feat', 'id: TASK-other'));
+        const specPath = write('shared-spec.md', CONFORMANT);
+        const { code, out } = capture(() => run([first, second, '--spec', specPath]));
+        expect(code).toBe(0);
+        expect(out).not.toContain('C002');
+    });
+
+    it('reports one shared --spec load failure for several tasks', () => {
+        const first = write('task-a.md', TASK);
+        const second = write('task-b.md', TASK.replace('id: TASK-feat', 'id: TASK-other'));
+        const missing = join(dir, 'missing-spec.md');
+        const { code, out, err } = capture(() => run([first, second, '--spec', missing, '--json']));
+        expect(code).toBe(2);
+        expect(err.match(/--spec file not found/g)).toHaveLength(1);
+        expect(JSON.parse(out)).toMatchObject({
+            error: 'Usage',
+            message: expect.stringContaining('--spec file not found'),
+        });
+    });
+
     it('checks a complete task directly', () => {
         const file = write('task.md', TASK);
-        const { code, out } = capture(() => run([file]));
+        const { code, out } = runTask(file);
         expect(code).toBe(0);
         expect(out).toContain('clean');
     });
 
     it('C022 rejects missing required structure', () => {
         const file = write('task.md', TASK.replace('## Source\n\nSPEC-x\n\n', ''));
-        const { code, out } = capture(() => run([file]));
+        const { code, out } = runTask(file);
         expect(code).toBe(2);
         expect(out).toContain('C022');
     });
@@ -523,7 +601,7 @@ describe('check command — task checking (C022-C024)', () => {
         'C023 rejects a numeric exit plus a sole generic fenced claim: %s',
         (claim) => {
             const file = write('task.md', TASK.replace('Tests: 12 passed, 12 total', claim));
-            const { code, out } = capture(() => run([file]));
+            const { code, out } = runTask(file);
             expect(code).toBe(2);
             expect(out).toContain('C023');
         }
@@ -534,7 +612,7 @@ describe('check command — task checking (C022-C024)', () => {
             'task.md',
             TASK.replace('```text\nTests: 12 passed, 12 total\n```', 'Tests: 12 passed, 12 total')
         );
-        const { code, out } = capture(() => run([file]));
+        const { code, out } = runTask(file);
         expect(code).toBe(2);
         expect(out).toContain('C023');
     });
@@ -542,14 +620,14 @@ describe('check command — task checking (C022-C024)', () => {
     it('C023 rejects a placeholder fence even when another fence carries valid output', () => {
         const evidence = ['```text', '{{output}}', '```', '', '```text', 'PASS 12 tests', '```'].join('\n');
         const file = write('task.md', TASK.replace('```text\nTests: 12 passed, 12 total\n```', evidence));
-        const { code, out } = capture(() => run([file]));
+        const { code, out } = runTask(file);
         expect(code).toBe(2);
         expect(out).toContain('C023');
     });
 
     it('C023 rejects a lowercase pending marker beside otherwise valid output', () => {
         const file = write('task.md', TASK.replace('## Verify\n\n', '## Verify\n\npending\n\n'));
-        const { code, out } = capture(() => run([file]));
+        const { code, out } = runTask(file);
         expect(code).toBe(2);
         expect(out).toContain('C023');
     });
@@ -562,7 +640,7 @@ describe('check command — task checking (C022-C024)', () => {
                 '## Findings\n\n- Blocking: choose an API.'
             )
         );
-        const { code, out } = capture(() => run([file]));
+        const { code, out } = runTask(file);
         expect(code).toBe(2);
         expect(out).toContain('C024');
     });
@@ -575,7 +653,7 @@ describe('check command — task checking (C022-C024)', () => {
                 '## Findings\n\nOpen item: `TODO`'
             )
         );
-        const { code, out } = capture(() => run([file]));
+        const { code, out } = runTask(file);
         expect(code).toBe(2);
         expect(out).toContain('C024');
     });
@@ -796,7 +874,7 @@ describe('check command — review packets need explicit companions (ADR-0143 D3
         const taskPath = write('task.md', TASK);
         const { code, err } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
         expect(code).toBe(2);
-        expect(err).toContain('--spec companion must have `type: spec`');
+        expect(err).toContain('--spec companion fails deterministic checks: C025');
     });
 
     it('rejects a type-less --spec companion', () => {
@@ -805,7 +883,7 @@ describe('check command — review packets need explicit companions (ADR-0143 D3
         const taskPath = write('task.md', TASK);
         const { code, err } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
         expect(code).toBe(2);
-        expect(err).toContain('--spec companion must have `type: spec`');
+        expect(err).toContain('--spec companion fails deterministic checks: C025');
     });
 
     it.each([
@@ -817,7 +895,11 @@ describe('check command — review packets need explicit companions (ADR-0143 D3
         const taskPath = write('task.md', TASK);
         const { code, err } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
         expect(code).toBe(2);
-        expect(err).toContain('--spec companion must have `status: ready`');
+        expect(err).toContain(
+            _name === 'missing'
+                ? '--spec companion fails deterministic checks: C025'
+                : '--spec companion must have `status: ready`'
+        );
     });
 
     it('rejects an invalid --spec status option before companion reconciliation', () => {
@@ -880,7 +962,7 @@ describe('check command — review packets need explicit companions (ADR-0143 D3
         const taskPath = write('not-a-task.md', CONFORMANT.replace('id: SPEC-x', 'id: TASK-feat'));
         const { code, err } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
         expect(code).toBe(2);
-        expect(err).toContain('--task companion must have `type: task`');
+        expect(err).toContain('--task companion fails deterministic checks: C022');
     });
 
     it('rejects a --task companion with no scoped requirements', () => {
@@ -889,7 +971,7 @@ describe('check command — review packets need explicit companions (ADR-0143 D3
         const taskPath = write('task.md', TASK.replace('scope: [AC-001, AC-002]\n', ''));
         const { code, err } = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
         expect(code).toBe(2);
-        expect(err).toContain('--task companion must name at least one requirement in `scope:`');
+        expect(err).toContain('--task companion fails deterministic checks: C022');
     });
 
     it('rejects a --task companion sourced from a different spec', () => {
@@ -938,6 +1020,98 @@ describe('check command — review packets need explicit companions (ADR-0143 D3
         expect(out).toContain('C016');
     });
 
+    it('resolves evidence receipt links and E-NNN anchors artifact-relative', () => {
+        write('evidence-run.md', '<a id="E-001"></a>\n## E-001\n');
+        const linked = CLEAN_REVIEW.replace(
+            '| AC-001 | Supported | p |',
+            '| AC-001 | Supported | [E-001](./evidence-run.md#E-001) |'
+        );
+        const review = write('review.md', linked);
+        const specPath = write('spec.md', CONFORMANT);
+        const taskPath = write('task.md', TASK);
+        expect(capture(() => run([review, '--spec', specPath, '--task', taskPath])).code).toBe(0);
+
+        write('evidence-run.md', '<a id="E-999"></a>\n## E-999\n');
+        const failed = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
+        expect(failed.code).toBe(2);
+        expect(failed.out).toContain('C026');
+    });
+
+    it.each(['[E-001](<./evidence run.md#E-001>)', '[E-001](./evidence%20run.md#E-001)'])(
+        'resolves a valid spaced receipt destination: %s',
+        (link) => {
+            write('evidence run.md', '<a id="E-001"></a>\n');
+            const review = write(
+                'review.md',
+                CLEAN_REVIEW.replace('| AC-001 | Supported | p |', `| AC-001 | Supported | ${link} |`)
+            );
+            const specPath = write('spec.md', CONFORMANT);
+            const taskPath = write('task.md', TASK);
+            expect(capture(() => run([review, '--spec', specPath, '--task', taskPath])).code).toBe(0);
+        }
+    );
+
+    it('requires the exact E-NNN id attribute on a receipt anchor', () => {
+        write('evidence-run.md', '<a data-id="E-001"></a>\n<a id="e-001"></a>\n');
+        const linked = CLEAN_REVIEW.replace(
+            '| AC-001 | Supported | p |',
+            '| AC-001 | Supported | [E-001](./evidence-run.md#E-001) |'
+        );
+        const review = write('review.md', linked);
+        const specPath = write('spec.md', CONFORMANT);
+        const taskPath = write('task.md', TASK);
+        const failed = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
+        expect(failed.code).toBe(2);
+        expect(failed.out).toContain('C026');
+
+        write('evidence-run.md', '<A ID="E-001"></A>\n');
+        expect(capture(() => run([review, '--spec', specPath, '--task', taskPath])).code).toBe(0);
+    });
+
+    it.each(['<!-- <a id="E-001"></a> -->\n', '```html\n<a id="E-001"></a>\n```\n', '`<a id="E-001"></a>`\n'])(
+        'rejects a receipt anchor hidden in non-structural Markdown',
+        (receipt) => {
+            write('evidence-run.md', receipt);
+            const linked = CLEAN_REVIEW.replace(
+                '| AC-001 | Supported | p |',
+                '| AC-001 | Supported | [E-001](./evidence-run.md#E-001) |'
+            );
+            const review = write('review.md', linked);
+            const specPath = write('spec.md', CONFORMANT);
+            const taskPath = write('task.md', TASK);
+            const failed = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
+            expect(failed.code).toBe(2);
+            expect(failed.out).toContain('C026');
+        }
+    );
+
+    it('ignores external receipt URLs', () => {
+        const linked = CLEAN_REVIEW.replace(
+            '| AC-001 | Supported | p |',
+            '| AC-001 | Supported | [E-001](https://example.test/evidence.md#E-001) |'
+        );
+        const review = write('review.md', linked);
+        const specPath = write('spec.md', CONFORMANT);
+        const taskPath = write('task.md', TASK);
+        const result = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
+        expect(result.code).toBe(0);
+        expect(result.out).not.toContain('C026');
+    });
+
+    it('rejects absolute receipt paths even when the file and anchor exist', () => {
+        const receiptPath = write('absolute-evidence.md', '<a id="E-001"></a>\n');
+        const linked = CLEAN_REVIEW.replace(
+            '| AC-001 | Supported | p |',
+            `| AC-001 | Supported | [E-001](${receiptPath}#E-001) |`
+        );
+        const review = write('review.md', linked);
+        const specPath = write('spec.md', CONFORMANT);
+        const taskPath = write('task.md', TASK);
+        const result = capture(() => run([review, '--spec', specPath, '--task', taskPath]));
+        expect(result.code).toBe(2);
+        expect(result.out).toContain('C026');
+    });
+
     it('a review whose task: ref mismatches the handed packet → C020 blocks (exit 2)', () => {
         const review = write('review.md', CLEAN_REVIEW);
         const specPath = write('spec.md', CONFORMANT);
@@ -951,7 +1125,9 @@ describe('check command — review packets need explicit companions (ADR-0143 D3
         const gappy = `---
 type: review
 id: REVIEW-feat
+spec: SPEC-x
 task: TASK-feat
+reviewer: fixture-reviewer
 decision: pending
 ---
 

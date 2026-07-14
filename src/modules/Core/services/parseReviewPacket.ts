@@ -36,20 +36,38 @@ export type VerifyBlock = Readonly<{
 }>;
 
 export type ReviewPacket = Readonly<{
+    type: string | null;
     decision: string | null; // frontmatter decision (or null when absent)
     id: string | null;
+    spec: string | null;
     task: string | null;
     waivers: readonly string[];
     sectionTitles: readonly string[];
     coverageRows: readonly CoverageRow[]; // Requirement coverage only (C012/C013 and waivers)
     changePlanCoverageRows: readonly CoverageRow[];
     verifyBlocks: readonly VerifyBlock[]; // the structured-evidence blocks in the coverage section
+    evidenceRefs: readonly { raw: string; anchor: string }[];
 }>;
 
 const REQUIREMENT_ID = /^[A-Z][A-Z0-9]*-\d+$/;
 const REVIEW_DECISIONS = new Set(['pending', 'accepted', 'changes-requested', 'deferred']);
 const ASSESSMENTS = new Set(['Supported', 'Unsupported', 'Unverified', 'Blocked']);
 const CANONICAL_COVERAGE_HEADER = ['ID', 'Assessment', 'Evidence'] as const;
+const MARKDOWN_LINK = /\]\((?:<([^>\r\n]+)>|([^\s)]+))\)/g;
+const URI_SCHEME = /^[A-Za-z][A-Za-z0-9+.-]*:/;
+const WINDOWS_ABSOLUTE_PATH = /^[A-Za-z]:[\\/]/;
+
+function is_external_link(raw: string): boolean {
+    return (URI_SCHEME.test(raw) && !WINDOWS_ABSOLUTE_PATH.test(raw)) || raw.startsWith('//');
+}
+
+function decode_link_destination(raw: string): string {
+    try {
+        return decodeURIComponent(raw);
+    } catch {
+        return raw;
+    }
+}
 
 // A verify block opens with ```` ```verify <info-string> ```` (ADR-0083): the `verify` language token
 // then the info-string (the fenced body is verbatim and unparsed). scan_markdown exposes an opening
@@ -122,14 +140,14 @@ export function parse_review_packet(source: string, enforceContract = false): Re
     if (isErr(parsedFrontmatter)) {
         return err(parsedFrontmatter.error);
     }
-    const { fields, lines, frontmatterEndLine } = parsedFrontmatter.value;
+    const { fields, fieldLines, lines, frontmatterEndLine } = parsedFrontmatter.value;
     const bodyLines = lines.slice(frontmatterEndLine);
-    for (const key of ['type', 'id', 'decision', 'task', 'pr', 'reviewer'] as const) {
+    for (const key of ['type', 'id', 'decision', 'spec', 'task', 'pr', 'reviewer'] as const) {
         if (fields[key] !== undefined && typeof fields[key] !== 'string') {
             return err(
                 createAppError('ParseFailure', `frontmatter \`${key}:\` must be a scalar`, {
                     reason: 'unparseable-frontmatter',
-                    line: null,
+                    line: fieldLines[key] ?? null,
                 })
             );
         }
@@ -138,18 +156,21 @@ export function parse_review_packet(source: string, enforceContract = false): Re
         return err(
             createAppError('ParseFailure', 'frontmatter `waivers:` must be a list', {
                 reason: 'unparseable-frontmatter',
-                line: null,
+                line: fieldLines.waivers ?? null,
             })
         );
     }
+    const type = scalar_field(fields, 'type') ?? null;
     const decision = scalar_field(fields, 'decision') ?? null;
     const id = scalar_field(fields, 'id') ?? null;
+    const reviewer = scalar_field(fields, 'reviewer') ?? null;
     const waivers = list_field(fields, 'waivers') ?? [];
 
     const sectionTitles: string[] = [];
     const coverageRows: CoverageRow[] = [];
     const changePlanCoverageRows: CoverageRow[] = [];
     const verifyBlocks: VerifyBlock[] = [];
+    const evidenceRefs: { raw: string; anchor: string }[] = [];
     let coverageKind: 'requirement' | 'change-plan' | null = null;
     let coverageSectionCount = 0;
     let changePlanCoverageSectionCount = 0;
@@ -282,6 +303,13 @@ export function parse_review_packet(source: string, enforceContract = false): Re
                 };
             }
             const row = { id: cells[0], assessment: cells[1] ?? '', evidence: cells[2] ?? '' };
+            for (const match of strip_inline_code(row.evidence).matchAll(MARKDOWN_LINK)) {
+                const destination = decode_link_destination(match[1] ?? match[2]);
+                const receipt = /^(.+\.md)#(E-\d{3})$/.exec(destination);
+                if (receipt !== null && !is_external_link(receipt[1])) {
+                    evidenceRefs.push({ raw: receipt[1], anchor: receipt[2] });
+                }
+            }
             if (coverageKind === 'requirement') {
                 coverageRows.push(row);
             } else {
@@ -300,8 +328,14 @@ export function parse_review_packet(source: string, enforceContract = false): Re
             })
         );
     if (enforceContract) {
+        if (type !== 'review') {
+            return contractError('review `type:` must be `review`');
+        }
         if (id === null || id.trim().length === 0) {
             return contractError('review `id:` must be a non-empty scalar');
+        }
+        if (reviewer === null || reviewer.trim().length === 0) {
+            return contractError('review `reviewer:` must be a non-empty scalar');
         }
         if (decision === null || !REVIEW_DECISIONS.has(decision)) {
             return contractError('review `decision:` must be pending, accepted, changes-requested, or deferred');
@@ -362,6 +396,14 @@ export function parse_review_packet(source: string, enforceContract = false): Re
             if (blocked.length > 0) {
                 return contractError(`accepted review contains blocked assessments for ${blocked.join(', ')}`);
             }
+            const unresolvedPlanRows = changePlanCoverageRows
+                .filter((row) => row.assessment !== 'Supported')
+                .map((row) => row.id);
+            if (unresolvedPlanRows.length > 0) {
+                return contractError(
+                    `accepted review contains non-Supported change-plan assessments for ${unresolvedPlanRows.join(', ')}`
+                );
+            }
             const requiredWaivers = new Set(
                 coverageRows
                     .filter((row) => row.assessment === 'Unsupported' || row.assessment === 'Unverified')
@@ -386,13 +428,16 @@ export function parse_review_packet(source: string, enforceContract = false): Re
     }
 
     return ok({
+        type,
         decision,
         id,
+        spec: scalar_field(fields, 'spec') ?? null,
         task: scalar_field(fields, 'task') ?? null,
         waivers,
         sectionTitles,
         coverageRows,
         changePlanCoverageRows,
         verifyBlocks,
+        evidenceRefs,
     });
 }

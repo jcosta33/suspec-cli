@@ -14,7 +14,7 @@ import type { OutcomeLevel } from '../useCases/unixOutcome.ts';
 import { scan_markdown, strip_inline_code, visible_text } from '../../../infra/markdownScan.ts';
 
 // Pinned to suspec/checks/checks.yaml `version:`; the drift-guard test fails if the sibling diverges.
-export const CONTRACT_VERSION = '0.19.0';
+export const CONTRACT_VERSION = '0.21.0';
 
 export type CheckSeverity = 'hard-error' | 'warning';
 
@@ -22,7 +22,8 @@ export type CheckSeverity = 'hard-error' | 'warning';
 export type CheckId =
     | 'C001' | 'C002' | 'C003' | 'C004'
     | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C012' | 'C013' | 'C015'
-    | 'C016' | 'C019' | 'C020' | 'C021' | 'C022' | 'C023' | 'C024';
+    | 'C016' | 'C019' | 'C020' | 'C021' | 'C022' | 'C023' | 'C024' | 'C025'
+    | 'C026' | 'C027';
 
 // Severity per check, the single source inside suspec-cli; a total Record so the lookup needs no
 // fallback. The drift guard reconciles it against suspec/checks/checks.yaml.
@@ -52,6 +53,9 @@ const SEVERITY_BY_ID: Record<CheckId, CheckSeverity> = {
     C022: 'hard-error',
     C023: 'hard-error',
     C024: 'hard-error',
+    C025: 'hard-error',
+    C026: 'hard-error',
+    C027: 'hard-error',
 };
 
 export function severity_of(id: CheckId): CheckSeverity {
@@ -79,6 +83,9 @@ export const CORE_CHECKS: readonly { id: CheckId; name: string; severity: CheckS
     { id: 'C022', name: 'task-shape', severity: severity_of('C022') },
     { id: 'C023', name: 'task-evidence', severity: severity_of('C023') },
     { id: 'C024', name: 'closed-task-resolved', severity: severity_of('C024') },
+    { id: 'C025', name: 'spec-shape', severity: severity_of('C025') },
+    { id: 'C026', name: 'evidence-receipt-resolves', severity: severity_of('C026') },
+    { id: 'C027', name: 'review-spec-ref', severity: severity_of('C027') },
 ];
 
 // --- C020 unresolvable-ref (ADR-0128, re-scoped by ADR-0143) --------------------------------------
@@ -86,12 +93,22 @@ export const CORE_CHECKS: readonly { id: CheckId; name: string; severity: CheckS
 // against — the handed packet identifies as a different task (or carries no id). Reconciling the
 // review against the wrong slice would key C012 (coverage) and C013 (verify-binding) on the wrong
 // scope, so a typo'd/renamed task ref must not silently pass. Hard error. Deliberately narrow to
-// the task ref: the spec is likewise handed explicitly, and its identity is the reviewer's call.
+// the task ref; C027 binds the separately declared spec ref.
 export function unresolvable_ref_diagnostic(taskRef: string, handedTaskId: string | null): Diagnostic {
     const handed = handedTaskId === null ? 'a packet with no id' : `the packet for \`${handedTaskId}\``;
     return diagnostic(
         'C020',
         `review names task \`${taskRef}\` but was checked against ${handed} — coverage/evidence cannot be reconciled (unresolvable-ref)`,
+        null
+    );
+}
+
+export function review_spec_ref_diagnostic(specRef: string | null, handedSpecId: string | null): Diagnostic {
+    const named = specRef === null ? 'no spec' : `spec \`${specRef}\``;
+    const handed = handedSpecId === null ? 'a packet with no id' : `the packet for \`${handedSpecId}\``;
+    return diagnostic(
+        'C027',
+        `review names ${named} but was checked against ${handed} — coverage/evidence cannot be reconciled (review-spec-ref)`,
         null
     );
 }
@@ -294,7 +311,7 @@ export function check_one_strength_word(spec: ParsedSpec): Diagnostic[] {
         // DECLARATION (`RETURNS`/`ACCEPTS`/`ERRORS`/`OWNED BY`, docs/reference/structured-requirements.md)
         // with no strength-word slot by grammar — so "add the one word it binds on" is un-actionable.
         // Only REQ/CONSTRAINT/INVARIANT bear an obligation; QUESTION (Q-) is already excluded at parse.
-        if (requirement.id.startsWith('IF-')) {
+        if (isSol && requirement.id.startsWith('IF-')) {
             continue;
         }
         const count = count_strength_words(response_clause(statement_text(requirement.body), isSol));
@@ -341,6 +358,39 @@ export function check_intent_present(spec: ParsedSpec): Diagnostic[] {
         : [diagnostic('C021', 'spec must contain a non-empty `## Intent` section', null)];
 }
 
+const SPEC_STATUSES = new Set(['draft', 'ready']);
+
+export function check_spec_shape(spec: ParsedSpec): Diagnostic[] {
+    const failures: string[] = [];
+    if (spec.frontmatter.type !== 'spec') failures.push('`type:` must equal `spec`');
+    if (spec.frontmatter.id === null || spec.frontmatter.id.trim().length === 0) {
+        failures.push('`id:` must be a non-empty scalar');
+    }
+    if (spec.frontmatter.status === null || !SPEC_STATUSES.has(spec.frontmatter.status)) {
+        failures.push('`status:` must be draft or ready');
+    }
+    const counts = new Map<string, number>();
+    for (const title of spec.sectionTitles) counts.set(title, (counts.get(title) ?? 0) + 1);
+    for (const title of ['Intent', 'Requirements']) {
+        const count = counts.get(title) ?? 0;
+        if (count === 0) failures.push(`missing \`## ${title}\``);
+        if (count > 1) failures.push(`\`## ${title}\` appears more than once`);
+    }
+    if (spec.requirements.length === 0) failures.push('`## Requirements` must contain at least one requirement');
+    return failures.length === 0 ? [] : [diagnostic('C025', failures.join('; '), null)];
+}
+
+export type EvidenceReceiptRef = Readonly<{ raw: string; anchor: string }>;
+
+export function check_evidence_receipt_resolves(
+    refs: readonly EvidenceReceiptRef[],
+    resolves: (raw: string, anchor: string) => boolean
+): Diagnostic[] {
+    return refs
+        .filter((ref) => !resolves(ref.raw, ref.anchor))
+        .map((ref) => diagnostic('C026', `evidence receipt link \`${ref.raw}#${ref.anchor}\` does not resolve`, null));
+}
+
 export type TaskCheckRecord = Readonly<{
     type: string | null;
     id: string | null;
@@ -349,6 +399,7 @@ export type TaskCheckRecord = Readonly<{
     status: string | null;
     sectionTitles: readonly string[];
     verifyBody: string;
+    runOrderBody: string;
     resolutionText: string;
 }>;
 
@@ -360,6 +411,7 @@ const TASK_SECTIONS = [
     'Affected areas',
     'Verify',
     'Agent instructions',
+    'Run order',
     'Findings',
     'Run summary',
 ] as const;
@@ -380,6 +432,13 @@ export function check_task_shape(task: TaskCheckRecord): Diagnostic[] {
         const count = counts.get(title) ?? 0;
         if (count === 0) failures.push(`missing \`## ${title}\``);
         if (count > 1) failures.push(`\`## ${title}\` appears more than once`);
+    }
+    for (const label of ['Starts after', 'May run with']) {
+        const match = new RegExp(`(?:^|\\n)[ \\t]*(?:[-*+][ \\t]+)?${label}:[ \\t]*([^\\r\\n]*)$`, 'im').exec(
+            task.runOrderBody
+        );
+        if (match === null || match[1].trim().length === 0)
+            failures.push(`\`## Run order\` needs non-empty \`${label}:\``);
     }
     return failures.length === 0 ? [] : [diagnostic('C022', failures.join('; '), null)];
 }
@@ -642,7 +701,7 @@ export type VerifyBindingInput = Readonly<{
 
 export type VerifyBindingFinding = Readonly<{
     id: string;
-    kind: 'cmd-mismatch' | 'result-fail' | 'malformed' | 'duplicate' | 'free-form-only';
+    kind: 'cmd-mismatch' | 'result-fail' | 'malformed' | 'duplicate' | 'orphan' | 'free-form-only';
 }>;
 
 // Normalize a Verify command for the closed-value comparison (ADR-0083: exact after normalization).
@@ -674,6 +733,8 @@ export function verify_binding_message(finding: VerifyBindingFinding): string {
             return `coverage row ${finding.id} carries a malformed verify block (its info-string did not parse to id / cmd / result)`;
         case 'duplicate':
             return `requirement ${finding.id} carries more than one verify block`;
+        case 'orphan':
+            return `verify block ${finding.id} belongs to no Requirement coverage row`;
         case 'free-form-only':
             // R5-I11: spell out that this is ADVISORY + how to silence it, so it doesn't read as "you
             // reviewed wrong". A prose Evidence cell can't be machine-matched, so it routes to a human.
@@ -709,6 +770,12 @@ export function verify_binding_facts(input: VerifyBindingInput): VerifyBindingFi
             findings.push({ id, kind: 'duplicate' });
         }
     }
+    const coverageIds = new Set(input.coverageRows.map((row) => row.id));
+    for (const id of blocksById.keys()) {
+        if (!coverageIds.has(id)) {
+            findings.push({ id, kind: 'orphan' });
+        }
+    }
     // A keyed malformed block is surfaced regardless of its row's result, once per id — AC-004 + the
     // canon require it not be silently dropped, and this restores parity with `duplicate` above (the
     // `(unkeyed)` malformed block is already surfaced in the indexing loop). The Supported-row loop below
@@ -739,7 +806,6 @@ export function verify_binding_facts(input: VerifyBindingInput): VerifyBindingFi
         }
         if (block.result === 'fail') {
             findings.push({ id: row.id, kind: 'result-fail' });
-            continue;
         }
         const named = input.namedCommandById.get(row.id) ?? null;
         // A closed-value command comparison (never prose). A named command absent from the spec
@@ -777,7 +843,9 @@ export type CoverageEvidenceRow = Readonly<{ id: string; assessment: string; evi
 // these ids, so the predicate and the diagnostic can never disagree on what counts.
 export function supported_rows_missing_evidence(rows: readonly CoverageEvidenceRow[]): string[] {
     return rows
-        .filter((row) => row.assessment === 'Supported' && row.evidence.trim().length === 0)
+        .filter(
+            (row) => row.assessment === 'Supported' && (scan_markdown([row.evidence])[0]?.text.trim().length ?? 0) === 0
+        )
         .map((row) => row.id);
 }
 
@@ -892,6 +960,7 @@ export function run_spec_checks(input: RunSpecChecksInput): Diagnostic[] {
         ...check_one_strength_word(input.spec),
         ...check_no_tbd_at_ready(input.spec),
         ...check_intent_present(input.spec),
+        ...check_spec_shape(input.spec),
         ...check_sources_named(input.spec),
         ...check_broken_source_link({ spec: input.spec, exists: input.exists }),
         ...check_citation_resolves(input.spec, anchor_resolves),

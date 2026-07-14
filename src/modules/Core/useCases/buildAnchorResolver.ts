@@ -13,6 +13,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 
 import { parse_spec_record } from '../../Sol/useCases/index.ts';
+import { is_local_source_ref } from './resolveSourcePath.ts';
 
 // Every `<a … id="KEY">` anchor declared in a sources.md (the HTML anchor the `[[KEY]]` form links).
 // The convention sources.md uses is `<a id="KEY"></a>`; this also tolerates the valid variants —
@@ -42,6 +43,9 @@ export function build_anchor_resolver(specSource: string, specPath: string): (ke
     // The frontmatter `sources:` entry whose path ends in `sources.md` (the citation bibliography).
     const sourcesRef = parsed.value.frontmatter.sources.find((ref) => /(^|\/)sources\.md$/.test(ref));
     if (sourcesRef === undefined) {
+        return ADMIT_ALL;
+    }
+    if (!is_local_source_ref(sourcesRef)) {
         return ADMIT_ALL;
     }
     const sourcesPath = resolve(dirname(specPath), sourcesRef);

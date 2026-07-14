@@ -27,6 +27,7 @@ export function check_task(source: string, path: string): Result<TaskCheckReport
         ...packet.frontmatter,
         sectionTitles: packet.sectionTitles,
         verifyBody: packet.verifyBody,
+        runOrderBody: packet.runOrderBody,
         resolutionText: packet.resolutionText,
     };
     const diagnostics = [

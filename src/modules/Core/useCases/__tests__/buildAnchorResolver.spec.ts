@@ -71,6 +71,15 @@ describe('build_anchor_resolver', () => {
         expect(resolves('GOOGLESA')).toBe(true);
     });
 
+    it('never reads an absolute sources.md reference', () => {
+        const outside = join(dir, 'outside-sources.md');
+        writeFileSync(outside, '<a id="ONLY"></a>\n');
+        const specPath = join(dir, 'spec.md');
+        const spec = SPEC_WITH_SOURCES.replace('../research/sources.md', outside);
+        const resolves = build_anchor_resolver(spec, specPath);
+        expect(resolves('NOT-IN-FILE')).toBe(true);
+    });
+
     it('admits every key when the named sources.md exists but cannot be read (a directory at that path)', () => {
         mkdirSync(join(dir, 'specs', 'cite'), { recursive: true });
         // A DIRECTORY named sources.md: existsSync is true, readFileSync throws EISDIR → admit-all.

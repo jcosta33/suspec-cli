@@ -1,7 +1,7 @@
 // CheckEngine, file-set scope: the cross-file checks over the artifacts passed in ONE invocation.
 // C002 (duplicate-id) is cross-file by nature — frontmatter `id:` uniqueness — so it keys on the
-// passed set (ADR-0143: the CLI reads exactly the files it is handed; there is no tree to scan).
-// PURE over identities already parsed and shape-checked once by the command.
+// passed set; it never expands scope through a tree scan. PURE over identities already parsed and
+// shape-checked once by the command.
 
 import { ok, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';

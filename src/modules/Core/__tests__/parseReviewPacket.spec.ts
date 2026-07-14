@@ -11,7 +11,9 @@ function parse_review(source: string) {
 const PACKET = `---
 type: review
 id: REVIEW-feat
+spec: SPEC-feat
 task: TASK-feat
+reviewer: fixture-reviewer
 decision: pending
 ---
 
@@ -42,6 +44,14 @@ Block until AC-002 has evidence.
 `;
 
 describe('parse_review_packet', () => {
+    it('reports the source line for a wrong frontmatter field shape', () => {
+        const result = parse_review_packet('---\ntype: [review]\nid: REVIEW-x\n---\n');
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error).toMatchObject({ message: 'frontmatter `type:` must be a scalar', line: 2 });
+        }
+    });
+
     it('reads the frontmatter decision', () => {
         expect(parse_review(PACKET).decision).toBe('pending');
         expect(parse_review_packet('no frontmatter\n').ok).toBe(false);
@@ -77,6 +87,28 @@ describe('parse_review_packet', () => {
         expect(parse_review(PACKET).coverageRows).toEqual([
             { id: 'AC-001', assessment: 'Supported', evidence: '`pnpm test` output pasted' },
             { id: 'AC-002', assessment: 'Unverified', evidence: '' },
+        ]);
+    });
+
+    it('collects local receipt refs, rejects absolute refs downstream, and ignores URI links', () => {
+        const packet = `---
+decision: pending
+---
+## Requirement coverage
+
+| ID | Assessment | Evidence |
+|---|---|---|
+| AC-001 | Supported | [local](./evidence.md#E-001) [web](https://example.test/evidence.md#E-002) |
+| AC-002 | Supported | [absolute](/tmp/evidence.md#E-003) [windows](C:\\tmp\\evidence.md#E-004) |
+| AC-003 | Supported | [angle](<./evidence run.md#E-005>) [encoded](./evidence%20run.md#E-006) |
+| AC-004 | Supported | [invalid](./evidence run.md#E-007) |
+`;
+        expect(parse_review(packet).evidenceRefs).toEqual([
+            { raw: './evidence.md', anchor: 'E-001' },
+            { raw: '/tmp/evidence.md', anchor: 'E-003' },
+            { raw: 'C:\\tmp\\evidence.md', anchor: 'E-004' },
+            { raw: './evidence run.md', anchor: 'E-005' },
+            { raw: './evidence run.md', anchor: 'E-006' },
         ]);
     });
 

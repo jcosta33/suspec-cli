@@ -18,7 +18,7 @@ if (existsSync(sourceEntry)) {
     if (major < 22 || (major === 22 && minor < 6)) {
         console.error('Error: running suspec-cli from source needs Node.js >= 22.6 (or run `pnpm build`).');
         console.error(`Current version: ${process.versions.node}`);
-        process.exit(1);
+        process.exit(2);
     }
     res = spawnSync(
         process.execPath,

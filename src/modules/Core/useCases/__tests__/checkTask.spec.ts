@@ -24,6 +24,10 @@ One file.
 n/a: documentation-only change
 ## Agent instructions
 Make the change.
+## Run order
+- This packet: TASK-x
+- Starts after: None
+- May run with: None
 ## Findings
 None.
 ## Run summary
@@ -41,8 +45,29 @@ describe('check_task', () => {
         expect(assertOk(check_task(TASK, 'task.md'))).toMatchObject({ level: 'clean', diagnostics: [] });
     });
 
+    it('requires Run order and both dependency fields', () => {
+        const missingSection = assertOk(check_task(TASK.replace(/## Run order[\s\S]*?(?=## Findings)/, ''), 'task.md'));
+        expect(missingSection.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C022');
+
+        for (const label of ['Starts after', 'May run with']) {
+            const missingValue = assertOk(check_task(TASK.replace(`${label}: None`, `${label}:`), 'task.md'));
+            expect(missingValue.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C022');
+        }
+    });
+
+    it('accepts dependency labels without list markers', () => {
+        const plain = TASK.replace('- Starts after:', 'Starts after:').replace('- May run with:', 'May run with:');
+        const report = assertOk(check_task(plain, 'task.md'));
+        expect(report.diagnostics.map((diagnostic) => diagnostic.code)).not.toContain('C022');
+    });
+
     it('returns parser failures without manufacturing diagnostics', () => {
         expect(assertErr(check_task('# no frontmatter\n', 'task.md'))._tag).toBe('ParseFailure');
+    });
+
+    it('reports the source line for a wrong frontmatter field shape', () => {
+        const failure = assertErr(check_task(TASK.replace('scope: [AC-001]', 'scope: AC-001'), 'task.md'));
+        expect(failure).toMatchObject({ message: 'frontmatter `scope:` must be a list', line: 5 });
     });
 
     it.each(['ready', 'running'])('does not run C023 for a %s task with pending template evidence', (status) => {

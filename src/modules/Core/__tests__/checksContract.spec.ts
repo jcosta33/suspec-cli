@@ -22,6 +22,8 @@ import {
     check_verify_binding,
     verify_binding_facts,
     check_supported_evidence,
+    check_spec_shape,
+    check_evidence_receipt_resolves,
     supported_rows_missing_evidence,
     normalize_cmd,
     type VerifyBindingInput,
@@ -50,8 +52,8 @@ function spec(
             sources: ['ADR-0077'],
             ...frontmatter,
         },
-        requirements: [],
-        sectionTitles: ['Intent', 'Non-goals', 'Open questions'],
+        requirements: [{ id: 'AC-001', line: 1, body: 'The tool must work.\nVerify with: a test.' }],
+        sectionTitles: ['Intent', 'Requirements', 'Non-goals', 'Open questions'],
         intentBody: 'purpose',
         nonGoalsBody: 'what this does not change',
         openQuestionsPresent: true,
@@ -90,6 +92,42 @@ describe('severity_of', () => {
         expect(severity_of('C022')).toBe('hard-error');
         expect(severity_of('C023')).toBe('hard-error');
         expect(severity_of('C024')).toBe('hard-error');
+        expect(severity_of('C025')).toBe('hard-error');
+        expect(severity_of('C026')).toBe('hard-error');
+        expect(severity_of('C027')).toBe('hard-error');
+    });
+});
+
+describe('C025 spec-shape', () => {
+    it('blocks missing identity, status, sections, and requirements in one diagnostic', () => {
+        const diagnostics = check_spec_shape(
+            spec({
+                frontmatter: { id: null, status: null },
+                sectionTitles: [],
+                requirements: [],
+            })
+        );
+        expect(codes(diagnostics)).toEqual(['C025']);
+        expect(diagnostics[0].message).toContain('`id:` must be a non-empty scalar');
+        expect(diagnostics[0].message).toContain('missing `## Requirements`');
+    });
+
+    it('accepts the minimal valid spec shape', () => {
+        expect(check_spec_shape(spec())).toEqual([]);
+    });
+});
+
+describe('C026 evidence-receipt-resolves', () => {
+    it('blocks only receipt links the resolver rejects', () => {
+        const diagnostics = check_evidence_receipt_resolves(
+            [
+                { raw: './evidence-ok.md', anchor: 'E-001' },
+                { raw: './evidence-missing.md', anchor: 'E-002' },
+            ],
+            (raw) => raw.endsWith('evidence-ok.md')
+        );
+        expect(codes(diagnostics)).toEqual(['C026']);
+        expect(diagnostics[0].message).toContain('./evidence-missing.md#E-002');
     });
 });
 
@@ -391,6 +429,17 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
         ]);
     });
 
+    it('a result=fail never hides a command mismatch', () => {
+        const input = base({
+            verifyBlocks: [{ id: 'AC-001', cmd: 'npm test -- wrong.spec.ts', result: 'fail', malformed: false }],
+        });
+        expect(verify_binding_facts(input)).toEqual([
+            { id: 'AC-001', kind: 'result-fail' },
+            { id: 'AC-001', kind: 'cmd-mismatch' },
+        ]);
+        expect(check_verify_binding(input).map((diagnostic) => diagnostic.severity)).toEqual(['warning', 'hard-error']);
+    });
+
     it('a malformed block under a Supported row → a malformed fact', () => {
         expect(
             verify_binding_facts(base({ verifyBlocks: [{ id: 'AC-001', cmd: null, result: 'pass', malformed: true }] }))
@@ -406,6 +455,17 @@ describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
                 })
             )
         ).toEqual([{ id: 'AC-001', kind: 'malformed' }]);
+    });
+
+    it('a keyed block without a coverage row is surfaced as an orphan', () => {
+        expect(
+            verify_binding_facts(
+                base({
+                    coverageRows: [{ id: 'AC-001', assessment: 'Unverified' }],
+                    verifyBlocks: [{ id: 'AC-099', cmd: 'npm test', result: 'pass', malformed: false }],
+                })
+            )
+        ).toEqual([{ id: 'AC-099', kind: 'orphan' }]);
     });
 
     it('an unkeyed (id-less) malformed block is surfaced on its own', () => {
@@ -658,8 +718,18 @@ describe('C004 one-strength-word', () => {
     it('exempts SOL INTERFACE (IF-) blocks — a declaration has no strength-word slot (ADR-0127, #96)', () => {
         // An INTERFACE with no strength word must NOT fire C004 (it binds on nothing by grammar)…
         expect(
-            check_one_strength_word(spec({ requirements: [req('IF-001', '`refreshSession` RETURNS `Session`')] }))
+            check_one_strength_word(
+                spec({
+                    frontmatter: { format: 'sol' },
+                    requirements: [req('IF-001', '`refreshSession` RETURNS `Session`')],
+                })
+            )
         ).toEqual([]);
+        expect(
+            codes(
+                check_one_strength_word(spec({ requirements: [req('IF-001', '`refreshSession` returns `Session`')] }))
+            )
+        ).toEqual(['C004']);
         // …while a REQ/CONSTRAINT/INVARIANT with no strength word still does.
         expect(codes(check_one_strength_word(spec({ requirements: [req('I-001', 'A token is unique.')] })))).toEqual([
             'C004',

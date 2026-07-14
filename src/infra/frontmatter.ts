@@ -6,13 +6,14 @@ export type FrontmatterFields = Readonly<Record<string, FrontmatterValue>>;
 
 export type ParsedFrontmatter = Readonly<{
     fields: FrontmatterFields;
+    fieldLines: Readonly<Record<string, number>>;
     lines: readonly string[];
     frontmatterEndLine: number;
 }>;
 
 export type FrontmatterFailure = AppError<'ParseFailure', { reason: 'unparseable-frontmatter'; line: number | null }>;
 
-const KEY = /^([A-Za-z0-9_-]+):\s*(.*)$/;
+const KEY = /^([A-Za-z0-9_-]+):(?:(?:[ \t]+(.*))|[ \t]*)$/;
 const LIST_ITEM = /^( +)-[ \t]+(.*)$/;
 
 function failure(message: string, line: number | null): FrontmatterFailure {
@@ -174,6 +175,7 @@ export function parse_frontmatter(source: string): Result<ParsedFrontmatter, Fro
     }
 
     const entries: [string, FrontmatterValue][] = [];
+    const entryLines: [string, number][] = [];
     const seen = new Set<string>();
     for (let index = 1; index < closingIndex; index += 1) {
         const lineNumber = index + 1;
@@ -185,11 +187,12 @@ export function parse_frontmatter(source: string): Result<ParsedFrontmatter, Fro
         if (match === null || /^\s/.test(line)) {
             return err(failure('frontmatter accepts top-level `key: value` entries only', lineNumber));
         }
-        const [, key, raw] = match;
+        const [, key, raw = ''] = match;
         if (seen.has(key)) {
             return err(failure(`frontmatter key \`${key}\` appears more than once`, lineNumber));
         }
         seen.add(key);
+        entryLines.push([key, lineNumber]);
 
         const stripped = strip_comment(raw, lineNumber);
         if (!stripped.ok) {
@@ -249,6 +252,7 @@ export function parse_frontmatter(source: string): Result<ParsedFrontmatter, Fro
 
     return ok({
         fields: Object.fromEntries(entries),
+        fieldLines: Object.fromEntries(entryLines),
         lines,
         frontmatterEndLine: closingIndex + 1,
     });

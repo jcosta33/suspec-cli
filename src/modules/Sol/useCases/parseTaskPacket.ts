@@ -13,6 +13,7 @@ export type TaskPacket = Readonly<{
     }>;
     sectionTitles: readonly string[];
     verifyBody: string;
+    runOrderBody: string;
     resolutionText: string;
 }>;
 
@@ -26,13 +27,13 @@ export function parse_task_packet(source: string): ParseTaskPacketResult {
     if (isErr(parsedFrontmatter)) {
         return err(parsedFrontmatter.error);
     }
-    const { fields, lines, frontmatterEndLine } = parsedFrontmatter.value;
+    const { fields, fieldLines, lines, frontmatterEndLine } = parsedFrontmatter.value;
     for (const key of ['type', 'id', 'status'] as const) {
         if (fields[key] !== undefined && typeof fields[key] !== 'string') {
             return err(
                 createAppError('ParseFailure', `frontmatter \`${key}:\` must be a scalar`, {
                     reason: 'unparseable-frontmatter',
-                    line: null,
+                    line: fieldLines[key] ?? null,
                 })
             );
         }
@@ -42,7 +43,7 @@ export function parse_task_packet(source: string): ParseTaskPacketResult {
             return err(
                 createAppError('ParseFailure', `frontmatter \`${key}:\` must be a list`, {
                     reason: 'unparseable-frontmatter',
-                    line: null,
+                    line: fieldLines[key] ?? null,
                 })
             );
         }
@@ -52,7 +53,9 @@ export function parse_task_packet(source: string): ParseTaskPacketResult {
     const scanned = scan_markdown(bodyLines);
     const sectionTitles: string[] = [];
     let inVerify = false;
+    let inRunOrder = false;
     let verifyBody = '';
+    let runOrderBody = '';
     for (const line of scanned) {
         if (line.inFence) {
             if (inVerify) {
@@ -64,15 +67,20 @@ export function parse_task_packet(source: string): ParseTaskPacketResult {
         if (heading?.level === 2 && heading.title.length > 0) {
             sectionTitles.push(heading.title);
             inVerify = heading.title.toLowerCase() === 'verify';
+            inRunOrder = heading.title.toLowerCase() === 'run order';
             continue;
         }
         const headingLevel = heading?.level ?? null;
         if (headingLevel !== null && headingLevel <= 2) {
             inVerify = false;
+            inRunOrder = false;
             continue;
         }
         if (inVerify) {
             verifyBody += `${line.text}\n`;
+        }
+        if (inRunOrder) {
+            runOrderBody += `${line.text}\n`;
         }
     }
 
@@ -86,6 +94,7 @@ export function parse_task_packet(source: string): ParseTaskPacketResult {
         },
         sectionTitles,
         verifyBody,
+        runOrderBody,
         resolutionText: scanned
             .filter((line) => !line.inFence)
             .map((line) => line.text)

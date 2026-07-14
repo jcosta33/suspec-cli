@@ -39,6 +39,13 @@ Verify with: another test.
 `;
 
 describe('parse_spec_record', () => {
+    it('reports the source line for a wrong frontmatter field shape', () => {
+        const failure = assertErr(
+            parse_spec_record({ source: '---\ntype: [spec]\nid: SPEC-x\n---\n', path: 'spec.md' })
+        );
+        expect(failure).toMatchObject({ message: 'frontmatter `type:` must be a scalar', line: 2 });
+    });
+
     it('extracts frontmatter scalars and tokenized sources', () => {
         const record = assertOk(parse_spec_record({ source: SPEC, path: 'spec.md' }));
         expect(record.frontmatter.type).toBe('spec');
@@ -150,12 +157,27 @@ sources: ["missing dir/ticket,one.md"]
         expect(record.openQuestionsPresent).toBe(true);
     });
 
-    it('extracts markdown and wiki links from the body', () => {
+    it('keeps Markdown filesystem links separate from wiki citations', () => {
         const record = assertOk(parse_spec_record({ source: SPEC, path: 'spec.md' }));
         const raws = record.links.map((l) => l.raw);
         expect(raws).toContain('docs/y.md');
-        expect(raws).toContain('WIKI-REF');
+        expect(raws).not.toContain('WIKI-REF');
         expect(record.links.every((l) => l.line > 0)).toBe(true);
+    });
+
+    it('extracts an angle-wrapped Markdown destination containing spaces', () => {
+        const source = SPEC.replace('docs/y.md', '<docs/missing ticket.md>');
+        const record = assertOk(parse_spec_record({ source, path: 'spec.md' }));
+        expect(record.links.map((link) => link.raw)).toContain('docs/missing ticket.md');
+    });
+
+    it('parses requirements only inside the Requirements section', () => {
+        const source = SPEC.replace(
+            '## Requirements\n',
+            '## Intent\n\n### AC-999 — example only\nThe tool must not count this.\nVerify with: never.\n\n## Requirements\n'
+        );
+        const record = assertOk(parse_spec_record({ source, path: 'spec.md' }));
+        expect(record.requirements.map((requirement) => requirement.id)).not.toContain('AC-999');
     });
 
     it('marks inline [[KEY]] citations distinctly from markdown links (C015)', () => {

@@ -45,13 +45,21 @@ status: review-ready
 ## Run summary
 
 - Changed files: \`src/a.ts\`
+
+## Run order
+
+- This packet: TASK-feat
+- Starts after: None
+- May run with: None
 `;
 
 function review(rows: string): string {
     return `---
 type: review
 id: REVIEW-feat
+spec: SPEC-feat
 task: TASK-feat
+reviewer: fixture-reviewer
 decision: pending
 ---
 
@@ -95,8 +103,80 @@ function check(input: { reviewSource: string; specSource?: string; taskSource?: 
         specPath: 'spec.md',
         // `taskSource: null` = no --task handed (the spec-keyed path); omitted = the matching TASK.
         taskSource: input.taskSource === null ? undefined : (input.taskSource ?? TASK),
+        evidence_ref_resolves: () => true,
     });
 }
+
+describe('check_review_file — deterministic bindings', () => {
+    it.each([
+        [
+            'missing',
+            reviewWithVerify([{ id: 'AC-001', assessment: 'Supported', verify: true }]).replace('type: review\n', ''),
+        ],
+        [
+            'wrong',
+            reviewWithVerify([{ id: 'AC-001', assessment: 'Supported', verify: true }]).replace(
+                'type: review',
+                'type: task'
+            ),
+        ],
+    ])('rejects a %s review type', (_case, source) => {
+        expect(assertErr(check({ reviewSource: source })).message).toContain('review `type:` must be `review`');
+    });
+
+    it('rejects missing reviewer provenance', () => {
+        const source = reviewWithVerify([
+            { id: 'AC-001', assessment: 'Supported', verify: true },
+            { id: 'AC-002', assessment: 'Supported', verify: true },
+        ]).replace('reviewer: fixture-reviewer\n', '');
+        expect(assertErr(check({ reviewSource: source })).message).toContain(
+            'review `reviewer:` must be a non-empty scalar'
+        );
+    });
+
+    it('C027 blocks a missing or mismatched review spec ref', () => {
+        const missing = reviewWithVerify([
+            { id: 'AC-001', assessment: 'Supported', verify: true },
+            { id: 'AC-002', assessment: 'Supported', verify: true },
+        ]).replace('spec: SPEC-feat\n', '');
+        expect(assertOk(check({ reviewSource: missing })).diagnostics.map((d) => d.code)).toEqual(['C027']);
+
+        const mismatched = missing.replace('id: REVIEW-feat\n', 'id: REVIEW-feat\nspec: SPEC-other\n');
+        expect(assertOk(check({ reviewSource: mismatched })).diagnostics.map((d) => d.code)).toEqual(['C027']);
+
+        const idlessSpec = SPEC.replace('id: SPEC-feat\n', '');
+        expect(
+            assertOk(
+                check({
+                    reviewSource: reviewWithVerify([
+                        { id: 'AC-001', assessment: 'Supported', verify: true },
+                        { id: 'AC-002', assessment: 'Supported', verify: true },
+                    ]),
+                    specSource: idlessSpec,
+                })
+            ).diagnostics.map((d) => d.code)
+        ).toEqual(['C027']);
+    });
+
+    it('C026 blocks a receipt link whose path or anchor resolver rejects', () => {
+        const source = reviewWithVerify([
+            { id: 'AC-001', assessment: 'Supported', verify: true },
+            { id: 'AC-002', assessment: 'Supported', verify: true },
+        ]).replace('| AC-001 | Supported | p |', '| AC-001 | Supported | [E-001](./evidence-run.md#E-001) |');
+        const report = assertOk(
+            check_review_file({
+                reviewSource: source,
+                reviewPath: 'review.md',
+                specSource: SPEC,
+                specPath: 'spec.md',
+                taskSource: TASK,
+                evidence_ref_resolves: () => false,
+            })
+        );
+        expect(report.diagnostics.map((d) => d.code)).toContain('C026');
+        expect(assertOk(check({ reviewSource: source })).diagnostics.map((d) => d.code)).not.toContain('C026');
+    });
+});
 
 describe('check_review_file — C012 coverage against the handed spec + task', () => {
     it('reports C012 for a coverage gap (AC-002 uncovered)', () => {
@@ -374,6 +454,12 @@ describe('check_review_file — C016 supported-needs-evidence', () => {
         expect(report.level).toBe('blocking');
     });
 
+    it('treats an HTML-comment-only Evidence cell as empty', () => {
+        const report = assertOk(check({ reviewSource: review('| AC-001 | Supported | <!-- no evidence --> |') }));
+        expect(report.diagnostics.map((d) => d.code)).toContain('C016');
+        expect(report.level).toBe('blocking');
+    });
+
     it('a Supported row WITH a non-empty Evidence cell does not trip C016 (0-FP on a filled review)', () => {
         const report = assertOk(
             check({
@@ -572,7 +658,7 @@ describe('check_review_file — structural review packet contract', () => {
         expect(assertErr(check({ reviewSource: accepted })).message).toContain('duplicate waiver ids: AC-001');
     });
 
-    it('keeps accepted waivers Requirement-coverage-only', () => {
+    it('rejects acceptance when Change-plan coverage is not Supported', () => {
         const accepted = `${review('| AC-001 | Supported | evidence |\n| AC-002 | Supported | evidence |').replace(
             'decision: pending',
             'decision: accepted'
@@ -584,7 +670,9 @@ describe('check_review_file — structural review packet contract', () => {
 |---|---|---|
 | PG-001 | Unsupported | plan gap |
 `;
-        expect(check({ reviewSource: accepted }).ok).toBe(true);
+        expect(assertErr(check({ reviewSource: accepted })).message).toContain(
+            'accepted review contains non-Supported change-plan assessments for PG-001'
+        );
     });
 
     it('rejects acceptance while any assessment is Blocked', () => {

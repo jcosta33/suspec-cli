@@ -25,7 +25,7 @@ describe('resolve_canon_root', () => {
         const root = mkdtempSync(join(tmpdir(), 'suspec-canon-'));
         try {
             mkdirSync(join(root, 'checks'));
-            writeFileSync(join(root, 'checks', 'checks.yaml'), 'version: 0.19.0\n');
+            writeFileSync(join(root, 'checks', 'checks.yaml'), 'version: 0.21.0\n');
             process.env.SUSPEC_CANON = root;
             expect(resolve_canon_root(process.cwd())).toBe(root);
         } finally {

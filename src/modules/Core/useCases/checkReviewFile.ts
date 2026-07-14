@@ -1,4 +1,4 @@
-// CheckEngine, review-packet scope (ADR-0079 C012; ADR-0083 C013; ADR-0097 C016; ADR-0128 C020):
+// CheckEngine, review-packet scope (C012/C013/C016/C020/C026/C027):
 // reconcile a review packet against the spec — and, when the review names a task, the task packet —
 // it is handed. `suspec check <review-path> --spec <spec-path> [--task <task-path>]` reads the
 // files and passes their sources here — the engine is PURE over the handed sources (ADR-0143: the
@@ -22,7 +22,9 @@ import {
     check_coverage,
     check_verify_binding,
     check_supported_evidence,
+    check_evidence_receipt_resolves,
     unresolvable_ref_diagnostic,
+    review_spec_ref_diagnostic,
     level_for,
     type Diagnostic,
 } from '../services/checksContract.ts';
@@ -39,6 +41,7 @@ export type CheckReviewFileInput = Readonly<{
     // The conditional companion (--task): required iff the review's frontmatter names a `task:`.
     // undefined = no --task was given.
     taskSource?: string;
+    evidence_ref_resolves: (raw: string, anchor: string) => boolean;
 }>;
 
 export type CheckReviewFileReport = Readonly<{
@@ -92,6 +95,11 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
 
     const report = (diagnostics: Diagnostic[]): Result<CheckReviewFileReport, AppError> =>
         ok({ type: 'review', path: input.reviewPath, level: level_for(diagnostics), diagnostics });
+
+    const sourceSpecId = parsed.value.frontmatter.id;
+    if (review.spec === null || sourceSpecId === null || review.spec !== sourceSpecId) {
+        return report([review_spec_ref_diagnostic(review.spec, sourceSpecId)]);
+    }
 
     // C020 (ADR-0128): the review's `task:` ref must resolve to the handed task packet. A review
     // naming task X reconciled against a packet identifying as Y is keyed on the wrong slice —
@@ -148,5 +156,6 @@ export function check_review_file(input: CheckReviewFileInput): Result<CheckRevi
         verifyBlocks: review.verifyBlocks,
     });
     const supportedEvidence = check_supported_evidence([...review.coverageRows, ...review.changePlanCoverageRows]);
-    return report([...coverage, ...verifyBinding, ...supportedEvidence]);
+    const receiptResolution = check_evidence_receipt_resolves(review.evidenceRefs, input.evidence_ref_resolves);
+    return report([...coverage, ...verifyBinding, ...supportedEvidence, ...receiptResolution]);
 }

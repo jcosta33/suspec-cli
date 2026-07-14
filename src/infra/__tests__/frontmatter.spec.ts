@@ -61,10 +61,16 @@ describe('parse_frontmatter', () => {
         expect(list_field(parsed, 'id')).toBeUndefined();
     });
 
+    it('records each field source line', () => {
+        const result = parse_frontmatter('---\nid: X\nscope:\n  - AC-001\n---\n');
+        expect(result.ok && result.value.fieldLines).toEqual({ id: 2, scope: 3 });
+    });
+
     it.each([
         ['missing opening fence', '# body\n'],
         ['missing closing fence', '---\nid: X\n'],
         ['duplicate key', '---\nid: X\nid: Y\n---\n'],
+        ['missing key-value whitespace', '---\nid:X\n---\n'],
         ['empty list head', '---\nsource:\nid: X\n---\n'],
         ['nested map', '---\nmeta: { id: X }\n---\n'],
         ['plain nested map', '---\nmeta: id: X\n---\n'],

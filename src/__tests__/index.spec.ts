@@ -80,6 +80,12 @@ describe('dispatch — the single-verb router (ADR-0143)', () => {
         expect(out).toMatch(/^suspec \d+\.\d+\.\d+/);
     });
 
+    it.each(['--version', '-v'])('`suspec check %s` prints the package version', async (flag) => {
+        const { code, out } = await capture(() => dispatch(['check', flag]));
+        expect(code).toBe(0);
+        expect(out).toMatch(/^suspec \d+\.\d+\.\d+/);
+    });
+
     it('an unknown command → stderr + exit 2', async () => {
         const { code, err } = await capture(() => dispatch(['garden']));
         expect(code).toBe(2);
@@ -101,6 +107,30 @@ describe('dispatch — the single-verb router (ADR-0143)', () => {
         expect(out).toContain('--contract');
     });
 
+    it.each(['--help', '--version'])('does not let `suspec check %s` hide an unknown option', async (flag) => {
+        const { code, out, err } = await capture(() => dispatch(['check', flag, '--bogus']));
+        expect(code).toBe(2);
+        expect(out).not.toContain('suspec check <artifact>');
+        expect(out).not.toMatch(/^suspec \d+\.\d+\.\d+/);
+        expect(err).toContain('unknown option: --bogus');
+    });
+
+    it.each(['--help=false', '-h=false', '--version=false', '-v=false'])(
+        'consumes disabled command meta flag %s',
+        async (flag) => {
+            const dir = mkdtempSync(join(tmpdir(), 'suspec-disabled-meta-'));
+            try {
+                writeFileSync(join(dir, 'spec.md'), CONFORMANT);
+                const { code, out, err } = await capture(() => dispatch(['check', flag, 'spec.md'], dir));
+                expect(code).toBe(0);
+                expect(out).toContain('clean');
+                expect(err).toBe('');
+            } finally {
+                rmSync(dir, { recursive: true, force: true });
+            }
+        }
+    );
+
     it.each(['--spec', '--task'])('does not treat `suspec check file %s --help` as help', async (flag) => {
         const { code, out, err } = await capture(() => dispatch(['check', 'review.md', flag, '--help']));
         expect(code).toBe(2);
@@ -116,6 +146,18 @@ describe('dispatch — the single-verb router (ADR-0143)', () => {
             const { code, out } = await capture(() => dispatch(['check', file]));
             expect(code).toBe(0);
             expect(out).toContain('clean');
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it('resolves relative artifact paths against the supplied working directory', async () => {
+        const dir = mkdtempSync(join(tmpdir(), 'suspec-dispatch-cwd-'));
+        try {
+            writeFileSync(join(dir, 'spec.md'), CONFORMANT);
+            const { code, out } = await capture(() => dispatch(['check', 'spec.md'], dir));
+            expect(code).toBe(0);
+            expect(out).toContain(join(dir, 'spec.md'));
         } finally {
             rmSync(dir, { recursive: true, force: true });
         }

@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 
-// `suspec check` — the whole command surface (ADR-0143). The CLI reads exactly the files it is
-// handed: the primary artifact's kind comes from its own frontmatter `type:`, companions are
-// explicit flags, and nothing resolves a store, a config, a repo root, or a workspace tree.
-//   suspec check <artifact> [<artifact>...]                    spec / task / change-plan (exit = max)
+// `suspec check` — the whole command surface (ADR-0143). Primary artifacts and review companions
+// are explicit; deterministic reference checks may read local paths they name. Nothing resolves a
+// store, config, repo root, or workspace tree.
+//   suspec check <artifact> [<artifact>...]                    spec / change-plan (exit = max)
+//   suspec check <task-path> [<task-path>...] --spec <path>    bind tasks to one ready source spec
 //   suspec check <review-path> --spec <path> [--task <path>]   reconcile a review packet
 //   suspec check --contract                                    the checks contract as JSON
 // Direct output + exit codes flow through the shared unixOutcome contract.
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, isAbsolute, resolve } from 'node:path';
+import { scan_markdown, strip_inline_code } from '../../../infra/markdownScan.ts';
 
 import {
     check_spec,
@@ -29,6 +31,7 @@ import {
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { err, ok, type Result } from '../../../infra/errors/result.ts';
 import { parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
+import { parse_spec_record, parse_task_packet } from '../../Sol/useCases/index.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 import { format_check_report } from '../services/renderCheckReport.ts';
 
@@ -65,6 +68,28 @@ export const CHECK_FLAG_SPEC = {
 
 function caught_message(caught: unknown): string {
     return caught instanceof Error ? caught.message : String(caught);
+}
+
+function build_evidence_ref_resolver(
+    fileSystem: CheckFileSystem,
+    reviewPath: string
+): (raw: string, anchor: string) => boolean {
+    return (raw, anchor) => {
+        if (isAbsolute(raw) || /^[A-Za-z]:[\\/]/.test(raw) || raw.startsWith('\\')) return false;
+        const target = resolve(dirname(reviewPath), raw);
+        try {
+            if (!fileSystem.exists(target) || fileSystem.isDirectory(target)) return false;
+            const source = fileSystem.read(target);
+            const visibleSource = scan_markdown(source.split(/\r?\n/))
+                .filter((line) => !line.inFence)
+                .map((line) => strip_inline_code(line.text))
+                .join('\n');
+            const escaped = anchor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            return new RegExp(`<[aA]\\b[^>]*?\\s+[iI][dD]\\s*=\\s*["']${escaped}["'](?=[\\s/>])`).test(visibleSource);
+        } catch {
+            return false;
+        }
+    };
 }
 
 function load_artifact_source(fileSystem: CheckFileSystem, path: string, flag?: string) {
@@ -112,13 +137,16 @@ function load_artifact_source(fileSystem: CheckFileSystem, path: string, flag?: 
 }
 
 export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem): number {
-    const fileSystem = typeof cwdOrFileSystem === 'object' ? cwdOrFileSystem : nodeFileSystem;
+    const customFileSystem = typeof cwdOrFileSystem === 'object';
+    const fileSystem = customFileSystem ? cwdOrFileSystem : nodeFileSystem;
+    const base = typeof cwdOrFileSystem === 'string' ? cwdOrFileSystem : process.cwd();
+    const resolve_argument = (path: string) => (customFileSystem || isAbsolute(path) ? path : resolve(base, path));
     const { positional, flags, unknown, errors } = parse_flags(argv, CHECK_FLAG_SPEC);
     const json = flags.get('json') === true;
     const specFlag = flags.get('spec');
     const taskFlag = flags.get('task');
-    const specPath = typeof specFlag === 'string' ? specFlag : undefined;
-    const taskPath = typeof taskFlag === 'string' ? taskFlag : undefined;
+    const specPath = typeof specFlag === 'string' ? resolve_argument(specFlag) : undefined;
+    const taskPath = typeof taskFlag === 'string' ? resolve_argument(taskFlag) : undefined;
 
     if (errors.length > 0) {
         return emit_error(usage_error(errors.join('; ')), json);
@@ -196,7 +224,7 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
         return { code, stdout, stderr, structuredError: !result.ok };
     };
     const seen = new Set<string>();
-    const paths = positional.filter((file) => {
+    const paths = positional.map(resolve_argument).filter((file) => {
         let key: string;
         try {
             key = fileSystem.identity(file);
@@ -242,7 +270,7 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
                 emit_error(
                     createAppError('ParseFailure', `frontmatter \`id:\` in \`${file}\` must be a scalar`, {
                         reason: 'unparseable-frontmatter',
-                        line: null,
+                        line: parsed.value.fieldLines.id ?? null,
                     }),
                     json
                 )
@@ -255,9 +283,10 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
         return status;
     }
 
-    // The invocation-shape rules. A review packet reconciles against its explicit companions, so it
-    // is checked alone; the companion flags belong to a review and nothing else.
+    // The invocation-shape rules. A review is checked alone. Tasks may batch only against one
+    // explicit source spec.
     const hasReview = loaded.some((artifact) => artifact.type === 'review');
+    const hasTask = loaded.some((artifact) => artifact.type === 'task');
     if (hasReview && paths.length > 1) {
         return emit_error(
             usage_error(
@@ -266,11 +295,64 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
             json
         );
     }
-    if (!hasReview && (specPath !== undefined || taskPath !== undefined)) {
+    if (hasTask && loaded.some((artifact) => artifact.type !== 'task')) {
         return emit_error(
-            usage_error('--spec/--task accompany a review packet — the named artifacts carry no review'),
+            usage_error(
+                'tasks are checked as a task-only batch — usage: suspec check <task-path> [<task-path>...] --spec <spec-path>'
+            ),
             json
         );
+    }
+    if (!hasReview && taskPath !== undefined) {
+        return emit_error(
+            usage_error('--task accompanies one review packet — the named artifacts carry no review'),
+            json
+        );
+    }
+    if (!hasReview && !hasTask && specPath !== undefined) {
+        return emit_error(usage_error('--spec accompanies task paths or one review packet'), json);
+    }
+    if (hasTask && specPath === undefined) {
+        return emit_error(
+            usage_error(
+                'task checks need their source spec: missing --spec — usage: suspec check <task-path> [<task-path>...] --spec <spec-path>'
+            ),
+            json
+        );
+    }
+
+    let taskSpec: { path: string; source: string; id: string } | undefined;
+    if (hasTask) {
+        const taskSpecPath = specPath!;
+        const specSourceResult = load_artifact_source(fileSystem, taskSpecPath, '--spec');
+        if (!specSourceResult.ok) return emit_error(specSourceResult.error, json);
+        const specSource = specSourceResult.value;
+        const specFace = check_spec({
+            source: specSource,
+            path: taskSpecPath,
+            exists: build_source_exists(taskSpecPath),
+            anchor_resolves: build_anchor_resolver(specSource, taskSpecPath),
+        });
+        if (!specFace.ok) return emit_error(specFace.error, json);
+        if (specFace.value.level === 'blocking') {
+            const codes = [...new Set(specFace.value.diagnostics.map((diagnostic) => diagnostic.code))].join(', ');
+            return emit_error(usage_error(`--spec companion fails deterministic checks: ${codes}`), json);
+        }
+        const parsedSpec = parse_spec_record({ source: specSource, path: taskSpecPath });
+        if (!parsedSpec.ok) return emit_error(parsedSpec.error, json);
+        if (parsedSpec.value.frontmatter.status !== 'ready') {
+            return emit_error(
+                usage_error(
+                    `--spec companion must have \`status: ready\`; received ${parsedSpec.value.frontmatter.status ?? 'no status'}`
+                ),
+                json
+            );
+        }
+        const specId = parsedSpec.value.frontmatter.id;
+        if (specId === null) {
+            return emit_error(usage_error('--spec companion must declare a non-empty `id:`'), json);
+        }
+        taskSpec = { path: taskSpecPath, source: specSource, id: specId };
     }
 
     // Check one loaded artifact without emitting. Multi-path output is committed only after every
@@ -301,13 +383,37 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
                 }
                 companionSources.set(companion.flag, sourceResult.value);
             }
+            const specSource = companionSources.get('--spec') ?? '';
+            const specFace = check_spec({
+                source: specSource,
+                path: specPath,
+                exists: build_source_exists(specPath),
+                anchor_resolves: build_anchor_resolver(specSource, specPath),
+            });
+            if (!specFace.ok) return capture_error(specFace.error);
+            if (specFace.value.level === 'blocking') {
+                const codes = [...new Set(specFace.value.diagnostics.map((diagnostic) => diagnostic.code))].join(', ');
+                return capture_error(usage_error(`--spec companion fails deterministic checks: ${codes}`));
+            }
+            const taskSource = taskPath === undefined ? undefined : companionSources.get('--task');
+            if (taskSource !== undefined) {
+                const taskFace = check_task(taskSource, taskPath ?? '');
+                if (!taskFace.ok) return capture_error(taskFace.error);
+                if (taskFace.value.level === 'blocking') {
+                    const codes = [...new Set(taskFace.value.diagnostics.map((diagnostic) => diagnostic.code))].join(
+                        ', '
+                    );
+                    return capture_error(usage_error(`--task companion fails deterministic checks: ${codes}`));
+                }
+            }
             return capture_result(
                 check_review_file({
                     reviewSource: source,
                     reviewPath: file,
-                    specSource: companionSources.get('--spec') ?? '',
+                    specSource,
                     specPath,
-                    taskSource: taskPath === undefined ? undefined : companionSources.get('--task'),
+                    taskSource,
+                    evidence_ref_resolves: build_evidence_ref_resolver(fileSystem, file),
                 }),
                 format_check_report
             );
@@ -334,7 +440,19 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
             );
         }
         if (type === 'task') {
-            return capture_result(check_task(source, file), format_check_report);
+            const taskFace = check_task(source, file);
+            if (!taskFace.ok || taskFace.value.level === 'blocking') {
+                return capture_result(taskFace, format_check_report);
+            }
+            const packet = parse_task_packet(source);
+            if (!packet.ok) return capture_error(packet.error);
+            const specId = taskSpec?.id;
+            if (specId === undefined || !packet.value.frontmatter.source.includes(specId)) {
+                return capture_error(
+                    usage_error(`task \`${file}\` does not name handed spec \`${specId ?? 'no id'}\` in \`source:\``)
+                );
+            }
+            return capture_result(taskFace, format_check_report);
         }
         // A recognized artifact with no deterministic face reports that fact and exits clean.
         if (type !== 'spec') {

@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { build_source_exists } from '../resolveSourcePath.ts';
+import { build_source_exists, is_local_source_ref } from '../resolveSourcePath.ts';
 
 let root: string;
 beforeEach(() => {
@@ -29,5 +29,23 @@ describe('build_source_exists — C009 resolves artifact-relative (ADR-0143 D4)'
         mkdirSync(join(root, 'specs', 'demo', 'directory-source.md'));
         const exists = build_source_exists(join(root, 'specs', 'demo', 'spec.md'));
         expect(exists('directory-source.md')).toBe(false);
+    });
+
+    it('rejects absolute references even when they name a file', () => {
+        const exists = build_source_exists(join(root, 'specs', 'demo', 'spec.md'));
+        expect(exists(join(root, 'sources', 'sup-204.md'))).toBe(false);
+        expect(exists('C:\\absolute\\source.md')).toBe(false);
+        expect(exists('\\\\server\\share\\source.md')).toBe(false);
+        expect(exists('https://example.test/source.md')).toBe(false);
+    });
+
+    it('classifies only artifact-relative source references as local', () => {
+        expect(is_local_source_ref('../sources/source.md')).toBe(true);
+        expect(is_local_source_ref('/absolute/source.md')).toBe(false);
+        expect(is_local_source_ref('C:\\absolute\\source.md')).toBe(false);
+        expect(is_local_source_ref('\\\\server\\share\\source.md')).toBe(false);
+        expect(is_local_source_ref('//server/share/source.md')).toBe(false);
+        expect(is_local_source_ref('file:///tmp/source.md')).toBe(false);
+        expect(is_local_source_ref('https://example.test/source.md')).toBe(false);
     });
 });

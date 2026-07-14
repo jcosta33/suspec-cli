@@ -12,8 +12,8 @@ Requires Node.js 22.6 or newer and pnpm 10. The package is not published.
 ```bash
 git clone https://github.com/jcosta33/suspec-cli
 cd suspec-cli
+corepack enable
 pnpm install --frozen-lockfile
-pnpm build
 pnpm link --global
 ```
 
@@ -24,13 +24,14 @@ through Node native type stripping, so `node bin/suspec.js <command>` works befo
 
 ```bash
 suspec check <path> [<path>...]
+suspec check <task-path> [<task-path>...] --spec <spec-path>
 suspec check <review-path> --spec <spec-path> [--task <task-path>]
 suspec check --contract
 ```
 
-A review always requires `--spec`. `--task` is required exactly when review frontmatter names a
-task. Several specs, tasks, or change plans may share one invocation; reviews run alone because
-companion flags belong to one target.
+A task check always requires its ready source through `--spec`; several tasks may share one source
+companion. A review always requires `--spec`. `--task` is required exactly when review frontmatter
+names a task. Reviews run alone.
 
 ## Inputs
 
@@ -61,6 +62,8 @@ store.
 - Spec source paths resolve from the spec directory.
 - Spec citations resolve against its named `sources.md`.
 - Change-plan preservation references use the contract's bounded sibling-spec rule.
+- Review evidence receipts resolve only from local relative Markdown links. URI links are ignored;
+  absolute receipt paths fail C026.
 
 The conventional `~/.agents/artifacts/<workspace>/` root has no special runtime meaning. To the CLI,
 it is just a path.

@@ -6,11 +6,26 @@
 // (check_spec) stays pure.
 
 import { statSync } from 'fs';
-import { dirname, resolve } from 'path';
+import { dirname, isAbsolute, resolve } from 'path';
+
+const URI_SCHEME = /^[A-Za-z][A-Za-z0-9+.-]*:/;
+
+export function is_local_source_ref(ref: string): boolean {
+    return !(
+        isAbsolute(ref) ||
+        /^[A-Za-z]:[\\/]/.test(ref) ||
+        ref.startsWith('\\\\') ||
+        ref.startsWith('//') ||
+        URI_SCHEME.test(ref)
+    );
+}
 
 export function build_source_exists(specPath: string): (ref: string) => boolean {
     const specDir = dirname(resolve(specPath));
     return (ref: string) => {
+        if (!is_local_source_ref(ref)) {
+            return false;
+        }
         try {
             return statSync(resolve(specDir, ref)).isFile();
         } catch {

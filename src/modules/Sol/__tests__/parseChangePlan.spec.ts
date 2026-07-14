@@ -40,6 +40,16 @@ created: 2026-06-11
 `;
 
 describe('parse_change_plan', () => {
+    it('reports the source line for a wrong frontmatter field shape', () => {
+        const failure = assertErr(
+            parse_change_plan({
+                source: '---\ntype: change-plan\nid: CHANGE-x\npreserves: PG-001\n---\n',
+                path: 'change-plan.md',
+            })
+        );
+        expect(failure).toMatchObject({ message: 'frontmatter `preserves:` must be a list', line: 4 });
+    });
+
     it('reads kind and the preserves[] refs, classifying spec refs vs plan-local ids', () => {
         const plan = assertOk(parse_change_plan({ source: PLAN, path: 'change-plan.md' }));
         expect(plan.kind).toBe('schema-change');
@@ -48,6 +58,13 @@ describe('parse_change_plan', () => {
         const ac002 = plan.preservedRefs.find((ref) => ref.raw === 'SPEC-checkout#AC-002');
         expect(ac002?.specId).toBe('SPEC-checkout');
         expect(ac002?.acId).toBe('AC-002');
+    });
+
+    it('does not classify a non-AC anchor as a cross-spec reference', () => {
+        const source = PLAN.replace('SPEC-checkout#AC-002', 'SPEC-checkout#C-001');
+        const plan = assertOk(parse_change_plan({ source, path: 'change-plan.md' }));
+        const ref = plan.preservedRefs.find((entry) => entry.raw === 'SPEC-checkout#C-001');
+        expect(ref).toMatchObject({ specId: null, acId: null });
     });
 
     it('reads the guarantees-table ids (including the plan-local PG-001) into preservedRefs + guaranteeIds', () => {
@@ -112,6 +129,15 @@ describe('parse_change_plan', () => {
         const source = PLAN.replace(
             '1. Create the new schema; dual-write. Green check: `npm test -- inventory.spec.ts`.',
             '1. Create the new schema; dual-write. No verify step is defined.'
+        );
+        const plan = assertOk(parse_change_plan({ source, path: 'change-plan.md' }));
+        expect(plan.waves[0].namesCheck).toBe(false);
+    });
+
+    it('does not treat verification prose inside inline code as a named check', () => {
+        const source = PLAN.replace(
+            '1. Create the new schema; dual-write. Green check: `npm test -- inventory.spec.ts`.',
+            '1. Update docs containing `verify by: pnpm test`.'
         );
         const plan = assertOk(parse_change_plan({ source, path: 'change-plan.md' }));
         expect(plan.waves[0].namesCheck).toBe(false);

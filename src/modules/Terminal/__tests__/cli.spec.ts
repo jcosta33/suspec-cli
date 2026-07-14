@@ -47,6 +47,12 @@ describe('parse_flags', () => {
         expect(parse_flags(['--from=SPEC-z'], SPEC).flags.get('from')).toBe('SPEC-z');
     });
 
+    it('rejects any other assigned boolean value', () => {
+        const parsed = parse_flags(['--json=typo'], SPEC);
+        expect(parsed.flags.has('json')).toBe(false);
+        expect(parsed.errors).toContain('option --json accepts only true or false');
+    });
+
     it('reports standalone and assigned undeclared flags without treating them as positionals', () => {
         const { positional, flags, unknown } = parse_flags(['spec.md', '--bogus', '--tsak=task.md', 'task.md'], SPEC);
         expect(positional).toEqual(['spec.md', 'task.md']);

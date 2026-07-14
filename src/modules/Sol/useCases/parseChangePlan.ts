@@ -13,7 +13,7 @@
 import { type Result, ok, err, isErr } from '../../../infra/errors/result.ts';
 import { createAppError, type AppError } from '../../../infra/errors/createAppError.ts';
 import { list_field, parse_frontmatter, scalar_field } from '../../../infra/frontmatter.ts';
-import { atx_heading, scan_markdown } from '../../../infra/markdownScan.ts';
+import { atx_heading, scan_markdown, strip_inline_code } from '../../../infra/markdownScan.ts';
 
 // A preserved-behavior id: either a cross-spec reference (`SPEC-checkout#AC-002`) or a plan-local
 // guarantee id (`PG-001`). Sourced from the frontmatter `preserves:` list or the guarantees table.
@@ -57,19 +57,20 @@ export type ParseChangePlanResult = Result<
 >;
 
 // A guarantees / preserves id: a cross-spec ref `SPEC-x#AC-002` or a plan-local id `PG-001`. The
-// spec part is `WORD-...`; the anchor after `#` is `AC-`/`C-`/`I-`-style (letters, dash, digits).
-const SPEC_REF = /^([A-Za-z][\w-]*)#([A-Za-z][\w-]*-\d+)$/;
+// Both halves are contract namespaces, not arbitrary identifiers.
+const SPEC_REF = /^(SPEC-[A-Za-z0-9][\w-]*)#(AC-\d+)$/;
 const PLAN_LOCAL_ID = /^PG-\d+$/;
 // A wave names verification through an explicit check/verify phrase, the full-suite shorthand, or
 // a run verb bound to an inline command. An arbitrary code span can be a path or symbol and is not
 // evidence by itself.
-const NAMES_CHECK =
-    /\bgreen check:\s*\S|\bverify (?:with|by)(?::|[ \t])\s*\S|\bthe full suite\b|\b(?:run|rerun|re-run)\s+`[^`]+`/i;
+const NAMES_CHECK = /\bgreen check:\s*\S|\bverify (?:with|by)(?::|[ \t])\s*\S|\bthe full suite\b/i;
+const NAMES_CODE_CHECK = /\b(?:green check:|verify (?:with|by)(?::|[ \t]))\s*`[^`]+`|\b(?:run|rerun|re-run)\s+`[^`]+`/i;
 const NEGATED_CHECK =
     /\b(?:no|without)\s+(?:(?:named|defined|explicit|separate)\s+)?(?:verify|verification|check|test|suite)\b|\b(?:do|does|will|must)\s+not\s+(?:run|rerun|re-run|verify|check|test)\b|\bnever\s+(?:run|rerun|re-run|verify|check|test)\b/i;
 
 function names_check(text: string): boolean {
-    return NAMES_CHECK.test(text) && !NEGATED_CHECK.test(text);
+    const prose = strip_inline_code(text);
+    return (NAMES_CODE_CHECK.test(text) || NAMES_CHECK.test(prose)) && !NEGATED_CHECK.test(prose);
 }
 
 const GUARANTEES_TITLE = 'preservation guarantees';
@@ -124,13 +125,13 @@ export function parse_change_plan(input: ParseChangePlanInput): ParseChangePlanR
         return err(parsedFrontmatter.error);
     }
 
-    const { fields, lines, frontmatterEndLine: frontmatter_end_line } = parsedFrontmatter.value;
+    const { fields, fieldLines, lines, frontmatterEndLine: frontmatter_end_line } = parsedFrontmatter.value;
     for (const key of ['type', 'id', 'title', 'status', 'kind', 'owner'] as const) {
         if (fields[key] !== undefined && typeof fields[key] !== 'string') {
             return err(
                 createAppError('ParseFailure', `frontmatter \`${key}:\` must be a scalar`, {
                     reason: 'unparseable-frontmatter',
-                    line: null,
+                    line: fieldLines[key] ?? null,
                 })
             );
         }
@@ -140,15 +141,15 @@ export function parse_change_plan(input: ParseChangePlanInput): ParseChangePlanR
             return err(
                 createAppError('ParseFailure', `frontmatter \`${key}:\` must be a list`, {
                     reason: 'unparseable-frontmatter',
-                    line: null,
+                    line: fieldLines[key] ?? null,
                 })
             );
         }
     }
     const kind = scalar_field(fields, 'kind') ?? null;
-    const preservesLine = lines.findIndex((line) => line.startsWith('preserves:')) + 1;
+    const preservesLine = fieldLines.preserves ?? 1;
     const preserves = (list_field(fields, 'preserves') ?? []).flatMap((entry) =>
-        ref_tokens(entry).map((token) => classify_ref(token, preservesLine || 1))
+        ref_tokens(entry).map((token) => classify_ref(token, preservesLine))
     );
 
     const body_lines = lines.slice(frontmatter_end_line);
