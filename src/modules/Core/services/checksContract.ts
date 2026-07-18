@@ -14,7 +14,7 @@ import type { OutcomeLevel } from '../useCases/unixOutcome.ts';
 import { scan_markdown, strip_inline_code, visible_text } from '../../../infra/markdownScan.ts';
 
 // Pinned to suspec/checks/checks.yaml `version:`; the drift-guard test fails if the sibling diverges.
-export const CONTRACT_VERSION = '0.21.0';
+export const CONTRACT_VERSION = '0.22.0';
 
 export type CheckSeverity = 'hard-error' | 'warning';
 
@@ -134,7 +134,7 @@ const STRENGTH_WORD_PATTERN = new RegExp(`\\b(?:${STRENGTH_WORDS.join('|')})\\b`
 
 // The non-empty Verify line a requirement must carry (C003): `Verify with:` followed by content,
 // or `VERIFY BY` followed by a separated command. Anchored to the requirement's own line.
-const VERIFY_LINE_PATTERN = /^[ \t>-]*(?:Verify with:[ \t]*\S|VERIFY BY[ \t]+\S)/m;
+const VERIFY_LINE_PATTERN = /^[ \t>-]*Verify with:[ \t]*\S/m;
 
 // At `status: ready`, none of these may remain (C007). At draft they are fine.
 const UNRESOLVED_MARKER_PATTERN = /\b(?:TBD|TODO)\b|\?\?\?/;
@@ -163,7 +163,6 @@ export type SpecFrontmatter = Readonly<{
     type: string | null;
     id: string | null;
     status: string | null;
-    format: string | null;
     sources: readonly string[];
 }>;
 
@@ -240,26 +239,6 @@ function statement_text(body: string): string {
     return verify === null ? body : body.slice(0, verify.index);
 }
 
-// A leading SOL trigger clause: the requirement opens with an uppercase EARS keyword (the SOL form).
-const SOL_TRIGGER = /^\s*(?:WHERE|WHILE|WHEN|IF)\b/;
-// The SOL response-clause marker: an uppercase standalone `THE` introduces `THE <actor> <STRENGTH> …`.
-const SOL_RESPONSE = /\bTHE\b/;
-
-// For C004's strength count on a SOL (`format: sol`) requirement, narrow to its RESPONSE clause
-// (`THE <actor> <STRENGTH> …`). In the SOL grammar the binding strength word lives in the response, NOT
-// in the trigger condition (`WHEN/IF/WHILE/WHERE …`), but a condition naturally carries a conditional
-// modal — "WHEN a request MAY be retried THE service MUST be idempotent" has one obligation, not two.
-// Strip a leading SOL trigger up to the first uppercase `THE` so the condition's modal is not miscounted
-// (R5-I02). Gated on `format: sol`, so a plain prose spec is untouched BY CONSTRUCTION (never by the
-// regex casing alone).
-function response_clause(statement: string, isSol: boolean): string {
-    if (!isSol || !SOL_TRIGGER.test(statement)) {
-        return statement;
-    }
-    const response = SOL_RESPONSE.exec(statement);
-    return response === null ? statement : statement.slice(response.index);
-}
-
 // --- C001 unique-ids -----------------------------------------------------------------------------
 export function check_unique_ids(spec: ParsedSpec): Diagnostic[] {
     const seen = new Map<string, number>();
@@ -305,16 +284,8 @@ export function check_verify_with(spec: ParsedSpec): Diagnostic[] {
 // measured benefit).
 export function check_one_strength_word(spec: ParsedSpec): Diagnostic[] {
     const diagnostics: Diagnostic[] = [];
-    const isSol = spec.frontmatter.format === 'sol';
     for (const requirement of spec.requirements) {
-        // C004 exempts SOL INTERFACE blocks (IF-): an INTERFACE is a signature
-        // DECLARATION (`RETURNS`/`ACCEPTS`/`ERRORS`/`OWNED BY`, docs/reference/structured-requirements.md)
-        // with no strength-word slot by grammar — so "add the one word it binds on" is un-actionable.
-        // Only REQ/CONSTRAINT/INVARIANT bear an obligation; QUESTION (Q-) is already excluded at parse.
-        if (isSol && requirement.id.startsWith('IF-')) {
-            continue;
-        }
-        const count = count_strength_words(response_clause(statement_text(requirement.body), isSol));
+        const count = count_strength_words(statement_text(requirement.body));
         if (count === 0) {
             diagnostics.push(
                 diagnostic(

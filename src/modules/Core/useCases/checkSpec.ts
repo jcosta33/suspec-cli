@@ -2,7 +2,7 @@
 // checks-contract core checks over it, and return a leveled report (clean / warning / blocking).
 // No file is written (AC-008 — the diagnostics are the result, projected to stdout by the command).
 //
-// The parser maps plain Markdown and the supported `format: sol` structures to one check record.
+// The parser maps a Markdown spec to one check record.
 
 import { ok, err, isErr, type Result } from '../../../infra/errors/result.ts';
 import type { AppError } from '../../../infra/errors/createAppError.ts';

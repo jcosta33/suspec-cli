@@ -46,19 +46,27 @@ describe('parse_spec_record', () => {
         expect(failure).toMatchObject({ message: 'frontmatter `type:` must be a scalar', line: 2 });
     });
 
+    it('rejects a scalar `sources:` — it must be a list', () => {
+        const failure = assertErr(
+            parse_spec_record({
+                source: '---\ntype: spec\nid: SPEC-x\nsources: ADR-0077\n---\n',
+                path: 'spec.md',
+            })
+        );
+        expect(failure).toMatchObject({ message: 'frontmatter `sources:` must be a list', line: 4 });
+    });
+
     it('extracts frontmatter scalars and tokenized sources', () => {
         const record = assertOk(parse_spec_record({ source: SPEC, path: 'spec.md' }));
         expect(record.frontmatter.type).toBe('spec');
         expect(record.frontmatter.id).toBe('SPEC-demo');
         expect(record.frontmatter.status).toBe('ready');
-        expect(record.frontmatter.format).toBeNull();
         expect(record.frontmatter.sources).toEqual(['ADR-0077', '../suspec/docs/adrs/0077.md', 'JIRA-9']);
     });
 
     it.each([
         ['unknown status', SPEC.replace('status: ready', 'status: published'), '`status:` must be draft or ready'],
         ['wrong-case status', SPEC.replace('status: ready', 'status: Ready'), '`status:` must be draft or ready'],
-        ['unknown format', SPEC.replace('status: ready', 'status: ready\nformat: markdown'), '`format:` must be sol'],
     ])('rejects a present %s option', (_name, source, message) => {
         expect(assertErr(parse_spec_record({ source, path: 'spec.md' })).message).toContain(message);
     });
@@ -336,86 +344,11 @@ Verify with: a test.
         expect(record.frontmatter.sources).toEqual(['a.md', 'b.md']);
     });
 
-    it('records format: sol and no requirements when there are none', () => {
-        const source = `---\ntype: spec\nid: X\nformat: sol\n---\n\nbody with no headings\n`;
-        const record = assertOk(parse_spec_record({ source, path: 'x.md' }));
-        expect(record.frontmatter.format).toBe('sol');
-        expect(record.requirements).toEqual([]);
-        expect(record.openQuestionsPresent).toBe(false);
-        expect(record.nonGoalsBody).toBe('');
-    });
-
-    it('parses SOL `REQ <ID>:` requirement openers and their VERIFY BY command', () => {
-        // SOL obligations feed the same requirement record used by id, verify, and coverage checks.
-        const source = `---\ntype: spec\nid: SPEC-led\nstatus: ready\nformat: sol\n---\n\n# Ledger\n\n## Requirements\n\nREQ AC-001:\nWHEN a client POSTs THE service MUST append\nVERIFY BY test:unit:cmdTest:lib#append\n\nREQ AC-002:\nWHEN a client GETs THE service MUST respond\nVERIFY BY test:unit:cmdTest:lib#read\n`;
-        const record = assertOk(parse_spec_record({ source, path: 'led.md' }));
-        expect(record.requirements.map((r) => r.id)).toEqual(['AC-001', 'AC-002']);
-        expect(record.requirements[0].verifyCommand).toBe('test:unit:cmdTest:lib#append');
-    });
-
     it('does NOT treat `REQ <ID>:` as a requirement in a non-SOL (plain) spec', () => {
         // The REQ opener is a SOL construct; a stray `REQ AC-001:` line in a plain spec must not parse.
         const source = `---\ntype: spec\nid: X\nstatus: ready\n---\n\n## Requirements\n\nREQ AC-001:\nWHEN a thing THE service MUST do it\n`;
         const record = assertOk(parse_spec_record({ source, path: 'x.md' }));
         expect(record.requirements).toEqual([]);
-    });
-
-    it('parses SOL CONSTRAINT (C-) / INVARIANT (I-) / INTERFACE (IF-) openers, not just REQ (R5-I09)', () => {
-        // Their ids must parse as requirements so a task can scope C-/I-/IF- and the coverage reconcile
-        // does not false-fire orphan / scope≠spec on them. QUESTION (Q-) is intentionally NOT a requirement.
-        const source = `---\ntype: spec\nid: SPEC-pol\nstatus: ready\nformat: sol\n---\n\n# Policy\n\n## Requirements\n\nREQ AC-001:\nTHE service MUST authorize\nVERIFY BY test:a\n\nCONSTRAINT C-001:\nTHE store MUST be append-only\nVERIFY BY test:b\n\nINVARIANT I-001:\nTHE balance MUST never go negative\nVERIFY BY test:c\n\nINTERFACE IF-001:\nTHE API MUST expose GET /check\nVERIFY BY test:d\n\nQUESTION Q-001 [non-blocking]:\nshould retries be capped?\n`;
-        const record = assertOk(parse_spec_record({ source, path: 'pol.md' }));
-        expect(record.requirements.map((r) => r.id)).toEqual(['AC-001', 'C-001', 'I-001', 'IF-001']);
-    });
-
-    it.each(['blocking', 'non-blocking'])('treats a valid SOL QUESTION [%s] header as a block boundary', (kind) => {
-        const source = `---
-type: spec
-id: SPEC-question
-status: ready
-format: sol
----
-
-## Requirements
-
-REQ AC-001:
-THE service MUST preserve the requirement body
-VERIFY BY test:requirement
-
-QUESTION Q-001 [${kind}]:
-Should this question stay outside the requirement?
-`;
-        const record = assertOk(parse_spec_record({ source, path: 'question.md' }));
-        expect(record.requirements).toHaveLength(1);
-        expect(record.requirements[0].body).not.toContain('QUESTION Q-001');
-        expect(record.requirements[0].body).not.toContain('Should this question');
-        expect(record.openQuestionsPresent).toBe(true);
-    });
-
-    it.each([
-        'QUESTION Q-001 [blocking]',
-        'QUESTION Q-001 [blocked]:',
-        'QUESTION AC-001 [blocking]:',
-        'QUESTION Q-001 [non-blocking]: extra',
-        'QUESTION Q-001:',
-        'question Q-001 [blocking]:',
-        ' QUESTION Q-001 [blocking]:',
-    ])('rejects a malformed SOL question header: %s', (header) => {
-        const source = `---
-type: spec
-id: SPEC-question
-status: ready
-format: sol
----
-
-## Requirements
-
-${header}
-Question body.
-`;
-        const error = assertErr(parse_spec_record({ source, path: 'question.md' }));
-        expect(error._tag).toBe('ParseFailure');
-        expect(error.message).toContain('QUESTION Q-NNN [blocking]:');
     });
 
     it('rejects orphan list lines in frontmatter', () => {
@@ -433,7 +366,7 @@ Question body.
         expect(failure._tag).toBe('ParseFailure');
     });
 
-    it('lifts the named Verify command into a discrete field — plain and SOL both resolve to it (AC-003)', () => {
+    it('lifts the named Verify command into a discrete field (AC-003)', () => {
         const source = `---
 type: spec
 id: SPEC-x
@@ -445,10 +378,6 @@ status: ready
 ### AC-001 — plain form
 The tool must do X.
 Verify with: npm test -- auth-refresh.spec.ts
-
-### AC-002 — SOL form
-The tool must do Y.
-VERIFY BY test:cmdTest:signup-empty-email
 
 ### AC-003 — no verify line
 The tool must do Z, with no check.
@@ -463,9 +392,8 @@ Verify with:
 `;
         const record = assertOk(parse_spec_record({ source, path: 'spec.md' }));
         const byId = new Map(record.requirements.map((r) => [r.id, r.verifyCommand]));
-        // The plain `Verify with:` and the SOL `VERIFY BY` both resolve into the same discrete field.
+        // A named `Verify with:` line resolves into the same discrete field as the requirement.
         expect(byId.get('AC-001')).toBe('npm test -- auth-refresh.spec.ts');
-        expect(byId.get('AC-002')).toBe('test:cmdTest:signup-empty-email');
         // A requirement with no verify line, and a bare `Verify with:` with nothing after it, read null.
         expect(byId.get('AC-003')).toBeNull();
         expect(byId.get('AC-004')).toBeNull();

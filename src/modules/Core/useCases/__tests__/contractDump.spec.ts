@@ -23,7 +23,7 @@ describe('contract_dump — the `--contract` projection', () => {
 
     it('projects the current review contract without reusing retired IDs', () => {
         const dump = contract_dump();
-        expect(dump.version).toBe('0.21.0');
+        expect(dump.version).toBe('0.22.0');
         expect(dump.checks.map((check) => check.id)).not.toContain('C005');
         expect(dump.checks.map((check) => check.id)).not.toContain('C006');
         expect(dump.checks.find((check) => check.id === 'C016')?.name).toBe('supported-needs-evidence');

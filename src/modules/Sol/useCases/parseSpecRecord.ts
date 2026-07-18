@@ -1,6 +1,5 @@
-// Parse a plain Markdown spec into the common requirement record the check engine keys on. SOL
-// (`format: sol`) is the stricter notation handled by the same structural parser; this
-// is the default path. Pure: the source string is never mutated and no state is held between calls.
+// Parse a Markdown spec into the common requirement record the check engine keys on.
+// Pure: the source string is never mutated and no state is held between calls.
 //
 // The record is deliberately structural — the check engine (Core) defines its own ParsedSpec view
 // and the assignability check at the call site catches any drift at compile time (model isolation).
@@ -21,9 +20,8 @@ export type SpecRecordRequirement = Readonly<{
     line: number;
     body: string;
     // The requirement's named verify command, lifted out of `body` (AC-003): the text after the
-    // plain `Verify with:` line or the SOL `VERIFY BY` artifact reference, both resolved to the same
-    // field a checker (C013) compares against a review packet's recorded `cmd`. Null when the
-    // requirement carries no such line (C003 territory).
+    // `Verify with:` line, resolved to the field a checker (C013) compares against a review packet's
+    // recorded `cmd`. Null when the requirement carries no such line (C003 territory).
     verifyCommand: string | null;
 }>;
 
@@ -36,7 +34,6 @@ export type SpecRecordFrontmatter = Readonly<{
     type: string | null;
     id: string | null;
     status: string | null;
-    format: string | null;
     sources: readonly string[];
 }>;
 
@@ -77,22 +74,14 @@ const REQUIREMENT_TITLE = /^([A-Z][A-Z0-9]*-\d+)\b/;
 // (`### UTF-16LE handling`, `### C-3PO example`) and false-fires; the capture runs through
 // word characters so the diagnostic quotes the whole token (`AC-004a_note`). ADR-0125 D3.
 const MALFORMED_REQUIREMENT_TITLE = /^([A-Z][A-Z0-9]*-\d+[a-z][A-Za-z0-9_]*)/;
-// A SOL (`format: sol`) requirement opens with `<KEYWORD> <ID>:` instead of a `### <ID>` markdown
-// heading. The obligation block types — REQ (AC-), CONSTRAINT (C-), INVARIANT (I-), and INTERFACE
-// (IF-) — share the requirement record consumed by the core checks. QUESTION (Q-) is an open
-// question, not an obligation. Restrict this syntax to SOL specs so ordinary prose cannot become a
-// requirement accidentally.
-const SOL_REQUIREMENT_OPENER = /^(?:REQ|CONSTRAINT|INVARIANT|INTERFACE)\s+([A-Z][A-Z0-9]*-\d+)\s*:/;
-const SOL_QUESTION_OPENER = /^QUESTION (Q-\d+) \[(blocking|non-blocking)\]:[ \t]*$/;
-const SOL_QUESTION_CANDIDATE = /^[ \t]*QUESTION\b/i;
 const SPEC_STATUSES = new Set(['draft', 'ready']);
 const MARKDOWN_LINK = /\]\((?:<([^>\r\n]+)>|([^\s)]+))\)/g;
 const WIKI_LINK = /\[\[([^\]]+)\]\]/g;
 
-// The requirement's named verify command (AC-003): the text after a plain `Verify with:` line or a
-// SOL `VERIFY BY` artifact reference, anchored to a line start (so it is the requirement's own line,
-// not prose), and tolerant of a leading blockquote/list marker — the same line shape C003 keys on.
-const VERIFY_COMMAND_PATTERN = /^[ \t>-]*(?:Verify with:|VERIFY BY)[ \t]*(.*\S)?\s*$/m;
+// The requirement's named verify command (AC-003): the text after a `Verify with:` line, anchored to
+// a line start (so it is the requirement's own line, not prose), and tolerant of a leading
+// blockquote/list marker — the same line shape C003 keys on.
+const VERIFY_COMMAND_PATTERN = /^[ \t>-]*Verify with:[ \t]*(.*\S)?\s*$/m;
 
 // Lift the named command out of a requirement body. The first matching line wins; an empty command
 // (a bare `Verify with:` with nothing after it) and the absence of any verify line both read null.
@@ -168,7 +157,7 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
     }
 
     const { fields, fieldLines, lines, frontmatterEndLine: frontmatter_end_line } = parsedFrontmatter.value;
-    for (const key of ['type', 'id', 'title', 'status', 'owner', 'format'] as const) {
+    for (const key of ['type', 'id', 'title', 'status', 'owner'] as const) {
         if (fields[key] !== undefined && typeof fields[key] !== 'string') {
             return err(
                 createAppError('ParseFailure', `frontmatter \`${key}:\` must be a scalar`, {
@@ -195,22 +184,12 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
             })
         );
     }
-    const format = scalar_field(fields, 'format') ?? null;
-    if (format !== null && format !== 'sol') {
-        return err(
-            createAppError('ParseFailure', 'frontmatter `format:` must be sol when present', {
-                reason: 'invalid-spec-contract',
-                line: fieldLines.format ?? null,
-            })
-        );
-    }
     const sourceValue = fields.sources;
     const sourceEntries = sourceValue ?? [];
     const frontmatter: SpecRecordFrontmatter = {
         type: scalar_field(fields, 'type') ?? null,
         id: scalar_field(fields, 'id') ?? null,
         status,
-        format,
         sources: sourceEntries.flatMap(source_tokens),
     };
 
@@ -224,7 +203,6 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
     let intentBody = '';
     let openQuestionsPresent = false;
 
-    const isSol = frontmatter.format === 'sol';
     let current_requirement: { id: string; line: number; bodyLines: string[] } | null = null;
     let in_non_goals = false;
     let in_intent = false;
@@ -271,37 +249,6 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
         if (malformed_match !== null) {
             malformedRequirementHeadings.push({ heading: malformed_match[1], line: source_line });
             // fall through: the heading still closes any open requirement via the generic H3 branch
-        }
-
-        // SOL requirement opener (`REQ <ID>:`) — only for `format: sol`, so a stray `REQ` in a plain spec
-        // is never misread. The body lines that follow (WHEN/THE/MUST/VERIFY BY/…) collect normally, so
-        // `extract_verify_command` lifts the `VERIFY BY` line for C003 just as it does for a plain spec.
-        if (isSol) {
-            const sol_match = SOL_REQUIREMENT_OPENER.exec(line);
-            if (in_requirements && sol_match !== null) {
-                flush_requirement();
-                in_non_goals = false;
-                in_intent = false;
-                current_requirement = { id: sol_match[1], line: source_line, bodyLines: [] };
-                continue;
-            }
-            const questionMatch = SOL_QUESTION_OPENER.exec(line);
-            if (questionMatch !== null) {
-                flush_requirement();
-                in_non_goals = false;
-                in_intent = false;
-                openQuestionsPresent = true;
-                continue;
-            }
-            if (SOL_QUESTION_CANDIDATE.test(line)) {
-                return err(
-                    createAppError(
-                        'ParseFailure',
-                        'SOL question header must be exactly `QUESTION Q-NNN [blocking]:` or `QUESTION Q-NNN [non-blocking]:`',
-                        { reason: 'invalid-sol-question-header', line: source_line }
-                    )
-                );
-            }
         }
 
         if (heading?.level === 2 && heading.title.length > 0) {

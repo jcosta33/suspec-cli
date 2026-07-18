@@ -48,7 +48,6 @@ function spec(
             type: 'spec',
             id: 'SPEC-x',
             status: 'draft',
-            format: null,
             sources: ['ADR-0077'],
             ...frontmatter,
         },
@@ -682,11 +681,10 @@ describe('C001 unique-ids', () => {
 });
 
 describe('C003 verify-with', () => {
-    it('passes when each requirement carries a Verify line (both forms) and flags when missing', () => {
+    it('passes when each requirement carries a Verify line and flags when missing', () => {
         expect(check_verify_with(spec({ requirements: [req('AC-001', 'It must X.\nVerify with: a test')] }))).toEqual(
             []
         );
-        expect(check_verify_with(spec({ requirements: [req('C-001', 'IT MUST X.\nVERIFY BY test')] }))).toEqual([]);
         const missing = check_verify_with(spec({ requirements: [req('AC-002', 'It must X with no check line.')] }));
         expect(codes(missing)).toEqual(['C003']);
         const empty = check_verify_with(spec({ requirements: [req('AC-003', 'It must X.\nVerify with:   ')] }));
@@ -713,27 +711,6 @@ describe('C004 one-strength-word', () => {
         expect(two[0].message).toBe(
             'requirement AC-004 states 2 strength words — several bindings often mean several requirements; consider a split (advice, not a format bar)'
         );
-    });
-
-    it('exempts SOL INTERFACE (IF-) blocks — a declaration has no strength-word slot (ADR-0127, #96)', () => {
-        // An INTERFACE with no strength word must NOT fire C004 (it binds on nothing by grammar)…
-        expect(
-            check_one_strength_word(
-                spec({
-                    frontmatter: { format: 'sol' },
-                    requirements: [req('IF-001', '`refreshSession` RETURNS `Session`')],
-                })
-            )
-        ).toEqual([]);
-        expect(
-            codes(
-                check_one_strength_word(spec({ requirements: [req('IF-001', '`refreshSession` returns `Session`')] }))
-            )
-        ).toEqual(['C004']);
-        // …while a REQ/CONSTRAINT/INVARIANT with no strength word still does.
-        expect(codes(check_one_strength_word(spec({ requirements: [req('I-001', 'A token is unique.')] })))).toEqual([
-            'C004',
-        ]);
     });
 
     it('counts strength words only in the statement, not the Verify line', () => {
@@ -774,35 +751,6 @@ describe('C004 one-strength-word', () => {
                 })
             )
         ).toEqual([]);
-    });
-
-    it('counts strength words only in the SOL RESPONSE clause, not the WHEN/IF trigger condition (R5-I02)', () => {
-        const sol = (id: string, body: string) =>
-            spec({ frontmatter: { format: 'sol' }, requirements: [req(id, body)] });
-        // A conditional modal in the trigger ("WHEN a request may be retried") is condition prose, not a
-        // second obligation — only the response clause's strength word binds (for a format: sol spec).
-        expect(
-            check_one_strength_word(sol('AC-001', 'WHEN a request may be retried THE service MUST be idempotent'))
-        ).toEqual([]);
-        // a GENUINE bundle in the SOL response (two THE…MUST clauses) is still flagged
-        expect(
-            codes(check_one_strength_word(sol('AC-002', 'THE service MUST log AND THE service MUST alert')))
-        ).toEqual(['C004']);
-        // a SOL trigger with NO response strength word still fails (zero in the response)
-        expect(codes(check_one_strength_word(sol('AC-003', 'WHEN x may happen THE service responds')))).toEqual([
-            'C004',
-        ]);
-        // the gate is by-construction: the SAME shape in a PLAIN (non-sol) spec is counted in full, so the
-        // trigger modal still flags — `response_clause` never narrows a non-sol spec.
-        expect(
-            codes(
-                check_one_strength_word(
-                    spec({
-                        requirements: [req('AC-004', 'WHEN a request may be retried THE service MUST be idempotent')],
-                    })
-                )
-            )
-        ).toEqual(['C004']);
     });
 });
 
@@ -1004,7 +952,6 @@ describe('drift guard against the sibling suspec/checks/checks.yaml', () => {
             'missing_type: hard-error',
             'unknown_type: hard-error',
             'status_enum: [draft, ready]',
-            'format_enum: [sol]',
             'status_enum: [ready, running, review-ready, closed]',
             'source_spec_status: ready',
             'decision_enum: [pending, accepted, changes-requested, deferred]',
