@@ -21,12 +21,14 @@ Prove the checker behavior.
 ## Requirements
 
 ### AC-001 — does it
-The tool must do it.
-Verify with: a test.
+- When: always
+- Then: the tool MUST do it
+- Verify with: a test.
 
 ### AC-002 — does it too
-The tool must also do it.
-Verify with: a test.
+- When: always
+- Then: the tool MUST also do it
+- Verify with: a test.
 
 ## Non-goals
 

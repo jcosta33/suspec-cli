@@ -12,6 +12,7 @@ import {
     check_unique_ids,
     check_verify_with,
     check_one_strength_word,
+    check_requirement_shape,
     check_no_tbd_at_ready,
     check_sources_named,
     check_broken_source_link,
@@ -51,7 +52,13 @@ function spec(
             sources: ['ADR-0077'],
             ...frontmatter,
         },
-        requirements: [{ id: 'AC-001', line: 1, body: 'The tool must work.\nVerify with: a test.' }],
+        requirements: [
+            {
+                id: 'AC-001',
+                line: 1,
+                body: '- When: always\n- Then: the tool MUST work\n- Verify with: a test',
+            },
+        ],
         sectionTitles: ['Intent', 'Requirements', 'Non-goals', 'Open questions'],
         intentBody: 'purpose',
         nonGoalsBody: 'what this does not change',
@@ -75,7 +82,7 @@ describe('severity_of', () => {
         expect(severity_of('C001')).toBe('hard-error');
         expect(severity_of('C002')).toBe('hard-error'); // a cross-file id collision blocks
         expect(severity_of('C003')).toBe('hard-error');
-        expect(severity_of('C004')).toBe('warning');
+        expect(severity_of('C004')).toBe('hard-error');
         expect(severity_of('C007')).toBe('hard-error');
         expect(severity_of('C008')).toBe('warning');
         expect(severity_of('C009')).toBe('hard-error');
@@ -94,6 +101,7 @@ describe('severity_of', () => {
         expect(severity_of('C025')).toBe('hard-error');
         expect(severity_of('C026')).toBe('hard-error');
         expect(severity_of('C027')).toBe('hard-error');
+        expect(severity_of('C028')).toBe('hard-error');
     });
 });
 
@@ -682,12 +690,10 @@ describe('C001 unique-ids', () => {
 
 describe('C003 verify-with', () => {
     it('passes when each requirement carries a Verify line and flags when missing', () => {
-        expect(check_verify_with(spec({ requirements: [req('AC-001', 'It must X.\nVerify with: a test')] }))).toEqual(
-            []
-        );
-        const missing = check_verify_with(spec({ requirements: [req('AC-002', 'It must X with no check line.')] }));
+        expect(check_verify_with(spec({ requirements: [req('AC-001', '- Verify with: a test')] }))).toEqual([]);
+        const missing = check_verify_with(spec({ requirements: [req('AC-002', '- Then: it MUST X')] }));
         expect(codes(missing)).toEqual(['C003']);
-        const empty = check_verify_with(spec({ requirements: [req('AC-003', 'It must X.\nVerify with:   ')] }));
+        const empty = check_verify_with(spec({ requirements: [req('AC-003', '- Verify with:   ')] }));
         expect(codes(empty)).toEqual(['C003']);
         expect(empty[0].message).toContain('non-empty');
     });
@@ -695,22 +701,27 @@ describe('C003 verify-with', () => {
 
 describe('C004 one-strength-word', () => {
     it('passes exactly one strength word and flags zero or two', () => {
-        expect(check_one_strength_word(spec({ requirements: [req('AC-001', 'The tool must reject it.')] }))).toEqual(
-            []
-        );
         expect(
-            codes(check_one_strength_word(spec({ requirements: [req('AC-002', 'The tool must not reject it.')] })))
+            check_one_strength_word(spec({ requirements: [req('AC-001', '- Then: the tool MUST reject it')] }))
         ).toEqual([]);
-        const zero = check_one_strength_word(spec({ requirements: [req('AC-003', 'The tool rejects it.')] }));
+        expect(
+            codes(
+                check_one_strength_word(spec({ requirements: [req('AC-002', '- Then: the tool MUST NOT reject it')] }))
+            )
+        ).toEqual([]);
+        const zero = check_one_strength_word(spec({ requirements: [req('AC-003', '- Then: the tool rejects it')] }));
         expect(codes(zero)).toEqual(['C004']);
         expect(zero[0].message).toBe(
-            'requirement AC-003 states no strength word — it binds on nothing; add the one word (MUST/SHOULD/…) it binds on'
+            'requirement AC-003 `Then` must state exactly one strength word (MUST/MUST NOT/SHOULD/SHOULD NOT/MAY); found 0'
         );
-        const two = check_one_strength_word(spec({ requirements: [req('AC-004', 'It must X and should Y.')] }));
+        const two = check_one_strength_word(spec({ requirements: [req('AC-004', '- Then: it MUST X and SHOULD Y')] }));
         expect(codes(two)).toEqual(['C004']);
         expect(two[0].message).toBe(
-            'requirement AC-004 states 2 strength words — several bindings often mean several requirements; consider a split (advice, not a format bar)'
+            'requirement AC-004 `Then` must state exactly one strength word (MUST/MUST NOT/SHOULD/SHOULD NOT/MAY); found 2'
         );
+        expect(
+            codes(check_one_strength_word(spec({ requirements: [req('AC-005', '- Then: the tool must reject it')] })))
+        ).toEqual(['C004']);
     });
 
     it('counts strength words only in the statement, not the Verify line', () => {
@@ -718,7 +729,9 @@ describe('C004 one-strength-word', () => {
         expect(
             check_one_strength_word(
                 spec({
-                    requirements: [req('AC-1', 'The tool must reject it.\nVerify with: a test that should prove it.')],
+                    requirements: [
+                        req('AC-1', '- Then: the tool MUST reject it\n- Verify with: a test that should prove it'),
+                    ],
                 })
             )
         ).toEqual([]);
@@ -727,7 +740,9 @@ describe('C004 one-strength-word', () => {
             codes(
                 check_one_strength_word(
                     spec({
-                        requirements: [req('AC-2', 'The tool rejects it.\nVerify with: assert it must not throw.')],
+                        requirements: [
+                            req('AC-2', '- Then: the tool rejects it\n- Verify with: assert it must not throw'),
+                        ],
                     })
                 )
             )
@@ -737,16 +752,16 @@ describe('C004 one-strength-word', () => {
     it('ignores strength words quoted in inline code — they are mentions, not stated modals (#31)', () => {
         // the only "should" is inside a backticked flag name → it counts as zero, so C004 fires
         const quotedOnly = check_one_strength_word(
-            spec({ requirements: [req('AC-1', 'The flag is a `--should-skip` option.')] })
+            spec({ requirements: [req('AC-1', '- Then: the flag is a `--should-skip` option')] })
         );
         expect(codes(quotedOnly)).toEqual(['C004']);
-        expect(quotedOnly[0].message).toContain('states no strength word');
+        expect(quotedOnly[0].message).toContain('found 0');
         // one real modal plus a "must" quoted in an error string → still exactly one, no C004
         expect(
             check_one_strength_word(
                 spec({
                     requirements: [
-                        req('AC-2', 'The validator must reject the error string `input must be non-empty`.'),
+                        req('AC-2', '- Then: the validator MUST reject the error string `input must be non-empty`'),
                     ],
                 })
             )
@@ -768,7 +783,7 @@ describe('C007 no-tbd-at-ready', () => {
         expect(check_no_tbd_at_ready(spec({ frontmatter: { status: 'ready' }, bodyText: 'all resolved' }))).toEqual([]);
     });
 
-    it('flags an unresolved blocking open question at ready, on both record surfaces (the "or blocking open question" clause; payment-5xx fixture)', () => {
+    it('flags an unresolved blocking open question at ready', () => {
         const plain = check_no_tbd_at_ready(
             spec({
                 frontmatter: { status: 'ready' },
@@ -777,30 +792,44 @@ describe('C007 no-tbd-at-ready', () => {
         );
         expect(codes(plain)).toEqual(['C007']);
         expect(plain[0].message).toContain('blocking open question');
-        expect(
-            codes(
-                check_no_tbd_at_ready(
-                    spec({
-                        frontmatter: { status: 'ready' },
-                        bodyText: 'QUESTION Q-001 [blocking]:\nIs the charge endpoint idempotent?',
-                    })
-                )
-            )
-        ).toEqual(['C007']);
     });
 
-    it('a blocking question at draft, or a question downgraded to non-blocking at ready, does not fire', () => {
+    it('a blocking question at draft does not fire', () => {
         expect(
             check_no_tbd_at_ready(spec({ frontmatter: { status: 'draft' }, bodyText: '- Blocking: still open' }))
         ).toEqual([]);
+    });
+});
+
+describe('C028 requirement-shape', () => {
+    it('accepts the canonical three-item block', () => {
         expect(
-            check_no_tbd_at_ready(
+            check_requirement_shape(
                 spec({
-                    frontmatter: { status: 'ready' },
-                    bodyText: 'QUESTION Q-001 [non-blocking]:\nNice-to-have, answer later.',
+                    requirements: [
+                        req(
+                            'AC-001',
+                            '- When: input is empty\n- Then: the parser MUST reject it\n- Verify with: a test'
+                        ),
+                    ],
                 })
             )
         ).toEqual([]);
+    });
+
+    it.each([
+        ['missing condition', '- Then: the parser MUST reject it\n- Verify with: a test'],
+        ['empty condition', '- When:   \n- Then: the parser MUST reject it\n- Verify with: a test'],
+        ['misordered fields', '- Then: the parser MUST reject it\n- When: input is empty\n- Verify with: a test'],
+        ['escaped prose', '- When: input is empty\n- Then: the parser MUST reject it\nextra\n- Verify with: a test'],
+        [
+            'duplicate field',
+            '- When: input is empty\n- When: input is blank\n- Then: the parser MUST reject it\n- Verify with: a test',
+        ],
+    ])('blocks %s', (_name, body) => {
+        const diagnostics = check_requirement_shape(spec({ requirements: [req('AC-001', body)] }));
+        expect(codes(diagnostics)).toEqual(['C028']);
+        expect(diagnostics[0].severity).toBe('hard-error');
     });
 });
 
@@ -838,7 +867,7 @@ describe('run_spec_checks + level_for', () => {
     it('a conformant spec yields no diagnostics and a clean level', () => {
         const conformant = spec({
             frontmatter: { status: 'ready', sources: ['ADR-0077'] },
-            requirements: [req('AC-001', 'The tool must X.\nVerify with: a named test')],
+            requirements: [req('AC-001', '- When: always\n- Then: the tool MUST X\n- Verify with: a named test')],
         });
         const diagnostics = run_spec_checks({ spec: conformant, exists: () => true });
         expect(diagnostics).toEqual([]);
@@ -847,7 +876,9 @@ describe('run_spec_checks + level_for', () => {
 
     it('aggregates a blocking level when any hard error fires', () => {
         const diagnostics = run_spec_checks({
-            spec: spec({ requirements: [req('AC-001', 'The tool rejects it.')] }), // C003 (hard) + C004 (warn)
+            spec: spec({
+                requirements: [req('AC-001', '- When: always\n- Then: the tool rejects it\n- Verify with:')],
+            }),
             exists: () => true,
         });
         expect(codes(diagnostics)).toEqual(expect.arrayContaining(['C003', 'C004']));
@@ -863,8 +894,8 @@ describe('run_spec_checks + level_for', () => {
             input: {
                 spec: spec({
                     requirements: [
-                        req('AC-001', 'The tool must X.\nVerify with: a test', 3),
-                        req('AC-001', 'The tool must Y.\nVerify with: a test', 9),
+                        req('AC-001', '- When: always\n- Then: the tool MUST X\n- Verify with: a test', 3),
+                        req('AC-001', '- When: always\n- Then: the tool MUST Y\n- Verify with: a test', 9),
                     ],
                 }),
                 exists: () => true,
@@ -873,14 +904,18 @@ describe('run_spec_checks + level_for', () => {
         {
             code: 'C003',
             input: {
-                spec: spec({ requirements: [req('AC-001', 'The tool must X with no check line.')] }),
+                spec: spec({
+                    requirements: [req('AC-001', '- When: always\n- Then: the tool MUST X\n- Verify with:')],
+                }),
                 exists: () => true,
             },
         },
         {
             code: 'C004',
             input: {
-                spec: spec({ requirements: [req('AC-001', 'The tool rejects it.\nVerify with: a test')] }),
+                spec: spec({
+                    requirements: [req('AC-001', '- When: always\n- Then: the tool rejects it\n- Verify with: a test')],
+                }),
                 exists: () => true,
             },
         },
@@ -904,12 +939,21 @@ describe('run_spec_checks + level_for', () => {
                 exists: () => true,
             },
         },
+        {
+            code: 'C028',
+            input: {
+                spec: spec({
+                    requirements: [req('AC-001', '- Then: the tool MUST work\n- When: always\n- Verify with: a test')],
+                }),
+                exists: () => true,
+            },
+        },
     ])('$code stays wired: a spec violating only that rule surfaces it through run_spec_checks', ({ code, input }) => {
         expect(codes(run_spec_checks(input))).toEqual([code]);
     });
 
     it('level_for returns warning when only warnings fire and clean when empty', () => {
-        expect(level_for([{ code: 'C004', severity: 'warning', message: 'x', line: 1 }])).toBe('warning');
+        expect(level_for([{ code: 'C008', severity: 'warning', message: 'x', line: 1 }])).toBe('warning');
         expect(level_for([])).toBe('clean');
     });
 });

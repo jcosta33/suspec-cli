@@ -24,8 +24,9 @@ Reject malformed input.
 ## Requirements
 
 ### AC-001 — the tool rejects bad input
-The tool must reject malformed input.
-Verify with: a unit test over the parser.
+- When: input is malformed
+- Then: the tool MUST reject it
+- Verify with: a unit test over the parser
 
 ## Non-goals
 
@@ -49,7 +50,9 @@ sources:
 ## Requirements
 
 ### AC-001 — the tool rejects bad input
-The tool must reject malformed input.
+- When: input is malformed
+- Then: the tool MUST reject it
+- Verify with:
 
 ## Non-goals
 
@@ -73,8 +76,9 @@ sources:
 ## Requirements
 
 ### AC-001 — the tool rejects bad input
-The tool must reject malformed input. TODO: finalize the error message.
-Verify with: a unit test over the parser.
+- When: input is malformed
+- Then: the tool MUST reject it; TODO: finalize the error message
+- Verify with: a unit test over the parser
 
 ## Non-goals
 
@@ -108,7 +112,7 @@ describe('check_spec', () => {
     it('checks three-space-indented requirements and normalizes closing hashes on sections', () => {
         const source = CONFORMANT.replace('## Intent', '   ## Intent ##')
             .replace('### AC-001', '   ### AC-001')
-            .replace('Verify with: a unit test over the parser.\n', '');
+            .replace('- Verify with: a unit test over the parser\n', '- Verify with:\n');
         const report = assertOk(check_spec({ source, path: 'spec.md', exists: () => true }));
         expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('C003');
         expect(report.diagnostics.map((diagnostic) => diagnostic.code)).not.toContain('C021');
@@ -149,8 +153,8 @@ describe('check_spec', () => {
 
     it('ignores unresolved markers inside a list-nested fence', () => {
         const source = CONFORMANT.replace(
-            'Verify with: a unit test over the parser.',
-            'Verify with: a unit test over the parser.\n\n- Example:\n\n    ~~~text\n    TODO is literal output\n    ~~~'
+            '## Open questions\n\n- none',
+            '## Open questions\n\n- Example:\n\n    ~~~text\n    TODO is literal output\n    ~~~'
         );
         const report = assertOk(check_spec({ source, path: 'spec.md', exists: () => true }));
         expect(report.diagnostics.map((diagnostic) => diagnostic.code)).not.toContain('C007');
@@ -176,8 +180,9 @@ describe('check_spec — markdown structure (#31/#23)', () => {
             '## Requirements',
             '',
             '### AC-001 — the linter flags a marker',
-            'The linter must flag a marker like the example.',
-            'Verify with: a unit test.',
+            '- When: a marker appears',
+            '- Then: the linter MUST flag it',
+            '- Verify with: a unit test',
             '```js',
             '// TODO: revisit',
             '```',
@@ -211,8 +216,9 @@ describe('check_spec — markdown structure (#31/#23)', () => {
             '## Requirements',
             '',
             '### AC-001 — emits a scaffold',
-            'The generator must emit a section example.',
-            'Verify with: a snapshot test.',
+            '- When: documentation is generated',
+            '- Then: the generator MUST emit a section example',
+            '- Verify with: a snapshot test',
             '```md',
             '## Non-goals',
             '',
@@ -245,8 +251,9 @@ describe('check_spec — markdown structure (#31/#23)', () => {
             '## Requirements',
             '',
             '### AC-001 — rejects a deprecated key',
-            'The loader must reject a config that sets the `should:` key.',
-            'Verify with: a unit test.',
+            '- When: a config sets the `should:` key',
+            '- Then: the loader MUST reject it',
+            '- Verify with: a unit test',
             '',
             '## Non-goals',
             '- none.',

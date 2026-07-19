@@ -14,7 +14,7 @@ import type { OutcomeLevel } from '../useCases/unixOutcome.ts';
 import { scan_markdown, strip_inline_code, visible_text } from '../../../infra/markdownScan.ts';
 
 // Pinned to suspec/checks/checks.yaml `version:`; the drift-guard test fails if the sibling diverges.
-export const CONTRACT_VERSION = '0.22.0';
+export const CONTRACT_VERSION = '0.23.0';
 
 export type CheckSeverity = 'hard-error' | 'warning';
 
@@ -23,7 +23,7 @@ export type CheckId =
     | 'C001' | 'C002' | 'C003' | 'C004'
     | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C012' | 'C013' | 'C015'
     | 'C016' | 'C019' | 'C020' | 'C021' | 'C022' | 'C023' | 'C024' | 'C025'
-    | 'C026' | 'C027';
+    | 'C026' | 'C027' | 'C028';
 
 // Severity per check, the single source inside suspec-cli; a total Record so the lookup needs no
 // fallback. The drift guard reconciles it against suspec/checks/checks.yaml.
@@ -31,7 +31,7 @@ const SEVERITY_BY_ID: Record<CheckId, CheckSeverity> = {
     C001: 'hard-error',
     C002: 'hard-error',
     C003: 'hard-error',
-    C004: 'warning',
+    C004: 'hard-error',
     C007: 'hard-error',
     C008: 'warning',
     C009: 'hard-error',
@@ -56,6 +56,7 @@ const SEVERITY_BY_ID: Record<CheckId, CheckSeverity> = {
     C025: 'hard-error',
     C026: 'hard-error',
     C027: 'hard-error',
+    C028: 'hard-error',
 };
 
 export function severity_of(id: CheckId): CheckSeverity {
@@ -86,6 +87,7 @@ export const CORE_CHECKS: readonly { id: CheckId; name: string; severity: CheckS
     { id: 'C025', name: 'spec-shape', severity: severity_of('C025') },
     { id: 'C026', name: 'evidence-receipt-resolves', severity: severity_of('C026') },
     { id: 'C027', name: 'review-spec-ref', severity: severity_of('C027') },
+    { id: 'C028', name: 'requirement-shape', severity: severity_of('C028') },
 ];
 
 // --- C020 unresolvable-ref (ADR-0128, re-scoped by ADR-0143) --------------------------------------
@@ -126,25 +128,21 @@ export function duplicate_id_diagnostic(id: string, firstPath: string, duplicate
     );
 }
 
-// The five strength words (checks.yaml reconciliation note: 5; SOL form is the same words uppercase).
-// Ordered longest-first so `must not` / `should not` match before `must` / `should`.
-const STRENGTH_WORDS = ['must not', 'must', 'should not', 'should', 'may'] as const;
+// Longest first so negative forms count once.
+const STRENGTH_WORDS = ['MUST NOT', 'MUST', 'SHOULD NOT', 'SHOULD', 'MAY'] as const;
 
-const STRENGTH_WORD_PATTERN = new RegExp(`\\b(?:${STRENGTH_WORDS.join('|')})\\b`, 'gi');
+const STRENGTH_WORD_PATTERN = new RegExp(`\\b(?:${STRENGTH_WORDS.join('|')})\\b`, 'g');
 
-// The non-empty Verify line a requirement must carry (C003): `Verify with:` followed by content,
-// or `VERIFY BY` followed by a separated command. Anchored to the requirement's own line.
-const VERIFY_LINE_PATTERN = /^[ \t>-]*Verify with:[ \t]*\S/m;
+const WHEN_LINE_PATTERN = /^- When:[ \t]+\S.*$/;
+const THEN_LINE_PATTERN = /^- Then:[ \t]+\S.*$/;
+const THEN_VALUE_PATTERN = /^- Then:[ \t]*(.*\S)?[ \t]*$/m;
+const VERIFY_LINE_PATTERN = /^- Verify with:[ \t]+\S.*$/;
+const VERIFY_ITEM_PATTERN = /^- Verify with:[ \t]*(?:\S.*)?$/;
 
 // At `status: ready`, none of these may remain (C007). At draft they are fine.
 const UNRESOLVED_MARKER_PATTERN = /\b(?:TBD|TODO)\b|\?\?\?/;
 
-// The blocking-open-question half of C007 (checks.md: `status: ready` has no TBD, TODO, ???, "or
-// blocking open question"): a `Blocking:` bullet (the plain-form record) or a SOL
-// `QUESTION Q-NNN [blocking]` header — two surfaces of one record (the payment-5xx equivalence
-// pair pins both). A question downgraded to `[non-blocking]` matches neither alternative.
-const BLOCKING_QUESTION_PATTERN =
-    /^(?:[ \t]*(?:>|[-+*]|\d{1,9}[.)])[ \t]+)*[ \t]*Blocking:|^QUESTION\s+[A-Z][A-Z0-9]*-\d+\s*\[blocking\]/im;
+const BLOCKING_QUESTION_PATTERN = /^(?:[ \t]*(?:>|[-+*]|\d{1,9}[.)])[ \t]+)*[ \t]*Blocking:/im;
 
 // --- The records the rules key on (the parser produces a structurally-compatible value) ----------
 
@@ -231,12 +229,8 @@ function count_strength_words(text: string): number {
     return matches === null ? 0 : matches.length;
 }
 
-// A requirement's STATEMENT is the prose before its Verify line. C004 counts strength words there
-// only — a `Verify with:` line ("a test that proves it must reject …") and trailing commentary
-// naturally carry modals, so scanning the whole body both false-positives and false-negatives.
-function statement_text(body: string): string {
-    const verify = VERIFY_LINE_PATTERN.exec(body);
-    return verify === null ? body : body.slice(0, verify.index);
+function response_text(body: string): string {
+    return THEN_VALUE_PATTERN.exec(body)?.[1]?.trim() ?? '';
 }
 
 // --- C001 unique-ids -----------------------------------------------------------------------------
@@ -264,7 +258,8 @@ export function check_unique_ids(spec: ParsedSpec): Diagnostic[] {
 export function check_verify_with(spec: ParsedSpec): Diagnostic[] {
     const diagnostics: Diagnostic[] = [];
     for (const requirement of spec.requirements) {
-        if (!VERIFY_LINE_PATTERN.test(requirement.body)) {
+        const lines = requirement.body.split('\n').map((line) => line.trimEnd());
+        if (!lines.some((line) => VERIFY_LINE_PATTERN.test(line))) {
             diagnostics.push(
                 diagnostic(
                     'C003',
@@ -278,27 +273,40 @@ export function check_verify_with(spec: ParsedSpec): Diagnostic[] {
 }
 
 // --- C004 one-strength-word ----------------------------------------------------------------------
-// ADR-0126 (contract 0.12.0): the requirement is AT LEAST one binding word — zero binds on nothing
-// (the defect); more than one is a split-candidate ADVISORY under the same id, advice-framed, never
-// "expected exactly one" (the exactly-one bar was the measured dominant authoring friction with no
-// measured benefit).
 export function check_one_strength_word(spec: ParsedSpec): Diagnostic[] {
     const diagnostics: Diagnostic[] = [];
     for (const requirement of spec.requirements) {
-        const count = count_strength_words(statement_text(requirement.body));
-        if (count === 0) {
+        const count = count_strength_words(response_text(requirement.body));
+        if (count !== 1) {
             diagnostics.push(
                 diagnostic(
                     'C004',
-                    `requirement ${requirement.id} states no strength word — it binds on nothing; add the one word (MUST/SHOULD/…) it binds on`,
+                    `requirement ${requirement.id} \`Then\` must state exactly one strength word (MUST/MUST NOT/SHOULD/SHOULD NOT/MAY); found ${count}`,
                     requirement.line
                 )
             );
-        } else if (count > 1) {
+        }
+    }
+    return diagnostics;
+}
+
+export function check_requirement_shape(spec: ParsedSpec): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    for (const requirement of spec.requirements) {
+        const lines = requirement.body
+            .split('\n')
+            .map((line) => line.trimEnd())
+            .filter((line) => line.trim().length > 0);
+        if (
+            lines.length !== 3 ||
+            !WHEN_LINE_PATTERN.test(lines[0] ?? '') ||
+            !THEN_LINE_PATTERN.test(lines[1] ?? '') ||
+            !VERIFY_ITEM_PATTERN.test(lines[2] ?? '')
+        ) {
             diagnostics.push(
                 diagnostic(
-                    'C004',
-                    `requirement ${requirement.id} states ${count} strength words — several bindings often mean several requirements; consider a split (advice, not a format bar)`,
+                    'C028',
+                    `requirement ${requirement.id} must contain exactly three items: non-empty \`- When:\`, non-empty \`- Then:\`, then \`- Verify with:\``,
                     requirement.line
                 )
             );
@@ -637,7 +645,7 @@ export function check_coverage(input: CoverageInput): Diagnostic[] {
 // The structured-evidence reconcile against the named source spec. A coverage row may carry a
 // fenced `verify` block (a sibling to the row). Where present against a Supported row, this
 // surfaces a CONSISTENCY fact: does the block's recorded `cmd` match the requirement's named
-// `Verify with:` / `VERIFY BY` command (closed-value, exact after whitespace-collapse — never prose
+// `Verify with` command (closed-value, exact after whitespace-collapse — never prose
 // matching) and read `result=pass`? It is NEVER a verdict (ADR-0077 D8) and NEVER proof the command
 // ran — the fenced body is self-reported and unparsed; this reads only the closed-value info-string.
 //
@@ -927,6 +935,7 @@ export function run_spec_checks(input: RunSpecChecksInput): Diagnostic[] {
     const anchor_resolves = input.anchor_resolves ?? (() => true);
     return [
         ...check_unique_ids(input.spec),
+        ...check_requirement_shape(input.spec),
         ...check_verify_with(input.spec),
         ...check_one_strength_word(input.spec),
         ...check_no_tbd_at_ready(input.spec),

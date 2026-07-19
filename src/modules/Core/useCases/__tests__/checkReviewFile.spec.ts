@@ -12,15 +12,21 @@ sources:
   - ADR-0077
 ---
 
+## Intent
+
+Prove review reconciliation.
+
 ## Requirements
 
 ### AC-001 — one
-The tool must do it.
-Verify with: a test.
+- When: always
+- Then: the tool MUST do it
+- Verify with: a test.
 
 ### AC-002 — two
-The tool must do it.
-Verify with: a test.
+- When: always
+- Then: the tool MUST do it
+- Verify with: a test.
 
 ## Non-goals
 

@@ -21,12 +21,14 @@ sources:
 ### The check group
 
 ### AC-001 — first
-The tool must do X.
-Verify with: a test.
+- When: always
+- Then: the tool MUST do X
+- Verify with: a test
 
 ### AC-002 — second
-The tool should do Y, see [the doc](docs/y.md) and [[WIKI-REF]].
-Verify with: another test.
+- When: always
+- Then: the tool SHOULD do Y, see [the doc](docs/y.md) and [[WIKI-REF]]
+- Verify with: another test
 
 ## Non-goals
 
@@ -144,15 +146,17 @@ sources: ["missing dir/ticket,one.md"]
     it('extracts requirements (skipping non-id H3 group headings) with their body', () => {
         const record = assertOk(parse_spec_record({ source: SPEC, path: 'spec.md' }));
         expect(record.requirements.map((r) => r.id)).toEqual(['AC-001', 'AC-002']);
-        expect(record.requirements[0].body).toContain('must do X');
+        expect(record.requirements[0].body).toContain('MUST do X');
         expect(record.requirements[0].body).toContain('Verify with:');
+        expect(record.requirements[0].condition).toBe('always');
+        expect(record.requirements[0].response).toBe('the tool MUST do X');
         expect(record.requirements[0].line).toBeGreaterThan(0);
     });
 
     it('does not parse a requirement heading and body inside an HTML comment', () => {
         const source = SPEC.replace(
-            '### AC-001 — first\nThe tool must do X.\nVerify with: a test.',
-            '<!--\n### AC-001 — first\nThe tool must do X.\nVerify with: a test.\n-->'
+            '### AC-001 — first\n- When: always\n- Then: the tool MUST do X\n- Verify with: a test',
+            '<!--\n### AC-001 — first\n- When: always\n- Then: the tool MUST do X\n- Verify with: a test\n-->'
         );
         const record = assertOk(parse_spec_record({ source, path: 'spec.md' }));
         expect(record.requirements.map((requirement) => requirement.id)).toEqual(['AC-002']);
@@ -344,8 +348,7 @@ Verify with: a test.
         expect(record.frontmatter.sources).toEqual(['a.md', 'b.md']);
     });
 
-    it('does NOT treat `REQ <ID>:` as a requirement in a non-SOL (plain) spec', () => {
-        // The REQ opener is a SOL construct; a stray `REQ AC-001:` line in a plain spec must not parse.
+    it('does not treat a retired flush-left `REQ <ID>:` opener as a requirement', () => {
         const source = `---\ntype: spec\nid: X\nstatus: ready\n---\n\n## Requirements\n\nREQ AC-001:\nWHEN a thing THE service MUST do it\n`;
         const record = assertOk(parse_spec_record({ source, path: 'x.md' }));
         expect(record.requirements).toEqual([]);
@@ -376,15 +379,18 @@ status: ready
 ## Requirements
 
 ### AC-001 — plain form
-The tool must do X.
-Verify with: npm test -- auth-refresh.spec.ts
+- When: always
+- Then: the tool MUST do X
+- Verify with: npm test -- auth-refresh.spec.ts
 
 ### AC-003 — no verify line
-The tool must do Z, with no check.
+- When: always
+- Then: the tool MUST do Z, with no check
 
 ### AC-004 — empty verify line
-The tool must do W.
-Verify with:
+- When: always
+- Then: the tool MUST do W
+- Verify with:
 
 ## Non-goals
 
@@ -392,9 +398,9 @@ Verify with:
 `;
         const record = assertOk(parse_spec_record({ source, path: 'spec.md' }));
         const byId = new Map(record.requirements.map((r) => [r.id, r.verifyCommand]));
-        // A named `Verify with:` line resolves into the same discrete field as the requirement.
+        // A named `Verify with:` item resolves into the same discrete field as the requirement.
         expect(byId.get('AC-001')).toBe('npm test -- auth-refresh.spec.ts');
-        // A requirement with no verify line, and a bare `Verify with:` with nothing after it, read null.
+        // A requirement with no verify item, and a bare item with no value, read null.
         expect(byId.get('AC-003')).toBeNull();
         expect(byId.get('AC-004')).toBeNull();
     });

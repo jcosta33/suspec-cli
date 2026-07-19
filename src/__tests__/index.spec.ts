@@ -42,8 +42,9 @@ Exercise command dispatch.
 ## Requirements
 
 ### AC-001 — does it
-The tool must do it.
-Verify with: a test.
+- When: always
+- Then: the tool MUST do it
+- Verify with: a test
 
 ## Non-goals
 

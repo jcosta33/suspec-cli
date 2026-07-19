@@ -19,8 +19,10 @@ export type SpecRecordRequirement = Readonly<{
     id: string;
     line: number;
     body: string;
-    // The requirement's named verify command, lifted out of `body` (AC-003): the text after the
-    // `Verify with:` line, resolved to the field a checker (C013) compares against a review packet's
+    condition: string | null;
+    response: string | null;
+    // The requirement's named verify command, lifted out of `body` (AC-003): the value of the
+    // `Verify with:` item, resolved to the field a checker (C013) compares against a review packet's
     // recorded `cmd`. Null when the requirement carries no such line (C003 territory).
     verifyCommand: string | null;
 }>;
@@ -78,20 +80,21 @@ const SPEC_STATUSES = new Set(['draft', 'ready']);
 const MARKDOWN_LINK = /\]\((?:<([^>\r\n]+)>|([^\s)]+))\)/g;
 const WIKI_LINK = /\[\[([^\]]+)\]\]/g;
 
-// The requirement's named verify command (AC-003): the text after a `Verify with:` line, anchored to
-// a line start (so it is the requirement's own line, not prose), and tolerant of a leading
-// blockquote/list marker — the same line shape C003 keys on.
-const VERIFY_COMMAND_PATTERN = /^[ \t>-]*Verify with:[ \t]*(.*\S)?\s*$/m;
+// The canonical requirement fields. Exact list markers keep free prose from impersonating a field.
+const CONDITION_PATTERN = /^- When:[ \t]*(.*\S)?[ \t]*$/m;
+const RESPONSE_PATTERN = /^- Then:[ \t]*(.*\S)?[ \t]*$/m;
+const VERIFY_COMMAND_PATTERN = /^- Verify with:[ \t]*(.*\S)?[ \t]*$/m;
 
-// Lift the named command out of a requirement body. The first matching line wins; an empty command
-// (a bare `Verify with:` with nothing after it) and the absence of any verify line both read null.
+function extract_requirement_field(pattern: RegExp, body: string): string | null {
+    const match = pattern.exec(body);
+    const value = match?.[1]?.trim() ?? '';
+    return value.length > 0 ? value : null;
+}
+
+// Lift the named command out of a requirement body. The first matching item wins; an empty value
+// and the absence of the item both read null.
 function extract_verify_command(body: string): string | null {
-    const match = VERIFY_COMMAND_PATTERN.exec(body);
-    if (match === null) {
-        return null;
-    }
-    const command = match[1]?.trim() ?? '';
-    return command.length > 0 ? command : null;
+    return extract_requirement_field(VERIFY_COMMAND_PATTERN, body);
 }
 
 // One list item is one ref. The frontmatter parser already splits inline lists and removes balanced
@@ -215,6 +218,8 @@ export function parse_spec_record(input: ParseSpecRecordInput): ParseSpecRecordR
                 id: current_requirement.id,
                 line: current_requirement.line,
                 body,
+                condition: extract_requirement_field(CONDITION_PATTERN, body),
+                response: extract_requirement_field(RESPONSE_PATTERN, body),
                 verifyCommand: extract_verify_command(body),
             });
             current_requirement = null;
