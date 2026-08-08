@@ -348,7 +348,7 @@ Verify with: a test.
         expect(record.frontmatter.sources).toEqual(['a.md', 'b.md']);
     });
 
-    it('does not treat a retired flush-left `REQ <ID>:` opener as a requirement', () => {
+    it('does not treat an unsupported flush-left `REQ <ID>:` opener as a requirement', () => {
         const source = `---\ntype: spec\nid: X\nstatus: ready\n---\n\n## Requirements\n\nREQ AC-001:\nWHEN a thing THE service MUST do it\n`;
         const record = assertOk(parse_spec_record({ source, path: 'x.md' }));
         expect(record.requirements).toEqual([]);

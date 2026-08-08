@@ -177,10 +177,6 @@ function require_directory(home: string, path: string, label: string): string {
     return canonical;
 }
 
-function read_optional(path: string): string | null {
-    return existsSync(path) ? readFileSync(path, 'utf8') : null;
-}
-
 function assert_safe_stats(path: string, stats: Stats, uid: number | undefined): void {
     if (!stats.isFile() || stats.isSymbolicLink() || stats.nlink !== 1) {
         throw new SetupFailure(`unsafe target: ${path}`);
@@ -236,32 +232,42 @@ function inspect_twice(path: string, uid: number | undefined): FileSnapshot {
     return second;
 }
 
-function has_model_instructions(root: string): boolean {
+function optional_source(path: string, uid: number | undefined): string | null {
+    const snapshot = inspect_file(path, uid);
+    return snapshot.exists ? snapshot.source : null;
+}
+
+function has_model_instructions(root: string, uid: number | undefined): boolean {
     const candidates = [join(root, 'config.toml')];
     for (const name of readdirSync(root)) {
         if (name.endsWith('.config.toml')) candidates.push(join(root, name));
     }
     return candidates.some((path) => {
-        const source = read_optional(path);
+        const source = optional_source(path, uid);
         return source !== null && /^(?!\s*#)\s*model_instructions_file\s*=/m.test(source);
     });
 }
 
-function has_nonempty_instructions(path: string): boolean {
-    const source = read_optional(path);
+function has_nonempty_instructions(path: string, uid: number | undefined): boolean {
+    const source = optional_source(path, uid);
     return source !== null && /["']instructions["']\s*:\s*(?!\[\s*\])/m.test(source);
 }
 
-function resolve_target(harness: Harness, home: string, env: NodeJS.ProcessEnv): ResolvedTarget {
+function resolve_target(
+    harness: Harness,
+    home: string,
+    env: NodeJS.ProcessEnv,
+    uid: number | undefined
+): ResolvedTarget {
     const payloadPath = join(home, '.agents', 'suspec', 'economy.md');
     if (harness === 'codex') {
         const configured = env.CODEX_HOME ?? join(home, '.codex');
         const root = require_directory(home, configured, 'CODEX_HOME');
-        if (has_model_instructions(root)) {
+        if (has_model_instructions(root, uid)) {
             throw new SetupFailure('model_instructions_file makes future profile selection ambiguous', 'unknown');
         }
         const override = join(root, 'AGENTS.override.md');
-        if ((read_optional(override) ?? '').trim().length > 0) {
+        if ((optional_source(override, uid) ?? '').trim().length > 0) {
             throw new SetupFailure('non-empty AGENTS.override.md shadows AGENTS.md');
         }
         return { harness, path: join(root, 'AGENTS.md'), body: ECONOMY_POLICY.replace(/\n$/, '') };
@@ -276,8 +282,8 @@ function resolve_target(harness: Harness, home: string, env: NodeJS.ProcessEnv):
     }
     const root = require_directory(home, join(home, '.config', 'opencode'), 'OpenCode config directory');
     if (
-        has_nonempty_instructions(join(root, 'opencode.json')) ||
-        has_nonempty_instructions(join(root, 'opencode.jsonc'))
+        has_nonempty_instructions(join(root, 'opencode.json'), uid) ||
+        has_nonempty_instructions(join(root, 'opencode.jsonc'), uid)
     ) {
         throw new SetupFailure('global OpenCode instructions are combined; setup refuses the conflict');
     }
@@ -350,7 +356,12 @@ function parse_owned_span(source: string): OwnedSpan | null {
         else if (source[markerStart - 1] === '\n') start -= 1;
         else throw new SetupFailure('economy block lost its owned separator');
     }
-    return { start, end, prefix: source.slice(0, start), policyKey, originalExisted: match[4] === 'existing' };
+    const prefix = source.slice(0, start);
+    const originalExisted = match[4] === 'existing';
+    if (!originalExisted && prefix.length > 0) {
+        throw new SetupFailure('foreign content precedes a Suspec-created block');
+    }
+    return { start, end, prefix, policyKey, originalExisted };
 }
 
 function expected_target(
@@ -437,13 +448,19 @@ function with_lock<T>(home: string, action: () => T): T {
     }
 }
 
-function has_any_managed_target(home: string, env: NodeJS.ProcessEnv): boolean {
+function has_any_managed_target(home: string, env: NodeJS.ProcessEnv, uid: number | undefined): boolean {
     const candidates = [
         join(env.CODEX_HOME ?? join(home, '.codex'), 'AGENTS.md'),
         join(env.CLAUDE_CONFIG_DIR ?? join(home, '.claude'), 'CLAUDE.md'),
         join(home, '.config', 'opencode', 'AGENTS.md'),
     ];
-    return candidates.some((path) => (read_optional(path) ?? '').includes(START_PREFIX));
+    return candidates.some((path) => {
+        try {
+            return (optional_source(path, uid) ?? '').includes(START_PREFIX);
+        } catch {
+            return true;
+        }
+    });
 }
 
 function execute(
@@ -457,25 +474,30 @@ function execute(
     const mutating = (operation === 'install' || operation === 'remove') && yes;
     const work = (): SetupEnvelope => {
         let payload: State;
+        let payloadFailure: SetupFailure | null = null;
         try {
             payload = payload_state(payloadPath, context.uid);
-        } catch {
+        } catch (caught) {
             payload = 'drifted';
+            payloadFailure =
+                caught instanceof SetupFailure
+                    ? caught
+                    : new SetupFailure(caught instanceof Error ? caught.message : String(caught));
+        }
+        if ((operation === 'install' || operation === 'dry-run') && payload === 'drifted') {
+            return {
+                version: '1',
+                operation,
+                ok: false,
+                targets: harnesses.map((harness) => ({
+                    harness,
+                    state: payloadFailure?.state ?? 'drifted',
+                    paths: [payloadPath],
+                    message: payloadFailure?.message ?? 'canonical payload is foreign or drifted',
+                })),
+            };
         }
         if (mutating && operation === 'install' && payload !== 'current') {
-            if (payload === 'drifted') {
-                return {
-                    version: '1',
-                    operation,
-                    ok: false,
-                    targets: harnesses.map((harness) => ({
-                        harness,
-                        state: 'blocked',
-                        paths: [payloadPath],
-                        message: 'canonical payload is foreign or drifted',
-                    })),
-                };
-            }
             const root = ensure_agents_root(home);
             atomic_write(join(root, 'economy.md'), ECONOMY_POLICY, context.uid, inspect_file(payloadPath, context.uid));
             payload = 'current';
@@ -484,7 +506,7 @@ function execute(
         const targets: TargetResult[] = [];
         for (const harness of harnesses) {
             try {
-                const target = resolve_target(harness, home, context.env);
+                const target = resolve_target(harness, home, context.env, context.uid);
                 const snapshot =
                     operation === 'check'
                         ? inspect_twice(target.path, context.uid)
@@ -553,7 +575,7 @@ function execute(
         if (
             mutating &&
             operation === 'remove' &&
-            !has_any_managed_target(home, context.env) &&
+            !has_any_managed_target(home, context.env, context.uid) &&
             existsSync(payloadPath)
         ) {
             const snapshot = inspect_file(payloadPath, context.uid);

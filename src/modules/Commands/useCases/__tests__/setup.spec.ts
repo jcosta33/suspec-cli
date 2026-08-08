@@ -151,7 +151,9 @@ describe('setup', () => {
             rmSync(join(f.home, '.suspec-setup.lock'));
 
             writeFileSync(join(f.home, '.agents', 'suspec', 'economy.md'), 'foreign');
-            expect(run(['codex', '--yes'], f.context)).toBe(2);
+            expect(run(['codex'], f.context)).toBe(1);
+            expect(run(['codex', '--dry-run'], f.context)).toBe(1);
+            expect(run(['codex', '--yes'], f.context)).toBe(1);
         } finally {
             f.cleanup();
         }
@@ -171,6 +173,12 @@ describe('setup', () => {
             delete f.context.env.OPENCODE_CONFIG_CONTENT;
             writeFileSync(join(f.home, '.config', 'opencode', 'opencode.jsonc'), '{"instructions":["x"]}');
             expect(run(['opencode', '--check'], f.context)).toBe(2);
+
+            rmSync(join(f.home, '.codex', 'work.config.toml'));
+            const outside = join(f.home, 'outside.toml');
+            writeFileSync(outside, 'model_instructions_file = "x"\n');
+            symlinkSync(outside, join(f.home, '.codex', 'linked.config.toml'));
+            expect(run(['codex', '--check'], f.context)).toBe(2);
         } finally {
             f.cleanup();
         }
@@ -294,6 +302,19 @@ describe('setup', () => {
                 process.stdout.write = previousStdout;
             }
             expect(JSON.parse(json)).toMatchObject({ ok: false, operation: 'install' });
+        } finally {
+            f.cleanup();
+        }
+    });
+
+    it('never deletes foreign content added to a Suspec-created target', () => {
+        const f = fixture();
+        const target = join(f.home, '.codex', 'AGENTS.md');
+        try {
+            expect(run(['codex', '--yes'], f.context)).toBe(0);
+            writeFileSync(target, `foreign\n${readFileSync(target, 'utf8')}`);
+            expect(run(['codex', '--remove', '--yes'], f.context)).toBe(2);
+            expect(readFileSync(target, 'utf8')).toContain('foreign');
         } finally {
             f.cleanup();
         }

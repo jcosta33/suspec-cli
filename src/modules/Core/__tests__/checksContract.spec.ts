@@ -1005,9 +1005,9 @@ describe('drift guard against the sibling suspec/checks/checks.yaml', () => {
             'rows: contiguous',
             'assessment_enum: [Supported, Unsupported, Unverified, Blocked]',
             '^(all )?(tests?|checks?) (pass(ed)?|succeeded)\\.?$',
-            'C005 and C006 are RETIRED',
-            'C014 is RETIRED',
-            'C017 is RETIRED',
+            'C005 and C006 are RESERVED',
+            'C014 is RESERVED',
+            'C017 is RESERVED',
             'C018 is RESERVED',
         ]) {
             expect(text).toContain(contractLine);
