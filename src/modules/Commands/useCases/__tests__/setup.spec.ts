@@ -150,10 +150,15 @@ describe('setup', () => {
             expect(run(['codex', '--yes'], f.context)).toBe(2);
             rmSync(join(f.home, '.suspec-setup.lock'));
 
+            expect(run(['codex', '--yes'], f.context)).toBe(0);
+            const managedTarget = readFileSync(target, 'utf8');
             writeFileSync(join(f.home, '.agents', 'suspec', 'economy.md'), 'foreign');
             expect(run(['codex'], f.context)).toBe(1);
             expect(run(['codex', '--dry-run'], f.context)).toBe(1);
             expect(run(['codex', '--yes'], f.context)).toBe(1);
+            expect(run(['codex', '--remove'], f.context)).toBe(1);
+            expect(run(['codex', '--remove', '--yes'], f.context)).toBe(1);
+            expect(readFileSync(target, 'utf8')).toBe(managedTarget);
         } finally {
             f.cleanup();
         }

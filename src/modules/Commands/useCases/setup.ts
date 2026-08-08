@@ -492,7 +492,7 @@ function execute(
                     ? caught
                     : new SetupFailure(caught instanceof Error ? caught.message : String(caught));
         }
-        if ((operation === 'install' || operation === 'dry-run') && payload === 'drifted') {
+        if ((operation === 'install' || operation === 'dry-run' || operation === 'remove') && payload === 'drifted') {
             return {
                 version: '1',
                 operation,
