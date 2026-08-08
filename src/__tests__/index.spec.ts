@@ -55,9 +55,9 @@ Exercise command dispatch.
 - none
 `;
 
-describe('dispatch — the single-verb router (ADR-0143)', () => {
-    it('the dispatchable surface is exactly the check verb', () => {
-        expect(COMMAND_NAMES).toEqual(['check']);
+describe('dispatch', () => {
+    it('the dispatchable surface is check plus isolated setup', () => {
+        expect(COMMAND_NAMES).toEqual(['check', 'setup']);
         // the catalog and the dispatcher name the same surface — neither drifts alone
         expect(COMMAND_NAMES).toEqual(COMMAND_CATALOG.map((entry) => entry.name));
     });
@@ -106,6 +106,12 @@ describe('dispatch — the single-verb router (ADR-0143)', () => {
         const { code, out } = await capture(() => dispatch(['check', '--help']));
         expect(code).toBe(0);
         expect(out).toContain('--contract');
+    });
+
+    it.each(['--help', '--version'])('`suspec setup codex --yes %s` never reaches mutation', async (flag) => {
+        const { code, out } = await capture(() => dispatch(['setup', 'codex', '--yes', flag]));
+        expect(code).toBe(0);
+        expect(out).toContain(flag === '--help' ? 'suspec setup' : 'suspec ');
     });
 
     it.each(['--help', '--version'])('does not let `suspec check %s` hide an unknown option', async (flag) => {

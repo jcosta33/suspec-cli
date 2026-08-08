@@ -18,14 +18,15 @@ pnpm deps:validate
 
 ## Ownership
 
-- Commands: reads, arguments, rendering.
+- Commands: explicit I/O, arguments, rendering, and isolated setup.
 - Core: deterministic check semantics and structured results.
 - Sol: Markdown and frontmatter parsing.
 - Terminal: option parsing.
 - Unix outcome helpers: stdout, stderr, and exit mapping.
 
-The CLI accepts explicit paths, writes nothing, and owns no project state, configuration, store,
-agent loop, or review judgment. Scope creep gets no module.
+Artifact checks accept explicit paths and write nothing. Setup writes only its canonical user policy
+and marked harness blocks after `--yes`. The CLI owns no project state, artifact store, agent loop, or
+review judgment. Scope creep gets no module.
 
 ## TypeScript
 

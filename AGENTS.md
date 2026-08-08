@@ -1,7 +1,7 @@
 # AGENTS.md — suspec-cli
 
-Facts in, diagnostics out. This repository owns Suspec's deterministic CLI, command contract,
-implementation, and tests. Product decisions and the machine contract live in
+Facts in, diagnostics out. This repository owns Suspec's deterministic checker, reversible harness
+setup, command contracts, implementation, and tests. Product decisions and machine contracts live in
 [Suspec](https://github.com/jcosta33/suspec).
 
 ## Boundaries
@@ -12,6 +12,9 @@ implementation, and tests. Product decisions and the machine contract live in
 - Keep check semantics pure over parsed inputs and injected predicates.
 - Limit filesystem reads to handed paths and local references they name.
 - Match the canon contract through `SUSPEC_CANON` and CI drift guards.
+- Keep setup isolated from checking. Explicit targets only. Preview before mutation. Restore foreign
+  bytes exactly. Refuse ambiguity or drift.
+- Keep the generated economy policy byte-equal to `policy/economy.md`.
 
 Architecture, testing, and coding rules live under [`docs/`](docs/) and
 [`.agents/repo-conventions.md`](.agents/repo-conventions.md).

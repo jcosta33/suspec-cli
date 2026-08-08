@@ -3,7 +3,7 @@
     "private": true,
     "version": "1.0.0",
     "packageManager": "pnpm@10.32.1",
-    "description": "The explicit-path deterministic checker for Suspec artifacts.",
+    "description": "Suspec artifact checks and reversible harness setup.",
     "keywords": [
         "suspec",
         "spec-driven",
@@ -38,10 +38,12 @@
     "scripts": {
         "build": "esbuild src/index.ts --bundle --platform=node --format=esm --packages=external --target=node22 --outfile=dist/index.js",
         "prepack": "pnpm run build",
+        "policy:generate": "node scripts/generate-economy-policy.mjs",
+        "policy:check": "node scripts/generate-economy-policy.mjs --check",
         "test": "vitest",
         "test:run": "vitest run",
         "coverage": "vitest run --coverage",
-        "gate": "pnpm format:check && pnpm typecheck && pnpm lint && pnpm deps:validate && pnpm unused && pnpm coverage && pnpm build",
+        "gate": "pnpm format:check && pnpm policy:check && pnpm typecheck && pnpm lint && pnpm deps:validate && pnpm unused && pnpm coverage && pnpm build",
         "typecheck": "tsc --noEmit",
         "format": "prettier --write \"**/*.{ts,js,mjs,cjs,json,md}\"",
         "lint": "eslint --cache --cache-location node_modules/.cache/eslint/ \"src/**/*.ts\"",

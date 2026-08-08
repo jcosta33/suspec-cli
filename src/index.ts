@@ -1,15 +1,20 @@
 #!/usr/bin/env node
 
-// The dispatcher. A thin in-process router over the single check verb (ADR-0143). `suspec` with no
-// command prints usage; `suspec check …` routes to the check command; an unknown command prints to
-// stderr and exits 2.
+// The dispatcher. A thin in-process router over deterministic check and explicit user setup.
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
-import { CHECK_FLAG_SPEC, run_check, print_usage } from './modules/Commands/useCases/index.ts';
+import {
+    CHECK_FLAG_SPEC,
+    SETUP_FLAG_SPEC,
+    run_check,
+    run_setup,
+    print_usage,
+} from './modules/Commands/useCases/index.ts';
 import { parse_flags } from './modules/Terminal/useCases/index.ts';
+import type { FlagSpec } from './modules/Terminal/useCases/index.ts';
 
 function is_record(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
@@ -26,9 +31,11 @@ function print_version(): void {
 
 // A command returns an exit code. The dispatcher awaits uniformly so a future async command fits.
 type CommandRun = (argv: string[], cwd?: string) => number | Promise<number>;
+type Command = Readonly<{ run: CommandRun; flags: FlagSpec }>;
 
-const COMMANDS: Record<string, CommandRun> = {
-    check: run_check,
+const COMMANDS: Record<string, Command> = {
+    check: { run: run_check, flags: CHECK_FLAG_SPEC },
+    setup: { run: run_setup, flags: SETUP_FLAG_SPEC },
 };
 const DISABLED_META_FLAGS = new Set(['--help=false', '-h=false', '--version=false', '-v=false']);
 
@@ -61,8 +68,8 @@ export async function dispatch(argv: string[], cwd: string = process.cwd()): Pro
 
     // Own-key lookup only: a bare bracket read walks the prototype chain, so an argv value like
     // `toString` would resolve to an Object.prototype member instead of the unknown-command path.
-    const run = Object.hasOwn(COMMANDS, command) ? COMMANDS[command] : undefined;
-    if (run === undefined) {
+    const selected = Object.hasOwn(COMMANDS, command) ? COMMANDS[command] : undefined;
+    if (selected === undefined) {
         process.stderr.write(`Unknown command: ${command}\nRun 'suspec --help' to see the usage.\n`);
         return 2;
     }
@@ -71,8 +78,8 @@ export async function dispatch(argv: string[], cwd: string = process.cwd()): Pro
     // Parse help with the command's real option arity. A help token in a missing string option's value
     // position (`--spec --help`) is an arity error, while a real command-level help flag succeeds.
     const helpParse = parse_flags(rest, {
-        booleans: [...CHECK_FLAG_SPEC.booleans, '--help', '-h', '--version', '-v'],
-        strings: CHECK_FLAG_SPEC.strings,
+        booleans: [...selected.flags.booleans, '--help', '-h', '--version', '-v'],
+        strings: selected.flags.strings,
     });
     const requestsMeta =
         helpParse.flags.get('help') === true ||
@@ -80,7 +87,7 @@ export async function dispatch(argv: string[], cwd: string = process.cwd()): Pro
         helpParse.flags.get('version') === true ||
         helpParse.flags.get('v') === true;
     if (helpParse.errors.length === 0 && helpParse.unknown.length > 0 && requestsMeta) {
-        return run(helpParse.unknown, cwd);
+        return selected.run(helpParse.unknown, cwd);
     }
     if (
         helpParse.errors.length === 0 &&
@@ -98,7 +105,7 @@ export async function dispatch(argv: string[], cwd: string = process.cwd()): Pro
         print_version();
         return 0;
     }
-    return run(
+    return selected.run(
         rest.filter((token) => !DISABLED_META_FLAGS.has(token)),
         cwd
     );

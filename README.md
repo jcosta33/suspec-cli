@@ -1,7 +1,6 @@
 # suspec-cli
 
-The reference deterministic checker for [Suspec](https://github.com/jcosta33/suspec). No model, no
-vibes. It implements
+Suspec's deterministic checker and reversible harness setup. The checker has no model and no vibes. It implements
 [`checks/checks.yaml`](https://github.com/jcosta33/suspec/blob/main/checks/checks.yaml), reports
 structural facts, and renders no review judgment.
 
@@ -32,6 +31,18 @@ suspec check --contract
 A task check always requires its ready source through `--spec`; several tasks may share one source
 companion. A review always requires `--spec`. `--task` is required exactly when review frontmatter
 names a task. Reviews run alone.
+
+Install the global economy policy only after reviewing the preview:
+
+```bash
+suspec setup codex claude-code opencode
+suspec setup codex claude-code opencode --yes
+suspec setup codex claude-code opencode --check
+```
+
+`setup` accepts only explicit harness names. It never guesses. `--dry-run` previews successfully;
+`--remove` previews removal; `--remove --yes` restores foreign bytes exactly. Managed policy lives at
+`~/.agents/suspec/economy.md`. Harness files contain marked blocks. Repository files stay clean.
 
 ## Inputs
 
@@ -68,7 +79,7 @@ store.
 The conventional `~/.agents/artifacts/<workspace>/` root has no special runtime meaning. To the CLI,
 it is just a path.
 
-## Output
+## Check output
 
 | Exit | Meaning                            |
 | ---- | ---------------------------------- |
@@ -88,8 +99,32 @@ suspec check plans/payment-change.md --json
 suspec check reviews/checkout.md --spec specs/checkout/spec.md --task tasks/checkout.md
 ```
 
-The CLI reads and reports. It does not author artifacts, run commands or agents, prove evidence,
-accept work, or own merge policy. It has no mandate for any of that.
+The checker reads and reports. It does not author artifacts, run commands or agents, prove evidence,
+accept work, or own merge policy. `setup` owns only its marked user-level policy blocks. Nothing else.
+
+## Setup output
+
+`--json` emits one envelope:
+
+```json
+{
+    "version": "1",
+    "operation": "check",
+    "ok": true,
+    "targets": [
+        {
+            "harness": "codex",
+            "state": "current",
+            "paths": ["/Users/you/.agents/suspec/economy.md", "/Users/you/.codex/AGENTS.md"]
+        }
+    ]
+}
+```
+
+States are `current`, `changed`, `missing`, `drifted`, `blocked`, or `unknown`. Setup exits `0` for a
+current check, applied change, or dry-run; `1` for a preview, drift, missing target, or uncertainty;
+`2` for invalid input, conflict, unsafe path, lock failure, or I/O failure. JSON mode writes one value
+to stdout and nothing to stderr.
 
 ## Develop
 

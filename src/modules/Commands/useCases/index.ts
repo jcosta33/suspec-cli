@@ -3,4 +3,5 @@
 // renderer, and the dispatchable catalog (test-pinned to the dispatcher).
 export { COMMAND_CATALOG } from './catalog.ts';
 export { CHECK_FLAG_SPEC, run as run_check } from './check.ts';
+export { SETUP_FLAG_SPEC, run as run_setup } from './setup.ts';
 export { print_usage } from './usage.ts';

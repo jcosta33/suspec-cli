@@ -8,7 +8,7 @@ Key boundaries:
 
 - cross-module imports use destination barrels;
 - module internals use concrete relative paths;
-- Commands own I/O and rendering;
+- Commands own explicit I/O, rendering, and isolated setup;
 - Core owns deterministic semantics;
 - Sol owns parsing;
 - infra remains a leaf;

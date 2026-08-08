@@ -18,11 +18,13 @@ Private-service tests live at the module test root. Shared test helpers remain p
 - Use cases receive real parsed text and injected predicates.
 - Filesystem resolvers use cleaned temporary directories.
 - Command tests assert stdout, stderr, exit code, and relevant payload.
+- Setup tests use temporary homes and assert preview, mutation, restoration, refusal, stable reads,
+  JSON, exit codes, and zero repository writes.
 - Drift guards use a real canon checkout or announce an explicit skip.
 - Mock only the external boundary not under test.
 
 A public check change covers parser shape, pure behavior and severity, use-case wiring, observable
-command output, exit mapping, and canon parity as applicable.
+output, exit mapping, and canon parity. A setup change covers every supported harness and rollback.
 
 Parse each non-empty multi-report `--json` line independently.
 
