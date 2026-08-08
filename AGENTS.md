@@ -12,8 +12,9 @@ setup, command contracts, implementation, and tests. Product decisions and machi
 - Keep check semantics pure over parsed inputs and injected predicates.
 - Limit filesystem reads to handed paths and local references they name.
 - Match the canon contract through `SUSPEC_CANON` and CI drift guards.
-- Keep setup isolated from checking. Explicit targets only. Preview before mutation. Restore foreign
-  bytes exactly. Refuse ambiguity or drift.
+- Keep setup isolated from checking. Explicit targets only. Resolve native instruction files. Inline
+  neutral owned blocks. Preview before mutation. Restore foreign bytes exactly. Refuse ambiguity or
+  drift.
 - Keep the generated economy policy byte-equal to `policy/economy.md`.
 
 Architecture, testing, and coding rules live under [`docs/`](docs/) and

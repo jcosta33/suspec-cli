@@ -5,7 +5,6 @@ import {
     existsSync,
     fsyncSync,
     lstatSync,
-    mkdirSync,
     openSync,
     readFileSync,
     readdirSync,
@@ -44,7 +43,7 @@ type TargetResult = {
 };
 
 type SetupEnvelope = {
-    version: '1';
+    version: '2';
     operation: Operation;
     ok: boolean;
     targets: TargetResult[];
@@ -85,16 +84,16 @@ type FileSnapshot =
       };
 
 class SetupFailure extends Error {
-    readonly state: Extract<State, 'blocked' | 'unknown'>;
+    readonly state: Extract<State, 'blocked' | 'drifted' | 'unknown'>;
 
-    constructor(message: string, state: Extract<State, 'blocked' | 'unknown'> = 'blocked') {
+    constructor(message: string, state: Extract<State, 'blocked' | 'drifted' | 'unknown'> = 'blocked') {
         super(message);
         this.state = state;
     }
 }
 
-const START_PREFIX = '<!-- suspec-economy ';
-const END_MARKER = '<!-- /suspec-economy -->';
+const START_PREFIX = '<!-- agent-output-economy ';
+const END_MARKER = '<!-- /agent-output-economy -->';
 
 function sha256(value: string): string {
     return createHash('sha256').update(value).digest('hex');
@@ -137,7 +136,7 @@ function emit(envelope: SetupEnvelope, json: boolean, context: SetupContext, for
 }
 
 function emit_usage(message: string, operation: Operation, json: boolean, context: SetupContext): number {
-    const envelope: SetupEnvelope = { version: '1', operation, ok: false, targets: [] };
+    const envelope: SetupEnvelope = { version: '2', operation, ok: false, targets: [] };
     if (json) context.stdout(`${JSON.stringify({ ...envelope, error: message })}\n`);
     else context.stderr(`suspec setup: ${message}\n`);
     return 2;
@@ -171,6 +170,7 @@ function require_directory(home: string, path: string, label: string): string {
     if (!existsSync(normalized)) throw new SetupFailure(`${label} does not exist`);
     const suppliedStats = lstatSync(normalized);
     if (!suppliedStats.isDirectory() || suppliedStats.isSymbolicLink()) {
+        /* v8 ignore next -- exercised by unsafe config-root tests; throw coverage is not reported */
         throw new SetupFailure(`${label} is not a safe directory`);
     }
     const canonical = realpathSync(normalized);
@@ -267,7 +267,6 @@ function resolve_target(
     env: NodeJS.ProcessEnv,
     uid: number | undefined
 ): ResolvedTarget {
-    const payloadPath = join(home, '.agents', 'suspec', 'economy.md');
     if (harness === 'codex') {
         const configured = env.CODEX_HOME ?? join(home, '.codex');
         const root = require_directory(home, configured, 'CODEX_HOME');
@@ -275,15 +274,13 @@ function resolve_target(
             throw new SetupFailure('model_instructions_file makes future profile selection ambiguous', 'unknown');
         }
         const override = join(root, 'AGENTS.override.md');
-        if ((optional_source(override, uid) ?? '').trim().length > 0) {
-            throw new SetupFailure('non-empty AGENTS.override.md shadows AGENTS.md');
-        }
-        return { harness, path: join(root, 'AGENTS.md'), body: ECONOMY_POLICY.replace(/\n$/, '') };
+        const path = (optional_source(override, uid) ?? '').trim().length > 0 ? override : join(root, 'AGENTS.md');
+        return { harness, path, body: ECONOMY_POLICY.replace(/\n$/, '') };
     }
     if (harness === 'claude-code') {
         const configured = env.CLAUDE_CONFIG_DIR ?? join(home, '.claude');
         const root = require_directory(home, configured, 'CLAUDE_CONFIG_DIR');
-        return { harness, path: join(root, 'CLAUDE.md'), body: `@${payloadPath}` };
+        return { harness, path: join(root, 'CLAUDE.md'), body: ECONOMY_POLICY.replace(/\n$/, '') };
     }
     for (const name of ['OPENCODE_CONFIG_DIR', 'XDG_CONFIG_HOME', 'OPENCODE_CONFIG', 'OPENCODE_CONFIG_CONTENT']) {
         if (env[name] !== undefined) throw new SetupFailure(`${name} is unsupported; OpenCode target is ambiguous`);
@@ -333,12 +330,12 @@ function same_with_terminal_newline_normalized(source: string, expected: string)
 function parse_owned_span(source: string): OwnedSpan | null {
     const starts = [
         ...source.matchAll(
-            /<!-- suspec-economy version=(\d+) policy=([a-f0-9]{64}) content=([a-f0-9]{64}) origin=(missing|existing) -->/g
+            /<!-- agent-output-economy version=(\d+) policy=([a-f0-9]{64}) content=([a-f0-9]{64}) origin=(missing|existing) -->/g
         ),
     ];
     const endCount = source.split(END_MARKER).length - 1;
     if (starts.length === 0 && endCount === 0) return null;
-    if (starts.length !== 1 || endCount !== 1) throw new SetupFailure('malformed or duplicated Suspec economy marker');
+    if (starts.length !== 1 || endCount !== 1) throw new SetupFailure('malformed or duplicated economy marker');
     const match = starts[0];
     const markerStart = match.index ?? 0;
     const markerEnd = markerStart + match[0].length;
@@ -352,9 +349,10 @@ function parse_owned_span(source: string): OwnedSpan | null {
         throw new SetupFailure('economy marker has malformed closing separator');
     }
     const body = source.slice(markerEnd + eol.length, bodyEnd);
-    if (sha256(body) !== match[3]) throw new SetupFailure('economy block content drifted');
+    if (sha256(body) !== match[3]) throw new SetupFailure('economy block content drifted', 'drifted');
     const policyKey = `${match[1]}:${match[2]}`;
-    if (!RECOGNIZED_ECONOMY_POLICIES.has(policyKey)) throw new SetupFailure('economy block version is unrecognized');
+    if (!RECOGNIZED_ECONOMY_POLICIES.has(policyKey))
+        throw new SetupFailure('economy block version is unrecognized', 'drifted');
     let end = endMarkerAt + END_MARKER.length;
     if (source.startsWith(eol, end)) end += eol.length;
     if (end !== source.length) throw new SetupFailure('economy block must remain at the end of the file');
@@ -367,7 +365,7 @@ function parse_owned_span(source: string): OwnedSpan | null {
     const prefix = source.slice(0, start);
     const originalExisted = match[4] === 'existing';
     if (!originalExisted && prefix.length > 0) {
-        throw new SetupFailure('foreign content precedes a Suspec-created block');
+        throw new SetupFailure('foreign content precedes a setup-created block');
     }
     return { start, end, prefix, policyKey, originalExisted };
 }
@@ -384,21 +382,12 @@ function expected_target(
     return { current: same_with_terminal_newline_normalized(source, expected), expected, original, originalExisted };
 }
 
-function ensure_agents_root(home: string): string {
-    const agents = join(home, '.agents');
-    if (!existsSync(agents)) mkdirSync(agents, { mode: 0o700 });
-    const safeAgents = require_directory(home, agents, '.agents');
-    const suspec = join(safeAgents, 'suspec');
-    if (!existsSync(suspec)) mkdirSync(suspec, { mode: 0o700 });
-    return require_directory(home, suspec, '.agents/suspec');
-}
-
 function atomic_write(path: string, content: string, uid: number | undefined, expected: FileSnapshot): void {
     /* v8 ignore next -- requires a filesystem race */
     if (!same_snapshot(inspect_file(path, uid), expected))
         throw new SetupFailure(`target changed before write: ${path}`);
     const mode = expected.exists ? expected.mode & 0o777 : 0o600;
-    const temp = join(dirname(path), `.${randomBytes(8).toString('hex')}.suspec.tmp`);
+    const temp = join(dirname(path), `.${randomBytes(8).toString('hex')}.agent-output-economy.tmp`);
     const descriptor = openSync(temp, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, mode);
     try {
         writeFileSync(descriptor, content, 'utf8');
@@ -431,17 +420,8 @@ function unlink_unchanged(path: string, uid: number | undefined, expected: FileS
     unlinkSync(path);
 }
 
-function payload_state(payloadPath: string, uid: number | undefined, stable = false): State {
-    const snapshot = stable ? inspect_twice(payloadPath, uid) : inspect_file(payloadPath, uid);
-    if (!snapshot.exists) return 'missing';
-    const source = snapshot.source;
-    if (source === ECONOMY_POLICY) return 'current';
-    const digest = sha256(source);
-    return [...RECOGNIZED_ECONOMY_POLICIES].some((entry) => entry.endsWith(`:${digest}`)) ? 'changed' : 'drifted';
-}
-
 function with_lock<T>(home: string, action: () => T): T {
-    const lock = join(home, '.suspec-setup.lock');
+    const lock = join(home, '.agent-output-economy.lock');
     let descriptor: number;
     try {
         descriptor = openSync(lock, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, 0o600);
@@ -456,21 +436,6 @@ function with_lock<T>(home: string, action: () => T): T {
     }
 }
 
-function has_any_managed_target(home: string, env: NodeJS.ProcessEnv, uid: number | undefined): boolean {
-    const candidates = [
-        join(env.CODEX_HOME ?? join(home, '.codex'), 'AGENTS.md'),
-        join(env.CLAUDE_CONFIG_DIR ?? join(home, '.claude'), 'CLAUDE.md'),
-        join(home, '.config', 'opencode', 'AGENTS.md'),
-    ];
-    return candidates.some((path) => {
-        try {
-            return (optional_source(path, uid) ?? '').includes(START_PREFIX);
-        } catch {
-            return true;
-        }
-    });
-}
-
 function execute(
     operation: Operation,
     harnesses: Harness[],
@@ -478,39 +443,8 @@ function execute(
     home: string,
     context: SetupContext
 ): SetupEnvelope {
-    const payloadPath = join(home, '.agents', 'suspec', 'economy.md');
     const mutating = (operation === 'install' || operation === 'remove') && yes;
     const work = (): SetupEnvelope => {
-        let payload: State;
-        let payloadFailure: SetupFailure | null = null;
-        try {
-            payload = payload_state(payloadPath, context.uid);
-        } catch (caught) {
-            payload = 'drifted';
-            payloadFailure =
-                caught instanceof SetupFailure
-                    ? caught
-                    : new SetupFailure(caught instanceof Error ? caught.message : String(caught));
-        }
-        if ((operation === 'install' || operation === 'dry-run' || operation === 'remove') && payload === 'drifted') {
-            return {
-                version: '1',
-                operation,
-                ok: false,
-                targets: harnesses.map((harness) => ({
-                    harness,
-                    state: payloadFailure?.state ?? 'drifted',
-                    paths: [payloadPath],
-                    message: payloadFailure?.message ?? 'canonical payload is foreign or drifted',
-                })),
-            };
-        }
-        if (mutating && operation === 'install' && payload !== 'current') {
-            const root = ensure_agents_root(home);
-            atomic_write(join(root, 'economy.md'), ECONOMY_POLICY, context.uid, inspect_file(payloadPath, context.uid));
-            payload = 'current';
-        }
-
         const targets: TargetResult[] = [];
         for (const harness of harnesses) {
             try {
@@ -522,11 +456,8 @@ function execute(
                 const source = snapshot.exists ? snapshot.source : '';
                 const assessed = expected_target(source, target.body, snapshot.exists);
                 if (operation === 'check') {
-                    let state: State = 'missing';
-                    const stablePayload = payload_state(payloadPath, context.uid, true);
-                    if (stablePayload === 'current' && assessed.current) state = 'current';
-                    else if (stablePayload === 'drifted') state = 'drifted';
-                    targets.push({ harness, state, paths: [payloadPath, target.path], message: target.note });
+                    const state: State = assessed.current ? 'current' : 'missing';
+                    targets.push({ harness, state, paths: [target.path], message: target.note });
                     continue;
                 }
                 if (operation === 'remove') {
@@ -547,20 +478,20 @@ function execute(
                     }
                     continue;
                 }
-                if (assessed.current && payload === 'current') {
+                if (assessed.current) {
                     targets.push({
                         harness,
                         state: 'current',
-                        paths: [payloadPath, target.path],
+                        paths: [target.path],
                         message: target.note,
                     });
                 } else if (operation === 'dry-run') {
-                    targets.push({ harness, state: 'changed', paths: [payloadPath, target.path], message: 'dry-run' });
+                    targets.push({ harness, state: 'changed', paths: [target.path], message: 'dry-run' });
                 } else if (!yes) {
                     targets.push({
                         harness,
                         state: 'changed',
-                        paths: [payloadPath, target.path],
+                        paths: [target.path],
                         message: 'install preview; rerun with --yes',
                     });
                 } else {
@@ -568,7 +499,7 @@ function execute(
                     targets.push({
                         harness,
                         state: 'changed',
-                        paths: [payloadPath, target.path],
+                        paths: [target.path],
                         message: target.note,
                     });
                 }
@@ -580,17 +511,7 @@ function execute(
                 targets.push({ harness, state: failure.state, paths: [], message: failure.message });
             }
         }
-        if (
-            mutating &&
-            operation === 'remove' &&
-            !has_any_managed_target(home, context.env, context.uid) &&
-            existsSync(payloadPath)
-        ) {
-            const snapshot = inspect_file(payloadPath, context.uid);
-            if (payload_state(payloadPath, context.uid) === 'current')
-                unlink_unchanged(payloadPath, context.uid, snapshot);
-        }
-        return { version: '1', operation, ok: false, targets };
+        return { version: '2', operation, ok: false, targets };
     };
     return mutating ? with_lock(home, work) : work();
 }

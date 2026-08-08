@@ -40,9 +40,10 @@ suspec setup codex claude-code opencode --yes
 suspec setup codex claude-code opencode --check
 ```
 
-`setup` accepts only explicit harness names. It never guesses. `--dry-run` previews successfully;
-`--remove` previews removal; `--remove --yes` restores foreign bytes exactly. Managed policy lives at
-`~/.agents/suspec/economy.md`. Harness files contain marked blocks. Repository files stay clean.
+`setup` accepts only explicit harness names. It resolves each harness's effective native global
+instruction file. `--dry-run` previews successfully; `--remove` previews removal; `--remove --yes`
+restores foreign bytes exactly. The policy is an inline neutral marked block. Setup writes only the
+resolved native file.
 
 ## Inputs
 
@@ -108,14 +109,14 @@ accept work, or own merge policy. `setup` owns only its marked user-level policy
 
 ```json
 {
-    "version": "1",
+    "version": "2",
     "operation": "check",
     "ok": true,
     "targets": [
         {
             "harness": "codex",
             "state": "current",
-            "paths": ["/Users/you/.agents/suspec/economy.md", "/Users/you/.codex/AGENTS.md"]
+            "paths": ["/Users/you/.codex/AGENTS.md"]
         }
     ]
 }

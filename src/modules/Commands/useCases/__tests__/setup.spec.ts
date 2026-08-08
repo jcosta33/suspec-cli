@@ -5,7 +5,6 @@ import {
     mkdirSync,
     mkdtempSync,
     readFileSync,
-    realpathSync,
     rmSync,
     symlinkSync,
     writeFileSync,
@@ -60,7 +59,7 @@ describe('setup', () => {
         try {
             expect(run(['codex'], f.context)).toBe(1);
             expect(run(['codex', 'claude-code', 'opencode', '--dry-run'], f.context)).toBe(0);
-            expect(() => readFileSync(join(f.home, '.agents', 'suspec', 'economy.md'))).toThrow();
+            expect(() => lstatSync(join(f.home, '.agents'))).toThrow();
             expect(() => readFileSync(join(f.home, '.codex', 'AGENTS.md'))).toThrow();
         } finally {
             f.cleanup();
@@ -71,27 +70,34 @@ describe('setup', () => {
         const f = fixture();
         try {
             expect(run(['claude-code', 'codex', 'opencode', '--yes'], f.context)).toBe(0);
-            expect(readFileSync(join(f.home, '.agents', 'suspec', 'economy.md'), 'utf8')).toBe(ECONOMY_POLICY);
-            expect(readFileSync(join(f.home, '.claude', 'CLAUDE.md'), 'utf8')).toContain(
-                `@${join(realpathSync(f.home), '.agents', 'suspec', 'economy.md')}`
-            );
-            expect(readFileSync(join(f.home, '.codex', 'AGENTS.md'), 'utf8')).toContain('No preamble.');
-            expect(readFileSync(join(f.home, '.config', 'opencode', 'AGENTS.md'), 'utf8')).toContain('No preamble.');
+            expect(() => lstatSync(join(f.home, '.agents'))).toThrow();
+            for (const path of [
+                join(f.home, '.claude', 'CLAUDE.md'),
+                join(f.home, '.codex', 'AGENTS.md'),
+                join(f.home, '.config', 'opencode', 'AGENTS.md'),
+            ]) {
+                const installed = readFileSync(path, 'utf8');
+                expect(installed).toContain(ECONOMY_POLICY.trimEnd());
+                expect(installed).not.toContain('suspec');
+            }
 
             f.stdout.length = 0;
             expect(run(['claude-code', 'codex', 'opencode', '--check', '--json'], f.context)).toBe(0);
             const envelope = JSON.parse(f.stdout.join('')) as {
+                version: string;
                 ok: boolean;
-                targets: { harness: string; state: string }[];
+                targets: { harness: string; state: string; paths: string[] }[];
             };
+            expect(envelope.version).toBe('2');
             expect(envelope.ok).toBe(true);
             expect(envelope.targets.map((target) => target.harness)).toEqual(['claude-code', 'codex', 'opencode']);
             expect(envelope.targets.every((target) => target.state === 'current')).toBe(true);
+            expect(envelope.targets.every((target) => target.paths.length === 1)).toBe(true);
+            expect(envelope.targets.flatMap((target) => target.paths).join('\n')).not.toContain('.agents');
 
             f.stdout.length = 0;
             expect(run(['claude-code', 'codex', 'opencode', '--remove'], f.context)).toBe(1);
             expect(run(['claude-code', 'codex', 'opencode', '--remove', '--yes'], f.context)).toBe(0);
-            expect(() => readFileSync(join(f.home, '.agents', 'suspec', 'economy.md'))).toThrow();
             expect(() => readFileSync(join(f.home, '.codex', 'AGENTS.md'))).toThrow();
         } finally {
             f.cleanup();
@@ -133,32 +139,24 @@ describe('setup', () => {
         }
     });
 
-    it('blocks drift, symlinks, held locks, and foreign payloads', () => {
+    it('blocks drift, symlinks, and held locks', () => {
         const f = fixture();
         try {
             expect(run(['codex', '--yes'], f.context)).toBe(0);
             const target = join(f.home, '.codex', 'AGENTS.md');
             writeFileSync(target, readFileSync(target, 'utf8').replace('No preamble.', 'Changed.'));
-            expect(run(['codex', '--check'], f.context)).toBe(2);
+            expect(run(['codex', '--check'], f.context)).toBe(1);
 
             rmSync(target, { force: true });
-            symlinkSync(join(f.home, '.agents', 'suspec', 'economy.md'), target);
+            const outside = join(f.home, 'outside.md');
+            writeFileSync(outside, 'outside');
+            symlinkSync(outside, target);
             expect(run(['codex', '--check'], f.context)).toBe(2);
             rmSync(target);
 
-            writeFileSync(join(f.home, '.suspec-setup.lock'), 'held');
+            writeFileSync(join(f.home, '.agent-output-economy.lock'), 'held');
             expect(run(['codex', '--yes'], f.context)).toBe(2);
-            rmSync(join(f.home, '.suspec-setup.lock'));
-
-            expect(run(['codex', '--yes'], f.context)).toBe(0);
-            const managedTarget = readFileSync(target, 'utf8');
-            writeFileSync(join(f.home, '.agents', 'suspec', 'economy.md'), 'foreign');
-            expect(run(['codex'], f.context)).toBe(1);
-            expect(run(['codex', '--dry-run'], f.context)).toBe(1);
-            expect(run(['codex', '--yes'], f.context)).toBe(1);
-            expect(run(['codex', '--remove'], f.context)).toBe(1);
-            expect(run(['codex', '--remove', '--yes'], f.context)).toBe(1);
-            expect(readFileSync(target, 'utf8')).toBe(managedTarget);
+            rmSync(join(f.home, '.agent-output-economy.lock'));
         } finally {
             f.cleanup();
         }
@@ -168,7 +166,9 @@ describe('setup', () => {
         const f = fixture();
         try {
             writeFileSync(join(f.home, '.codex', 'AGENTS.override.md'), 'override');
-            expect(run(['codex', '--check'], f.context)).toBe(2);
+            expect(run(['codex', '--yes'], f.context)).toBe(0);
+            expect(readFileSync(join(f.home, '.codex', 'AGENTS.override.md'), 'utf8')).toContain('No preamble.');
+            expect(() => readFileSync(join(f.home, '.codex', 'AGENTS.md'))).toThrow();
             rmSync(join(f.home, '.codex', 'AGENTS.override.md'));
             writeFileSync(join(f.home, '.codex', 'work.config.toml'), 'model_instructions_file = "x"\n');
             expect(run(['codex', '--check'], f.context)).toBe(1);
@@ -236,6 +236,9 @@ describe('setup', () => {
             expect(run(['codex', '--check'], f.context)).toBe(2);
             f.context.env.CODEX_HOME = fileHome;
             expect(run(['codex', '--check'], f.context)).toBe(2);
+            f.context.env.CLAUDE_CONFIG_DIR = fileHome;
+            expect(run(['claude-code', '--check'], f.context)).toBe(2);
+            delete f.context.env.CLAUDE_CONFIG_DIR;
             const linkedRoot = join(f.home, 'linked-codex');
             symlinkSync(join(f.home, '.codex'), linkedRoot);
             f.context.env.CODEX_HOME = linkedRoot;
@@ -254,57 +257,35 @@ describe('setup', () => {
         }
     });
 
-    it('rejects a symlinked shared policy root', () => {
-        const f = fixture();
-        try {
-            const realAgents = join(f.home, 'real-agents');
-            mkdirSync(realAgents);
-            symlinkSync(realAgents, join(f.home, '.agents'));
-            expect(run(['codex', '--yes'], f.context)).toBe(2);
-            expect(() => readFileSync(join(realAgents, 'suspec', 'economy.md'))).toThrow();
-        } finally {
-            f.cleanup();
-        }
-    });
-
     it('rejects every malformed owned-block boundary', () => {
-        const mutations = [
-            (source: string) => `${source}${source}`,
-            (source: string) => source.replace(' -->\nNo preamble.', ' -->No preamble.'),
-            (source: string) => source.replace('\n<!-- /suspec-economy -->', '<!-- /suspec-economy -->'),
-            (source: string) => source.replace(`policy=${ECONOMY_POLICY_SHA256}`, `policy=${'0'.repeat(64)}`),
-            (source: string) => `${source}foreign`,
-            (source: string) => source.replace('\n<!-- suspec-economy ', '<!-- suspec-economy '),
+        const mutations: [(source: string) => string, number][] = [
+            [(source) => `${source}${source}`, 2],
+            [(source) => source.replace(' -->\nNo preamble.', ' -->No preamble.'), 2],
+            [(source) => source.replace('\n<!-- /agent-output-economy -->', '<!-- /agent-output-economy -->'), 2],
+            [(source) => source.replace(`policy=${ECONOMY_POLICY_SHA256}`, `policy=${'0'.repeat(64)}`), 1],
+            [(source) => `${source}foreign`, 2],
+            [(source) => source.replace('\n<!-- agent-output-economy ', '<!-- agent-output-economy '), 2],
         ];
-        for (const mutate of mutations) {
+        for (const [mutate, expectedExit] of mutations) {
             const f = fixture();
             try {
                 const target = join(f.home, '.codex', 'AGENTS.md');
                 writeFileSync(target, 'prefix');
                 expect(run(['codex', '--yes'], f.context)).toBe(0);
                 writeFileSync(target, mutate(readFileSync(target, 'utf8')));
-                expect(run(['codex', '--check'], f.context)).toBe(2);
+                expect(run(['codex', '--check'], f.context)).toBe(expectedExit);
             } finally {
                 f.cleanup();
             }
         }
     });
 
-    it('covers idempotence, absent removal, payload damage, and default process output', () => {
+    it('covers idempotence, absent removal, and default process output', () => {
         const f = fixture();
         try {
             expect(run(['codex', '--remove'], f.context)).toBe(1);
             expect(run(['codex', '--yes'], f.context)).toBe(0);
             expect(run(['codex', '--yes'], f.context)).toBe(0);
-            const payload = join(f.home, '.agents', 'suspec', 'economy.md');
-            writeFileSync(payload, 'foreign');
-            expect(run(['codex', '--check'], f.context)).toBe(1);
-            writeFileSync(payload, ECONOMY_POLICY);
-            const alias = join(f.home, '.agents', 'suspec', 'economy-alias.md');
-            writeFileSync(alias, readFileSync(payload));
-            rmSync(payload);
-            symlinkSync(alias, payload);
-            expect(run(['codex', '--check'], f.context)).toBe(2);
 
             const previous = process.stderr.write;
             let written = '';
@@ -336,7 +317,7 @@ describe('setup', () => {
         }
     });
 
-    it('never deletes foreign content added to a Suspec-created target', () => {
+    it('never deletes foreign content added to a setup-created target', () => {
         const f = fixture();
         const target = join(f.home, '.codex', 'AGENTS.md');
         try {
