@@ -146,6 +146,10 @@ function emit_usage(message: string, operation: Operation, json: boolean, contex
 function require_home(env: NodeJS.ProcessEnv): string {
     const home = env.HOME;
     if (home === undefined || !isAbsolute(home)) throw new SetupFailure('HOME must be an absolute path');
+    const suppliedStats = lstatSync(home);
+    if (!suppliedStats.isDirectory() || suppliedStats.isSymbolicLink()) {
+        throw new SetupFailure('HOME is not a safe directory');
+    }
     const canonical = realpathSync(home);
     const stats = lstatSync(canonical);
     if (!stats.isDirectory() || stats.isSymbolicLink()) throw new SetupFailure('HOME is not a safe directory');
@@ -165,6 +169,10 @@ function assert_below_home(home: string, path: string, label: string): string {
 function require_directory(home: string, path: string, label: string): string {
     const normalized = assert_below_home(home, path, label);
     if (!existsSync(normalized)) throw new SetupFailure(`${label} does not exist`);
+    const suppliedStats = lstatSync(normalized);
+    if (!suppliedStats.isDirectory() || suppliedStats.isSymbolicLink()) {
+        throw new SetupFailure(`${label} is not a safe directory`);
+    }
     const canonical = realpathSync(normalized);
     assert_below_home(home, canonical, label);
     const stats = lstatSync(canonical);

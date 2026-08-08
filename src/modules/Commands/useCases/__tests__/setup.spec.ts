@@ -215,10 +215,15 @@ describe('setup', () => {
 
     it('rejects unsafe homes, config roots, ownership, and worktrees', () => {
         const f = fixture();
+        const linkedHome = `${f.home}-link`;
         try {
             const fileHome = join(f.home, 'file-home');
             writeFileSync(fileHome, 'x');
             expect(run(['codex', '--check'], { ...f.context, env: { HOME: fileHome } })).toBe(2);
+
+            symlinkSync(f.home, linkedHome);
+            expect(run(['codex', '--check'], { ...f.context, env: { HOME: linkedHome } })).toBe(2);
+            rmSync(linkedHome);
 
             f.context.env.CODEX_HOME = '.codex';
             expect(run(['codex', '--check'], f.context)).toBe(2);
@@ -226,6 +231,11 @@ describe('setup', () => {
             expect(run(['codex', '--check'], f.context)).toBe(2);
             f.context.env.CODEX_HOME = fileHome;
             expect(run(['codex', '--check'], f.context)).toBe(2);
+            const linkedRoot = join(f.home, 'linked-codex');
+            symlinkSync(join(f.home, '.codex'), linkedRoot);
+            f.context.env.CODEX_HOME = linkedRoot;
+            expect(run(['codex', '--check'], f.context)).toBe(2);
+            rmSync(linkedRoot);
             f.context.env.CODEX_HOME = join(f.home, '.codex');
             writeFileSync(join(f.home, '.codex', '.git'), 'gitdir: elsewhere');
             expect(run(['codex', '--check'], f.context)).toBe(2);
@@ -233,6 +243,20 @@ describe('setup', () => {
 
             writeFileSync(join(f.home, '.codex', 'AGENTS.md'), 'foreign');
             expect(run(['codex', '--check'], { ...f.context, uid: (f.context.uid ?? 0) + 1 })).toBe(2);
+        } finally {
+            rmSync(linkedHome, { force: true });
+            f.cleanup();
+        }
+    });
+
+    it('rejects a symlinked shared policy root', () => {
+        const f = fixture();
+        try {
+            const realAgents = join(f.home, 'real-agents');
+            mkdirSync(realAgents);
+            symlinkSync(realAgents, join(f.home, '.agents'));
+            expect(run(['codex', '--yes'], f.context)).toBe(2);
+            expect(() => readFileSync(join(realAgents, 'suspec', 'economy.md'))).toThrow();
         } finally {
             f.cleanup();
         }
