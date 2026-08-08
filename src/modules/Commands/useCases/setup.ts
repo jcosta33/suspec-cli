@@ -309,6 +309,13 @@ function attach_fragment(source: string, body: string, originalExisted: boolean)
     return `${source}${separator}${build_fragment(body, eol, finalNewline, originalExisted)}`;
 }
 
+function same_with_terminal_newline_normalized(source: string, expected: string): boolean {
+    if (source === expected) return true;
+    if (expected.endsWith('\r\n')) return source === expected.slice(0, -2);
+    if (expected.endsWith('\n')) return source === expected.slice(0, -1);
+    return source === `${expected}${line_ending(source)}`;
+}
+
 function parse_owned_span(source: string): OwnedSpan | null {
     const starts = [
         ...source.matchAll(
@@ -355,7 +362,7 @@ function expected_target(
     const original = owned === null ? source : owned.prefix;
     const originalExisted = owned?.originalExisted ?? existed;
     const expected = attach_fragment(original, body, originalExisted);
-    return { current: source === expected, expected, original, originalExisted };
+    return { current: same_with_terminal_newline_normalized(source, expected), expected, original, originalExisted };
 }
 
 function ensure_agents_root(home: string): string {

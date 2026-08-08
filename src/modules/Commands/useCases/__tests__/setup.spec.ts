@@ -115,6 +115,24 @@ describe('setup', () => {
         }
     });
 
+    it('accepts terminal-newline normalization and still restores foreign bytes', () => {
+        for (const original of ['alpha', 'alpha\n']) {
+            const f = fixture();
+            const target = join(f.home, '.codex', 'AGENTS.md');
+            try {
+                writeFileSync(target, original);
+                expect(run(['codex', '--yes'], f.context)).toBe(0);
+                const installed = readFileSync(target, 'utf8');
+                writeFileSync(target, installed.endsWith('\n') ? installed.slice(0, -1) : `${installed}\n`);
+                expect(run(['codex', '--check'], f.context)).toBe(0);
+                expect(run(['codex', '--remove', '--yes'], f.context)).toBe(0);
+                expect(readFileSync(target, 'utf8')).toBe(original);
+            } finally {
+                f.cleanup();
+            }
+        }
+    });
+
     it('blocks drift, symlinks, held locks, and foreign payloads', () => {
         const f = fixture();
         try {
