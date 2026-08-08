@@ -166,8 +166,8 @@ describe('setup', () => {
         const f = fixture();
         try {
             writeFileSync(join(f.home, '.codex', 'AGENTS.override.md'), 'override');
-            expect(run(['codex', '--yes'], f.context)).toBe(0);
-            expect(readFileSync(join(f.home, '.codex', 'AGENTS.override.md'), 'utf8')).toContain('No preamble.');
+            expect(run(['codex', '--yes'], f.context)).toBe(2);
+            expect(readFileSync(join(f.home, '.codex', 'AGENTS.override.md'), 'utf8')).toBe('override');
             expect(() => readFileSync(join(f.home, '.codex', 'AGENTS.md'))).toThrow();
             rmSync(join(f.home, '.codex', 'AGENTS.override.md'));
             writeFileSync(join(f.home, '.codex', 'work.config.toml'), 'model_instructions_file = "x"\n');

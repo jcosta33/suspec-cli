@@ -274,8 +274,10 @@ function resolve_target(
             throw new SetupFailure('model_instructions_file makes future profile selection ambiguous', 'unknown');
         }
         const override = join(root, 'AGENTS.override.md');
-        const path = (optional_source(override, uid) ?? '').trim().length > 0 ? override : join(root, 'AGENTS.md');
-        return { harness, path, body: ECONOMY_POLICY.replace(/\n$/, '') };
+        if ((optional_source(override, uid) ?? '').trim().length > 0) {
+            throw new SetupFailure('non-empty AGENTS.override.md shadows AGENTS.md');
+        }
+        return { harness, path: join(root, 'AGENTS.md'), body: ECONOMY_POLICY.replace(/\n$/, '') };
     }
     if (harness === 'claude-code') {
         const configured = env.CLAUDE_CONFIG_DIR ?? join(home, '.claude');

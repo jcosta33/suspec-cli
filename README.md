@@ -40,7 +40,7 @@ suspec setup codex claude-code opencode --yes
 suspec setup codex claude-code opencode --check
 ```
 
-`setup` accepts only explicit harness names. It resolves each harness's effective native global
+`setup` accepts only explicit harness names. It resolves each harness's normal native global
 instruction file. `--dry-run` previews successfully; `--remove` previews removal; `--remove --yes`
 restores foreign bytes exactly. The policy is an inline neutral marked block. Setup writes only the
 resolved native file.
