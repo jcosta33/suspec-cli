@@ -18,8 +18,13 @@ import { run } from '../setup.ts';
 
 function previous_policy(): string {
     return AGENT_POLICY.replace(
-        'Project systems enforce delivery transitions. Harness permissions isolate worker authority.',
-        'Project systems and harness permissions enforce delivery.'
+        'Speak only to answer the user, request required input, report a blocker or failed verification, or\n' +
+            'hand off the result. No preamble, recap, or narration of reads, searches, tools, completed steps, or\n' +
+            'next steps. Obey mandatory host progress reporting with the shortest meaningful state change.',
+        'No preamble, play-by-play, or recap.\n\n' +
+            'Speak only to answer the user, request required input, report a blocker or failed verification, or\n' +
+            'hand off the result. Do not narrate reads, searches, tool calls, completed steps, or what happens\n' +
+            'next. Obey mandatory host progress reporting with the shortest meaningful state change.'
     );
 }
 
