@@ -208,7 +208,9 @@ function inspect_file(path: string, uid: number | undefined): FileSnapshot {
     if (!existsSync(path)) return { exists: false };
     const before = lstatSync(path);
     assert_safe_stats(path, before, uid);
-    const source = readFileSync(path, 'utf8');
+    const bytes = readFileSync(path);
+    const source = bytes.toString('utf8');
+    if (!Buffer.from(source, 'utf8').equals(bytes)) throw new SetupFailure(`target is not valid UTF-8: ${path}`);
     const after = lstatSync(path);
     assert_safe_stats(path, after, uid);
     if (
@@ -361,6 +363,8 @@ function parse_owned_span(source: string): OwnedSpan | null {
     }
     const body = source.slice(markerEnd + eol.length, bodyEnd);
     if (sha256(body) !== match[3]) throw new SetupFailure('agent policy content drifted', 'drifted');
+    if (sha256(`${body.replace(/\r\n/g, '\n')}\n`) !== match[2])
+        throw new SetupFailure('agent policy bytes do not match its version', 'drifted');
     const policyKey = `${match[1]}:${match[2]}`;
     if (!RECOGNIZED_AGENT_POLICIES.has(policyKey))
         throw new SetupFailure('agent policy version is unrecognized', 'drifted');

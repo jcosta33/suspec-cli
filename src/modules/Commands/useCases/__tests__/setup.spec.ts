@@ -13,8 +13,21 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { AGENT_POLICY, AGENT_POLICY_SHA256 } from '../../../../generated/agentPolicy.ts';
+import { AGENT_POLICY, AGENT_POLICY_SHA256, RECOGNIZED_AGENT_POLICIES } from '../../../../generated/agentPolicy.ts';
 import { run } from '../setup.ts';
+
+function previous_policy(): string {
+    return AGENT_POLICY.replace(
+        'Project systems enforce delivery transitions. Harness permissions isolate worker authority.',
+        'Project systems and harness permissions enforce delivery.'
+    );
+}
+
+function installed_policy(original: string, policy: string, digest: string): string {
+    const body = policy.replace(/\n$/, '');
+    const content = createHash('sha256').update(body).digest('hex');
+    return `${original}\n<!-- agent-policy version=1 policy=${digest} content=${content} origin=existing -->\n${body}\n<!-- /agent-policy -->`;
+}
 
 function fixture() {
     const home = mkdtempSync(join(tmpdir(), 'suspec-setup-'));
@@ -85,7 +98,9 @@ describe('setup', () => {
                 expect(installed).toContain(AGENT_POLICY.trimEnd());
                 expect(installed).toContain('Use project-native delivery controls when present. Never bypass them.');
                 expect(installed).toContain('This routing rule is advisory.');
-                expect(installed).toContain('Project systems and harness permissions enforce delivery.');
+                expect(installed).toContain(
+                    'Project systems enforce delivery transitions. Harness permissions isolate worker authority.'
+                );
                 expect(installed).not.toContain('suspec');
             }
 
@@ -112,6 +127,32 @@ describe('setup', () => {
         }
     });
 
+    it('upgrades and removes a previous canonical policy but rejects forged bytes', () => {
+        const f = fixture();
+        const target = join(f.home, '.codex', 'AGENTS.md');
+        const original = 'original';
+        const previous = previous_policy();
+        const previousDigest = createHash('sha256').update(previous).digest('hex');
+        try {
+            expect(previous).not.toBe(AGENT_POLICY);
+            expect(RECOGNIZED_AGENT_POLICIES.has(`1:${previousDigest}`)).toBe(true);
+            expect(RECOGNIZED_AGENT_POLICIES.has(`1:${AGENT_POLICY_SHA256}`)).toBe(true);
+
+            writeFileSync(target, installed_policy(original, previous, previousDigest));
+            expect(run(['codex', '--yes'], f.context)).toBe(0);
+            expect(readFileSync(target, 'utf8')).toContain(AGENT_POLICY.trimEnd());
+
+            writeFileSync(target, installed_policy(original, previous, previousDigest));
+            expect(run(['codex', '--remove', '--yes'], f.context)).toBe(0);
+            expect(readFileSync(target, 'utf8')).toBe(original);
+
+            writeFileSync(target, installed_policy(original, 'forged\n', previousDigest));
+            expect(run(['codex', '--check'], f.context)).toBe(1);
+        } finally {
+            f.cleanup();
+        }
+    });
+
     it('round-trips CRLF and no-final-newline foreign content', () => {
         const f = fixture();
         const target = join(f.home, '.codex', 'AGENTS.md');
@@ -124,6 +165,19 @@ describe('setup', () => {
             expect(installed.endsWith('-->')).toBe(true);
             expect(run(['codex', '--remove', '--yes'], f.context)).toBe(0);
             expect(readFileSync(target, 'utf8')).toBe(original);
+        } finally {
+            f.cleanup();
+        }
+    });
+
+    it('rejects invalid UTF-8 without changing foreign bytes', () => {
+        const f = fixture();
+        const target = join(f.home, '.codex', 'AGENTS.md');
+        const original = Buffer.from([0x66, 0xff, 0x6f]);
+        try {
+            writeFileSync(target, original);
+            expect(run(['codex', '--yes'], f.context)).toBe(2);
+            expect(readFileSync(target)).toEqual(original);
         } finally {
             f.cleanup();
         }

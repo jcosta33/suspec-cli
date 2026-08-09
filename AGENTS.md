@@ -15,7 +15,9 @@ setup, command contracts, implementation, and tests. Product decisions and machi
 - Keep setup isolated from checking. Explicit targets only. Use normal native instruction files.
   Inline neutral owned blocks. Preview before mutation. Restore foreign bytes exactly. Refuse
   ambiguity or drift.
-- Keep the generated agent policy byte-equal to `policy/agent.md`.
+- Keep the generated agent policy byte-equal to the canon repository's
+  `SUSPEC_CANON/policy/agent.md` and its predecessor set equal to
+  `SUSPEC_CANON/policy/agent-policy-predecessors.txt` plus the current digest.
 
 Architecture, testing, and coding rules live under [`docs/`](docs/) and
 [`.agents/repo-conventions.md`](.agents/repo-conventions.md).
