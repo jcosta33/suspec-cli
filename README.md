@@ -32,18 +32,18 @@ A task check always requires its ready source through `--spec`; several tasks ma
 companion. A review always requires `--spec`. `--task` is required exactly when review frontmatter
 names a task. Reviews run alone.
 
-Install the global economy policy only after reviewing the preview:
+Install the global agent policy only after reviewing the preview:
 
 ```bash
-suspec setup codex claude-code opencode
-suspec setup codex claude-code opencode --yes
-suspec setup codex claude-code opencode --check
+suspec setup codex claude-code kimi-code zcode opencode
+suspec setup codex claude-code kimi-code zcode opencode --yes
+suspec setup codex claude-code kimi-code zcode opencode --check
 ```
 
 `setup` accepts only explicit harness names. It resolves each harness's normal native global
 instruction file. `--dry-run` previews successfully; `--remove` previews removal; `--remove --yes`
-restores foreign bytes exactly. The policy is an inline neutral marked block. Setup writes only the
-resolved native file.
+restores foreign bytes exactly. One neutral inline block governs interaction economy, durable finding
+placement, and lean-ctx/RTK routing. Setup writes only the resolved native file.
 
 ## Inputs
 

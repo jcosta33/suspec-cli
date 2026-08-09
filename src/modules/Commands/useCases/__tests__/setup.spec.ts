@@ -13,13 +13,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { ECONOMY_POLICY, ECONOMY_POLICY_SHA256 } from '../../../../generated/economyPolicy.ts';
+import { AGENT_POLICY, AGENT_POLICY_SHA256 } from '../../../../generated/agentPolicy.ts';
 import { run } from '../setup.ts';
 
 function fixture() {
     const home = mkdtempSync(join(tmpdir(), 'suspec-setup-'));
     mkdirSync(join(home, '.codex'));
     mkdirSync(join(home, '.claude'));
+    mkdirSync(join(home, '.kimi-code'));
+    mkdirSync(join(home, '.zcode'));
     mkdirSync(join(home, '.config', 'opencode'), { recursive: true });
     const stdout: string[] = [];
     const stderr: string[] = [];
@@ -58,7 +60,7 @@ describe('setup', () => {
         const f = fixture();
         try {
             expect(run(['codex'], f.context)).toBe(1);
-            expect(run(['codex', 'claude-code', 'opencode', '--dry-run'], f.context)).toBe(0);
+            expect(run(['codex', 'claude-code', 'kimi-code', 'zcode', 'opencode', '--dry-run'], f.context)).toBe(0);
             expect(() => lstatSync(join(f.home, '.agents'))).toThrow();
             expect(() => readFileSync(join(f.home, '.codex', 'AGENTS.md'))).toThrow();
         } finally {
@@ -69,20 +71,23 @@ describe('setup', () => {
     it('installs, checks, and removes all harnesses in input order', () => {
         const f = fixture();
         try {
-            expect(run(['claude-code', 'codex', 'opencode', '--yes'], f.context)).toBe(0);
+            const harnesses = ['claude-code', 'codex', 'kimi-code', 'zcode', 'opencode'];
+            expect(run([...harnesses, '--yes'], f.context)).toBe(0);
             expect(() => lstatSync(join(f.home, '.agents'))).toThrow();
             for (const path of [
                 join(f.home, '.claude', 'CLAUDE.md'),
                 join(f.home, '.codex', 'AGENTS.md'),
+                join(f.home, '.kimi-code', 'AGENTS.md'),
+                join(f.home, '.zcode', 'AGENTS.md'),
                 join(f.home, '.config', 'opencode', 'AGENTS.md'),
             ]) {
                 const installed = readFileSync(path, 'utf8');
-                expect(installed).toContain(ECONOMY_POLICY.trimEnd());
+                expect(installed).toContain(AGENT_POLICY.trimEnd());
                 expect(installed).not.toContain('suspec');
             }
 
             f.stdout.length = 0;
-            expect(run(['claude-code', 'codex', 'opencode', '--check', '--json'], f.context)).toBe(0);
+            expect(run([...harnesses, '--check', '--json'], f.context)).toBe(0);
             const envelope = JSON.parse(f.stdout.join('')) as {
                 version: string;
                 ok: boolean;
@@ -90,14 +95,14 @@ describe('setup', () => {
             };
             expect(envelope.version).toBe('2');
             expect(envelope.ok).toBe(true);
-            expect(envelope.targets.map((target) => target.harness)).toEqual(['claude-code', 'codex', 'opencode']);
+            expect(envelope.targets.map((target) => target.harness)).toEqual(harnesses);
             expect(envelope.targets.every((target) => target.state === 'current')).toBe(true);
             expect(envelope.targets.every((target) => target.paths.length === 1)).toBe(true);
             expect(envelope.targets.flatMap((target) => target.paths).join('\n')).not.toContain('.agents');
 
             f.stdout.length = 0;
-            expect(run(['claude-code', 'codex', 'opencode', '--remove'], f.context)).toBe(1);
-            expect(run(['claude-code', 'codex', 'opencode', '--remove', '--yes'], f.context)).toBe(0);
+            expect(run([...harnesses, '--remove'], f.context)).toBe(1);
+            expect(run([...harnesses, '--remove', '--yes'], f.context)).toBe(0);
             expect(() => readFileSync(join(f.home, '.codex', 'AGENTS.md'))).toThrow();
         } finally {
             f.cleanup();
@@ -144,7 +149,7 @@ describe('setup', () => {
         try {
             expect(run(['codex', '--yes'], f.context)).toBe(0);
             const target = join(f.home, '.codex', 'AGENTS.md');
-            writeFileSync(target, readFileSync(target, 'utf8').replace('No preamble.', 'Changed.'));
+            writeFileSync(target, readFileSync(target, 'utf8').replace('No preamble,', 'Changed,'));
             expect(run(['codex', '--check'], f.context)).toBe(1);
 
             rmSync(target, { force: true });
@@ -154,9 +159,9 @@ describe('setup', () => {
             expect(run(['codex', '--check'], f.context)).toBe(2);
             rmSync(target);
 
-            writeFileSync(join(f.home, '.agent-output-economy.lock'), 'held');
+            writeFileSync(join(f.home, '.agent-policy.lock'), 'held');
             expect(run(['codex', '--yes'], f.context)).toBe(2);
-            rmSync(join(f.home, '.agent-output-economy.lock'));
+            rmSync(join(f.home, '.agent-policy.lock'));
         } finally {
             f.cleanup();
         }
@@ -212,7 +217,7 @@ describe('setup', () => {
             chmodSync(target, 0o640);
             expect(run(['codex', '--yes'], f.context)).toBe(0);
             expect((lstatSync(target).mode & 0o777).toString(8)).toBe('640');
-            expect(createHash('sha256').update(ECONOMY_POLICY).digest('hex')).toBe(ECONOMY_POLICY_SHA256);
+            expect(createHash('sha256').update(AGENT_POLICY).digest('hex')).toBe(AGENT_POLICY_SHA256);
         } finally {
             f.cleanup();
         }
@@ -239,6 +244,9 @@ describe('setup', () => {
             f.context.env.CLAUDE_CONFIG_DIR = fileHome;
             expect(run(['claude-code', '--check'], f.context)).toBe(2);
             delete f.context.env.CLAUDE_CONFIG_DIR;
+            f.context.env.KIMI_CODE_HOME = fileHome;
+            expect(run(['kimi-code', '--check'], f.context)).toBe(2);
+            delete f.context.env.KIMI_CODE_HOME;
             const linkedRoot = join(f.home, 'linked-codex');
             symlinkSync(join(f.home, '.codex'), linkedRoot);
             f.context.env.CODEX_HOME = linkedRoot;
@@ -260,11 +268,11 @@ describe('setup', () => {
     it('rejects every malformed owned-block boundary', () => {
         const mutations: [(source: string) => string, number][] = [
             [(source) => `${source}${source}`, 2],
-            [(source) => source.replace(' -->\nNo preamble.', ' -->No preamble.'), 2],
-            [(source) => source.replace('\n<!-- /agent-output-economy -->', '<!-- /agent-output-economy -->'), 2],
-            [(source) => source.replace(`policy=${ECONOMY_POLICY_SHA256}`, `policy=${'0'.repeat(64)}`), 1],
+            [(source) => source.replace(' -->\n# Interaction', ' --># Interaction'), 2],
+            [(source) => source.replace('\n<!-- /agent-policy -->', '<!-- /agent-policy -->'), 2],
+            [(source) => source.replace(`policy=${AGENT_POLICY_SHA256}`, `policy=${'0'.repeat(64)}`), 1],
             [(source) => `${source}foreign`, 2],
-            [(source) => source.replace('\n<!-- agent-output-economy ', '<!-- agent-output-economy '), 2],
+            [(source) => source.replace('\n<!-- agent-policy ', '<!-- agent-policy '), 2],
         ];
         for (const [mutate, expectedExit] of mutations) {
             const f = fixture();

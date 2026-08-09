@@ -11,7 +11,7 @@ bin/suspec.js
        -> Core
             -> Sol
        -> filesystem
-       -> generated economy policy
+       -> generated agent policy
 ```
 
 ## Ownership
@@ -52,7 +52,7 @@ files.
 ## Setup filesystem
 
 `setup` accepts explicit harness identifiers. It resolves documented user-level roots, refuses
-ambiguous configuration, and owns one canonical policy plus marked harness blocks. Install and
+ambiguous configuration, and owns one canonical agent policy plus marked harness blocks. Install and
 removal require `--yes`; preview, dry-run, and check do not write. Writes use a Suspec lock,
 same-directory temporary file, fsync, stable-byte checks, and atomic rename. Drift blocks mutation.
 

@@ -24,9 +24,9 @@ pnpm deps:validate
 - Terminal: option parsing.
 - Unix outcome helpers: stdout, stderr, and exit mapping.
 
-Artifact checks accept explicit paths and write nothing. Setup writes only its canonical user policy
-and marked harness blocks after `--yes`. The CLI owns no project state, artifact store, agent loop, or
-review judgment. Scope creep gets no module.
+Artifact checks accept explicit paths and write nothing. Setup writes only its canonical agent policy
+and marked native blocks after `--yes`. The CLI owns no project state, artifact store, agent loop,
+third-party runtime, or review judgment. Scope creep gets no module.
 
 ## TypeScript
 

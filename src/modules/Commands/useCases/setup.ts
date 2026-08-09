@@ -18,11 +18,11 @@ import type { Stats } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import {
-    ECONOMY_POLICY,
-    ECONOMY_POLICY_SHA256,
-    ECONOMY_POLICY_VERSION,
-    RECOGNIZED_ECONOMY_POLICIES,
-} from '../../../generated/economyPolicy.ts';
+    AGENT_POLICY,
+    AGENT_POLICY_SHA256,
+    AGENT_POLICY_VERSION,
+    RECOGNIZED_AGENT_POLICIES,
+} from '../../../generated/agentPolicy.ts';
 import { parse_flags } from '../../Terminal/useCases/index.ts';
 
 export const SETUP_FLAG_SPEC = {
@@ -30,7 +30,7 @@ export const SETUP_FLAG_SPEC = {
     strings: [],
 } as const;
 
-const HARNESSES = ['codex', 'claude-code', 'opencode'] as const;
+const HARNESSES = ['codex', 'claude-code', 'kimi-code', 'zcode', 'opencode'] as const;
 type Harness = (typeof HARNESSES)[number];
 type State = 'current' | 'changed' | 'missing' | 'drifted' | 'blocked' | 'unknown';
 type Operation = 'check' | 'install' | 'remove' | 'dry-run';
@@ -92,8 +92,8 @@ class SetupFailure extends Error {
     }
 }
 
-const START_PREFIX = '<!-- agent-output-economy ';
-const END_MARKER = '<!-- /agent-output-economy -->';
+const START_PREFIX = '<!-- agent-policy ';
+const END_MARKER = '<!-- /agent-policy -->';
 
 function sha256(value: string): string {
     return createHash('sha256').update(value).digest('hex');
@@ -277,12 +277,21 @@ function resolve_target(
         if ((optional_source(override, uid) ?? '').trim().length > 0) {
             throw new SetupFailure('non-empty AGENTS.override.md shadows AGENTS.md');
         }
-        return { harness, path: join(root, 'AGENTS.md'), body: ECONOMY_POLICY.replace(/\n$/, '') };
+        return { harness, path: join(root, 'AGENTS.md'), body: AGENT_POLICY.replace(/\n$/, '') };
     }
     if (harness === 'claude-code') {
         const configured = env.CLAUDE_CONFIG_DIR ?? join(home, '.claude');
         const root = require_directory(home, configured, 'CLAUDE_CONFIG_DIR');
-        return { harness, path: join(root, 'CLAUDE.md'), body: ECONOMY_POLICY.replace(/\n$/, '') };
+        return { harness, path: join(root, 'CLAUDE.md'), body: AGENT_POLICY.replace(/\n$/, '') };
+    }
+    if (harness === 'kimi-code') {
+        const configured = env.KIMI_CODE_HOME ?? join(home, '.kimi-code');
+        const root = require_directory(home, configured, 'KIMI_CODE_HOME');
+        return { harness, path: join(root, 'AGENTS.md'), body: AGENT_POLICY.replace(/\n$/, '') };
+    }
+    if (harness === 'zcode') {
+        const root = require_directory(home, join(home, '.zcode'), 'ZCode config directory');
+        return { harness, path: join(root, 'AGENTS.md'), body: AGENT_POLICY.replace(/\n$/, '') };
     }
     for (const name of ['OPENCODE_CONFIG_DIR', 'XDG_CONFIG_HOME', 'OPENCODE_CONFIG', 'OPENCODE_CONFIG_CONTENT']) {
         if (env[name] !== undefined) throw new SetupFailure(`${name} is unsupported; OpenCode target is ambiguous`);
@@ -297,7 +306,7 @@ function resolve_target(
     return {
         harness,
         path: join(root, 'AGENTS.md'),
-        body: ECONOMY_POLICY.replace(/\n$/, ''),
+        body: AGENT_POLICY.replace(/\n$/, ''),
         note: 'project-local rules are unassessed',
     };
 }
@@ -310,7 +319,7 @@ function build_fragment(body: string, eol: string, finalNewline: boolean, origin
     const normalizedBody = body.replace(/\r?\n/g, eol);
     const contentHash = sha256(normalizedBody);
     const origin = originalExisted ? 'existing' : 'missing';
-    const start = `${START_PREFIX}version=${ECONOMY_POLICY_VERSION} policy=${ECONOMY_POLICY_SHA256} content=${contentHash} origin=${origin} -->`;
+    const start = `${START_PREFIX}version=${AGENT_POLICY_VERSION} policy=${AGENT_POLICY_SHA256} content=${contentHash} origin=${origin} -->`;
     const terminal = finalNewline ? eol : '';
     return `${start}${eol}${normalizedBody}${eol}${END_MARKER}${terminal}`;
 }
@@ -332,32 +341,32 @@ function same_with_terminal_newline_normalized(source: string, expected: string)
 function parse_owned_span(source: string): OwnedSpan | null {
     const starts = [
         ...source.matchAll(
-            /<!-- agent-output-economy version=(\d+) policy=([a-f0-9]{64}) content=([a-f0-9]{64}) origin=(missing|existing) -->/g
+            /<!-- agent-policy version=(\d+) policy=([a-f0-9]{64}) content=([a-f0-9]{64}) origin=(missing|existing) -->/g
         ),
     ];
     const endCount = source.split(END_MARKER).length - 1;
     if (starts.length === 0 && endCount === 0) return null;
-    if (starts.length !== 1 || endCount !== 1) throw new SetupFailure('malformed or duplicated economy marker');
+    if (starts.length !== 1 || endCount !== 1) throw new SetupFailure('malformed or duplicated agent policy marker');
     const match = starts[0];
     const markerStart = match.index ?? 0;
     const markerEnd = markerStart + match[0].length;
     let eol: string | null = null;
     if (source.startsWith('\r\n', markerEnd)) eol = '\r\n';
     else if (source.startsWith('\n', markerEnd)) eol = '\n';
-    if (eol === null) throw new SetupFailure('economy marker has no body separator');
+    if (eol === null) throw new SetupFailure('agent policy marker has no body separator');
     const endMarkerAt = source.indexOf(END_MARKER, markerEnd + eol.length);
     const bodyEnd = endMarkerAt - eol.length;
     if (bodyEnd < markerEnd || source.slice(bodyEnd, endMarkerAt) !== eol) {
-        throw new SetupFailure('economy marker has malformed closing separator');
+        throw new SetupFailure('agent policy marker has malformed closing separator');
     }
     const body = source.slice(markerEnd + eol.length, bodyEnd);
-    if (sha256(body) !== match[3]) throw new SetupFailure('economy block content drifted', 'drifted');
+    if (sha256(body) !== match[3]) throw new SetupFailure('agent policy content drifted', 'drifted');
     const policyKey = `${match[1]}:${match[2]}`;
-    if (!RECOGNIZED_ECONOMY_POLICIES.has(policyKey))
-        throw new SetupFailure('economy block version is unrecognized', 'drifted');
+    if (!RECOGNIZED_AGENT_POLICIES.has(policyKey))
+        throw new SetupFailure('agent policy version is unrecognized', 'drifted');
     let end = endMarkerAt + END_MARKER.length;
     if (source.startsWith(eol, end)) end += eol.length;
-    if (end !== source.length) throw new SetupFailure('economy block must remain at the end of the file');
+    if (end !== source.length) throw new SetupFailure('agent policy must remain at the end of the file');
     let start = markerStart;
     if (markerStart > 0) {
         if (source.slice(markerStart - 2, markerStart) === '\r\n') start -= 2;
@@ -389,7 +398,7 @@ function atomic_write(path: string, content: string, uid: number | undefined, ex
     if (!same_snapshot(inspect_file(path, uid), expected))
         throw new SetupFailure(`target changed before write: ${path}`);
     const mode = expected.exists ? expected.mode & 0o777 : 0o600;
-    const temp = join(dirname(path), `.${randomBytes(8).toString('hex')}.agent-output-economy.tmp`);
+    const temp = join(dirname(path), `.${randomBytes(8).toString('hex')}.agent-policy.tmp`);
     const descriptor = openSync(temp, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, mode);
     try {
         writeFileSync(descriptor, content, 'utf8');
@@ -423,7 +432,7 @@ function unlink_unchanged(path: string, uid: number | undefined, expected: FileS
 }
 
 function with_lock<T>(home: string, action: () => T): T {
-    const lock = join(home, '.agent-output-economy.lock');
+    const lock = join(home, '.agent-policy.lock');
     let descriptor: number;
     try {
         descriptor = openSync(lock, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, 0o600);

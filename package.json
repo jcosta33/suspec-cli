@@ -38,8 +38,8 @@
     "scripts": {
         "build": "esbuild src/index.ts --bundle --platform=node --format=esm --packages=external --target=node22 --outfile=dist/index.js",
         "prepack": "pnpm run build",
-        "policy:generate": "node scripts/generate-economy-policy.mjs",
-        "policy:check": "node scripts/generate-economy-policy.mjs --check",
+        "policy:generate": "node scripts/generate-agent-policy.mjs",
+        "policy:check": "node scripts/generate-agent-policy.mjs --check",
         "test": "vitest",
         "test:run": "vitest run",
         "coverage": "vitest run --coverage",

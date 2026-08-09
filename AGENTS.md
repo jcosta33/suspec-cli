@@ -15,7 +15,7 @@ setup, command contracts, implementation, and tests. Product decisions and machi
 - Keep setup isolated from checking. Explicit targets only. Use normal native instruction files.
   Inline neutral owned blocks. Preview before mutation. Restore foreign bytes exactly. Refuse
   ambiguity or drift.
-- Keep the generated economy policy byte-equal to `policy/economy.md`.
+- Keep the generated agent policy byte-equal to `policy/agent.md`.
 
 Architecture, testing, and coding rules live under [`docs/`](docs/) and
 [`.agents/repo-conventions.md`](.agents/repo-conventions.md).

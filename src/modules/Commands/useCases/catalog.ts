@@ -27,11 +27,11 @@ export const COMMAND_CATALOG = [
     },
     {
         name: 'setup',
-        description: 'Install, inspect, or remove the user-level economy policy',
+        description: 'Install, inspect, or remove the user-level agent policy',
         usage: [
-            'suspec setup <codex|claude-code|opencode>... [--dry-run] [--yes]',
-            'suspec setup <codex|claude-code|opencode>... --check',
-            'suspec setup <codex|claude-code|opencode>... --remove [--yes]',
+            'suspec setup <codex|claude-code|kimi-code|zcode|opencode>... [--dry-run] [--yes]',
+            'suspec setup <codex|claude-code|kimi-code|zcode|opencode>... --check',
+            'suspec setup <codex|claude-code|kimi-code|zcode|opencode>... --remove [--yes]',
             '  --dry-run                preview installation without writing',
             '  --check                  inspect installation without writing',
             '  --remove                 preview removal; --yes applies it',
