@@ -83,6 +83,9 @@ describe('setup', () => {
             ]) {
                 const installed = readFileSync(path, 'utf8');
                 expect(installed).toContain(AGENT_POLICY.trimEnd());
+                expect(installed).toContain('Use project-native delivery controls when present. Never bypass them.');
+                expect(installed).toContain('This routing rule is advisory.');
+                expect(installed).toContain('Project systems and harness permissions enforce delivery.');
                 expect(installed).not.toContain('suspec');
             }
 

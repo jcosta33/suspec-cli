@@ -43,7 +43,8 @@ suspec setup codex claude-code kimi-code zcode opencode --check
 `setup` accepts only explicit harness names. It resolves each harness's normal native global
 instruction file. `--dry-run` previews successfully; `--remove` previews removal; `--remove --yes`
 restores foreign bytes exactly. One neutral inline block governs interaction economy, durable finding
-placement, and lean-ctx/RTK routing. Setup writes only the resolved native file.
+placement, lean-ctx/RTK routing, and advisory routing through project-native delivery controls. Setup
+writes only the resolved native file.
 
 ## Inputs
 
