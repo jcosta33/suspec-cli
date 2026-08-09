@@ -1,0 +1,49 @@
+src/modules/Commands/useCases/__tests__/setup.spec.ts
+  s_0a3429e31e555d::t_32287f7d147ba6 152,271
+  s_0a3429e31e555d::t_953109574996cd 16,23-24,63,74-75,80-81,85,90,98,104-105,162,164,220,247-249,272-273,275
+AGENTS.md
+  s_0a3429e31e555d::t_7a9869f9c1a0fe 18
+docs/06-testing.md
+  s_0a3429e31e555d::t_3eee1c2804a898 21-22
+.agents/repo-conventions.md
+  s_0a3429e31e555d::t_3eee1c2804a898 27-29
+scripts/generate-agent-policy.mjs
+  s_0a3429e31e555d::t_7a9869f9c1a0fe 13-14,19,21,28-31,34,40
+src/modules/Commands/useCases/setup.ts
+  s_0a3429e31e555d::t_7a9869f9c1a0fe 21-25,33,95-96,280,285-294,309,322,344,349,356,360,363,365-366,369,401,435
+docs/05-architecture.md
+  s_0a3429e31e555d::t_97867c6c606ac8 14
+  s_0a3429e31e555d::t_3eee1c2804a898 55
+README.md
+  s_0a3429e31e555d::t_3eee1c2804a898 35,38-40,45-46
+src/modules/Commands/useCases/catalog.ts
+  s_0a3429e31e555d::t_3eee1c2804a898 30,32-34
+package.json
+  s_0a3429e31e555d::t_7a9869f9c1a0fe 41-42
+src/generated/agentPolicy.ts
+  s_14f2bbc9f385dd::t_e34c0ba2bdca76 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "fdf644d5bfadd4437280b1b2a35a111feb277bb6",
+  "prompts": {},
+  "sessions": {
+    "s_0a3429e31e555d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f1568-8dda-7540-97a5-9da760eadac4",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "José Costa <j.costa.3394@gmail.com>"
+    },
+    "s_14f2bbc9f385dd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f9a61a1d-66b3-4146-938d-a04f45f4b060",
+        "model": "claude-opus-5"
+      },
+      "human_author": "José Costa <j.costa.3394@gmail.com>"
+    }
+  }
+}
