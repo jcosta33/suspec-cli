@@ -102,6 +102,9 @@ describe('severity_of', () => {
         expect(severity_of('C026')).toBe('hard-error');
         expect(severity_of('C027')).toBe('hard-error');
         expect(severity_of('C028')).toBe('hard-error');
+        expect(severity_of('C029')).toBe('hard-error');
+        expect(severity_of('C030')).toBe('hard-error');
+        expect(severity_of('C031')).toBe('hard-error');
     });
 });
 
@@ -991,7 +994,7 @@ describe('drift guard against the sibling suspec/checks/checks.yaml', () => {
         const canonIds = [...coreChecksBlock.matchAll(/\bid:\s*(C\d+)/g)].map((m) => m[1]);
         expect([...canonIds].sort()).toEqual(CORE_CHECKS.map((c) => c.id).sort());
         for (const contractLine of [
-            'checked: [spec, task, review, change-plan]',
+            'checked: [spec, task, review, change-plan, campaign]',
             'recognized_unchecked: [inventory, audit, research]',
             'missing_type: hard-error',
             'unknown_type: hard-error',

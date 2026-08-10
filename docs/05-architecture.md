@@ -44,6 +44,7 @@ predicates for:
 - spec-relative sources;
 - spec-named citation files;
 - contract-defined sibling spec references.
+- campaign-relative ledger and source references.
 
 Explicit means explicit. No runtime code discovers a project root, configuration, or store. Canon
 discovery is test-only through `SUSPEC_CANON`, conventional sibling location, or identifying sibling

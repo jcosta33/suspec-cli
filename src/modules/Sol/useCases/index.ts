@@ -4,3 +4,4 @@
 export { parse_spec_record } from './parseSpecRecord.ts';
 export { parse_task_packet } from './parseTaskPacket.ts';
 export { parse_change_plan } from './parseChangePlan.ts';
+export { parse_campaign } from './parseCampaign.ts';

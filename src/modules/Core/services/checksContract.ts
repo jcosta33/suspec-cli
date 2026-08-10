@@ -14,7 +14,7 @@ import type { OutcomeLevel } from '../useCases/unixOutcome.ts';
 import { scan_markdown, strip_inline_code, visible_text } from '../../../infra/markdownScan.ts';
 
 // Pinned to suspec/checks/checks.yaml `version:`; the drift-guard test fails if the sibling diverges.
-export const CONTRACT_VERSION = '0.23.0';
+export const CONTRACT_VERSION = '0.24.0';
 
 export type CheckSeverity = 'hard-error' | 'warning';
 
@@ -23,7 +23,7 @@ export type CheckId =
     | 'C001' | 'C002' | 'C003' | 'C004'
     | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C012' | 'C013' | 'C015'
     | 'C016' | 'C019' | 'C020' | 'C021' | 'C022' | 'C023' | 'C024' | 'C025'
-    | 'C026' | 'C027' | 'C028';
+    | 'C026' | 'C027' | 'C028' | 'C029' | 'C030' | 'C031';
 
 // Severity per check, the single source inside suspec-cli; a total Record so the lookup needs no
 // fallback. The drift guard reconciles it against suspec/checks/checks.yaml.
@@ -57,6 +57,9 @@ const SEVERITY_BY_ID: Record<CheckId, CheckSeverity> = {
     C026: 'hard-error',
     C027: 'hard-error',
     C028: 'hard-error',
+    C029: 'hard-error',
+    C030: 'hard-error',
+    C031: 'hard-error',
 };
 
 export function severity_of(id: CheckId): CheckSeverity {
@@ -88,6 +91,9 @@ export const CORE_CHECKS: readonly { id: CheckId; name: string; severity: CheckS
     { id: 'C026', name: 'evidence-receipt-resolves', severity: severity_of('C026') },
     { id: 'C027', name: 'review-spec-ref', severity: severity_of('C027') },
     { id: 'C028', name: 'requirement-shape', severity: severity_of('C028') },
+    { id: 'C029', name: 'campaign-shape', severity: severity_of('C029') },
+    { id: 'C030', name: 'campaign-authority', severity: severity_of('C030') },
+    { id: 'C031', name: 'campaign-ready', severity: severity_of('C031') },
 ];
 
 // --- C020 unresolvable-ref (ADR-0128, re-scoped by ADR-0143) --------------------------------------
@@ -501,6 +507,97 @@ export function check_closed_task_resolved(task: TaskCheckRecord): Diagnostic[] 
     });
     return UNRESOLVED_MARKER_PATTERN.test(task.resolutionText) || unresolvedNamedBlocker
         ? [diagnostic('C024', 'closed task contains an unresolved blocking decision', null)]
+        : [];
+}
+
+export type CampaignCheckRecord = Readonly<{
+    frontmatter: Readonly<{
+        type: string | null;
+        id: string | null;
+        status: string | null;
+        ledger: string | null;
+        sources: readonly string[];
+    }>;
+    sectionTitles: readonly string[];
+    sectionBodies: Readonly<Record<string, string>>;
+    bodyText: string;
+    taskListLines: readonly number[];
+}>;
+
+const CAMPAIGN_REQUIRED_SECTIONS = [
+    'Objective',
+    'Completion contract',
+    'Authorities',
+    'Operating loop',
+    'Stops',
+] as const;
+
+// --- C029 campaign-shape ------------------------------------------------------------------------
+export function check_campaign_shape(campaign: CampaignCheckRecord): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    const { frontmatter } = campaign;
+    if (frontmatter.type !== 'campaign') {
+        diagnostics.push(diagnostic('C029', 'campaign must declare `type: campaign`', null));
+    }
+    if (frontmatter.id === null || frontmatter.id.trim().length === 0) {
+        diagnostics.push(diagnostic('C029', 'campaign must declare a non-empty `id:`', null));
+    }
+    if (frontmatter.status !== 'draft' && frontmatter.status !== 'ready') {
+        diagnostics.push(diagnostic('C029', 'campaign `status:` must be `draft` or `ready`', null));
+    }
+    if (frontmatter.ledger === null || frontmatter.ledger.trim().length === 0) {
+        diagnostics.push(diagnostic('C029', 'campaign must declare a non-empty `ledger:`', null));
+    }
+    if (frontmatter.sources.length === 0 || frontmatter.sources.some((source) => source.trim().length === 0)) {
+        diagnostics.push(diagnostic('C029', 'campaign must declare a non-empty `sources:` list', null));
+    }
+    for (const title of CAMPAIGN_REQUIRED_SECTIONS) {
+        const count = campaign.sectionTitles.filter((candidate) => candidate === title).length;
+        if (count !== 1) {
+            diagnostics.push(diagnostic('C029', `campaign must contain exactly one \`## ${title}\` section`, null));
+        } else if ((campaign.sectionBodies[title] ?? '').trim().length === 0) {
+            diagnostics.push(diagnostic('C029', `campaign \`## ${title}\` section must not be empty`, null));
+        }
+    }
+    return diagnostics;
+}
+
+// --- C030 campaign-authority --------------------------------------------------------------------
+export function check_campaign_authority(
+    campaign: CampaignCheckRecord,
+    exists: (ref: string) => boolean
+): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    const refs = [campaign.frontmatter.ledger, ...campaign.frontmatter.sources].filter(
+        (ref): ref is string => ref !== null && ref.trim().length > 0
+    );
+    for (const ref of refs) {
+        if (is_path_ref(ref) && !exists(ref)) {
+            diagnostics.push(diagnostic('C030', `campaign authority does not resolve artifact-relative: ${ref}`, null));
+        }
+    }
+    for (const line of campaign.taskListLines) {
+        diagnostics.push(
+            diagnostic('C030', 'campaign duplicates mutable ledger state in a Markdown task-list checkbox', line)
+        );
+    }
+    return diagnostics;
+}
+
+// --- C031 campaign-ready ------------------------------------------------------------------------
+export function check_campaign_ready(campaign: CampaignCheckRecord): Diagnostic[] {
+    if (campaign.frontmatter.status !== 'ready') return [];
+    const unresolvedNamedBlocker = campaign.bodyText.split(/\r\n|[\r\n]/).some((line) => {
+        const match =
+            /^[ \t>]*(?:[*+-]|\d+\.)[ \t]+(?:Blocking|Open question \(blocking\)|Blocked questions):[ \t]*(.*)$/i.exec(
+                line
+            );
+        if (match === null) return false;
+        const value = match[1].trim().toLowerCase();
+        return value.length > 0 && value !== 'none' && value !== 'n/a';
+    });
+    return UNRESOLVED_MARKER_PATTERN.test(campaign.bodyText) || unresolvedNamedBlocker
+        ? [diagnostic('C031', 'ready campaign contains an unresolved blocking decision', null)]
         : [];
 }
 

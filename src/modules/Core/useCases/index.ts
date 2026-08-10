@@ -6,13 +6,13 @@
 // The contract util
 export { project, emit_error, usage_error } from './unixOutcome.ts';
 
-// check engine: single-spec checks, review-packet reconcile (C012/C013/C016/C020), change-plan
-// checks (C010/C011), the file-set checks (C002), and the injected-predicate builders (all
-// artifact-relative).
+// check engine: single-spec checks, review-packet reconcile, change-plan checks, campaign checks,
+// file-set checks, and injected-predicate builders. Reference resolution stays artifact-relative.
 export { check_spec } from './checkSpec.ts';
 export { check_review_file } from './checkReviewFile.ts';
 export { check_task } from './checkTask.ts';
 export { check_change_plan } from './checkChangePlan.ts';
+export { check_campaign } from './checkCampaign.ts';
 export { check_artifact_set } from './checkArtifactSet.ts';
 export { build_spec_ref_resolver } from './resolveSpecRef.ts';
 export { build_anchor_resolver } from './buildAnchorResolver.ts';

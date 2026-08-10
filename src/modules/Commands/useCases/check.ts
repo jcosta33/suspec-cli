@@ -3,7 +3,7 @@
 // `suspec check` — the whole command surface (ADR-0143). Primary artifacts and review companions
 // are explicit; deterministic reference checks may read local paths they name. Nothing resolves a
 // store, config, repo root, or workspace tree.
-//   suspec check <artifact> [<artifact>...]                    spec / change-plan (exit = max)
+//   suspec check <artifact> [<artifact>...]                    spec / change-plan / campaign (exit = max)
 //   suspec check <task-path> [<task-path>...] --spec <path>    bind tasks to one ready source spec
 //   suspec check <review-path> --spec <path> [--task <path>]   reconcile a review packet
 //   suspec check --contract                                    the checks contract as JSON
@@ -18,6 +18,7 @@ import {
     check_task,
     check_review_file,
     check_change_plan,
+    check_campaign,
     check_artifact_set,
     build_spec_ref_resolver,
     build_anchor_resolver,
@@ -59,7 +60,16 @@ const nodeFileSystem: CheckFileSystem = {
     read: (path) => readFileSync(path, 'utf8'),
 };
 
-const RECOGNIZED_TYPES = new Set(['spec', 'task', 'review', 'inventory', 'change-plan', 'audit', 'research']);
+const RECOGNIZED_TYPES = new Set([
+    'spec',
+    'task',
+    'review',
+    'inventory',
+    'change-plan',
+    'audit',
+    'research',
+    'campaign',
+]);
 
 export const CHECK_FLAG_SPEC = {
     booleans: ['--json', '--contract'],
@@ -439,6 +449,9 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
                 format_check_report
             );
         }
+        if (type === 'campaign') {
+            return capture_result(check_campaign(source, file, build_source_exists(file)), format_check_report);
+        }
         if (type === 'task') {
             const taskFace = check_task(source, file);
             if (!taskFace.ok || taskFace.value.level === 'blocking') {
@@ -459,7 +472,7 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
             return capture_result(
                 ok({ level: 'clean' as const, path: file, type, checked: false }),
                 () =>
-                    `${file} — no checks for type ${type} (check faces: spec, task, review, change-plan); nothing to validate`
+                    `${file} — no checks for type ${type} (check faces: spec, task, review, change-plan, campaign); nothing to validate`
             );
         }
         // C009 resolves a source ref artifact-relative (against the spec's own directory, ADR-0143

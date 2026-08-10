@@ -52,13 +52,14 @@ Paths may be absolute or current-working-directory-relative. Use absolute paths 
 
 Frontmatter `type:` selects behavior. The filename gets no vote:
 
-| Type                             | Result                                     |
-| -------------------------------- | ------------------------------------------ |
-| `spec`                           | spec checks                                |
-| `task`                           | shape, evidence, and closure checks        |
-| `change-plan`                    | preservation and wave checks               |
-| `review`                         | reconciliation against explicit companions |
-| `inventory`, `audit`, `research` | recognized with `checked: false`           |
+| Type                             | Result                                      |
+| -------------------------------- | ------------------------------------------- |
+| `spec`                           | spec checks                                 |
+| `task`                           | shape, evidence, and closure checks         |
+| `change-plan`                    | preservation and wave checks                |
+| `campaign`                       | goal shape, authority, and readiness checks |
+| `review`                         | reconciliation against explicit companions  |
+| `inventory`, `audit`, `research` | recognized with `checked: false`            |
 
 Missing, empty, misspelled, and unknown types block.
 
@@ -75,6 +76,7 @@ store.
 - Spec source paths resolve from the spec directory.
 - Spec citations resolve against its named `sources.md`.
 - Change-plan preservation references use the contract's bounded sibling-spec rule.
+- Campaign ledger and source paths resolve from the campaign directory.
 - Review evidence receipts resolve only from local relative Markdown links. URI links are ignored;
   absolute receipt paths fail C026.
 

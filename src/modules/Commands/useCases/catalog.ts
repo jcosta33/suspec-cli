@@ -9,7 +9,7 @@ export const COMMAND_CATALOG = [
         description: 'Validate Suspec artifacts by explicit frontmatter type',
         usage: [
             'suspec check <artifact> [<artifact>...]',
-            '  <artifact>                a spec or change-plan file (type read from frontmatter);',
+            '  <artifact>                a spec, change-plan, or campaign file (type read from frontmatter);',
             '                            several files run in one process — exit = the max across files',
             'suspec check <task-path> [<task-path>...] --spec <spec-path>',
             '  <task-path>               task packet bound to the explicit ready source spec',

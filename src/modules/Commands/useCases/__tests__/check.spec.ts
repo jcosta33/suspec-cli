@@ -145,6 +145,36 @@ preserves: [${ref}]
 `;
 }
 
+const CAMPAIGN = `---
+type: campaign
+id: CAMPAIGN-x
+status: ready
+ledger: https://example.test/issues/1
+sources:
+  - https://example.test/spec.md
+---
+
+## Objective
+
+Finish the delivery.
+
+## Completion contract
+
+Current main satisfies every governing obligation.
+
+## Authorities
+
+The named sources and ledger govern.
+
+## Operating loop
+
+Read, reconcile, select, execute, verify, record, and repeat.
+
+## Stops
+
+Stop at completion or a named human decision.
+`;
+
 let dir: string;
 beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'suspec-check-cmd-'));
@@ -427,6 +457,13 @@ describe('check command — spec checking (frontmatter-sniffed)', () => {
         const { code, out } = capture(() => run([file, '--json']));
         expect(code).toBe(0);
         expect(JSON.parse(out)).toMatchObject({ type: 'spec', level: 'clean', diagnostics: [] });
+    });
+
+    it('dispatches campaign artifacts to their deterministic check face', () => {
+        const file = write('campaign.md', CAMPAIGN);
+        const { code, out } = capture(() => run([file, '--json']));
+        expect(code).toBe(0);
+        expect(JSON.parse(out)).toMatchObject({ type: 'campaign', level: 'clean', diagnostics: [] });
     });
 
     it('C009 resolves artifact-relative: a ref beside the spec resolves; a root-style ref does not', () => {
