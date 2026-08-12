@@ -1,0 +1,19 @@
+src/modules/Commands/useCases/__tests__/setup.spec.ts
+  s_0a3429e31e555d::t_0df710c747865a 21-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "db256e3e6322c78d3808e796304ecd5d936b3393",
+  "prompts": {},
+  "sessions": {
+    "s_0a3429e31e555d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f1568-8dda-7540-97a5-9da760eadac4",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "José Costa <j.costa.3394@gmail.com>"
+    }
+  }
+}
