@@ -16,13 +16,10 @@ import { describe, expect, it } from 'vitest';
 import { AGENT_POLICY, AGENT_POLICY_SHA256, RECOGNIZED_AGENT_POLICIES } from '../../../../generated/agentPolicy.ts';
 import { run } from '../setup.ts';
 
+// Byte-exact retired policy. Its digest must stay in the predecessor manifest, so replace this
+// fixture only with another retired policy — never by editing the current one.
 function previous_policy(): string {
-    return AGENT_POLICY.replace(
-        '\nDo not repeat a read, search, command, test, or review unless relevant state changed, the previous\n' +
-            'attempt failed, or independent repetition is required. Stop when the requested result exists and\n' +
-            'proportionate verification passes.\n',
-        ''
-    );
+    return readFileSync(new URL('fixtures/agent-policy-previous.md', import.meta.url), 'utf8');
 }
 
 function installed_policy(original: string, policy: string, digest: string): string {
@@ -98,11 +95,6 @@ describe('setup', () => {
             ]) {
                 const installed = readFileSync(path, 'utf8');
                 expect(installed).toContain(AGENT_POLICY.trimEnd());
-                expect(installed).toContain('Use project-native delivery controls when present. Never bypass them.');
-                expect(installed).toContain('This routing rule is advisory.');
-                expect(installed).toContain(
-                    'Project systems enforce delivery transitions. Harness permissions isolate worker authority.'
-                );
                 expect(installed).not.toContain('suspec');
             }
 
@@ -208,7 +200,7 @@ describe('setup', () => {
         try {
             expect(run(['codex', '--yes'], f.context)).toBe(0);
             const target = join(f.home, '.codex', 'AGENTS.md');
-            writeFileSync(target, readFileSync(target, 'utf8').replace('No preamble,', 'Changed,'));
+            writeFileSync(target, readFileSync(target, 'utf8').replace(AGENT_POLICY.trimEnd(), 'Changed.'));
             expect(run(['codex', '--check'], f.context)).toBe(1);
 
             rmSync(target, { force: true });
