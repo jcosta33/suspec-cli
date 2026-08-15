@@ -482,7 +482,7 @@ describe('check command — spec checking (frontmatter-sniffed)', () => {
         expect(out).toContain('C009');
     });
 
-    it.each(['inventory', 'audit', 'research'])(
+    it.each(['inventory', 'audit', 'research', 'panel'])(
         'a type: %s file gets a clean "no checks for type" note (exit 0), never spec checker errors',
         (artifactType) => {
             const file = write(`a-${artifactType}.md`, `---\ntype: ${artifactType}\nid: X-001\n---\n\n# body\n`);

@@ -3,7 +3,7 @@
 // `suspec check` — the whole command surface (ADR-0143). Primary artifacts and review companions
 // are explicit; deterministic reference checks may read local paths they name. Nothing resolves a
 // store, config, repo root, or workspace tree.
-//   suspec check <artifact> [<artifact>...]                    spec / change-plan / campaign (exit = max)
+//   suspec check <artifact> [<artifact>...]                    explicit frontmatter type (exit = max)
 //   suspec check <task-path> [<task-path>...] --spec <path>    bind tasks to one ready source spec
 //   suspec check <review-path> --spec <path> [--task <path>]   reconcile a review packet
 //   suspec check --contract                                    the checks contract as JSON
@@ -69,6 +69,7 @@ const RECOGNIZED_TYPES = new Set([
     'audit',
     'research',
     'campaign',
+    'panel',
 ]);
 
 export const CHECK_FLAG_SPEC = {

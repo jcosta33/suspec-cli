@@ -52,14 +52,14 @@ Paths may be absolute or current-working-directory-relative. Use absolute paths 
 
 Frontmatter `type:` selects behavior. The filename gets no vote:
 
-| Type                             | Result                                      |
-| -------------------------------- | ------------------------------------------- |
-| `spec`                           | spec checks                                 |
-| `task`                           | shape, evidence, and closure checks         |
-| `change-plan`                    | preservation and wave checks                |
-| `campaign`                       | goal shape, authority, and readiness checks |
-| `review`                         | reconciliation against explicit companions  |
-| `inventory`, `audit`, `research` | recognized with `checked: false`            |
+| Type                                      | Result                                      |
+| ----------------------------------------- | ------------------------------------------- |
+| `spec`                                    | spec checks                                 |
+| `task`                                    | shape, evidence, and closure checks         |
+| `change-plan`                             | preservation and wave checks                |
+| `campaign`                                | goal shape, authority, and readiness checks |
+| `review`                                  | reconciliation against explicit companions  |
+| `inventory`, `audit`, `research`, `panel` | recognized with `checked: false`            |
 
 Missing, empty, misspelled, and unknown types block.
 
