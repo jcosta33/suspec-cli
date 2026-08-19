@@ -1,0 +1,55 @@
+AGENTS.md
+  s_487e9aa1e46063::t_303f167446ae85 9
+README.md
+  s_487e9aa1e46063::t_1a4348c8860032 31,98
+docs/05-architecture.md
+  s_487e9aa1e46063::t_cad6ea0f0f5d2f 41
+src/__tests__/index.spec.ts
+  s_487e9aa1e46063::t_1f46354694a868 141
+src/infra/markdownScan.ts
+  s_8598c794e118cb::t_ada5c25f81b3e1 2,72
+src/modules/Commands/useCases/__tests__/check.spec.ts
+  s_487e9aa1e46063::t_e3c55feece7656 223-237,248,264,266,268,271,275,287-289,291,295-296,332,337,341,345,389-392,394-395,463-469,498-499,502,518-522,533,535-538,561-568
+src/modules/Commands/useCases/catalog.ts
+  s_487e9aa1e46063::t_e1a8c290dd5467 4,16
+src/modules/Commands/useCases/check.ts
+  s_487e9aa1e46063::t_272502e63f8a31 3,12,73,145,158,269,279-280,313,319,359,369
+src/modules/Core/__tests__/checksContract.spec.ts
+  s_487e9aa1e46063::t_c8e715a6ab872f 597,605-606,608,611-613
+src/modules/Core/services/checksContract.ts
+  s_487e9aa1e46063::t_aa235ea46345fb 17,24-26
+src/modules/Core/useCases/__tests__/checkCampaign.spec.ts
+  s_487e9aa1e46063::t_9f38110be3ce0d 51-59
+src/modules/Core/useCases/__tests__/contractDump.spec.ts
+  s_487e9aa1e46063::t_d778a8d4f1b1a8 24,26,29-33
+src/modules/Core/useCases/index.ts
+  s_487e9aa1e46063::t_da0013c8432b3e 9
+src/modules/Sol/__tests__/parseTaskPacket.spec.ts
+  s_487e9aa1e46063::t_141f5567cff674 76-113
+src/modules/Sol/useCases/parseSpecRecord.ts
+  s_487e9aa1e46063::t_b85db00dac5bc8 25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "33c36a42e5792e0852c1c41eccaffd56841f205e",
+  "prompts": {},
+  "sessions": {
+    "s_487e9aa1e46063": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "49b45b91-028d-462c-b146-db1559561123",
+        "model": "claude-fable-5"
+      },
+      "human_author": "José Costa <j.costa.3394@gmail.com>"
+    },
+    "s_8598c794e118cb": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "15ca1455-5482-4084-88d1-8dd47611278d",
+        "model": "grok-4.6"
+      },
+      "human_author": "José Costa <j.costa.3394@gmail.com>"
+    }
+  }
+}
