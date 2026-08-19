@@ -18,16 +18,7 @@ import {
     check_broken_source_link,
     check_citation_resolves,
     check_malformed_requirement_heading,
-    check_coverage,
-    coverage_facts,
-    check_verify_binding,
-    verify_binding_facts,
-    check_supported_evidence,
     check_spec_shape,
-    check_evidence_receipt_resolves,
-    supported_rows_missing_evidence,
-    normalize_cmd,
-    type VerifyBindingInput,
     check_preserves_refs_resolve,
     check_waves_present,
     run_spec_checks,
@@ -88,19 +79,13 @@ describe('severity_of', () => {
         expect(severity_of('C009')).toBe('hard-error');
         expect(severity_of('C010')).toBe('hard-error');
         expect(severity_of('C011')).toBe('warning');
-        expect(severity_of('C012')).toBe('warning');
-        expect(severity_of('C013')).toBe('warning');
         expect(severity_of('C015')).toBe('warning');
-        expect(severity_of('C016')).toBe('hard-error'); // an empty-Evidence Supported blocks
         expect(severity_of('C019')).toBe('warning');
-        expect(severity_of('C020')).toBe('hard-error'); // a review tied to nothing blocks (ADR-0128)
         expect(severity_of('C021')).toBe('hard-error');
         expect(severity_of('C022')).toBe('hard-error');
         expect(severity_of('C023')).toBe('hard-error');
         expect(severity_of('C024')).toBe('hard-error');
         expect(severity_of('C025')).toBe('hard-error');
-        expect(severity_of('C026')).toBe('hard-error');
-        expect(severity_of('C027')).toBe('hard-error');
         expect(severity_of('C028')).toBe('hard-error');
         expect(severity_of('C029')).toBe('hard-error');
         expect(severity_of('C030')).toBe('hard-error');
@@ -124,46 +109,6 @@ describe('C025 spec-shape', () => {
 
     it('accepts the minimal valid spec shape', () => {
         expect(check_spec_shape(spec())).toEqual([]);
-    });
-});
-
-describe('C026 evidence-receipt-resolves', () => {
-    it('blocks only receipt links the resolver rejects', () => {
-        const diagnostics = check_evidence_receipt_resolves(
-            [
-                { raw: './evidence-ok.md', anchor: 'E-001' },
-                { raw: './evidence-missing.md', anchor: 'E-002' },
-            ],
-            (raw) => raw.endsWith('evidence-ok.md')
-        );
-        expect(codes(diagnostics)).toEqual(['C026']);
-        expect(diagnostics[0].message).toContain('./evidence-missing.md#E-002');
-    });
-});
-
-describe('C016 supported-needs-evidence (ADR-0097)', () => {
-    const rows = [
-        { id: 'AC-001', assessment: 'Supported', evidence: '' }, // empty Evidence on a Supported → C016
-        { id: 'AC-002', assessment: 'Supported', evidence: 'pasted output' }, // backed → no finding
-        { id: 'AC-003', assessment: 'Unverified', evidence: '' }, // empty but not Supported → no finding
-        { id: 'AC-004', assessment: 'Supported', evidence: '   ' }, // whitespace-only → still empty → C016
-    ];
-
-    it('reports the Supported rows whose Evidence is empty (or whitespace-only), and only those', () => {
-        expect(supported_rows_missing_evidence(rows)).toEqual(['AC-001', 'AC-004']);
-    });
-
-    it('emits a C016 hard-error diagnostic per empty-evidence Supported row', () => {
-        const diagnostics = check_supported_evidence(rows);
-        expect(diagnostics.map((d) => d.code)).toEqual(['C016', 'C016']);
-        expect(diagnostics.every((d) => d.severity === 'hard-error')).toBe(true);
-        expect(diagnostics[0].message).toContain('AC-001');
-    });
-
-    it('a fully-filled coverage table yields no C016 (0-FP)', () => {
-        expect(check_supported_evidence([{ id: 'AC-001', assessment: 'Supported', evidence: 'a CI link' }])).toEqual(
-            []
-        );
     });
 });
 
@@ -225,351 +170,6 @@ describe('C019 malformed-requirement-heading', () => {
             exists: () => true,
         });
         expect(diagnostics.filter((d) => d.code === 'C019')).toHaveLength(1);
-    });
-});
-
-describe('C012 coverage (ADR-0079)', () => {
-    it('flags an in-scope id with no coverage row as uncovered', () => {
-        const diagnostics = check_coverage({
-            sourceSpecStatus: 'ready',
-            inScopeIds: ['AC-001', 'AC-002', 'AC-003'],
-            specRequirementIds: ['AC-001', 'AC-002', 'AC-003'],
-            coverageRowIds: ['AC-001'],
-        });
-        expect(codes(diagnostics)).toEqual(['C012', 'C012']);
-        expect(diagnostics.map((d) => d.message)).toEqual([
-            'requirement AC-002 is in scope but has no coverage row (uncovered)',
-            'requirement AC-003 is in scope but has no coverage row (uncovered)',
-        ]);
-        expect(diagnostics.every((d) => d.severity === 'warning')).toBe(true);
-    });
-
-    it('flags a coverage row whose id is absent from the source spec as orphan', () => {
-        const diagnostics = check_coverage({
-            sourceSpecStatus: 'ready',
-            inScopeIds: ['AC-001'],
-            specRequirementIds: ['AC-001'],
-            coverageRowIds: ['AC-001', 'AC-009'],
-        });
-        expect(codes(diagnostics)).toEqual(['C012']);
-        expect(diagnostics[0].message).toBe('coverage row AC-009 names an id absent from the source spec (orphan)');
-    });
-
-    it('surfaces both faces together: uncovered + orphan', () => {
-        const diagnostics = check_coverage({
-            sourceSpecStatus: 'ready',
-            inScopeIds: ['AC-001', 'AC-002'],
-            specRequirementIds: ['AC-001', 'AC-002'],
-            coverageRowIds: ['AC-001', 'AC-009'],
-        });
-        expect(diagnostics.map((d) => d.message)).toEqual([
-            'requirement AC-002 is in scope but has no coverage row (uncovered)',
-            'coverage row AC-009 names an id absent from the source spec (orphan)',
-        ]);
-    });
-
-    it('is exempt on a draft source spec (the scope guard)', () => {
-        expect(
-            check_coverage({
-                sourceSpecStatus: 'draft',
-                inScopeIds: ['AC-001', 'AC-002'],
-                specRequirementIds: ['AC-001'],
-                coverageRowIds: [],
-            })
-        ).toEqual([]);
-    });
-
-    it('a packet covering exactly the in-scope ids yields no finding', () => {
-        expect(
-            check_coverage({
-                sourceSpecStatus: 'ready',
-                inScopeIds: ['AC-001', 'AC-002'],
-                specRequirementIds: ['AC-001', 'AC-002', 'AC-003'],
-                coverageRowIds: ['AC-001', 'AC-002'],
-            })
-        ).toEqual([]);
-    });
-
-    it('reports a repeated orphan id only once', () => {
-        const diagnostics = check_coverage({
-            sourceSpecStatus: 'ready',
-            inScopeIds: [],
-            specRequirementIds: ['AC-001'],
-            coverageRowIds: ['AC-009', 'AC-009'],
-        });
-        expect(codes(diagnostics)).toEqual(['C012']);
-    });
-});
-
-describe('normalize_cmd (ADR-0083)', () => {
-    const bare = 'npm test -- auth-refresh.spec.ts';
-    it('reduces the canon Verify-with forms (backtick-wrapped, trailing note, extra whitespace) to the same bare command', () => {
-        expect(normalize_cmd(`\`${bare}\``)).toBe(bare);
-        expect(normalize_cmd(`\`${bare}\` (the refresh path)`)).toBe(bare);
-        expect(normalize_cmd('npm test  --  auth-refresh.spec.ts')).toBe(bare);
-        expect(normalize_cmd(bare)).toBe(bare);
-    });
-    it('keeps genuinely different commands distinct', () => {
-        expect(normalize_cmd('`npm test -- a`')).not.toBe(normalize_cmd('`npm test -- b`'));
-    });
-    it('strips a trailing em/en-dash note clause but never an ASCII `--` flag', () => {
-        // The em-dash note form (`cmd` — note) must reduce to the same bare command as the parenthetical
-        // form, so switching note delimiters does not flip every coverage row to a C013 cmd-mismatch...
-        expect(normalize_cmd(`\`${bare}\` — the refresh path`)).toBe(bare);
-        expect(normalize_cmd(`\`${bare}\` – en-dash note`)).toBe(bare);
-        // ...while a real `--` flag (ASCII double hyphen) is NEVER treated as a note and is preserved.
-        expect(normalize_cmd('`npm test -- auth-refresh.spec.ts`')).toBe(bare);
-    });
-});
-
-describe('C013 verify-evidence-binding (ADR-0083, AC-005)', () => {
-    const base = (over: Partial<VerifyBindingInput> = {}): VerifyBindingInput => ({
-        sourceSpecStatus: 'ready',
-        namedCommandById: new Map([['AC-001', 'npm test -- auth-refresh.spec.ts']]),
-        coverageRows: [{ id: 'AC-001', assessment: 'Supported' }],
-        verifyBlocks: [],
-        ...over,
-    });
-
-    it('a matching block (cmd == named command, result=pass) yields no finding', () => {
-        expect(
-            verify_binding_facts(
-                base({
-                    verifyBlocks: [
-                        { id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'pass', malformed: false },
-                    ],
-                })
-            )
-        ).toEqual([]);
-    });
-
-    it('matches a cmd by closed-value, exact after whitespace-collapse (not prose)', () => {
-        expect(
-            verify_binding_facts(
-                base({
-                    // extra internal whitespace collapses to the same closed value → still consistent
-                    verifyBlocks: [
-                        { id: 'AC-001', cmd: 'npm  test   --  auth-refresh.spec.ts', result: 'pass', malformed: false },
-                    ],
-                })
-            )
-        ).toEqual([]);
-    });
-
-    it('a backtick-wrapped named command matches a bare block', () => {
-        expect(
-            verify_binding_facts(
-                base({
-                    namedCommandById: new Map([['AC-001', '`npm test -- auth-refresh.spec.ts`']]),
-                    verifyBlocks: [
-                        { id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'pass', malformed: false },
-                    ],
-                })
-            )
-        ).toEqual([]);
-    });
-
-    it('a named command with a trailing parenthetical note matches a bare block', () => {
-        expect(
-            verify_binding_facts(
-                base({
-                    namedCommandById: new Map([['AC-001', '`npm test -- auth-refresh.spec.ts` (the refresh path)']]),
-                    verifyBlocks: [
-                        { id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'pass', malformed: false },
-                    ],
-                })
-            )
-        ).toEqual([]);
-    });
-
-    it('a cmd that disagrees with the named command → a cmd-mismatch fact', () => {
-        const facts = verify_binding_facts(
-            base({
-                verifyBlocks: [{ id: 'AC-001', cmd: 'npm test -- other.spec.ts', result: 'pass', malformed: false }],
-            })
-        );
-        // The reconcile face (verify_binding_facts) is unchanged — a plain fact, no severity, advisory.
-        expect(facts).toEqual([{ id: 'AC-001', kind: 'cmd-mismatch' }]);
-        // The gate wrapper (check_verify_binding) promotes a cmd-mismatch to hard-error (#95, ADR-0129).
-        expect(
-            check_verify_binding(
-                base({
-                    verifyBlocks: [
-                        { id: 'AC-001', cmd: 'npm test -- other.spec.ts', result: 'pass', malformed: false },
-                    ],
-                })
-            )
-        ).toEqual([
-            {
-                code: 'C013',
-                severity: 'hard-error',
-                message:
-                    "coverage row AC-001's verify block records a cmd that does not match the requirement's named Verify command",
-                line: null,
-            },
-        ]);
-    });
-
-    it('a result=fail under a Supported row → a result-fail fact, rendered at warning with its own message', () => {
-        expect(
-            verify_binding_facts(
-                base({
-                    verifyBlocks: [
-                        { id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'fail', malformed: false },
-                    ],
-                })
-            )
-        ).toEqual([{ id: 'AC-001', kind: 'result-fail' }]);
-        // The gate wrapper keeps result-fail advisory (warning) — only cmd-mismatch escalates.
-        expect(
-            check_verify_binding(
-                base({
-                    verifyBlocks: [
-                        { id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'fail', malformed: false },
-                    ],
-                })
-            )
-        ).toEqual([
-            {
-                code: 'C013',
-                severity: 'warning',
-                message: 'coverage row AC-001 is Supported but its verify block records result=fail',
-                line: null,
-            },
-        ]);
-    });
-
-    it('a result=fail never hides a command mismatch', () => {
-        const input = base({
-            verifyBlocks: [{ id: 'AC-001', cmd: 'npm test -- wrong.spec.ts', result: 'fail', malformed: false }],
-        });
-        expect(verify_binding_facts(input)).toEqual([
-            { id: 'AC-001', kind: 'result-fail' },
-            { id: 'AC-001', kind: 'cmd-mismatch' },
-        ]);
-        expect(check_verify_binding(input).map((diagnostic) => diagnostic.severity)).toEqual(['warning', 'hard-error']);
-    });
-
-    it('a malformed block under a Supported row → a malformed fact', () => {
-        expect(
-            verify_binding_facts(base({ verifyBlocks: [{ id: 'AC-001', cmd: null, result: 'pass', malformed: true }] }))
-        ).toEqual([{ id: 'AC-001', kind: 'malformed' }]);
-    });
-
-    it('a keyed malformed block on a NON-Supported row is still surfaced, not dropped (#32, AC-004)', () => {
-        expect(
-            verify_binding_facts(
-                base({
-                    coverageRows: [{ id: 'AC-001', assessment: 'Unsupported' }],
-                    verifyBlocks: [{ id: 'AC-001', cmd: null, result: null, malformed: true }],
-                })
-            )
-        ).toEqual([{ id: 'AC-001', kind: 'malformed' }]);
-    });
-
-    it('a keyed block without a coverage row is surfaced as an orphan', () => {
-        expect(
-            verify_binding_facts(
-                base({
-                    coverageRows: [{ id: 'AC-001', assessment: 'Unverified' }],
-                    verifyBlocks: [{ id: 'AC-099', cmd: 'npm test', result: 'pass', malformed: false }],
-                })
-            )
-        ).toEqual([{ id: 'AC-099', kind: 'orphan' }]);
-    });
-
-    it('an unkeyed (id-less) malformed block is surfaced on its own', () => {
-        expect(
-            verify_binding_facts(base({ verifyBlocks: [{ id: null, cmd: 'x', result: 'pass', malformed: true }] }))
-        ).toEqual([
-            { id: '(unkeyed)', kind: 'malformed' },
-            // the Supported row still has no block → free-form-only
-            { id: 'AC-001', kind: 'free-form-only' },
-        ]);
-    });
-
-    it('more than one block keyed to the same id → a duplicate fact', () => {
-        const facts = verify_binding_facts(
-            base({
-                verifyBlocks: [
-                    { id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'pass', malformed: false },
-                    { id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'pass', malformed: false },
-                ],
-            })
-        );
-        expect(facts.some((f) => f.kind === 'duplicate' && f.id === 'AC-001')).toBe(true);
-    });
-
-    it('the gate wrapper renders the duplicate and malformed kinds at warning severity with their own messages', () => {
-        // Two blocks keyed to AC-001, the second malformed: one duplicate fact + one malformed fact;
-        // the first block backs the Supported row consistently, so nothing else fires. Pins the
-        // verify_binding_message branches the cmd-mismatch case above never reaches.
-        const diagnostics = check_verify_binding(
-            base({
-                verifyBlocks: [
-                    { id: 'AC-001', cmd: 'npm test -- auth-refresh.spec.ts', result: 'pass', malformed: false },
-                    { id: 'AC-001', cmd: null, result: null, malformed: true },
-                ],
-            })
-        );
-        expect(diagnostics).toEqual([
-            {
-                code: 'C013',
-                severity: 'warning',
-                message: 'requirement AC-001 carries more than one verify block',
-                line: null,
-            },
-            {
-                code: 'C013',
-                severity: 'warning',
-                message:
-                    'coverage row AC-001 carries a malformed verify block (its info-string did not parse to id / cmd / result)',
-                line: null,
-            },
-        ]);
-    });
-
-    it('a Supported row with no verify block (free-form cell only) → a free-form-only warning', () => {
-        expect(verify_binding_facts(base({ verifyBlocks: [] }))).toEqual([{ id: 'AC-001', kind: 'free-form-only' }]);
-        // The gate wrapper renders it advisory, spelling out how to silence it (R5-I11).
-        expect(check_verify_binding(base({ verifyBlocks: [] }))).toEqual([
-            {
-                code: 'C013',
-                severity: 'warning',
-                message:
-                    'coverage row AC-001 is Supported with only a free-form Evidence cell (advisory — add a `verify` block to machine-confirm, or leave as-is to route to a human)',
-                line: null,
-            },
-        ]);
-    });
-
-    it('a non-Supported row is not subject to the free-form-only warning', () => {
-        expect(
-            verify_binding_facts(base({ coverageRows: [{ id: 'AC-001', assessment: 'Unverified' }], verifyBlocks: [] }))
-        ).toEqual([]);
-    });
-
-    it('a draft source spec is exempt (the scope guard) — no C013 at all', () => {
-        expect(
-            verify_binding_facts(
-                base({
-                    sourceSpecStatus: 'draft',
-                    coverageRows: [{ id: 'AC-001', assessment: 'Supported' }],
-                    verifyBlocks: [{ id: 'AC-001', cmd: 'wrong', result: 'fail', malformed: false }],
-                })
-            )
-        ).toEqual([]);
-    });
-
-    it('a Supported row whose requirement names no command cannot match a recorded cmd → cmd-mismatch', () => {
-        expect(
-            verify_binding_facts(
-                base({
-                    namedCommandById: new Map([['AC-001', null]]),
-                    verifyBlocks: [{ id: 'AC-001', cmd: 'a test', result: 'pass', malformed: false }],
-                })
-            )
-        ).toEqual([{ id: 'AC-001', kind: 'cmd-mismatch' }]);
     });
 });
 
@@ -994,42 +594,25 @@ describe('drift guard against the sibling suspec/checks/checks.yaml', () => {
         const canonIds = [...coreChecksBlock.matchAll(/\bid:\s*(C\d+)/g)].map((m) => m[1]);
         expect([...canonIds].sort()).toEqual(CORE_CHECKS.map((c) => c.id).sort());
         for (const contractLine of [
-            'checked: [spec, task, review, change-plan, campaign]',
+            'checked: [spec, task, change-plan, campaign]',
             'recognized_unchecked: [inventory, audit, research, panel]',
             'missing_type: hard-error',
             'unknown_type: hard-error',
             'status_enum: [draft, ready]',
             'status_enum: [ready, running, review-ready, closed]',
-            'source_spec_status: ready',
-            'decision_enum: [pending, accepted, changes-requested, deferred]',
-            'sections: [Requirement coverage, Change-plan coverage]',
-            'columns: [ID, Assessment, Evidence]',
-            'delimiter_row: required-immediately-after-header',
-            'rows: contiguous',
-            'assessment_enum: [Supported, Unsupported, Unverified, Blocked]',
             '^(all )?(tests?|checks?) (pass(ed)?|succeeded)\\.?$',
             'C005 and C006 are RESERVED',
+            'C012 is RESERVED',
+            'C013 is RESERVED',
             'C014 is RESERVED',
+            'C016 is RESERVED',
             'C017 is RESERVED',
             'C018 is RESERVED',
+            'C020 is RESERVED',
+            'C026 is RESERVED',
+            'C027 is RESERVED',
         ]) {
             expect(text).toContain(contractLine);
         }
-    });
-});
-
-describe('coverage_facts — uncovered dedup (#32)', () => {
-    it('a scope list naming the same in-scope id twice surfaces one uncovered finding', () => {
-        expect(
-            coverage_facts({
-                sourceSpecStatus: 'ready',
-                inScopeIds: ['AC-001', 'AC-001', 'AC-002'],
-                specRequirementIds: ['AC-002'],
-                coverageRowIds: [],
-            })
-        ).toEqual([
-            { id: 'AC-001', kind: 'uncovered' },
-            { id: 'AC-002', kind: 'uncovered' },
-        ]);
     });
 });

@@ -1,22 +1,19 @@
 #!/usr/bin/env node
 
-// `suspec check` — the whole command surface (ADR-0143). Primary artifacts and review companions
+// `suspec check` — the whole command surface (ADR-0143). Primary artifacts and task companions
 // are explicit; deterministic reference checks may read local paths they name. Nothing resolves a
 // store, config, repo root, or workspace tree.
 //   suspec check <artifact> [<artifact>...]                    explicit frontmatter type (exit = max)
 //   suspec check <task-path> [<task-path>...] --spec <path>    bind tasks to one ready source spec
-//   suspec check <review-path> --spec <path> [--task <path>]   reconcile a review packet
 //   suspec check --contract                                    the checks contract as JSON
 // Direct output + exit codes flow through the shared unixOutcome contract.
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { dirname, isAbsolute, resolve } from 'node:path';
-import { scan_markdown, strip_inline_code } from '../../../infra/markdownScan.ts';
+import { isAbsolute, resolve } from 'node:path';
 
 import {
     check_spec,
     check_task,
-    check_review_file,
     check_change_plan,
     check_campaign,
     check_artifact_set,
@@ -63,7 +60,6 @@ const nodeFileSystem: CheckFileSystem = {
 const RECOGNIZED_TYPES = new Set([
     'spec',
     'task',
-    'review',
     'inventory',
     'change-plan',
     'audit',
@@ -74,33 +70,11 @@ const RECOGNIZED_TYPES = new Set([
 
 export const CHECK_FLAG_SPEC = {
     booleans: ['--json', '--contract'],
-    strings: ['--spec', '--task'],
+    strings: ['--spec'],
 } as const;
 
 function caught_message(caught: unknown): string {
     return caught instanceof Error ? caught.message : String(caught);
-}
-
-function build_evidence_ref_resolver(
-    fileSystem: CheckFileSystem,
-    reviewPath: string
-): (raw: string, anchor: string) => boolean {
-    return (raw, anchor) => {
-        if (isAbsolute(raw) || /^[A-Za-z]:[\\/]/.test(raw) || raw.startsWith('\\')) return false;
-        const target = resolve(dirname(reviewPath), raw);
-        try {
-            if (!fileSystem.exists(target) || fileSystem.isDirectory(target)) return false;
-            const source = fileSystem.read(target);
-            const visibleSource = scan_markdown(source.split(/\r?\n/))
-                .filter((line) => !line.inFence)
-                .map((line) => strip_inline_code(line.text))
-                .join('\n');
-            const escaped = anchor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            return new RegExp(`<[aA]\\b[^>]*?\\s+[iI][dD]\\s*=\\s*["']${escaped}["'](?=[\\s/>])`).test(visibleSource);
-        } catch {
-            return false;
-        }
-    };
 }
 
 function load_artifact_source(fileSystem: CheckFileSystem, path: string, flag?: string) {
@@ -155,9 +129,7 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
     const { positional, flags, unknown, errors } = parse_flags(argv, CHECK_FLAG_SPEC);
     const json = flags.get('json') === true;
     const specFlag = flags.get('spec');
-    const taskFlag = flags.get('task');
     const specPath = typeof specFlag === 'string' ? resolve_argument(specFlag) : undefined;
-    const taskPath = typeof taskFlag === 'string' ? resolve_argument(taskFlag) : undefined;
 
     if (errors.length > 0) {
         return emit_error(usage_error(errors.join('; ')), json);
@@ -170,7 +142,7 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
     // companions. `--json` is accepted here too; it changes nothing because the dump is already
     // JSON.
     if (flags.get('contract') === true) {
-        if (positional.length > 0 || specPath !== undefined || taskPath !== undefined) {
+        if (positional.length > 0 || specPath !== undefined) {
             return emit_error(
                 usage_error('--contract takes no artifacts or companions — usage: suspec check --contract'),
                 json
@@ -183,7 +155,7 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
     if (positional.length === 0) {
         return emit_error(
             usage_error(
-                'no artifact named — usage: suspec check <artifact> [<artifact>...] | suspec check <review-path> --spec <spec-path> [--task <task-path>]'
+                'no artifact named — usage: suspec check <artifact> [<artifact>...] | suspec check <task-path> [<task-path>...] --spec <spec-path>'
             ),
             json
         );
@@ -294,18 +266,8 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
         return status;
     }
 
-    // The invocation-shape rules. A review is checked alone. Tasks may batch only against one
-    // explicit source spec.
-    const hasReview = loaded.some((artifact) => artifact.type === 'review');
+    // The invocation-shape rules. Tasks may batch only against one explicit source spec.
     const hasTask = loaded.some((artifact) => artifact.type === 'task');
-    if (hasReview && paths.length > 1) {
-        return emit_error(
-            usage_error(
-                'a review packet is checked alone — usage: suspec check <review-path> --spec <spec-path> [--task <task-path>]'
-            ),
-            json
-        );
-    }
     if (hasTask && loaded.some((artifact) => artifact.type !== 'task')) {
         return emit_error(
             usage_error(
@@ -314,14 +276,8 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
             json
         );
     }
-    if (!hasReview && taskPath !== undefined) {
-        return emit_error(
-            usage_error('--task accompanies one review packet — the named artifacts carry no review'),
-            json
-        );
-    }
-    if (!hasReview && !hasTask && specPath !== undefined) {
-        return emit_error(usage_error('--spec accompanies task paths or one review packet'), json);
+    if (!hasTask && specPath !== undefined) {
+        return emit_error(usage_error('--spec accompanies task paths'), json);
     }
     if (hasTask && specPath === undefined) {
         return emit_error(
@@ -354,81 +310,18 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
         if (parsedSpec.value.frontmatter.status !== 'ready') {
             return emit_error(
                 usage_error(
-                    `--spec companion must have \`status: ready\`; received ${parsedSpec.value.frontmatter.status ?? 'no status'}`
+                    `--spec companion must have \`status: ready\`; received ${parsedSpec.value.frontmatter.status}`
                 ),
                 json
             );
         }
         const specId = parsedSpec.value.frontmatter.id;
-        if (specId === null) {
-            return emit_error(usage_error('--spec companion must declare a non-empty `id:`'), json);
-        }
-        taskSpec = { path: taskSpecPath, source: specSource, id: specId };
+        taskSpec = { path: taskSpecPath, source: specSource, id: specId! };
     }
 
     // Check one loaded artifact without emitting. Multi-path output is committed only after every
     // result is known, so one invocation can never mix reports with structured errors.
     const check_one_file = (file: string, source: string, type: string): BufferedOutcome => {
-        // A review packet reconciles against the spec it is checked against — always handed
-        // explicitly (ADR-0143 D3). The task is a conditional split slice (ADR-0134): --task is
-        // required iff the review references a task — the engine refuses a task-referencing review
-        // with no --task (and a handed --task nothing references) as a blocking usage error, so the
-        // floor's strongest checks (C012/C013/C020) are never silently skippable.
-        if (type === 'review') {
-            if (specPath === undefined) {
-                return capture_error(
-                    usage_error(
-                        'a review packet needs its source spec: missing --spec — usage: suspec check <review-path> --spec <spec-path> [--task <task-path>]'
-                    )
-                );
-            }
-            const companions: { flag: string; path: string }[] = [{ flag: '--spec', path: specPath }];
-            if (taskPath !== undefined) {
-                companions.push({ flag: '--task', path: taskPath });
-            }
-            const companionSources = new Map<string, string>();
-            for (const companion of companions) {
-                const sourceResult = load_artifact_source(fileSystem, companion.path, companion.flag);
-                if (!sourceResult.ok) {
-                    return capture_error(sourceResult.error);
-                }
-                companionSources.set(companion.flag, sourceResult.value);
-            }
-            const specSource = companionSources.get('--spec') ?? '';
-            const specFace = check_spec({
-                source: specSource,
-                path: specPath,
-                exists: build_source_exists(specPath),
-                anchor_resolves: build_anchor_resolver(specSource, specPath),
-            });
-            if (!specFace.ok) return capture_error(specFace.error);
-            if (specFace.value.level === 'blocking') {
-                const codes = [...new Set(specFace.value.diagnostics.map((diagnostic) => diagnostic.code))].join(', ');
-                return capture_error(usage_error(`--spec companion fails deterministic checks: ${codes}`));
-            }
-            const taskSource = taskPath === undefined ? undefined : companionSources.get('--task');
-            if (taskSource !== undefined) {
-                const taskFace = check_task(taskSource, taskPath ?? '');
-                if (!taskFace.ok) return capture_error(taskFace.error);
-                if (taskFace.value.level === 'blocking') {
-                    const codes = [...new Set(taskFace.value.diagnostics.map((diagnostic) => diagnostic.code))].join(
-                        ', '
-                    );
-                    return capture_error(usage_error(`--task companion fails deterministic checks: ${codes}`));
-                }
-            }
-            return capture_result(
-                check_review_file({
-                    reviewSource: source,
-                    reviewPath: file,
-                    specSource,
-                    specPath,
-                    taskSource,
-                    evidence_ref_resolves: build_evidence_ref_resolver(fileSystem, file),
-                }),
-                format_check_report
-            );
-        }
         // A change plan (`type: change-plan`) runs C010/C011. C010 resolves `SPEC-x#AC-NNN` refs
         // artifact-relative — against the plan's sibling `*/spec.md` files (contract C010:
         // refs resolve against the plan's sibling specs; checks.yaml).
@@ -463,7 +356,7 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
             const specId = taskSpec?.id;
             if (specId === undefined || !packet.value.frontmatter.source.includes(specId)) {
                 return capture_error(
-                    usage_error(`task \`${file}\` does not name handed spec \`${specId ?? 'no id'}\` in \`source:\``)
+                    usage_error(`task \`${file}\` does not name handed spec \`${specId}\` in \`source:\``)
                 );
             }
             return capture_result(taskFace, format_check_report);
@@ -473,7 +366,7 @@ export function run(argv: string[], cwdOrFileSystem?: string | CheckFileSystem):
             return capture_result(
                 ok({ level: 'clean' as const, path: file, type, checked: false }),
                 () =>
-                    `${file} — no checks for type ${type} (check faces: spec, task, review, change-plan, campaign); nothing to validate`
+                    `${file} — no checks for type ${type} (check faces: spec, task, change-plan, campaign); nothing to validate`
             );
         }
         // C009 resolves a source ref artifact-relative (against the spec's own directory, ADR-0143

@@ -48,6 +48,15 @@ describe('check_campaign', () => {
         if (result.ok) expect(result.value).toMatchObject({ type: 'campaign', level: 'clean', diagnostics: [] });
     });
 
+    it('C029 rejects omitted campaign identity fields', () => {
+        const omitted = CAMPAIGN.replace('id: CAMPAIGN-demo\n', '')
+            .replace('status: ready\n', '')
+            .replace('ledger: ./ledger.md\n', '')
+            .replace('sources:\n  - ./spec.md\n', '');
+        expect(codes(omitted).length).toBeGreaterThan(0);
+        expect(codes(omitted)).toContain('C029');
+    });
+
     it('C029 rejects identity, status, authority, and section shape defects', () => {
         const malformed = CAMPAIGN.replace('id: CAMPAIGN-demo', 'id: ""')
             .replace('status: ready', 'status: done')

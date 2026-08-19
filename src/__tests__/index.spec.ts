@@ -138,7 +138,7 @@ describe('dispatch', () => {
         }
     );
 
-    it.each(['--spec', '--task'])('does not treat `suspec check file %s --help` as help', async (flag) => {
+    it.each(['--spec'])('does not treat `suspec check file %s --help` as help', async (flag) => {
         const { code, out, err } = await capture(() => dispatch(['check', 'review.md', flag, '--help']));
         expect(code).toBe(2);
         expect(out).not.toContain('suspec check <artifact>');

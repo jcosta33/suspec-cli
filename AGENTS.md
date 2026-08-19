@@ -6,7 +6,7 @@ setup, command contracts, implementation, and tests. Product decisions and machi
 
 ## Boundaries
 
-- Keep primary paths and review companions explicit.
+- Keep primary paths and task companions explicit.
 - Preserve exit `0` clean, `1` warning, and `2` blocking or usage error.
 - Emit one JSON value per report; several reports form JSON Lines.
 - Keep check semantics pure over parsed inputs and injected predicates.

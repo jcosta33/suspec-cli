@@ -38,7 +38,7 @@ pnpm deps:validate
 
 ## Artifact filesystem
 
-Primary artifacts and review companions come from arguments. Commands build and inject bounded
+Primary artifacts and task companions come from arguments. Commands build and inject bounded
 predicates for:
 
 - spec-relative sources;

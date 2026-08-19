@@ -22,7 +22,7 @@ export type SpecRecordRequirement = Readonly<{
     condition: string | null;
     response: string | null;
     // The requirement's named verify command, lifted out of `body` (AC-003): the value of the
-    // `Verify with:` item, resolved to the field a checker (C013) compares against a review packet's
+    // `Verify with:` item, resolved to the named verification command for later evidence binding.
     // recorded `cmd`. Null when the requirement carries no such line (C003 territory).
     verifyCommand: string | null;
 }>;

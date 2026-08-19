@@ -21,12 +21,16 @@ describe('contract_dump — the `--contract` projection', () => {
         }
     });
 
-    it('projects the current review contract without reusing retired IDs', () => {
+    it('projects the current contract without reusing retired IDs', () => {
         const dump = contract_dump();
-        expect(dump.version).toBe('0.25.0');
+        expect(dump.version).toBe('0.26.0');
         expect(dump.checks.map((check) => check.id)).not.toContain('C005');
         expect(dump.checks.map((check) => check.id)).not.toContain('C006');
-        expect(dump.checks.find((check) => check.id === 'C016')?.name).toBe('supported-needs-evidence');
+        expect(dump.checks.map((check) => check.id)).not.toContain('C012');
+        expect(dump.checks.map((check) => check.id)).not.toContain('C016');
+        expect(dump.checks.map((check) => check.id)).not.toContain('C020');
+        expect(dump.checks.map((check) => check.id)).not.toContain('C026');
+        expect(dump.checks.map((check) => check.id)).not.toContain('C027');
         expect(dump.checks.find((check) => check.id === 'C029')?.name).toBe('campaign-shape');
     });
 });

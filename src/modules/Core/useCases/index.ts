@@ -6,10 +6,9 @@
 // The contract util
 export { project, emit_error, usage_error } from './unixOutcome.ts';
 
-// check engine: single-spec checks, review-packet reconcile, change-plan checks, campaign checks,
+// check engine: single-spec checks, change-plan checks, campaign checks,
 // file-set checks, and injected-predicate builders. Reference resolution stays artifact-relative.
 export { check_spec } from './checkSpec.ts';
-export { check_review_file } from './checkReviewFile.ts';
 export { check_task } from './checkTask.ts';
 export { check_change_plan } from './checkChangePlan.ts';
 export { check_campaign } from './checkCampaign.ts';

@@ -24,13 +24,11 @@ through Node native type stripping, so `node bin/suspec.js <command>` works befo
 ```bash
 suspec check <path> [<path>...]
 suspec check <task-path> [<task-path>...] --spec <spec-path>
-suspec check <review-path> --spec <spec-path> [--task <task-path>]
 suspec check --contract
 ```
 
 A task check always requires its ready source through `--spec`; several tasks may share one source
-companion. A review always requires `--spec`. `--task` is required exactly when review frontmatter
-names a task. Reviews run alone.
+companion.
 
 Install the global agent policy only after reviewing the preview:
 
@@ -58,7 +56,6 @@ Frontmatter `type:` selects behavior. The filename gets no vote:
 | `task`                                    | shape, evidence, and closure checks         |
 | `change-plan`                             | preservation and wave checks                |
 | `campaign`                                | goal shape, authority, and readiness checks |
-| `review`                                  | reconciliation against explicit companions  |
 | `inventory`, `audit`, `research`, `panel` | recognized with `checked: false`            |
 
 Missing, empty, misspelled, and unknown types block.
@@ -77,8 +74,6 @@ store.
 - Spec citations resolve against its named `sources.md`.
 - Change-plan preservation references use the contract's bounded sibling-spec rule.
 - Campaign ledger and source paths resolve from the campaign directory.
-- Review evidence receipts resolve only from local relative Markdown links. URI links are ignored;
-  absolute receipt paths fail C026.
 
 The conventional `~/.agents/artifacts/<workspace>/` root has no special runtime meaning. To the CLI,
 it is just a path.
@@ -100,7 +95,7 @@ reports carry `checked: false`. The optional final `(file set)` C002 report has 
 ```bash
 suspec check specs/checkout/spec.md
 suspec check plans/payment-change.md --json
-suspec check reviews/checkout.md --spec specs/checkout/spec.md --task tasks/checkout.md
+suspec check tasks/checkout.md --spec specs/checkout/spec.md
 ```
 
 The checker reads and reports. It does not author artifacts, run commands or agents, prove evidence,

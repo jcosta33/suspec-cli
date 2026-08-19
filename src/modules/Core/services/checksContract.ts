@@ -14,16 +14,16 @@ import type { OutcomeLevel } from '../useCases/unixOutcome.ts';
 import { scan_markdown, strip_inline_code, visible_text } from '../../../infra/markdownScan.ts';
 
 // Pinned to suspec/checks/checks.yaml `version:`; the drift-guard test fails if the sibling diverges.
-export const CONTRACT_VERSION = '0.25.0';
+export const CONTRACT_VERSION = '0.26.0';
 
 export type CheckSeverity = 'hard-error' | 'warning';
 
 // prettier-ignore
 export type CheckId =
     | 'C001' | 'C002' | 'C003' | 'C004'
-    | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C012' | 'C013' | 'C015'
-    | 'C016' | 'C019' | 'C020' | 'C021' | 'C022' | 'C023' | 'C024' | 'C025'
-    | 'C026' | 'C027' | 'C028' | 'C029' | 'C030' | 'C031';
+    | 'C007' | 'C008' | 'C009' | 'C010' | 'C011' | 'C015'
+    | 'C019' | 'C021' | 'C022' | 'C023' | 'C024' | 'C025'
+    | 'C028' | 'C029' | 'C030' | 'C031';
 
 // Severity per check, the single source inside suspec-cli; a total Record so the lookup needs no
 // fallback. The drift guard reconciles it against suspec/checks/checks.yaml.
@@ -37,25 +37,13 @@ const SEVERITY_BY_ID: Record<CheckId, CheckSeverity> = {
     C009: 'hard-error',
     C010: 'hard-error',
     C011: 'warning',
-    C012: 'warning',
-    C013: 'warning',
     C015: 'warning',
-    // C016 supported-needs-evidence: the contract pins it hard-error (checks.yaml review_file content_rule).
-    // An empty-Evidence Supported is a structural contradiction, not a judgment call; see ADR-0097.
-    C016: 'hard-error',
     C019: 'warning',
-    // C020 unresolvable-ref (ADR-0128): a review names a task ref that does not resolve to the task
-    // packet it is checked against, so the coverage/evidence checks would key on the wrong slice. A
-    // review that can't be tied to its spec/task is structurally unverifiable, not a judgment call
-    // (mirrors C016) — blocking severity at check time; the human owns what blocks a merge (ADR-0143).
-    C020: 'hard-error',
     C021: 'hard-error',
     C022: 'hard-error',
     C023: 'hard-error',
     C024: 'hard-error',
     C025: 'hard-error',
-    C026: 'hard-error',
-    C027: 'hard-error',
     C028: 'hard-error',
     C029: 'hard-error',
     C030: 'hard-error',
@@ -77,49 +65,18 @@ export const CORE_CHECKS: readonly { id: CheckId; name: string; severity: CheckS
     { id: 'C009', name: 'broken-source-link', severity: severity_of('C009') },
     { id: 'C010', name: 'preserves-refs-resolve', severity: severity_of('C010') },
     { id: 'C011', name: 'waves-present', severity: severity_of('C011') },
-    { id: 'C012', name: 'coverage', severity: severity_of('C012') },
-    { id: 'C013', name: 'verify-evidence-binding', severity: severity_of('C013') },
     { id: 'C015', name: 'citation-resolves', severity: severity_of('C015') },
-    { id: 'C016', name: 'supported-needs-evidence', severity: severity_of('C016') },
     { id: 'C019', name: 'malformed-requirement-heading', severity: severity_of('C019') },
-    { id: 'C020', name: 'unresolvable-ref', severity: severity_of('C020') },
     { id: 'C021', name: 'intent-present', severity: severity_of('C021') },
     { id: 'C022', name: 'task-shape', severity: severity_of('C022') },
     { id: 'C023', name: 'task-evidence', severity: severity_of('C023') },
     { id: 'C024', name: 'closed-task-resolved', severity: severity_of('C024') },
     { id: 'C025', name: 'spec-shape', severity: severity_of('C025') },
-    { id: 'C026', name: 'evidence-receipt-resolves', severity: severity_of('C026') },
-    { id: 'C027', name: 'review-spec-ref', severity: severity_of('C027') },
     { id: 'C028', name: 'requirement-shape', severity: severity_of('C028') },
     { id: 'C029', name: 'campaign-shape', severity: severity_of('C029') },
     { id: 'C030', name: 'campaign-authority', severity: severity_of('C030') },
     { id: 'C031', name: 'campaign-ready', severity: severity_of('C031') },
 ];
-
-// --- C020 unresolvable-ref (ADR-0128, re-scoped by ADR-0143) --------------------------------------
-// A `type: review` packet whose `task:` ref does not resolve to the task packet it is checked
-// against — the handed packet identifies as a different task (or carries no id). Reconciling the
-// review against the wrong slice would key C012 (coverage) and C013 (verify-binding) on the wrong
-// scope, so a typo'd/renamed task ref must not silently pass. Hard error. Deliberately narrow to
-// the task ref; C027 binds the separately declared spec ref.
-export function unresolvable_ref_diagnostic(taskRef: string, handedTaskId: string | null): Diagnostic {
-    const handed = handedTaskId === null ? 'a packet with no id' : `the packet for \`${handedTaskId}\``;
-    return diagnostic(
-        'C020',
-        `review names task \`${taskRef}\` but was checked against ${handed} — coverage/evidence cannot be reconciled (unresolvable-ref)`,
-        null
-    );
-}
-
-export function review_spec_ref_diagnostic(specRef: string | null, handedSpecId: string | null): Diagnostic {
-    const named = specRef === null ? 'no spec' : `spec \`${specRef}\``;
-    const handed = handedSpecId === null ? 'a packet with no id' : `the packet for \`${handedSpecId}\``;
-    return diagnostic(
-        'C027',
-        `review names ${named} but was checked against ${handed} — coverage/evidence cannot be reconciled (review-spec-ref)`,
-        null
-    );
-}
 
 // --- C002 duplicate-id (cross-file, within the passed set) ----------------------------------------
 // Frontmatter `id:` uniqueness across the artifacts passed in one invocation (requirement ids stay
@@ -363,17 +320,6 @@ export function check_spec_shape(spec: ParsedSpec): Diagnostic[] {
     }
     if (spec.requirements.length === 0) failures.push('`## Requirements` must contain at least one requirement');
     return failures.length === 0 ? [] : [diagnostic('C025', failures.join('; '), null)];
-}
-
-export type EvidenceReceiptRef = Readonly<{ raw: string; anchor: string }>;
-
-export function check_evidence_receipt_resolves(
-    refs: readonly EvidenceReceiptRef[],
-    resolves: (raw: string, anchor: string) => boolean
-): Diagnostic[] {
-    return refs
-        .filter((ref) => !resolves(ref.raw, ref.anchor))
-        .map((ref) => diagnostic('C026', `evidence receipt link \`${ref.raw}#${ref.anchor}\` does not resolve`, null));
 }
 
 export type TaskCheckRecord = Readonly<{
@@ -673,277 +619,6 @@ export function check_malformed_requirement_heading(spec: ParsedSpec): Diagnosti
     );
 }
 
-// --- C012 coverage (ADR-0079) --------------------------------------------------------------------
-// The review-packet coverage reconcile: keyed on the task packet's declared `scope` as the in-scope
-// id set, against the source spec's requirement ids and the coverage rows present in the review
-// packet. Two faces, both `warning`:
-//   - uncovered — an in-scope id with no coverage row (the dominant "not reviewed yet" signal).
-//   - orphan    — a coverage row naming an id absent from the source spec (stale/mistyped id).
-// Scope-guarded to non-draft source specs: a `draft` spec's ids are work-in-progress, so the check
-// is exempt (mirrors C007's ready-state boundary). PURE — plain id sets in, diagnostics out; the engine
-// (check_review_file) does the I/O and passes the extracted ids here.
-export type CoverageInput = Readonly<{
-    sourceSpecStatus: string | null;
-    inScopeIds: readonly string[];
-    specRequirementIds: readonly string[];
-    coverageRowIds: readonly string[];
-}>;
-
-// A structured C012 finding: an in-scope id with no coverage row (uncovered) or a coverage row
-// naming an id absent from the source spec (orphan). Structured so the review engine maps fields
-// rather than re-parsing the diagnostic message.
-export type CoverageFinding = Readonly<{ id: string; kind: 'uncovered' | 'orphan' }>;
-
-// The message a coverage finding renders to — single-sourced, so every C012 Diagnostic shares the
-// exact wording.
-export function coverage_message(finding: CoverageFinding): string {
-    return finding.kind === 'uncovered'
-        ? `requirement ${finding.id} is in scope but has no coverage row (uncovered)`
-        : `coverage row ${finding.id} names an id absent from the source spec (orphan)`;
-}
-
-// The structured C012 facts — the pure fact layer `check_coverage` builds its Diagnostics on. PURE;
-// the draft scope guard lives here so everything built on the facts inherits it.
-export function coverage_facts(input: CoverageInput): CoverageFinding[] {
-    // Draft scope guard: a draft source spec's ids are not finalized claims.
-    if (input.sourceSpecStatus === 'draft') {
-        return [];
-    }
-    const specIdSet = new Set(input.specRequirementIds);
-    const coveredSet = new Set(input.coverageRowIds);
-    const findings: CoverageFinding[] = [];
-
-    // uncovered: an in-scope id with no coverage row. Deduped per id (a scope list that names the same
-    // id twice surfaces it once), mirroring the orphan branch below (#32).
-    const seenUncovered = new Set<string>();
-    for (const id of input.inScopeIds) {
-        if (!coveredSet.has(id) && !seenUncovered.has(id)) {
-            seenUncovered.add(id);
-            findings.push({ id, kind: 'uncovered' });
-        }
-    }
-    // orphan: a coverage row naming an id the source spec does not define. A coverage row id is only
-    // reported once (a duplicate row is a different concern), so dedupe via a seen set.
-    const seenOrphan = new Set<string>();
-    for (const id of input.coverageRowIds) {
-        if (!specIdSet.has(id) && !seenOrphan.has(id)) {
-            seenOrphan.add(id);
-            findings.push({ id, kind: 'orphan' });
-        }
-    }
-    return findings;
-}
-
-export function check_coverage(input: CoverageInput): Diagnostic[] {
-    return coverage_facts(input).map((finding) => diagnostic('C012', coverage_message(finding), null));
-}
-
-// --- C013 verify-evidence-binding (ADR-0083) -----------------------------------------------------
-// The structured-evidence reconcile against the named source spec. A coverage row may carry a
-// fenced `verify` block (a sibling to the row). Where present against a Supported row, this
-// surfaces a CONSISTENCY fact: does the block's recorded `cmd` match the requirement's named
-// `Verify with` command (closed-value, exact after whitespace-collapse — never prose
-// matching) and read `result=pass`? It is NEVER a verdict (ADR-0077 D8) and NEVER proof the command
-// ran — the fenced body is self-reported and unparsed; this reads only the closed-value info-string.
-//
-// The five faces: cmd-mismatch is a hard error at check time; the other four remain warnings
-// (ADR-0129 amending ADR-0083):
-//   - cmd-mismatch    — a block's `cmd` disagrees with the requirement's named command.
-//   - result-fail     — a `result=fail` block recorded under a Supported row.
-//   - malformed       — a block whose info-string did not parse to a complete binding.
-//   - duplicate       — more than one block keyed to the same requirement id.
-//   - free-form-only  — a Supported row with no verify block (only the free-form cell; the fuzzy band,
-//                       routed to human attention, never machine-rejected — SMELLS-precision).
-// A Supported row whose block's `cmd` matches and reads `result=pass` is consistent → no finding.
-// Scope-guarded to non-draft source specs (mirrors C012 / the ADR-0079 guard). PURE — plain records
-// in, structured findings out; the engine (check_review_file) does the I/O and extraction.
-export type VerifyBlockFact = Readonly<{
-    id: string | null;
-    cmd: string | null;
-    result: 'pass' | 'fail' | null;
-    malformed: boolean;
-}>;
-
-export type VerifyBindingInput = Readonly<{
-    sourceSpecStatus: string | null;
-    // The requirement's named verify command per id (null when the requirement names none). The
-    // engine lifts this from the parsed spec record; the C013 reconcile keys on it.
-    namedCommandById: ReadonlyMap<string, string | null>;
-    // The coverage rows (id + raw Assessment cell) — C013 keys on Supported rows.
-    coverageRows: readonly { id: string; assessment: string }[];
-    // The structured-evidence blocks parsed from the coverage section.
-    verifyBlocks: readonly VerifyBlockFact[];
-}>;
-
-export type VerifyBindingFinding = Readonly<{
-    id: string;
-    kind: 'cmd-mismatch' | 'result-fail' | 'malformed' | 'duplicate' | 'orphan' | 'free-form-only';
-}>;
-
-// Normalize a Verify command for the closed-value comparison (ADR-0083: exact after normalization).
-// Collapse whitespace, then strip a trailing note (a `(parenthetical)` OR an em/en-dash clause) and
-// surrounding backticks — the canon's own `Verify with:` format wraps the command in backticks and may
-// carry a trailing note (docs/04, the examples), while the review block records it bare; both sides MUST
-// normalize identically or a conformant block false-fires a cmd-mismatch. The note is
-// stripped before the backticks so the documented ``cmd`` (note) / ``cmd`` — note forms reduce cleanly to
-// the bare command. The dash form keys on an EM/EN dash (—/–), never the ASCII hyphen, so a real flag
-// like `npm test -- a.spec.ts` is never truncated.
-export function normalize_cmd(value: string): string {
-    return value
-        .trim()
-        .replace(/\s+/g, ' ')
-        .replace(/\s*\([^()]*\)\s*$/, '')
-        .replace(/\s+[—–]\s.*$/, '')
-        .replace(/^`+/, '')
-        .replace(/`+$/, '')
-        .trim();
-}
-
-export function verify_binding_message(finding: VerifyBindingFinding): string {
-    switch (finding.kind) {
-        case 'cmd-mismatch':
-            return `coverage row ${finding.id}'s verify block records a cmd that does not match the requirement's named Verify command`;
-        case 'result-fail':
-            return `coverage row ${finding.id} is Supported but its verify block records result=fail`;
-        case 'malformed':
-            return `coverage row ${finding.id} carries a malformed verify block (its info-string did not parse to id / cmd / result)`;
-        case 'duplicate':
-            return `requirement ${finding.id} carries more than one verify block`;
-        case 'orphan':
-            return `verify block ${finding.id} belongs to no Requirement coverage row`;
-        case 'free-form-only':
-            // R5-I11: spell out that this is ADVISORY + how to silence it, so it doesn't read as "you
-            // reviewed wrong". A prose Evidence cell can't be machine-matched, so it routes to a human.
-            return `coverage row ${finding.id} is Supported with only a free-form Evidence cell (advisory — add a \`verify\` block to machine-confirm, or leave as-is to route to a human)`;
-    }
-}
-
-export function verify_binding_facts(input: VerifyBindingInput): VerifyBindingFinding[] {
-    // Draft scope guard: a draft source spec's ids and named commands are work-in-progress.
-    if (input.sourceSpecStatus === 'draft') {
-        return [];
-    }
-    const findings: VerifyBindingFinding[] = [];
-
-    // Index the blocks by keyed id. A block whose info-string named no id (malformed, id === null) is
-    // surfaced on its own — it cannot be joined to a row.
-    const blocksById = new Map<string, VerifyBlockFact[]>();
-    for (const block of input.verifyBlocks) {
-        if (block.id === null) {
-            findings.push({ id: '(unkeyed)', kind: 'malformed' });
-            continue;
-        }
-        const bucket = blocksById.get(block.id);
-        if (bucket === undefined) {
-            blocksById.set(block.id, [block]);
-        } else {
-            bucket.push(block);
-        }
-    }
-    // A duplicate is surfaced once per id (more than one block keyed to the same id).
-    for (const [id, blocks] of blocksById) {
-        if (blocks.length > 1) {
-            findings.push({ id, kind: 'duplicate' });
-        }
-    }
-    const coverageIds = new Set(input.coverageRows.map((row) => row.id));
-    for (const id of blocksById.keys()) {
-        if (!coverageIds.has(id)) {
-            findings.push({ id, kind: 'orphan' });
-        }
-    }
-    // A keyed malformed block is surfaced regardless of its row's result, once per id — AC-004 + the
-    // canon require it not be silently dropped, and this restores parity with `duplicate` above (the
-    // `(unkeyed)` malformed block is already surfaced in the indexing loop). The Supported-row loop below
-    // therefore no longer re-emits malformed (#32).
-    const seenMalformed = new Set<string>();
-    for (const [id, blocks] of blocksById) {
-        if (blocks.some((block) => block.malformed) && !seenMalformed.has(id)) {
-            seenMalformed.add(id);
-            findings.push({ id, kind: 'malformed' });
-        }
-    }
-
-    for (const row of input.coverageRows) {
-        if (row.assessment !== 'Supported') {
-            continue;
-        }
-        const blocks = blocksById.get(row.id) ?? [];
-        if (blocks.length === 0) {
-            // A Supported row with no verify block — the free-form-only warning (fuzzy band, ADR-0083).
-            findings.push({ id: row.id, kind: 'free-form-only' });
-            continue;
-        }
-        // The first keyed block backs the row (duplicate + malformed are already surfaced above,
-        // unconditionally, so a malformed block here is skipped rather than re-emitted).
-        const block = blocks[0];
-        if (block.malformed) {
-            continue;
-        }
-        if (block.result === 'fail') {
-            findings.push({ id: row.id, kind: 'result-fail' });
-        }
-        const named = input.namedCommandById.get(row.id) ?? null;
-        // A closed-value command comparison (never prose). A named command absent from the spec
-        // cannot be matched — the recorded cmd disagrees with "nothing named" → a mismatch fact.
-        if (named === null || block.cmd === null || normalize_cmd(block.cmd) !== normalize_cmd(named)) {
-            findings.push({ id: row.id, kind: 'cmd-mismatch' });
-        }
-        // else: cmd matches + result=pass → consistent, no finding.
-    }
-    return findings;
-}
-
-export function check_verify_binding(input: VerifyBindingInput): Diagnostic[] {
-    return verify_binding_facts(input).map((finding) => {
-        const base = diagnostic('C013', verify_binding_message(finding), null);
-        // #95 (ADR-0129 amends ADR-0083; severity expressed at check time, ADR-0143 D7): a
-        // cmd-mismatch BLOCKS — a recorded verify block whose cmd disagrees with the requirement's
-        // named Verify command is a structural contradiction (a fabricated/renamed command name),
-        // not a nudge, so ship it hard-error here. The other C013 kinds stay advisory (warning);
-        // verify_binding_facts stays the pure fact layer this check builds on (ADR-0077 D8: a
-        // severity level, never a verdict).
-        return finding.kind === 'cmd-mismatch' ? { ...base, severity: 'hard-error' as const } : base;
-    });
-}
-
-// --- C016 supported-needs-evidence (ADR-0097; the implemented supported-needs-evidence content_rule) --------
-// A coverage row recorded as `Supported` whose Evidence cell is empty is a STRUCTURAL contradiction: a
-// Supported needs pasted output, a CI link, or (for a manual Verify) a named human's recorded observation
-// — an empty cell reads Unverified, never Supported. Unlike C012/C013 (judgment-laden facts shipped at
-// warning), this is unambiguous, so the contract pins it hard-error and `suspec check` blocks on it
-// (severity expressed at check time, ADR-0143 D7). PURE: the row records in, ids/diagnostics out.
-export type CoverageEvidenceRow = Readonly<{ id: string; assessment: string; evidence: string }>;
-
-// The single source for "a Supported row with no evidence" — the C016 Diagnostic (below) renders exactly
-// these ids, so the predicate and the diagnostic can never disagree on what counts.
-export function supported_rows_missing_evidence(rows: readonly CoverageEvidenceRow[]): string[] {
-    return rows
-        .filter(
-            (row) => row.assessment === 'Supported' && (scan_markdown([row.evidence])[0]?.text.trim().length ?? 0) === 0
-        )
-        .map((row) => row.id);
-}
-
-export function check_supported_evidence(rows: readonly CoverageEvidenceRow[]): Diagnostic[] {
-    return supported_rows_missing_evidence(rows).map((id) =>
-        diagnostic(
-            'C016',
-            `coverage row ${id} is Supported with an empty Evidence cell — Supported needs pasted output, a CI link, or a named manual observation (an empty cell reads Unverified)`,
-            null
-        )
-    );
-}
-
-// --- C010 preserves-refs-resolve (change-plan, hard error) ---------------------------------------
-// Every id in a change plan's `preserves:` and Behavioral-preservation-guarantees table must
-// resolve: a `SPEC-x#AC-NNN` ref against the named spec (the spec exists and defines AC-NNN), or a
-// plan-local `PG-NNN` defined in the plan's own guarantees table. A `PG-NNN` (no spec id) is a
-// VALID plan-local id, not a failure (the guarantee was never specced — a spec amendment is owed).
-// Any other unresolvable id → one C010 hard-error citing the unresolved id.
-//
-// PURE: the parser extracts the ids; the engine injects `spec_ref_resolves` (does spec X define
-// AC-NNN?) so the filesystem stays out of this module (mirrors C009's injected `exists`).
 export type PreservesRef = Readonly<{
     raw: string;
     specId: string | null;

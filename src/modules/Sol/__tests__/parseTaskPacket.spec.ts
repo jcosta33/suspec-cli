@@ -73,4 +73,42 @@ describe('parse_task_packet', () => {
         expect(parse_task_packet(packet('owner: Jane')).ok).toBe(true);
         expect(parse_task_packet('# Task\n').ok).toBe(false);
     });
+
+    it('rejects a list-valued type', () => {
+        const source = `---
+type: [task]
+id: TASK-x
+source:
+  - SPEC-x
+scope: [AC-001]
+status: ready
+---
+
+# Task
+
+## Source
+x
+## Scope
+x
+## Do not change
+x
+## Affected areas
+x
+## Verify
+x
+## Agent instructions
+x
+## Run order
+- This packet: TASK-x
+- Starts after: None
+- May run with: None
+## Findings
+x
+## Run summary
+x
+`;
+        const result = parse_task_packet(source);
+        expect(result.ok).toBe(false);
+        if (!result.ok) expect(result.error.message).toContain('must be a scalar');
+    });
 });

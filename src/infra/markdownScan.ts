@@ -1,5 +1,5 @@
 // A fence- and code-span-aware view of a markdown document. The hand-rolled artifact parsers
-// (review packet, spec record, change plan) and the body-text checks (C004 strength words, C007
+// (spec record, change plan, campaign, task) and the body-text checks (C004 strength words, C007
 // TBD-at-ready) route their line scanning through this so a `## Requirement coverage` heading, a
 // `### AC-001`, a `| … |` table row, a strength word, or a `TODO` marker that appears INSIDE a
 // fenced code block, HTML comment, or inline-code span is read as verbatim example text, never as
@@ -69,7 +69,7 @@ function strip_html_comments(line: string, startsInComment: boolean): { text: st
 // contain a backtick; the next line that is only that marker char, run length >= the opener's,
 // closes it (CommonMark). The fence delimiter lines are themselves marked
 // inFence so a caller skipping inFence lines never mis-reads a delimiter as structure — but the
-// opening line still exposes its `fenceInfo` so a caller (the review packet) can read a
+// opening line still exposes its `fenceInfo` so a caller (an artifact parser) can read a
 // ```verify …``` info-string before skipping the verbatim body.
 export function scan_markdown(lines: readonly string[]): ScannedLine[] {
     const out: ScannedLine[] = [];
